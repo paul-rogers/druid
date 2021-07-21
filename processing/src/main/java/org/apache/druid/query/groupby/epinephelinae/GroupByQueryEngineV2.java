@@ -34,6 +34,7 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.ColumnSelectorPlus;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.aggregation.AggregatorAdapters;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.dimension.ColumnSelectorStrategyFactory;
@@ -113,6 +114,7 @@ public class GroupByQueryEngineV2
   public static Sequence<ResultRow> process(
       final GroupByQuery query,
       @Nullable final StorageAdapter storageAdapter,
+      @Nullable final QueryMetrics<GroupByQuery> queryMetrics,
       final NonBlockingPool<ByteBuffer> intermediateResultsBufferPool,
       final GroupByQueryConfig querySpecificConfig
   )
@@ -152,6 +154,7 @@ public class GroupByQueryEngineV2
         result = VectorGroupByEngine.process(
             query,
             storageAdapter,
+            queryMetrics,
             bufferHolder.get(),
             fudgeTimestamp,
             filter,
@@ -162,6 +165,7 @@ public class GroupByQueryEngineV2
         result = processNonVectorized(
             query,
             storageAdapter,
+            queryMetrics,
             bufferHolder.get(),
             fudgeTimestamp,
             querySpecificConfig,
@@ -181,6 +185,7 @@ public class GroupByQueryEngineV2
   private static Sequence<ResultRow> processNonVectorized(
       final GroupByQuery query,
       final StorageAdapter storageAdapter,
+      @Nullable QueryMetrics<GroupByQuery> queryMetrics,
       final ByteBuffer processingBuffer,
       @Nullable final DateTime fudgeTimestamp,
       final GroupByQueryConfig querySpecificConfig,
@@ -194,7 +199,7 @@ public class GroupByQueryEngineV2
         query.getVirtualColumns(),
         query.getGranularity(),
         false,
-        null
+        queryMetrics
     );
 
     return cursors.flatMap(

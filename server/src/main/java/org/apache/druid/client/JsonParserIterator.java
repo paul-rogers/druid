@@ -26,7 +26,7 @@ import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.java.util.common.guava.CloseQuietly;
+import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryCapacityExceededException;
@@ -41,18 +41,36 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+/**
+ * TODO(gianm): Document behaviors, response formats
+ */
 public class JsonParserIterator<T> implements Iterator<T>, Closeable
 {
+  public static final String FIELD_RESULTS = "results";
+  public static final String FIELD_ERROR = "error";
+  public static final String FIELD_CONTEXT = "context";
+
   private static final Logger LOG = new Logger(JsonParserIterator.class);
+
+  public enum ResultStructure
+  {
+    ARRAY,
+    OBJECT
+  }
 
   private JsonParser jp;
   private ObjectCodec objectCodec;
+  private Map<String, Object> responseContext;
+  private long resultRows = 0;
+  private boolean success = false;
+  private final ResultStructure resultStructure;
   private final JavaType typeRef;
   private final Future<InputStream> future;
   private final String url;
@@ -60,9 +78,13 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
   private final ObjectMapper objectMapper;
   private final boolean hasTimeout;
   private final long timeoutAt;
+  @Nullable
+  private final Query<T> query;
+  @Nullable
   private final String queryId;
 
   public JsonParserIterator(
+      ResultStructure resultStructure,
       JavaType typeRef,
       Future<InputStream> future,
       String url,
@@ -71,9 +93,11 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
       ObjectMapper objectMapper
   )
   {
+    this.resultStructure = resultStructure;
     this.typeRef = typeRef;
     this.future = future;
     this.url = url;
+    this.query = query;
     if (query != null) {
       this.timeoutAt = query.<Long>getContextValue(DirectDruidClient.QUERY_FAIL_TIME, -1L);
       this.queryId = query.getId();
@@ -90,17 +114,46 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
   @Override
   public boolean hasNext()
   {
+    // TODO(gianm): Need a way to handle this during rolling updates -- make sure all data servers support context
+    //   before updating the Brokers?
     init();
 
-    if (jp.isClosed()) {
-      return false;
-    }
-    if (jp.getCurrentToken() == JsonToken.END_ARRAY) {
-      CloseQuietly.close(jp);
-      return false;
-    }
+    try {
+      if (jp.isClosed()) {
+        return false;
+      }
 
-    return true;
+      if (jp.getCurrentToken() == JsonToken.END_ARRAY) {
+        if (resultStructure == ResultStructure.OBJECT) {
+          // Read response context, if present (it occurs after the main results).
+          jp.nextToken();
+
+          if (jp.currentToken() == JsonToken.FIELD_NAME && FIELD_CONTEXT.equals(jp.getText())) {
+            jp.nextToken();
+            responseContext = jp.getCodec().readValue(jp, JacksonUtils.TYPE_REFERENCE_MAP_STRING_OBJECT);
+          }
+
+          if (jp.nextToken() != JsonToken.END_OBJECT) {
+            throw wrongTokenException(JsonToken.END_OBJECT);
+          }
+        }
+
+        // Should be at the end of the response.
+        if (jp.nextToken() != null) {
+          throw wrongTokenException(null);
+        }
+
+        jp.close();
+        jp = null;
+        success = true;
+        return false;
+      }
+
+      return true;
+    }
+    catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
@@ -111,6 +164,13 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
     try {
       final T retVal = objectCodec.readValue(jp, typeRef);
       jp.nextToken();
+
+      if (query != null) {
+        resultRows += query.getNumRowsForResultObject(retVal);
+      } else {
+        resultRows++;
+      }
+
       return retVal;
     }
     catch (IOException e) {
@@ -136,7 +196,18 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
   {
     if (jp != null) {
       jp.close();
+      jp = null;
     }
+  }
+
+  public boolean isSuccess()
+  {
+    return jp == null && success;
+  }
+
+  public long getResultRows()
+  {
+    return resultRows;
   }
 
   private boolean checkTimeout()
@@ -176,15 +247,47 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
         }
 
         final JsonToken nextToken = jp.nextToken();
-        if (nextToken == JsonToken.START_ARRAY) {
-          jp.nextToken();
-          objectCodec = jp.getCodec();
-        } else if (nextToken == JsonToken.START_OBJECT) {
-          throw convertException(jp.getCodec().readValue(jp, QueryException.class));
+
+        if (resultStructure == ResultStructure.ARRAY) {
+          // Expect that a top-level array contains results, and a top-level object contains an error.
+
+          if (nextToken == JsonToken.START_ARRAY) {
+            jp.nextToken();
+            objectCodec = jp.getCodec();
+          } else if (nextToken == JsonToken.START_OBJECT) {
+            throw convertException(jp.getCodec().readValue(jp, QueryException.class));
+          } else {
+            throw wrongTokenException(JsonToken.START_ARRAY);
+          }
         } else {
-          throw convertException(
-              new IAE("Next token wasn't a START_ARRAY, was[%s] from url[%s]", jp.getCurrentToken(), url)
-          );
+          // Expect a top-level object to contain key "results" or "error".
+          assert resultStructure == ResultStructure.OBJECT;
+
+          if (!nextToken.equals(JsonToken.START_OBJECT)) {
+            throw wrongTokenException(JsonToken.START_OBJECT);
+          }
+
+          jp.nextToken();
+
+          if (!jp.currentToken().equals(JsonToken.FIELD_NAME)) {
+            throw wrongTokenException(JsonToken.FIELD_NAME);
+          }
+
+          if (FIELD_ERROR.equals(jp.getText())) {
+            jp.nextToken();
+            throw convertException(jp.getCodec().readValue(jp, QueryInterruptedException.class));
+          } else if (!FIELD_RESULTS.equals(jp.getText())) {
+            throw convertException(new IAE("Unexpected starting field[%s] from url[%s]", jp.getText(), url));
+          }
+
+          jp.nextToken();
+
+          if (jp.currentToken() == JsonToken.START_ARRAY) {
+            jp.nextToken();
+            objectCodec = jp.getCodec();
+          } else {
+            throw wrongTokenException(JsonToken.START_ARRAY);
+          }
         }
       }
       catch (ExecutionException | CancellationException e) {
@@ -204,14 +307,20 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
     return new QueryTimeoutException(StringUtils.nonStrictFormat("url[%s] timed out", url), host);
   }
 
+  @Nullable
+  public Map<String, Object> responseContext()
+  {
+    return responseContext;
+  }
+
   /**
    * Converts the given exception to a proper type of {@link QueryException}.
    * The use cases of this method are:
    *
    * - All non-QueryExceptions are wrapped with {@link QueryInterruptedException}.
    * - The QueryException from {@link DirectDruidClient} is converted to a more specific type of QueryException
-   *   based on {@link QueryException#getErrorCode()}. During conversion, {@link QueryException#host} is overridden
-   *   by {@link #host}.
+   * based on {@link QueryException#getErrorCode()}. During conversion, {@link QueryException#host} is overridden
+   * by {@link #host}.
    */
   private QueryException convertException(Throwable cause)
   {
@@ -272,5 +381,23 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
     } else {
       return new QueryInterruptedException(cause, host);
     }
+  }
+
+  /**
+   * Returns a parse error exception stating that the provided token was expected, but not received, at the current
+   * position of our parser "jp".
+   */
+  private QueryException wrongTokenException(@Nullable final JsonToken expectedToken)
+  {
+    return convertException(
+        new IAE(
+            "Expected %s at line %s, column %s, but got %s from url[%s]",
+            expectedToken == null ? "end of stream" : expectedToken,
+            jp.getTokenLocation().getLineNr(),
+            jp.getTokenLocation().getColumnNr(),
+            jp.currentToken(),
+            url
+        )
+    );
   }
 }

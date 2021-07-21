@@ -38,6 +38,7 @@ import org.apache.druid.java.util.common.guava.FunctionalIterator;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
+import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.BufferAggregator;
 import org.apache.druid.query.aggregation.PostAggregator;
@@ -84,7 +85,11 @@ public class GroupByQueryEngine
     this.intermediateResultsBufferPool = intermediateResultsBufferPool;
   }
 
-  public Sequence<Row> process(final GroupByQuery query, final StorageAdapter storageAdapter)
+  public Sequence<Row> process(
+      final GroupByQuery query,
+      final StorageAdapter storageAdapter,
+      @Nullable final QueryMetrics<GroupByQuery> queryMetrics
+  )
   {
     if (storageAdapter == null) {
       throw new ISE(
@@ -105,7 +110,7 @@ public class GroupByQueryEngine
         query.getVirtualColumns(),
         query.getGranularity(),
         false,
-        null
+        queryMetrics
     );
 
     final ResourceHolder<ByteBuffer> bufferHolder = intermediateResultsBufferPool.take();

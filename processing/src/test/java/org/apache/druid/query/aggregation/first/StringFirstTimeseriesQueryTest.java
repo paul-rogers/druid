@@ -141,10 +141,10 @@ public class StringFirstTimeseriesQueryTest extends InitializedNullHandlingTest
     );
 
     final Iterable<Result<TimeseriesResultValue>> iiResults =
-        engine.process(query, new IncrementalIndexStorageAdapter(incrementalIndex)).toList();
+        engine.process(query, new IncrementalIndexStorageAdapter(incrementalIndex), null).toList();
 
     final Iterable<Result<TimeseriesResultValue>> qiResults =
-        engine.process(query, new QueryableIndexStorageAdapter(queryableIndex)).toList();
+        engine.process(query, new QueryableIndexStorageAdapter(queryableIndex), null).toList();
 
     TestHelper.assertExpectedResults(expectedResults, iiResults, "incremental index");
     TestHelper.assertExpectedResults(expectedResults, qiResults, "queryable index");

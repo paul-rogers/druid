@@ -24,6 +24,7 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.ChainedExecutionQueryRunner;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.QueryRunner;
@@ -36,6 +37,7 @@ import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.StorageAdapter;
 
 /**
+ *
  */
 public class TimeseriesQueryRunnerFactory
     implements QueryRunnerFactory<Result<TimeseriesResultValue>, TimeseriesQuery>
@@ -99,7 +101,11 @@ public class TimeseriesQueryRunnerFactory
         throw new ISE("Got a [%s] which isn't a %s", input.getClass(), TimeseriesQuery.class);
       }
 
-      return engine.process((TimeseriesQuery) input, adapter);
+      return engine.process(
+          (TimeseriesQuery) input,
+          adapter,
+          (QueryMetrics<TimeseriesQuery>) queryPlus.getQueryMetrics()
+      );
     }
   }
 

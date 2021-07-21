@@ -30,9 +30,7 @@ import org.apache.calcite.tools.ValidationException;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.SequenceWrapper;
-import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
@@ -40,6 +38,7 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.server.QueryScheduler;
+import org.apache.druid.server.QueryResponse;
 import org.apache.druid.server.QueryStats;
 import org.apache.druid.server.RequestLogLine;
 import org.apache.druid.server.log.RequestLogger;
@@ -164,6 +163,11 @@ public class SqlLifecycle
     return (String) this.queryContext.get(PlannerContext.CTX_SQL_QUERY_ID);
   }
 
+  public long getStartMs()
+  {
+    return startMs;
+  }
+
   /**
    * Assign dynamic parameters to be used to substitute values during query exection. This can be performed at any
    * part of the lifecycle.
@@ -266,7 +270,6 @@ public class SqlLifecycle
    * Prepare the query lifecycle for execution, without completely planning into something that is executable, but
    * including some initial parsing and validation and any dyanmic parameter type resolution, to support prepared
    * statements via JDBC.
-   *
    */
   public PrepareResult prepare() throws RelConversionException
   {
@@ -332,28 +335,28 @@ public class SqlLifecycle
    *
    * If successful, the lifecycle will first transition from {@link State#PLANNED} to {@link State#EXECUTING}.
    */
-  public Sequence<Object[]> execute()
+  public QueryResponse<Object[]> execute()
   {
     transition(State.PLANNED, State.EXECUTING);
     return plannerResult.run();
   }
 
   @VisibleForTesting
-  public Sequence<Object[]> runSimple(
+  public QueryResponse<Object[]> runSimple(
       String sql,
       Map<String, Object> queryContext,
       List<SqlParameter> parameters,
       AuthenticationResult authenticationResult
   ) throws RelConversionException
   {
-    Sequence<Object[]> result;
+    final QueryResponse<Object[]> response;
 
     initialize(sql, queryContext);
     try {
       setParameters(SqlQuery.getParameterList(parameters));
       validateAndAuthorize(authenticationResult);
       plan();
-      result = execute();
+      response = execute();
     }
     catch (Throwable e) {
       if (!(e instanceof ForbiddenException)) {
@@ -362,16 +365,17 @@ public class SqlLifecycle
       throw e;
     }
 
-    return Sequences.wrap(result, new SequenceWrapper()
-    {
-      @Override
-      public void after(boolean isDone, Throwable thrown)
-      {
-        finalizeStateAndEmitLogsAndMetrics(thrown, null, -1);
-      }
-    });
+    return response.wrap(
+        new SequenceWrapper()
+        {
+          @Override
+          public void after(boolean isDone, Throwable thrown)
+          {
+            finalizeStateAndEmitLogsAndMetrics(thrown, null, -1);
+          }
+        }
+    );
   }
-
 
   @VisibleForTesting
   public ValidationResult runAnalyzeResources(AuthenticationResult authenticationResult)
@@ -493,7 +497,7 @@ public class SqlLifecycle
   }
 
   @VisibleForTesting
-  public State getState()
+  State getState()
   {
     synchronized (stateLock) {
       return state;

@@ -34,6 +34,7 @@ import org.apache.druid.java.util.common.guava.Yielder;
 import org.apache.druid.java.util.common.guava.Yielders;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.BadQueryException;
+import org.apache.druid.query.MultiQueryMetricsCollector;
 import org.apache.druid.query.QueryCapacityExceededException;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryTimeoutException;
@@ -42,6 +43,9 @@ import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.security.AuthorizerMapper;
+import org.apache.druid.query.SingleQueryMetricsCollector;
+import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.server.QueryResponse;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.sql.SqlLifecycle;
@@ -93,7 +97,6 @@ public class SqlResource
   }
 
   @POST
-  @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
   public Response doPost(
       final SqlQuery sqlQuery,
@@ -116,8 +119,8 @@ public class SqlResource
       lifecycle.plan();
 
       final SqlRowTransformer rowTransformer = lifecycle.createRowTransformer();
-      final Sequence<Object[]> sequence = lifecycle.execute();
-      final Yielder<Object[]> yielder0 = Yielders.each(sequence);
+      final QueryResponse<Object[]> queryResponse = lifecycle.execute();
+      final Yielder<Object[]> yielder0 = Yielders.each(queryResponse.getResults());
 
       try {
         return Response
@@ -126,9 +129,9 @@ public class SqlResource
                   Exception e = null;
                   CountingOutputStream os = new CountingOutputStream(outputStream);
                   Yielder<Object[]> yielder = yielder0;
+                  long resultRowCount = 0;
 
-                  try (final ResultFormat.Writer writer = sqlQuery.getResultFormat()
-                                                                  .createFormatter(os, jsonMapper)) {
+                  try (final ResultFormat.Writer writer = sqlQuery.getResultFormat().createFormatter(os, jsonMapper)) {
                     writer.writeResponseStart();
 
                     if (sqlQuery.includeHeader()) {
@@ -143,7 +146,33 @@ public class SqlResource
                         writer.writeRowField(rowTransformer.getFieldList().get(i), value);
                       }
                       writer.writeRowEnd();
+                      resultRowCount++;
                       yielder = yielder.next(null);
+                    }
+
+                    // Avoid closing again in the finally block if "yielder.close" fails.
+                    Yielder<Object[]> yielderToClose = yielder;
+                    yielder = null;
+                    yielderToClose.close();
+
+                    if (sqlQuery.getResultFormat().hasTrailer()) {
+                      // TODO(gianm): Copypasta?
+                      // TODO(gianm): Docs that this is not the same as query/time
+                      final ResponseContext responseContext =
+                          queryResponse.getResponseContext().orElse(ResponseContext.createEmpty());
+
+                      responseContext.add(
+                          ResponseContext.Key.METRICS,
+                          MultiQueryMetricsCollector.newCollector().add(
+                              SingleQueryMetricsCollector
+                                  .newCollector()
+                                  .setQueryStart(lifecycle.getStartMs())
+                                  .setQueryMs(System.currentTimeMillis() - lifecycle.getStartMs())
+                                  .setResultRows(resultRowCount)
+                          )
+                      );
+
+                      writer.writeTrailer(responseContext);
                     }
 
                     writer.writeResponseEnd();
@@ -154,12 +183,15 @@ public class SqlResource
                     throw new RuntimeException(ex);
                   }
                   finally {
-                    yielder.close();
+                    if (yielder != null) {
+                      yielder.close();
+                    }
                     endLifecycle(sqlQueryId, lifecycle, e, remoteAddr, os.getCount());
                   }
                 }
             )
             .header("X-Druid-SQL-Query-Id", sqlQueryId)
+            .type(sqlQuery.getResultFormat().contentType())
             .build();
       }
       catch (Throwable e) {

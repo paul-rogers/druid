@@ -47,6 +47,7 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryCapacityExceededException;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryDataSource;
+import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.QueryRunner;
@@ -73,6 +74,7 @@ import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
 import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.VirtualColumns;
 
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -691,11 +693,16 @@ public class GroupByStrategyV2 implements GroupByStrategy
   }
 
   @Override
-  public Sequence<ResultRow> process(GroupByQuery query, StorageAdapter storageAdapter)
+  public Sequence<ResultRow> process(
+      GroupByQuery query,
+      StorageAdapter storageAdapter,
+      @Nullable final QueryMetrics<GroupByQuery> queryMetrics
+  )
   {
     return GroupByQueryEngineV2.process(
         query,
         storageAdapter,
+        queryMetrics,
         bufferPool,
         configSupplier.get().withOverrides(query)
     );

@@ -23,23 +23,19 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.query.context.ResponseContext;
 
 import javax.annotation.Nullable;
 import javax.ws.rs.core.MediaType;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 public enum ResultFormat
 {
-  ARRAY("array") {
-    @Override
-    public String contentType()
-    {
-      return MediaType.APPLICATION_JSON;
-    }
-
+  ARRAY(MediaType.APPLICATION_JSON, false) {
     @Override
     public Writer createFormatter(final OutputStream outputStream, final ObjectMapper jsonMapper) throws IOException
     {
@@ -47,13 +43,15 @@ public enum ResultFormat
     }
   },
 
-  ARRAYLINES("arrayLines") {
+  ARRAYWITHTRAILER(MediaType.APPLICATION_JSON, true) {
     @Override
-    public String contentType()
+    public Writer createFormatter(final OutputStream outputStream, final ObjectMapper jsonMapper) throws IOException
     {
-      return MediaType.TEXT_PLAIN;
+      return new ArrayWithTrailerWriter(outputStream, jsonMapper);
     }
+  },
 
+  ARRAYLINES(MediaType.TEXT_PLAIN, false) {
     @Override
     public Writer createFormatter(final OutputStream outputStream, final ObjectMapper jsonMapper) throws IOException
     {
@@ -61,13 +59,7 @@ public enum ResultFormat
     }
   },
 
-  CSV("csv") {
-    @Override
-    public String contentType()
-    {
-      return "text/csv";
-    }
-
+  CSV("text/csv", false) {
     @Override
     public Writer createFormatter(final OutputStream outputStream, final ObjectMapper jsonMapper)
     {
@@ -75,13 +67,7 @@ public enum ResultFormat
     }
   },
 
-  OBJECT("object") {
-    @Override
-    public String contentType()
-    {
-      return MediaType.APPLICATION_JSON;
-    }
-
+  OBJECT(MediaType.APPLICATION_JSON, false) {
     @Override
     public Writer createFormatter(final OutputStream outputStream, final ObjectMapper jsonMapper) throws IOException
     {
@@ -89,13 +75,7 @@ public enum ResultFormat
     }
   },
 
-  OBJECTLINES("objectLines") {
-    @Override
-    public String contentType()
-    {
-      return MediaType.TEXT_PLAIN;
-    }
-
+  OBJECTLINES(MediaType.TEXT_PLAIN, false) {
     @Override
     public Writer createFormatter(final OutputStream outputStream, final ObjectMapper jsonMapper) throws IOException
     {
@@ -103,14 +83,24 @@ public enum ResultFormat
     }
   };
 
-  private final String name;
+  private final String contentType;
+  private final boolean hasTrailer;
 
-  ResultFormat(final String name)
+  ResultFormat(String contentType, boolean hasTrailer)
   {
-    this.name = name;
+    this.contentType = contentType;
+    this.hasTrailer = hasTrailer;
   }
 
-  public abstract String contentType();
+  public String contentType()
+  {
+    return contentType;
+  }
+
+  public boolean hasTrailer()
+  {
+    return hasTrailer;
+  }
 
   public abstract Writer createFormatter(OutputStream outputStream, ObjectMapper jsonMapper) throws IOException;
 
@@ -144,6 +134,15 @@ public enum ResultFormat
      * End of each result row.
      */
     void writeRowEnd() throws IOException;
+
+    /**
+     * Writes a trailer. Call this if, and only if, {@link ResultFormat#hasTrailer()} returns true. It must be called
+     * after the last call to {@link #writeResponseEnd()}.
+     */
+    default void writeTrailer(final ResponseContext context) throws IOException
+    {
+      throw new UnsupportedEncodingException();
+    }
 
     /**
      * End of the response. Must allow the user to know that they have read all data successfully.

@@ -44,7 +44,7 @@ import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryToolChestWarehouse;
-import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.context.ConcurrentResponseContext;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -119,14 +119,14 @@ public class QueryLifecycle
    * does it all in one call. Logs and metrics are emitted when the Sequence is either fully iterated or throws an
    * exception.
    *
-   * @param query                 the query
-   * @param authenticationResult  authentication result indicating identity of the requester
-   * @param authorizationResult   authorization result of requester
+   * @param query                the query
+   * @param authenticationResult authentication result indicating identity of the requester
+   * @param authorizationResult  authorization result of requester
    *
    * @return results
    */
   @SuppressWarnings("unchecked")
-  public <T> Sequence<T> runSimple(
+  public <T> QueryResponse<T> runSimple(
       final Query<T> query,
       final AuthenticationResult authenticationResult,
       final Access authorizationResult
@@ -134,7 +134,7 @@ public class QueryLifecycle
   {
     initialize(query);
 
-    final Sequence<T> results;
+    final QueryResponse<T> queryResponse;
 
     try {
       preAuthorized(authenticationResult, authorizationResult);
@@ -142,16 +142,14 @@ public class QueryLifecycle
         throw new ISE("Unauthorized");
       }
 
-      final QueryLifecycle.QueryResponse queryResponse = execute();
-      results = queryResponse.getResults();
+      queryResponse = (QueryResponse<T>) execute();
     }
     catch (Throwable e) {
       emitLogsAndMetrics(e, null, -1);
       throw e;
     }
 
-    return Sequences.wrap(
-        results,
+    return queryResponse.wrap(
         new SequenceWrapper()
         {
           @Override
@@ -180,7 +178,10 @@ public class QueryLifecycle
 
     Map<String, Object> mergedUserAndConfigContext;
     if (baseQuery.getContext() != null) {
-      mergedUserAndConfigContext = BaseQuery.computeOverriddenContext(defaultQueryConfig.getContext(), baseQuery.getContext());
+      mergedUserAndConfigContext = BaseQuery.computeOverriddenContext(
+          defaultQueryConfig.getContext(),
+          baseQuery.getContext()
+      );
     } else {
       mergedUserAndConfigContext = defaultQueryConfig.getContext();
     }
@@ -244,17 +245,19 @@ public class QueryLifecycle
    *
    * @return result sequence and response context
    */
-  public QueryResponse execute()
+  public QueryResponse<?> execute()
   {
     transition(State.AUTHORIZED, State.EXECUTING);
 
-    final ResponseContext responseContext = DirectDruidClient.makeResponseContextForQuery();
+    final ConcurrentResponseContext responseContext = DirectDruidClient.makeResponseContextForQuery();
 
-    final Sequence res = QueryPlus.wrap(baseQuery)
-                                  .withIdentity(authenticationResult.getIdentity())
-                                  .run(texasRanger, responseContext);
+    //noinspection unchecked
+    final Sequence<?> res =
+        QueryPlus.wrap(baseQuery)
+                 .withIdentity(authenticationResult.getIdentity())
+                 .run(texasRanger, responseContext);
 
-    return new QueryResponse(res == null ? Sequences.empty() : res, responseContext);
+    return QueryResponse.create(res == null ? Sequences.empty() : res, responseContext);
   }
 
   /**
@@ -304,7 +307,8 @@ public class QueryLifecycle
         queryMetrics.identity(authenticationResult.getIdentity());
       }
 
-      queryMetrics.emit(emitter);
+      // Don't include response context, because by this point we've already returned the full query response.
+      queryMetrics.emit(emitter, null);
 
       final Map<String, Object> statsMap = new LinkedHashMap<>();
       statsMap.put("query/time", TimeUnit.NANOSECONDS.toMillis(queryTimeNs));
@@ -358,6 +362,11 @@ public class QueryLifecycle
     return toolChest;
   }
 
+  public long getStartMs()
+  {
+    return startMs;
+  }
+
   private void transition(final State from, final State to)
   {
     if (state != from) {
@@ -376,27 +385,5 @@ public class QueryLifecycle
     EXECUTING,
     UNAUTHORIZED,
     DONE
-  }
-
-  public static class QueryResponse
-  {
-    private final Sequence results;
-    private final ResponseContext responseContext;
-
-    private QueryResponse(final Sequence results, final ResponseContext responseContext)
-    {
-      this.results = results;
-      this.responseContext = responseContext;
-    }
-
-    public Sequence getResults()
-    {
-      return results;
-    }
-
-    public ResponseContext getResponseContext()
-    {
-      return responseContext;
-    }
   }
 }

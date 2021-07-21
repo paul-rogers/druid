@@ -79,7 +79,7 @@ public class UnionQueryRunner<T> implements QueryRunner<T>
                                 Queries.withBaseDataSource(query, singleSource)
                                        // assign the subqueryId. this will be used to validate that every query servers
                                        // have responded per subquery in RetryQueryRunner
-                                       .withDefaultSubQueryId()
+                                       .withRandomSubQueryId()
                             ),
                             responseContext
                         )

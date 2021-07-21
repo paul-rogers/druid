@@ -138,7 +138,7 @@ public interface Query<T>
    */
   Query<T> withSubQueryId(String subQueryId);
 
-  default Query<T> withDefaultSubQueryId()
+  default Query<T> withRandomSubQueryId()
   {
     return withSubQueryId(UUID.randomUUID().toString());
   }
@@ -208,5 +208,10 @@ public interface Query<T>
   default Set<String> getRequiredColumns()
   {
     return null;
+  }
+
+  default int getNumRowsForResultObject(T result)
+  {
+    return 1;
   }
 }

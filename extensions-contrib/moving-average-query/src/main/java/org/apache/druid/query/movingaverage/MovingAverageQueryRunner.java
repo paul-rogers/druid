@@ -30,7 +30,6 @@ import org.apache.druid.java.util.common.granularity.PeriodGranularity;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.DataSource;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
@@ -123,10 +122,6 @@ public class MovingAverageQueryRunner implements QueryRunner<Row>
 
       ResponseContext gbqResponseContext = ResponseContext.createEmpty();
       gbqResponseContext.merge(responseContext);
-      gbqResponseContext.put(
-          ResponseContext.Key.QUERY_FAIL_DEADLINE_MILLIS,
-          System.currentTimeMillis() + QueryContexts.getTimeout(gbq)
-      );
 
       Sequence<ResultRow> results = gbq.getRunner(walker).run(QueryPlus.wrap(gbq), gbqResponseContext);
       try {
@@ -164,10 +159,6 @@ public class MovingAverageQueryRunner implements QueryRunner<Row>
       );
       ResponseContext tsqResponseContext = ResponseContext.createEmpty();
       tsqResponseContext.merge(responseContext);
-      tsqResponseContext.put(
-          ResponseContext.Key.QUERY_FAIL_DEADLINE_MILLIS,
-          System.currentTimeMillis() + QueryContexts.getTimeout(tsq)
-      );
 
       Sequence<Result<TimeseriesResultValue>> results = tsq.getRunner(walker).run(QueryPlus.wrap(tsq), tsqResponseContext);
       try {

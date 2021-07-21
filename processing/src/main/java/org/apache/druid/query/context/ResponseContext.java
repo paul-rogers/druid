@@ -20,7 +20,9 @@
 package org.apache.druid.query.context;
 
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -30,7 +32,7 @@ import org.apache.druid.guice.annotations.PublicApi;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.NonnullPair;
-import org.apache.druid.java.util.common.jackson.JacksonUtils;
+import org.apache.druid.query.MultiQueryMetricsCollector;
 import org.apache.druid.query.SegmentDescriptor;
 import org.joda.time.Interval;
 
@@ -45,7 +47,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * The context for storing and passing data between chains of {@link org.apache.druid.query.QueryRunner}s.
@@ -58,14 +61,46 @@ public abstract class ResponseContext
    * The base interface of a response context key.
    * Should be implemented by every context key.
    */
-  public interface BaseKey
+  public interface BaseKey<T>
   {
     @JsonValue
     String getName();
+
     /**
-     * Merge function associated with a key: Object (Object oldValue, Object newValue)
+     * Which phase this key
      */
-    BiFunction<Object, Object, Object> getMergeFunction();
+    Visibility getPhase();
+
+    /**
+     * Reads a value of this key from a JSON stream. Used by {@link ResponseContextDeserializer}.
+     */
+    T readValue(JsonParser jp);
+
+    /**
+     * Merges two values of type T.
+     *
+     * This method may modify "oldValue" but must not modify "newValue".
+     */
+    T mergeValues(T oldValue, T newValue);
+  }
+
+  public enum Visibility
+  {
+    /**
+     * Keys that are present in both the "X-Druid-Response-Context" header *and* the response context trailer.
+     */
+    HEADER_AND_TRAILER,
+
+    /**
+     * Keys that are only present in the response context trailer.
+     */
+    TRAILER,
+
+    /**
+     * Keys that are not present in query responses at all. Generally used for internal state tracking within a
+     * single server.
+     */
+    NONE
   }
 
   /**
@@ -97,26 +132,31 @@ public abstract class ResponseContext
    * }</pre>
    * Make sure all extension enum values added with {@link Key#registerKey} method.
    */
-  public enum Key implements BaseKey
+  public enum Key implements BaseKey<Object>
   {
     /**
      * Lists intervals for which NO segment is present.
      */
-    UNCOVERED_INTERVALS(
-        "uncoveredIntervals",
-            (oldValue, newValue) -> {
-              final ArrayList<Interval> result = new ArrayList<Interval>((List) oldValue);
-              result.addAll((List) newValue);
-              return result;
-            }
-    ),
+    UNCOVERED_INTERVALS("uncoveredIntervals", Visibility.HEADER_AND_TRAILER, new TypeReference<List<Interval>>() {}) {
+      @Override
+      @SuppressWarnings("unchecked")
+      public Object mergeValues(Object oldValue, Object newValue)
+      {
+        final ArrayList<Interval> result = new ArrayList<Interval>((List<Interval>) oldValue);
+        result.addAll((List<Interval>) newValue);
+        return result;
+      }
+    },
     /**
      * Indicates if the number of uncovered intervals exceeded the limit (true/false).
      */
-    UNCOVERED_INTERVALS_OVERFLOWED(
-        "uncoveredIntervalsOverflowed",
-            (oldValue, newValue) -> (boolean) oldValue || (boolean) newValue
-    ),
+    UNCOVERED_INTERVALS_OVERFLOWED("uncoveredIntervalsOverflowed", Visibility.HEADER_AND_TRAILER, Boolean.class) {
+      @Override
+      public Object mergeValues(Object oldValue, Object newValue)
+      {
+        return (boolean) oldValue || (boolean) newValue;
+      }
+    },
     /**
      * Map of most relevant query ID to remaining number of responses from query nodes.
      * The value is initialized in {@code CachingClusteredClient} when it initializes the connection to the query nodes,
@@ -129,74 +169,103 @@ public abstract class ResponseContext
      *
      * @see org.apache.druid.query.Query#getMostSpecificId
      */
-    REMAINING_RESPONSES_FROM_QUERY_SERVERS(
-        "remainingResponsesFromQueryServers",
-            (totalRemainingPerId, idAndNumResponses) -> {
-              final ConcurrentHashMap<String, Integer> map = (ConcurrentHashMap<String, Integer>) totalRemainingPerId;
-              final NonnullPair<String, Integer> pair = (NonnullPair<String, Integer>) idAndNumResponses;
-              map.compute(
-                  pair.lhs,
-                  (id, remaining) -> remaining == null ? pair.rhs : remaining + pair.rhs
-              );
-              return map;
-            }
-    ),
+    REMAINING_RESPONSES_FROM_QUERY_SERVERS("remainingResponsesFromQueryServers", Visibility.NONE, Object.class) {
+      @Override
+      @SuppressWarnings("unchecked")
+      public Object mergeValues(Object totalRemainingPerId, Object idAndNumResponses)
+      {
+        final ConcurrentHashMap<String, Integer> map = (ConcurrentHashMap<String, Integer>) totalRemainingPerId;
+        final NonnullPair<String, Integer> pair = (NonnullPair<String, Integer>) idAndNumResponses;
+        map.compute(
+            pair.lhs,
+            (id, remaining) -> remaining == null ? pair.rhs : remaining + pair.rhs
+        );
+        return map;
+      }
+    },
     /**
      * Lists missing segments.
      */
     MISSING_SEGMENTS(
         "missingSegments",
-            (oldValue, newValue) -> {
-              final ArrayList<SegmentDescriptor> result = new ArrayList<SegmentDescriptor>((List) oldValue);
-              result.addAll((List) newValue);
-              return result;
-            }
-    ),
+        Visibility.HEADER_AND_TRAILER,
+        new TypeReference<List<SegmentDescriptor>>() {}
+    ) {
+      @Override
+      @SuppressWarnings("unchecked")
+      public Object mergeValues(Object oldValue, Object newValue)
+      {
+        final List<SegmentDescriptor> result = new ArrayList<SegmentDescriptor>((List<SegmentDescriptor>) oldValue);
+        result.addAll((List<SegmentDescriptor>) newValue);
+        return result;
+      }
+    },
     /**
      * Entity tag. A part of HTTP cache validation mechanism.
      * Is being removed from the context before sending and used as a separate HTTP header.
      */
-    ETAG("ETag"),
-    /**
-     * Query fail time (current time + timeout).
-     * It is not updated continuously as {@link Key#TIMEOUT_AT}.
-     */
-    QUERY_FAIL_DEADLINE_MILLIS("queryFailTime"),
+    ETAG("ETag", Visibility.NONE, String.class),
     /**
      * Query total bytes gathered.
      */
-    QUERY_TOTAL_BYTES_GATHERED("queryTotalBytesGathered"),
+    QUERY_TOTAL_BYTES_GATHERED("queryTotalBytesGathered", Visibility.NONE, Long.class),
     /**
      * This variable indicates when a running query should be expired,
      * and is effective only when 'timeout' of queryContext has a positive value.
      * Continuously updated by {@link org.apache.druid.query.scan.ScanQueryEngine}
      * by reducing its value on the time of every scan iteration.
      */
-    TIMEOUT_AT("timeoutAt"),
+    TIMEOUT_AT("timeoutAt", Visibility.NONE, Long.class),
     /**
-     * The number of scanned rows.
-     * For backward compatibility the context key name still equals to "count".
+     * The number of rows scanned by {@link org.apache.druid.query.scan.ScanQueryEngine}.
+     *
+     * Named "count" for backwards compatibility with older data servers that still send this, even though it's now
+     * marked with {@link Visibility#NONE}.
      */
-    NUM_SCANNED_ROWS(
-        "count",
-            (oldValue, newValue) -> ((Number) oldValue).longValue() + ((Number) newValue).longValue()
-    ),
+    NUM_SCANNED_ROWS("count", Visibility.NONE, Long.class) {
+      @Override
+      public Object mergeValues(Object oldValue, Object newValue)
+      {
+        return (long) oldValue + ((Number) newValue).longValue();
+      }
+    },
     /**
      * The total CPU time for threads related to Sequence processing of the query.
      * Resulting value on a Broker is a sum of downstream values from historicals / realtime nodes.
      * For additional information see {@link org.apache.druid.query.CPUTimeMetricQueryRunner}
      */
-    CPU_CONSUMED_NANOS(
-        "cpuConsumed",
-            (oldValue, newValue) -> ((Number) oldValue).longValue() + ((Number) newValue).longValue()
-    ),
+    CPU_CONSUMED_NANOS("cpuConsumed", Visibility.TRAILER, Long.class) {
+      @Override
+      public Object mergeValues(Object oldValue, Object newValue)
+      {
+        return (long) oldValue + ((Number) newValue).longValue();
+      }
+    },
     /**
      * Indicates if a {@link ResponseContext} was truncated during serialization.
      */
-    TRUNCATED(
-        "truncated",
-            (oldValue, newValue) -> (boolean) oldValue || (boolean) newValue
-    );
+    TRUNCATED("truncated", Visibility.HEADER_AND_TRAILER, Boolean.class) {
+      @Override
+      public Object mergeValues(Object oldValue, Object newValue)
+      {
+        return (boolean) oldValue || (boolean) newValue;
+      }
+    },
+    /**
+     * TODO(gianm): Javadocs.
+     */
+    METRICS(
+        "metrics",
+        Visibility.TRAILER,
+        new TypeReference<MultiQueryMetricsCollector>() {}
+    ) {
+      @Override
+      public Object mergeValues(Object oldValue, Object newValue)
+      {
+        final MultiQueryMetricsCollector currentCollector = (MultiQueryMetricsCollector) oldValue;
+        return currentCollector.addAll((MultiQueryMetricsCollector) newValue);
+      }
+    };
 
     /**
      * ConcurrentSkipListMap is used to have the natural ordering of its keys.
@@ -213,6 +282,7 @@ public abstract class ResponseContext
 
     /**
      * Primary way of registering context keys.
+     *
      * @throws IllegalArgumentException if the key has already been registered.
      */
     public static void registerKey(BaseKey key)
@@ -224,6 +294,7 @@ public abstract class ResponseContext
 
     /**
      * Returns a registered key associated with the name {@param name}.
+     *
      * @throws IllegalStateException if a corresponding key has not been registered.
      */
     public static BaseKey keyOf(String name)
@@ -244,19 +315,35 @@ public abstract class ResponseContext
     }
 
     private final String name;
+    private final Visibility visibility;
+    private final Function<JsonParser, Object> parseFunction;
 
-    private final BiFunction<Object, Object, Object> mergeFunction;
-
-    Key(String name)
+    Key(String name, Visibility visibility, Class<?> serializedClass)
     {
       this.name = name;
-      this.mergeFunction = (oldValue, newValue) -> newValue;
+      this.visibility = visibility;
+      this.parseFunction = jp -> {
+        try {
+          return jp.readValueAs(serializedClass);
+        }
+        catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      };
     }
 
-    Key(String name, BiFunction<Object, Object, Object> mergeFunction)
+    Key(String name, Visibility visibility, TypeReference<?> serializedTypeReference)
     {
       this.name = name;
-      this.mergeFunction = mergeFunction;
+      this.visibility = visibility;
+      this.parseFunction = jp -> {
+        try {
+          return jp.readValueAs(serializedTypeReference);
+        }
+        catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      };
     }
 
     @Override
@@ -266,9 +353,21 @@ public abstract class ResponseContext
     }
 
     @Override
-    public BiFunction<Object, Object, Object> getMergeFunction()
+    public Visibility getPhase()
     {
-      return mergeFunction;
+      return visibility;
+    }
+
+    @Override
+    public Object readValue(JsonParser jp)
+    {
+      return parseFunction.apply(jp);
+    }
+
+    @Override
+    public Object mergeValues(Object oldValue, Object newValue)
+    {
+      return newValue;
     }
   }
 
@@ -279,6 +378,7 @@ public abstract class ResponseContext
 
   /**
    * Create an empty DefaultResponseContext instance
+   *
    * @return empty DefaultResponseContext instance
    */
   public static ResponseContext createEmpty()
@@ -288,24 +388,18 @@ public abstract class ResponseContext
 
   /**
    * Deserializes a string into {@link ResponseContext} using given {@link ObjectMapper}.
+   *
    * @throws IllegalStateException if one of the deserialized map keys has not been registered.
    */
   public static ResponseContext deserialize(String responseContext, ObjectMapper objectMapper) throws IOException
   {
-    final Map<String, Object> keyNameToObjects = objectMapper.readValue(
-        responseContext,
-        JacksonUtils.TYPE_REFERENCE_MAP_STRING_OBJECT
-    );
-    final ResponseContext context = ResponseContext.createEmpty();
-    keyNameToObjects.forEach((keyName, value) -> {
-      final BaseKey key = Key.keyOf(keyName);
-      context.add(key, value);
-    });
-    return context;
+    // TODO(gianm): Remove this method
+    return objectMapper.readValue(responseContext, ResponseContext.class);
   }
 
   /**
    * Associates the specified object with the specified key.
+   *
    * @throws IllegalStateException if the key has not been registered.
    */
   public Object put(BaseKey key, Object value)
@@ -327,16 +421,18 @@ public abstract class ResponseContext
   /**
    * Adds (merges) a new value associated with a key to an old value.
    * See merge function of a context key for a specific implementation.
+   *
    * @throws IllegalStateException if the key has not been registered.
    */
   public Object add(BaseKey key, Object value)
   {
     final BaseKey registeredKey = Key.keyOf(key.getName());
-    return getDelegate().merge(registeredKey, value, key.getMergeFunction());
+    return getDelegate().merge(registeredKey, value, key::mergeValues);
   }
 
   /**
    * Merges a response context into the current.
+   *
    * @throws IllegalStateException If a key of the {@code responseContext} has not been registered.
    */
   public void merge(ResponseContext responseContext)
@@ -358,23 +454,35 @@ public abstract class ResponseContext
    * the array which serialized value length is the biggest.
    * The resulting string might be correctly deserialized to {@link ResponseContext}.
    */
-  public SerializationResult serializeWith(ObjectMapper objectMapper, int maxCharsNumber) throws JsonProcessingException
+  public SerializationResult toHeader(ObjectMapper objectMapper, int maxCharsNumber)
+      throws JsonProcessingException
   {
-    final String fullSerializedString = objectMapper.writeValueAsString(getDelegate());
+    final Map<BaseKey, Object> headerMap =
+        getDelegate().entrySet()
+                     .stream()
+                     .filter(entry -> entry.getKey().getPhase() == Visibility.HEADER_AND_TRAILER)
+                     .collect(
+                         Collectors.toMap(
+                             Map.Entry::getKey,
+                             Map.Entry::getValue
+                         )
+                     );
+
+    final String fullSerializedString = objectMapper.writeValueAsString(headerMap);
     if (fullSerializedString.length() <= maxCharsNumber) {
       return new SerializationResult(null, fullSerializedString);
     } else {
       // Indicates that the context is truncated during serialization.
-      add(Key.TRUNCATED, true);
-      final ObjectNode contextJsonNode = objectMapper.valueToTree(getDelegate());
-      final ArrayList<Map.Entry<String, JsonNode>> sortedNodesByLength = Lists.newArrayList(contextJsonNode.fields());
+      headerMap.put(Key.TRUNCATED, true);
+      final ObjectNode contextJsonNode = objectMapper.valueToTree(headerMap);
+      final List<Map.Entry<String, JsonNode>> sortedNodesByLength = Lists.newArrayList(contextJsonNode.fields());
       sortedNodesByLength.sort(VALUE_LENGTH_REVERSED_COMPARATOR);
-      int needToRemoveCharsNumber = fullSerializedString.length() - maxCharsNumber;
+      int needToRemoveCharsNumber = objectMapper.writeValueAsString(headerMap).length() - maxCharsNumber;
       // The complexity of this block is O(n*m*log(m)) where n - context size, m - context's array size
       for (Map.Entry<String, JsonNode> e : sortedNodesByLength) {
         final String fieldName = e.getKey();
         final JsonNode node = e.getValue();
-        if (node.isArray()) {
+        if (Key.UNCOVERED_INTERVALS.getName().equals(fieldName) || Key.MISSING_SEGMENTS.getName().equals(fieldName)) {
           if (needToRemoveCharsNumber >= node.toString().length()) {
             // We need to remove more chars than the field's length so removing it completely
             contextJsonNode.remove(fieldName);
@@ -390,27 +498,44 @@ public abstract class ResponseContext
               // Since the field is completely removed (name + value) we need to do a recalculation
               needToRemoveCharsNumber = contextJsonNode.toString().length() - maxCharsNumber;
             }
-          } // node is not an array
-        } else {
-          // A context should not contain nulls so we completely remove the field.
-          contextJsonNode.remove(fieldName);
-          // Since the field is completely removed (name + value) we need to do a recalculation
-          needToRemoveCharsNumber = contextJsonNode.toString().length() - maxCharsNumber;
+          }
         }
+
         if (needToRemoveCharsNumber <= 0) {
           break;
         }
       }
+
+      if (needToRemoveCharsNumber > 0) {
+        // Still too long, and no more shortenable keys.
+        throw new ISE("Response context too long for header; cannot shorten");
+      }
+
       return new SerializationResult(contextJsonNode.toString(), fullSerializedString);
     }
+  }
+
+  public Map<BaseKey, Object> trailerCopy()
+  {
+    return getDelegate().entrySet()
+                        .stream()
+                        .filter(entry -> entry.getKey().getPhase() != Visibility.NONE)
+                        .collect(
+                            Collectors.toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue
+                            )
+                        );
   }
 
   /**
    * Removes {@code node}'s elements which total length of serialized values is greater or equal to the passed limit.
    * If it is impossible to satisfy the limit the method removes all {@code node}'s elements.
    * On every iteration it removes exactly half of the remained elements to reduce the overall complexity.
-   * @param node {@link ArrayNode} which elements are being removed.
+   *
+   * @param node                    {@link ArrayNode} which elements are being removed.
    * @param needToRemoveCharsNumber the number of chars need to be removed.
+   *
    * @return the number of removed chars.
    */
   private static int removeNodeElementsToSatisfyCharsLimit(ArrayNode node, int needToRemoveCharsNumber)

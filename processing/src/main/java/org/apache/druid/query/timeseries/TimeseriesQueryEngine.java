@@ -32,6 +32,7 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryRunnerHelper;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.aggregation.Aggregator;
@@ -82,7 +83,11 @@ public class TimeseriesQueryEngine
    * Run a single-segment, single-interval timeseries query on a particular adapter. The query must have been
    * scoped down to a single interval before calling this method.
    */
-  public Sequence<Result<TimeseriesResultValue>> process(final TimeseriesQuery query, final StorageAdapter adapter)
+  public Sequence<Result<TimeseriesResultValue>> process(
+      final TimeseriesQuery query,
+      final StorageAdapter adapter,
+      @Nullable final QueryMetrics<TimeseriesQuery> queryMetrics
+  )
   {
     if (adapter == null) {
       throw new SegmentMissingException(
@@ -106,9 +111,9 @@ public class TimeseriesQueryEngine
     final Sequence<Result<TimeseriesResultValue>> result;
 
     if (doVectorize) {
-      result = processVectorized(query, adapter, filter, interval, gran, descending);
+      result = processVectorized(query, adapter, filter, interval, gran, descending, queryMetrics);
     } else {
-      result = processNonVectorized(query, adapter, filter, interval, gran, descending);
+      result = processNonVectorized(query, adapter, filter, interval, gran, descending, queryMetrics);
     }
 
     final int limit = query.getLimit();
@@ -125,7 +130,8 @@ public class TimeseriesQueryEngine
       @Nullable final Filter filter,
       final Interval queryInterval,
       final Granularity gran,
-      final boolean descending
+      final boolean descending,
+      @Nullable final QueryMetrics<TimeseriesQuery> queryMetrics
   )
   {
     final boolean skipEmptyBuckets = query.isSkipEmptyBuckets();
@@ -137,7 +143,7 @@ public class TimeseriesQueryEngine
         query.getVirtualColumns(),
         descending,
         QueryContexts.getVectorSize(query),
-        null
+        queryMetrics
     );
 
     if (cursor == null) {
@@ -251,7 +257,8 @@ public class TimeseriesQueryEngine
       @Nullable final Filter filter,
       final Interval queryInterval,
       final Granularity gran,
-      final boolean descending
+      final boolean descending,
+      @Nullable final QueryMetrics<TimeseriesQuery> queryMetrics
   )
   {
     final boolean skipEmptyBuckets = query.isSkipEmptyBuckets();
@@ -299,7 +306,8 @@ public class TimeseriesQueryEngine
               agg.close();
             }
           }
-        }
+        },
+        queryMetrics
     );
   }
 }

@@ -100,7 +100,7 @@ public class DistinctCountTimeseriesQueryTest extends InitializedNullHandlingTes
                                   .build();
 
     final Iterable<Result<TimeseriesResultValue>> results =
-        engine.process(query, new IncrementalIndexStorageAdapter(index)).toList();
+        engine.process(query, new IncrementalIndexStorageAdapter(index), null).toList();
 
     List<Result<TimeseriesResultValue>> expectedResults = Collections.singletonList(
         new Result<>(

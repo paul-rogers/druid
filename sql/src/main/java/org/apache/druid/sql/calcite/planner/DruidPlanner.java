@@ -66,6 +66,7 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.segment.DimensionHandlerUtils;
+import org.apache.druid.server.QueryResponse;
 import org.apache.druid.sql.calcite.rel.DruidConvention;
 import org.apache.druid.sql.calcite.rel.DruidRel;
 
@@ -251,7 +252,7 @@ public class DruidPlanner implements Closeable
     if (explain != null) {
       return planExplanation(druidRel, explain);
     } else {
-      final Supplier<Sequence<Object[]>> resultsSupplier = () -> {
+      final Supplier<QueryResponse<Object[]>> resultsSupplier = () -> {
         // sanity check
         Preconditions.checkState(
             plannerContext.getResources().isEmpty() == druidRel.getDataSourceNames().isEmpty()
@@ -265,15 +266,18 @@ public class DruidPlanner implements Closeable
           return druidRel.runQuery();
         } else {
           // Add a mapping on top to accommodate root.fields.
-          return Sequences.map(
-              druidRel.runQuery(),
-              input -> {
-                final Object[] retVal = new Object[root.fields.size()];
-                for (int i = 0; i < root.fields.size(); i++) {
-                  retVal[i] = input[root.fields.get(i).getKey()];
-                }
-                return retVal;
-              }
+          return druidRel.runQuery().map(
+              sequence ->
+                  Sequences.map(
+                      sequence,
+                      input -> {
+                        final Object[] retVal = new Object[root.fields.size()];
+                        for (int i = 0; i < root.fields.size(); i++) {
+                          retVal[i] = input[root.fields.get(i).getKey()];
+                        }
+                        return retVal;
+                      }
+                  )
           );
         }
       };
@@ -324,10 +328,10 @@ public class DruidPlanner implements Closeable
           (JavaTypeFactory) planner.getTypeFactory(),
           plannerContext.getParameters()
       );
-      final Supplier<Sequence<Object[]>> resultsSupplier = () -> {
+      final Supplier<QueryResponse<Object[]>> resultsSupplier = () -> {
         final Enumerable<?> enumerable = theRel.bind(dataContext);
         final Enumerator<?> enumerator = enumerable.enumerator();
-        return Sequences.withBaggage(new BaseSequence<>(
+        final Sequence<Object[]> resultSequence = Sequences.withBaggage(new BaseSequence<>(
             new BaseSequence.IteratorMaker<Object[], EnumeratorIterator<Object[]>>()
             {
               @Override
@@ -356,6 +360,8 @@ public class DruidPlanner implements Closeable
               }
             }
         ), enumerator::close);
+
+        return QueryResponse.createWithEmptyContext(resultSequence);
       };
       return new PlannerResult(resultsSupplier, root.validatedRowType);
     }
@@ -379,8 +385,12 @@ public class DruidPlanner implements Closeable
       log.error(jpe, "Encountered exception while serializing Resources for explain output");
       resources = null;
     }
-    final Supplier<Sequence<Object[]>> resultsSupplier = Suppliers.ofInstance(
-        Sequences.simple(ImmutableList.of(new Object[]{explanation, resources})));
+    final Supplier<QueryResponse<Object[]>> resultsSupplier = Suppliers.ofInstance(
+        QueryResponse.createWithEmptyContext(
+            Sequences.simple(ImmutableList.of(new Object[]{explanation, resources}))
+        )
+    );
+
     return new PlannerResult(resultsSupplier, getExplainStructType(rel.getCluster().getTypeFactory()));
   }
 

@@ -740,7 +740,7 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
           req.getRemoteAddr()
       );
       queryMetrics.success(success);
-      queryMetrics.reportQueryTime(requestTimeNs).emit(emitter);
+      queryMetrics.reportQueryTime(requestTimeNs).emit(emitter, null);
     }
   }
 }

@@ -285,6 +285,13 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
       intervals = Lists.reverse(ImmutableList.copyOf(intervals));
     }
 
+    if (queryMetrics != null) {
+      // Not 100% accurate, but close enough for metrics.
+      final int numRows = index.size();
+      queryMetrics.reportSegmentRows(numRows);
+      queryMetrics.reportPreFilteredRows(numRows);
+    }
+
     return Sequences
         .simple(intervals)
         .map(i -> new IncrementalIndexCursor(virtualColumns, descending, filter, i, actualInterval, gran));

@@ -34,6 +34,7 @@ import org.apache.druid.java.util.common.guava.Yielder;
 import org.apache.druid.java.util.common.guava.Yielders;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.QueryRunner;
@@ -370,7 +371,13 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
       if (timeoutAt == null || timeoutAt.longValue() == 0L) {
         responseContext.put(ResponseContext.Key.TIMEOUT_AT, JodaUtils.MAX_INSTANT);
       }
-      return engine.process((ScanQuery) query, segment, responseContext);
+      //noinspection unchecked
+      return engine.process(
+          (ScanQuery) query,
+          segment,
+          responseContext,
+          (QueryMetrics<ScanQuery>) queryPlus.getQueryMetrics()
+      );
     }
   }
 }

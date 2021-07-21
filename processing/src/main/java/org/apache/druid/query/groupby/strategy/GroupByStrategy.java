@@ -22,6 +22,7 @@ package org.apache.druid.query.groupby.strategy;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
@@ -33,7 +34,6 @@ import org.apache.druid.query.groupby.resource.GroupByQueryResource;
 import org.apache.druid.segment.StorageAdapter;
 
 import javax.annotation.Nullable;
-
 import java.util.Comparator;
 import java.util.function.BinaryOperator;
 
@@ -184,10 +184,15 @@ public interface GroupByStrategy
    *
    * @param query          the groupBy query
    * @param storageAdapter storage adatper for the segment in question
+   * @param queryMetrics   query metrics receiver for this query
    *
    * @return result sequence for the storage adapter
    */
-  Sequence<ResultRow> process(GroupByQuery query, StorageAdapter storageAdapter);
+  Sequence<ResultRow> process(
+      GroupByQuery query,
+      StorageAdapter storageAdapter,
+      @Nullable QueryMetrics<GroupByQuery> queryMetrics
+  );
 
   /**
    * Returns whether this strategy supports pushing down outer queries. This is used by

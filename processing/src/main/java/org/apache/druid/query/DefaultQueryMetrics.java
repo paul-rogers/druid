@@ -25,9 +25,11 @@ import org.apache.druid.collections.bitmap.BitmapFactory;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
+import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
 import org.joda.time.Interval;
 
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +46,24 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
 {
   protected final ServiceMetricEvent.Builder builder = new ServiceMetricEvent.Builder();
   protected final Map<String, Number> metrics = new HashMap<>();
+
+  /**
+   * Current query analysis collector. Null if analysis is disabled.
+   *
+   * TODO(gianm): Figure out how to null this out?
+   */
+  @Nullable
+  protected SingleQueryMetricsCollector metricsCollector = SingleQueryMetricsCollector.newCollector();
+
+  /**
+   * Vectorization flag set by {@link #vectorized(boolean)}.
+   */
+  private boolean vectorized = false;
+
+  /**
+   * Query ID set by {@link #query} and used by {@link #emit} when updating the response context.
+   */
+  private String subQueryId = null;
 
   /**
    * Non final to give subclasses ability to reassign it.
@@ -136,6 +156,7 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   public void subQueryId(QueryType query)
   {
     // Emit nothing by default.
+    subQueryId = query.getSubQueryId();
   }
 
   @Override
@@ -201,6 +222,8 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   @Override
   public void vectorized(final boolean vectorized)
   {
+    this.vectorized = vectorized;
+
     // Emit nothing by default.
   }
 
@@ -237,18 +260,34 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   @Override
   public QueryMetrics<QueryType> reportSegmentTime(long timeNs)
   {
+    if (metricsCollector != null) {
+      metricsCollector.addCurrentThread().addSegmentProcessed();
+
+      if (vectorized) {
+        metricsCollector.addCurrentThread().addSegmentVectorProcessed();
+      }
+    }
+
     return reportMillisTimeMetric("query/segment/time", timeNs);
   }
 
   @Override
   public QueryMetrics<QueryType> reportSegmentAndCacheTime(long timeNs)
   {
+    if (metricsCollector != null) {
+      metricsCollector.addCurrentThread().addSegment();
+    }
+
     return reportMillisTimeMetric("query/segmentAndCache/time", timeNs);
   }
 
   @Override
   public QueryMetrics<QueryType> reportCpuTime(long timeNs)
   {
+    if (metricsCollector != null) {
+      metricsCollector.addCurrentThread().addCpuNanos(timeNs);
+    }
+
     return reportMetric("query/cpu/time", TimeUnit.NANOSECONDS.toMicros(timeNs));
   }
 
@@ -278,6 +317,17 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   }
 
   @Override
+  public QueryMetrics<QueryType> reportNodeRows(long numRows)
+  {
+    if (metricsCollector != null) {
+      metricsCollector.addNodeRows(numRows);
+    }
+
+    // Don't emit by default.
+    return this;
+  }
+
+  @Override
   public QueryMetrics<QueryType> reportBitmapConstructionTime(long timeNs)
   {
     // Don't emit by default.
@@ -287,6 +337,10 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   @Override
   public QueryMetrics<QueryType> reportSegmentRows(long numRows)
   {
+    if (metricsCollector != null) {
+      metricsCollector.addCurrentThread().addSegmentRows(numRows);
+    }
+
     // Don't emit by default.
     return this;
   }
@@ -294,6 +348,10 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   @Override
   public QueryMetrics<QueryType> reportPreFilteredRows(long numRows)
   {
+    if (metricsCollector != null) {
+      metricsCollector.addCurrentThread().addPreFilteredRows(numRows);
+    }
+
     // Don't emit by default.
     return this;
   }
@@ -348,13 +406,32 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   }
 
   @Override
-  public void emit(ServiceEmitter emitter)
+  public void emit(ServiceEmitter emitter, @Nullable ResponseContext responseContext)
   {
     checkModifiedFromOwnerThread();
+
     for (Map.Entry<String, Number> metric : metrics.entrySet()) {
       emitter.emit(builder.build(metric.getKey(), metric.getValue()));
     }
+
     metrics.clear();
+
+    if (metricsCollector != null) {
+      if (responseContext != null) {
+        // HashMap instead of ImmutableMap because it must be mutable.
+        //   (responseContext.add updates the original map in place).
+        responseContext.add(
+            ResponseContext.Key.METRICS,
+            MultiQueryMetricsCollector.newCollector().add(metricsCollector.setSubQueryId(subQueryId))
+        );
+      }
+
+      metricsCollector = SingleQueryMetricsCollector.newCollector();
+    }
+
+    // Reset "vectorized", since it is set for each segment, and we don't want to retain it across calls to "emit".
+    // Do not reset "subQueryId" since it is only set once, early in the lifetime of this metric object.
+    vectorized = false;
   }
 
   protected QueryMetrics<QueryType> reportMetric(String metricName, Number value)

@@ -32,6 +32,7 @@ import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.GroupByMergedQueryRunner;
+import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.QueryRunner;
@@ -53,6 +54,7 @@ import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.incremental.IncrementalIndexStorageAdapter;
 import org.joda.time.Interval;
 
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -242,7 +244,8 @@ public class GroupByStrategyV1 implements GroupByStrategy
                         outerQuery.withQuerySegmentSpec(
                             new MultipleIntervalSegmentSpec(ImmutableList.of(interval))
                         ),
-                        new IncrementalIndexStorageAdapter(innerQueryResultIndex)
+                        new IncrementalIndexStorageAdapter(innerQueryResultIndex),
+                        null
                     );
                   }
                 }
@@ -278,10 +281,14 @@ public class GroupByStrategyV1 implements GroupByStrategy
   }
 
   @Override
-  public Sequence<ResultRow> process(final GroupByQuery query, final StorageAdapter storageAdapter)
+  public Sequence<ResultRow> process(
+      final GroupByQuery query,
+      final StorageAdapter storageAdapter,
+      @Nullable final QueryMetrics<GroupByQuery> queryMetrics
+  )
   {
     return Sequences.map(
-        engine.process(query, storageAdapter),
+        engine.process(query, storageAdapter, queryMetrics),
         row -> GroupByQueryHelper.toResultRow(query, row)
     );
   }

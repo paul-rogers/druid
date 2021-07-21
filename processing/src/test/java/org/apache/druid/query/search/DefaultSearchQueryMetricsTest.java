@@ -65,7 +65,7 @@ public class DefaultSearchQueryMetricsTest
 
     queryMetrics.query(query);
 
-    queryMetrics.reportQueryTime(0).emit(serviceEmitter);
+    queryMetrics.reportQueryTime(0).emit(serviceEmitter, null);
     Map<String, Object> actualEvent = cachingEmitter.getLastEmittedEvent().toMap();
     Assert.assertEquals(13, actualEvent.size());
     Assert.assertTrue(actualEvent.containsKey("feed"));

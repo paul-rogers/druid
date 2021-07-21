@@ -89,7 +89,7 @@ public class CPUTimeMetricQueryRunner<T> implements QueryRunner<T>
               final long cpuTimeNs = cpuTimeAccumulator.get();
               if (cpuTimeNs > 0) {
                 responseContext.add(ResponseContext.Key.CPU_CONSUMED_NANOS, cpuTimeNs);
-                queryWithMetrics.getQueryMetrics().reportCpuTime(cpuTimeNs).emit(emitter);
+                queryWithMetrics.getQueryMetrics().reportCpuTime(cpuTimeNs).emit(emitter, responseContext);
               }
             }
           }

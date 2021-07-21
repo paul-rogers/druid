@@ -172,6 +172,12 @@ public class TopNQuery extends BaseQuery<Result<TopNResultValue>>
     );
   }
 
+  @Override
+  public int getNumRowsForResultObject(Result<TopNResultValue> result)
+  {
+    return result.getValue().getValue().size();
+  }
+
   public void initTopNAlgorithmSelector(TopNAlgorithmSelector selector)
   {
     if (dimensionSpec.getExtractionFn() != null) {

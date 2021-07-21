@@ -863,7 +863,9 @@ public class DruidSchema extends AbstractSchema
         false
     );
 
-    return queryLifecycleFactory.factorize().runSimple(segmentMetadataQuery, authenticationResult, Access.OK);
+    return queryLifecycleFactory.factorize()
+                                .runSimple(segmentMetadataQuery, authenticationResult, Access.OK)
+                                .getResults();
   }
 
   private static RowSignature analysisToRowSignature(final SegmentAnalysis analysis)

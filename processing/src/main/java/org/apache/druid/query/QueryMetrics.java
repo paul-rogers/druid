@@ -23,9 +23,11 @@ import org.apache.druid.collections.bitmap.BitmapFactory;
 import org.apache.druid.guice.annotations.ExtensionPoint;
 import org.apache.druid.guice.annotations.PublicApi;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
+import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.search.SearchQueryMetricsFactory;
 
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -35,40 +37,40 @@ import java.util.List;
  *
  * Goals of QueryMetrics
  * ---------------------
- *  1. Skipping or partial filtering of particular dimensions or metrics entirely. Implementation could leave the body
- *  of the corresponding method empty, or implement random filtering like:
- *  public void reportCpuTime(long timeNs)
- *  {
- *    if (ThreadLocalRandom.current().nextDouble() < 0.1) {
- *      super.reportCpuTime(timeNs);
- *    }
- *  }
+ * 1. Skipping or partial filtering of particular dimensions or metrics entirely. Implementation could leave the body
+ * of the corresponding method empty, or implement random filtering like:
+ * public void reportCpuTime(long timeNs)
+ * {
+ * if (ThreadLocalRandom.current().nextDouble() < 0.1) {
+ * super.reportCpuTime(timeNs);
+ * }
+ * }
  *
- *  2. Ability to add new dimensions and metrics, possibly expensive to compute, or expensive to process (long string
- *  values, high cardinality, etc.) and not to affect existing Druid installations, by skipping (see 1.) those
- *  dimensions and metrics entirely in the default QueryMetrics implementations. Users who need those expensive
- *  dimensions and metrics, could explicitly emit them in their own QueryMetrics.
+ * 2. Ability to add new dimensions and metrics, possibly expensive to compute, or expensive to process (long string
+ * values, high cardinality, etc.) and not to affect existing Druid installations, by skipping (see 1.) those
+ * dimensions and metrics entirely in the default QueryMetrics implementations. Users who need those expensive
+ * dimensions and metrics, could explicitly emit them in their own QueryMetrics.
  *
- *  3. Control over the time unit, in which time metrics are emitted. By default (see {@link DefaultQueryMetrics} and
- *  it's subclasses) it's milliseconds, but if queries are fast, it could be not precise enough.
+ * 3. Control over the time unit, in which time metrics are emitted. By default (see {@link DefaultQueryMetrics} and
+ * it's subclasses) it's milliseconds, but if queries are fast, it could be not precise enough.
  *
- *  4. Control over the dimension and metric names.
+ * 4. Control over the dimension and metric names.
  *
- *  Here, "control" is provided to the operator of a Druid cluster, who would exercise that control through a
- *  site-specific extension adding XxxQueryMetricsFactory impl(s).
+ * Here, "control" is provided to the operator of a Druid cluster, who would exercise that control through a
+ * site-specific extension adding XxxQueryMetricsFactory impl(s).
  *
  *
  * Types of methods in this interface
  * ----------------------------------
- *  1. Methods, pulling some dimensions from the query object. These methods are used to populate the metric before the
- *  query is run. These methods accept a single `QueryType query` parameter. {@link #query(Query)} calls all methods
- *  of this type, hence pulling all available information from the query object as dimensions.
+ * 1. Methods, pulling some dimensions from the query object. These methods are used to populate the metric before the
+ * query is run. These methods accept a single `QueryType query` parameter. {@link #query(Query)} calls all methods
+ * of this type, hence pulling all available information from the query object as dimensions.
  *
- *  2. Methods for setting dimensions, which become known in the process of the query execution or after the query is
- *  completed.
+ * 2. Methods for setting dimensions, which become known in the process of the query execution or after the query is
+ * completed.
  *
- *  3. Methods to register metrics to be emitted later in bulk via {@link #emit(ServiceEmitter)}. These methods
- *  return this QueryMetrics object back for chaining. Names of these methods start with "report" prefix.
+ * 3. Methods to register metrics to be emitted later in bulk via {@link #emit}. These methods
+ * return this QueryMetrics object back for chaining. Names of these methods start with "report" prefix.
  *
  *
  * Implementors expectations
@@ -116,33 +118,33 @@ import java.util.List;
  * emit custom dimensions and/or metrics which doesn't make sense for all other query types, the following steps should
  * be executed:
  *
- *  1. Create `interface SegmentMetadataQueryMetrics extends QueryMetrics` (here and below "SegmentMetadata" is the
- *  query type) with additional methods (see "Adding new methods" section above).
+ * 1. Create `interface SegmentMetadataQueryMetrics extends QueryMetrics` (here and below "SegmentMetadata" is the
+ * query type) with additional methods (see "Adding new methods" section above).
  *
- *  2. Create `class DefaultSegmentMetadataQueryMetrics implements SegmentMetadataQueryMetrics`. This class should
- *  implement extra methods from SegmentMetadataQueryMetrics interfaces with empty bodies, AND DELEGATE ALL OTHER
- *  METHODS TO A QueryMetrics OBJECT, provided as a sole parameter in DefaultSegmentMetadataQueryMetrics constructor.
+ * 2. Create `class DefaultSegmentMetadataQueryMetrics implements SegmentMetadataQueryMetrics`. This class should
+ * implement extra methods from SegmentMetadataQueryMetrics interfaces with empty bodies, AND DELEGATE ALL OTHER
+ * METHODS TO A QueryMetrics OBJECT, provided as a sole parameter in DefaultSegmentMetadataQueryMetrics constructor.
  *
- *  NOTE: query(), dataSource(), queryType(), interval(), hasFilters(), duration(), queryId(), sqlQueryId(), and
- *  context() methods or any "pre-query-execution-time" methods should either have a empty body or throw exception.
+ * NOTE: query(), dataSource(), queryType(), interval(), hasFilters(), duration(), queryId(), sqlQueryId(), and
+ * context() methods or any "pre-query-execution-time" methods should either have a empty body or throw exception.
  *
- *  3. Create `interface SegmentMetadataQueryMetricsFactory` with a single method
- *  `SegmentMetadataQueryMetrics makeMetrics(SegmentMetadataQuery query);`.
+ * 3. Create `interface SegmentMetadataQueryMetricsFactory` with a single method
+ * `SegmentMetadataQueryMetrics makeMetrics(SegmentMetadataQuery query);`.
  *
- *  4. Create `class DefaultSegmentMetadataQueryMetricsFactory implements SegmentMetadataQueryMetricsFactory`,
- *  which accepts {@link GenericQueryMetricsFactory} as injected constructor parameter, and implements makeMetrics() as
- *  `return new DefaultSegmentMetadataQueryMetrics(genericQueryMetricsFactory.makeMetrics(query));`
+ * 4. Create `class DefaultSegmentMetadataQueryMetricsFactory implements SegmentMetadataQueryMetricsFactory`,
+ * which accepts {@link GenericQueryMetricsFactory} as injected constructor parameter, and implements makeMetrics() as
+ * `return new DefaultSegmentMetadataQueryMetrics(genericQueryMetricsFactory.makeMetrics(query));`
  *
- *  5. Inject and use SegmentMetadataQueryMetricsFactory instead of {@link GenericQueryMetricsFactory} in
- *  {@link org.apache.druid.query.metadata.SegmentMetadataQueryQueryToolChest}.
+ * 5. Inject and use SegmentMetadataQueryMetricsFactory instead of {@link GenericQueryMetricsFactory} in
+ * {@link org.apache.druid.query.metadata.SegmentMetadataQueryQueryToolChest}.
  *
- *  6. Establish injection of SegmentMetadataQueryMetricsFactory using config and provider method in
- *  QueryToolChestModule (see how it is done in QueryToolChestModule) for existing query types
- *  with custom metrics, e. g. {@link SearchQueryMetricsFactory}), if the query type
- *  belongs to the core druid-processing, e. g. SegmentMetadataQuery. If the query type defined in an extension, you
- *  can specify `binder.bind(ScanQueryMetricsFactory.class).to(DefaultScanQueryMetricsFactory.class)` in the extension's
- *  Guice module, if the query type is defined in an extension, e. g. ScanQuery. Or establish similar configuration,
- *  as for the core query types.
+ * 6. Establish injection of SegmentMetadataQueryMetricsFactory using config and provider method in
+ * QueryToolChestModule (see how it is done in QueryToolChestModule) for existing query types
+ * with custom metrics, e. g. {@link SearchQueryMetricsFactory}), if the query type
+ * belongs to the core druid-processing, e. g. SegmentMetadataQuery. If the query type defined in an extension, you
+ * can specify `binder.bind(ScanQueryMetricsFactory.class).to(DefaultScanQueryMetricsFactory.class)` in the extension's
+ * Guice module, if the query type is defined in an extension, e. g. ScanQuery. Or establish similar configuration,
+ * as for the core query types.
  *
  * This complex procedure is needed to ensure custom {@link GenericQueryMetricsFactory} specified by users still works
  * for the query type when query type decides to create their custom QueryMetrics subclass.
@@ -262,11 +264,18 @@ public interface QueryMetrics<QueryType extends Query<?>>
 
   /**
    * Registers "query time" metric.
+   *
+   * Measures the time between a server thread starting to handle a query, and the response being fully written to
+   * the response output stream. Does not include time spent waiting in the server queue to acquire a thread.
    */
   QueryMetrics<QueryType> reportQueryTime(long timeNs);
 
   /**
    * Registers "query bytes" metric.
+   *
+   * Measures the total number of bytes written by the query server thread to the response output stream.
+   *
+   * Emitted once per query.
    */
   QueryMetrics<QueryType> reportQueryBytes(long byteCount);
 
@@ -277,21 +286,36 @@ public interface QueryMetrics<QueryType extends Query<?>>
 
   /**
    * Registers "wait time" metric.
+   *
+   * Measures the total time segment-processing runnables spend waiting for execution in the processing thread pool.
+   *
+   * Emitted once per segment.
    */
   QueryMetrics<QueryType> reportWaitTime(long timeNs);
 
   /**
    * Registers "segment time" metric.
+   *
+   * Measures the total wall-clock time spent operating on segments in processing threads.
+   *
+   * Emitted once per segment.
    */
   QueryMetrics<QueryType> reportSegmentTime(long timeNs);
 
   /**
    * Registers "segmentAndCache time" metric.
+   *
+   * Measures the total wall-clock time spent in processing threads, either operating on segments or retrieving items
+   * from cache.
+   *
+   * Emitted once per segment.
    */
   QueryMetrics<QueryType> reportSegmentAndCacheTime(long timeNs);
 
   /**
    * Registers "cpu time" metric.
+   *
+   * Measures the total amount of CPU time spent by all threads (server and processing) involved in a query.
    */
   QueryMetrics<QueryType> reportCpuTime(long timeNs);
 
@@ -314,6 +338,11 @@ public interface QueryMetrics<QueryType extends Query<?>>
    * Registers "node bytes" metric.
    */
   QueryMetrics<QueryType> reportNodeBytes(long byteCount);
+
+  /**
+   * Registers "node rows" metric.
+   */
+  QueryMetrics<QueryType> reportNodeRows(long numRows);
 
   /**
    * Reports the time spent constructing bitmap from {@link #preFilters(List)} of the query. Not reported, if there are
@@ -365,7 +394,10 @@ public interface QueryMetrics<QueryType extends Query<?>>
   QueryMetrics<QueryType> reportParallelMergeTotalCpuTime(long timeNs);
 
   /**
-   * Emits all metrics, registered since the last {@code emit()} call on this QueryMetrics object.
+   * Emit, and add to the response context, all metrics registered since the last {@code emit()} call on this
+   * QueryMetrics object.
+   *
+   * If "responseContext" is null, it will be ignored, and metrics will only be sent to the emitter.
    */
-  void emit(ServiceEmitter emitter);
+  void emit(ServiceEmitter emitter, @Nullable ResponseContext responseContext);
 }

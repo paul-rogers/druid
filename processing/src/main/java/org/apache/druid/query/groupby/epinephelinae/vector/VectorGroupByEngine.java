@@ -29,6 +29,7 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.aggregation.AggregatorAdapters;
 import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.query.filter.Filter;
@@ -119,6 +120,7 @@ public class VectorGroupByEngine
   public static Sequence<ResultRow> process(
       final GroupByQuery query,
       final StorageAdapter storageAdapter,
+      @Nullable QueryMetrics<GroupByQuery> queryMetrics,
       final ByteBuffer processingBuffer,
       @Nullable final DateTime fudgeTimestamp,
       @Nullable final Filter filter,
@@ -142,7 +144,7 @@ public class VectorGroupByEngine
                 query.getVirtualColumns(),
                 false,
                 QueryContexts.getVectorSize(query),
-                null
+                queryMetrics
             );
 
             if (cursor == null) {

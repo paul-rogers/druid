@@ -33,8 +33,6 @@ import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
-import org.apache.druid.java.util.common.guava.Sequence;
-import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.math.expr.Evals;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryToolChest;
@@ -45,6 +43,7 @@ import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.server.QueryLifecycle;
 import org.apache.druid.server.QueryLifecycleFactory;
+import org.apache.druid.server.QueryResponse;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.sql.calcite.planner.Calcites;
@@ -58,6 +57,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class QueryMaker
@@ -87,7 +87,7 @@ public class QueryMaker
     return jsonMapper;
   }
 
-  public Sequence<Object[]> runQuery(final DruidQuery druidQuery)
+  public QueryResponse<Object[]> runQuery(final DruidQuery druidQuery)
   {
     final Query<?> query = druidQuery.getQuery();
 
@@ -132,7 +132,11 @@ public class QueryMaker
                              .orElseGet(query::getIntervals);
   }
 
-  private <T> Sequence<Object[]> execute(Query<T> query, final List<String> newFields, final List<SqlTypeName> newTypes)
+  private <T> QueryResponse<Object[]> execute(
+      Query<T> query,
+      final List<String> newFields,
+      final List<SqlTypeName> newTypes
+  )
   {
     Hook.QUERY_PLAN.run(query);
 
@@ -152,18 +156,21 @@ public class QueryMaker
     // otherwise it won't yet be initialized. (A bummer, since ideally, we'd verify the toolChest exists and can do
     // array-based results before starting the query; but in practice we don't expect this to happen since we keep
     // tight control over which query types we generate in the SQL layer. They all support array-based results.)
-    final Sequence<T> results = queryLifecycle.runSimple(query, authenticationResult, authorizationResult);
+    final QueryResponse<T> queryResponse = queryLifecycle.runSimple(query, authenticationResult, authorizationResult);
 
     //noinspection unchecked
     final QueryToolChest<T, Query<T>> toolChest = queryLifecycle.getToolChest();
     final List<String> resultArrayFields = toolChest.resultArraySignature(query).getColumnNames();
-    final Sequence<Object[]> resultArrays = toolChest.resultsAsArrays(query, results);
+    final Function<Object[], Object[]> remapFieldsFunction = remapFields(resultArrayFields, newFields, newTypes);
+    final Query<T> finalQuery = query;
 
-    return remapFields(resultArrays, resultArrayFields, newFields, newTypes);
+    return queryResponse.map(
+        sequence ->
+            toolChest.resultsAsArrays(finalQuery, sequence).map(remapFieldsFunction)
+    );
   }
 
-  private Sequence<Object[]> remapFields(
-      final Sequence<Object[]> sequence,
+  private Function<Object[], Object[]> remapFields(
       final List<String> originalFields,
       final List<String> newFields,
       final List<SqlTypeName> newTypes
@@ -192,16 +199,13 @@ public class QueryMaker
       mapping[i] = idx;
     }
 
-    return Sequences.map(
-        sequence,
-        array -> {
-          final Object[] newArray = new Object[mapping.length];
-          for (int i = 0; i < mapping.length; i++) {
-            newArray[i] = coerce(array[mapping[i]], newTypes.get(i));
-          }
-          return newArray;
-        }
-    );
+    return array -> {
+      final Object[] newArray = new Object[mapping.length];
+      for (int i = 0; i < mapping.length; i++) {
+        newArray[i] = coerce(array[mapping[i]], newTypes.get(i));
+      }
+      return newArray;
+    };
   }
 
   public static ColumnMetaData.Rep rep(final SqlTypeName sqlType)

@@ -28,13 +28,16 @@ import org.apache.druid.client.DirectDruidClient;
 import org.apache.druid.client.cache.Cache;
 import org.apache.druid.client.cache.CacheConfig;
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.java.util.common.guava.SequenceWrapper;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.FluentQueryRunnerBuilder;
 import org.apache.druid.query.GlobalTableDataSource;
 import org.apache.druid.query.InlineDataSource;
+import org.apache.druid.query.MultiQueryMetricsCollector;
 import org.apache.druid.query.PostProcessingOperator;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
@@ -49,7 +52,9 @@ import org.apache.druid.query.ResultLevelCachingQueryRunner;
 import org.apache.druid.query.RetryQueryRunner;
 import org.apache.druid.query.RetryQueryRunnerConfig;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.query.SingleQueryMetricsCollector;
 import org.apache.druid.query.TableDataSource;
+import org.apache.druid.query.context.ConcurrentResponseContext;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.segment.column.RowSignature;
@@ -63,6 +68,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 /**
@@ -151,8 +157,11 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
     // do an inlining dry run to see if any inlining is necessary, without actually running the queries.
     final int maxSubqueryRows = QueryContexts.getMaxSubqueryRows(query, serverConfig.getMaxSubqueryRows());
     final DataSource inlineDryRun = inlineIfNecessary(
+        query.getId(),
+        new AtomicInteger(),
         freeTradeDataSource,
         toolChest,
+        DirectDruidClient.makeResponseContextForQuery(),
         new AtomicInteger(),
         maxSubqueryRows,
         true
@@ -165,10 +174,14 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
     }
 
     // Now that we know the structure is workable, actually do the inlining (if necessary).
+    final ConcurrentResponseContext subqueryResponseContext = DirectDruidClient.makeResponseContextForQuery();
     final Query<T> newQuery = query.withDataSource(
         inlineIfNecessary(
+            query.getId(),
+            new AtomicInteger(),
             freeTradeDataSource,
             toolChest,
+            subqueryResponseContext,
             new AtomicInteger(),
             maxSubqueryRows,
             false
@@ -177,19 +190,25 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
 
     if (canRunQueryUsingLocalWalker(newQuery)) {
       // No need to decorate since LocalQuerySegmentWalker does its own.
-      return new QuerySwappingQueryRunner<>(
-          localClient.getQueryRunnerForIntervals(newQuery, intervals),
-          query,
-          newQuery
+      return new ResponseContextMetricsInjectingQueryRunner<>(
+          new QuerySwappingQueryRunner<>(
+              localClient.getQueryRunnerForIntervals(newQuery, intervals),
+              query,
+              newQuery
+          ),
+          subqueryResponseContext
       );
     } else if (canRunQueryUsingClusterWalker(newQuery)) {
       // Note: clusterClient.getQueryRunnerForIntervals() can return an empty sequence if there is no segment
       // to query, but this is not correct when there's a right or full outer join going on.
       // See https://github.com/apache/druid/issues/9229 for details.
-      return new QuerySwappingQueryRunner<>(
-          decorateClusterRunner(newQuery, clusterClient.getQueryRunnerForIntervals(newQuery, intervals)),
-          query,
-          newQuery
+      return new ResponseContextMetricsInjectingQueryRunner<>(
+          new QuerySwappingQueryRunner<>(
+              decorateClusterRunner(newQuery, clusterClient.getQueryRunnerForIntervals(newQuery, intervals)),
+              query,
+              newQuery
+          ),
+          subqueryResponseContext
       );
     } else {
       // We don't expect to ever get here, because the logic earlier in this method should have rejected any query
@@ -281,18 +300,24 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
    * 1) For outermost subqueries: inlining is necessary if the toolchest cannot handle it.
    * 2) For all other subqueries (e.g. those nested under a join): inlining is always necessary.
    *
+   * @param baseSubQueryId       prefix to use for all subQueryId parameters in subqueries.
+   * @param subqueryNumber       counter used to count the number of subqueries.
    * @param dataSource           datasource to process.
    * @param toolChestIfOutermost if provided, and if the provided datasource is a {@link QueryDataSource}, this method
    *                             will consider whether the toolchest can handle a subquery on the datasource using
    *                             {@link QueryToolChest#canPerformSubquery}. If the toolchest can handle it, then it will
    *                             not be inlined. See {@link org.apache.druid.query.groupby.GroupByQueryQueryToolChest}
    *                             for an example of a toolchest that can handle subqueries.
+   * @param responseContext      response context that will be populated with subquery metrics.
    * @param dryRun               if true, does not actually execute any subqueries, but will inline empty result sets.
    */
   @SuppressWarnings({"rawtypes", "unchecked"}) // Subquery, toolchest, runner handling all use raw types
   private DataSource inlineIfNecessary(
+      final String baseSubQueryId,
+      final AtomicInteger subqueryNumber,
       final DataSource dataSource,
       @Nullable final QueryToolChest toolChestIfOutermost,
+      final ConcurrentResponseContext responseContext,
       final AtomicInteger subqueryRowLimitAccumulator,
       final int maxSubqueryRows,
       final boolean dryRun
@@ -315,7 +340,16 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
         }
 
         assert !(current instanceof QueryDataSource); // lgtm [java/contradictory-type-checks]
-        current = inlineIfNecessary(current, null, subqueryRowLimitAccumulator, maxSubqueryRows, dryRun);
+        current = inlineIfNecessary(
+            baseSubQueryId,
+            subqueryNumber,
+            current,
+            null,
+            responseContext,
+            subqueryRowLimitAccumulator,
+            maxSubqueryRows,
+            dryRun
+        );
 
         while (!stack.isEmpty()) {
           current = stack.pop().withChildren(Collections.singletonList(current));
@@ -328,39 +362,84 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
         } else {
           // Something happened during inlining that means the toolchest is no longer able to handle this subquery.
           // We need to consider inlining it.
-          return inlineIfNecessary(current, toolChestIfOutermost, subqueryRowLimitAccumulator, maxSubqueryRows, dryRun);
+          return inlineIfNecessary(
+              baseSubQueryId,
+              subqueryNumber,
+              current,
+              toolChestIfOutermost,
+              responseContext,
+              subqueryRowLimitAccumulator,
+              maxSubqueryRows,
+              dryRun
+          );
         }
       } else if (canRunQueryUsingLocalWalker(subQuery) || canRunQueryUsingClusterWalker(subQuery)) {
         // Subquery needs to be inlined. Assign it a subquery id and run it.
-        final Query subQueryWithId = subQuery.withDefaultSubQueryId();
+        final Query subQueryWithId = subQuery.withSubQueryId(
+            StringUtils.format(
+                "%s_%s",
+                baseSubQueryId,
+                subqueryNumber.getAndIncrement()
+            )
+        );
 
         final Sequence<?> queryResults;
 
         if (dryRun) {
-          queryResults = Sequences.empty();
+          return toInlineDataSource(
+              subQueryWithId,
+              Sequences.empty(),
+              toolChest,
+              subqueryRowLimitAccumulator,
+              maxSubqueryRows
+          );
         } else {
-          final QueryRunner subqueryRunner = subQueryWithId.getRunner(this);
+          final long subqueryStartMs = System.currentTimeMillis();
+          final QueryRunner subqueryRunner = new ResponseContextMetricsCollectingQueryRunner(
+              subQueryWithId.getRunner(this),
+              responseContext,
+              subqueryStartMs
+          );
+
           queryResults = subqueryRunner.run(
               QueryPlus.wrap(subQueryWithId),
               DirectDruidClient.makeResponseContextForQuery()
           );
-        }
 
-        return toInlineDataSource(
-            subQueryWithId,
-            queryResults,
-            warehouse.getToolChest(subQueryWithId),
-            subqueryRowLimitAccumulator,
-            maxSubqueryRows
-        );
+          final InlineDataSource retVal = toInlineDataSource(
+              subQueryWithId,
+              queryResults,
+              toolChest,
+              subqueryRowLimitAccumulator,
+              maxSubqueryRows
+          );
+
+          responseContext.add(
+              ResponseContext.Key.METRICS,
+              MultiQueryMetricsCollector.newCollector().add(
+                  SingleQueryMetricsCollector.newCollector()
+                                             .setSubQueryId(subQueryWithId.getSubQueryId())
+                                             .setQueryStart(subqueryStartMs)
+                                             .setQueryMs(System.currentTimeMillis() - subqueryStartMs)
+                                             .setResultRows(retVal.getRowsAsList().size())
+              )
+          );
+
+          return retVal;
+        }
       } else {
         // Cannot inline subquery. Attempt to inline one level deeper, and then try again.
         return inlineIfNecessary(
+            baseSubQueryId,
+            subqueryNumber,
             dataSource.withChildren(
                 Collections.singletonList(
                     inlineIfNecessary(
+                        baseSubQueryId,
+                        subqueryNumber,
                         Iterables.getOnlyElement(dataSource.getChildren()),
                         null,
+                        responseContext,
                         subqueryRowLimitAccumulator,
                         maxSubqueryRows,
                         dryRun
@@ -368,6 +447,7 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
                 )
             ),
             toolChestIfOutermost,
+            responseContext,
             subqueryRowLimitAccumulator,
             maxSubqueryRows,
             dryRun
@@ -378,7 +458,19 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
       return dataSource.withChildren(
           dataSource.getChildren()
                     .stream()
-                    .map(child -> inlineIfNecessary(child, null, subqueryRowLimitAccumulator, maxSubqueryRows, dryRun))
+                    .map(
+                        child ->
+                            inlineIfNecessary(
+                                baseSubQueryId,
+                                subqueryNumber,
+                                child,
+                                null,
+                                responseContext,
+                                subqueryRowLimitAccumulator,
+                                maxSubqueryRows,
+                                dryRun
+                            )
+                    )
                     .collect(Collectors.toList())
       );
     }
@@ -509,6 +601,88 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
       }
 
       return baseRunner.run(queryPlus.withQuery(newQuery), responseContext);
+    }
+  }
+
+  private static class ResponseContextMetricsCollectingQueryRunner<T> implements QueryRunner<T>
+  {
+    private final QueryRunner<T> baseRunner;
+    private final ResponseContext receivingContext;
+    private final long startMs;
+
+    public ResponseContextMetricsCollectingQueryRunner(
+        QueryRunner<T> baseRunner,
+        ResponseContext receivingContext,
+        long startMs
+    )
+    {
+      this.baseRunner = baseRunner;
+      this.receivingContext = receivingContext;
+      this.startMs = startMs;
+    }
+
+    @Override
+    public Sequence<T> run(QueryPlus<T> queryPlus, ResponseContext responseContext)
+    {
+      final AtomicLong rowCounter = new AtomicLong();
+
+      return Sequences.wrap(
+          baseRunner.run(queryPlus, responseContext),
+          new SequenceWrapper()
+          {
+            @Override
+            public void after(boolean isDone, Throwable thrown)
+            {
+              if (isDone) {
+                // TODO(gianm): Use Key property rather than hardcoding METRICS
+                final Object metricsObject = responseContext.get(ResponseContext.Key.METRICS);
+                if (metricsObject != null) {
+                  receivingContext.add(ResponseContext.Key.METRICS, metricsObject);
+                }
+              }
+            }
+          }
+      );
+    }
+  }
+
+  private static class ResponseContextMetricsInjectingQueryRunner<T> implements QueryRunner<T>
+  {
+    private final QueryRunner<T> baseRunner;
+    private final ResponseContext donorContext;
+
+    public ResponseContextMetricsInjectingQueryRunner(
+        QueryRunner<T> baseRunner,
+        ResponseContext donorContext
+    )
+    {
+      this.baseRunner = baseRunner;
+      this.donorContext = donorContext;
+    }
+
+    @Override
+    public Sequence<T> run(QueryPlus<T> queryPlus, ResponseContext responseContext)
+    {
+      final Object donorMetrics = donorContext.get(ResponseContext.Key.METRICS);
+      final Sequence<T> baseResults = baseRunner.run(queryPlus, responseContext);
+
+      if (donorMetrics == null) {
+        return baseResults;
+      } else {
+        return Sequences.wrap(
+            baseResults,
+            new SequenceWrapper()
+            {
+              @Override
+              public void after(boolean isDone, Throwable thrown)
+              {
+                if (isDone) {
+                  responseContext.add(ResponseContext.Key.METRICS, donorMetrics);
+                }
+              }
+            }
+        );
+      }
     }
   }
 }

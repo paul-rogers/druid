@@ -32,7 +32,7 @@ import org.apache.calcite.rel.logical.LogicalTableScan;
 import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.server.QueryResponse;
 import org.apache.druid.sql.calcite.table.DruidTable;
 
 import javax.annotation.Nullable;
@@ -156,7 +156,7 @@ public class DruidQueryRel extends DruidRel<DruidQueryRel>
   }
 
   @Override
-  public Sequence<Object[]> runQuery()
+  public QueryResponse<Object[]> runQuery()
   {
     // runQuery doesn't need to finalize aggregations, because the fact that runQuery is happening suggests this
     // is the outermost query and it will actually get run as a native query. Druid's native query layer will

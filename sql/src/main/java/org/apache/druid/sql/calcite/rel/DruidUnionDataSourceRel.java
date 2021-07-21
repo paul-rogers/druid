@@ -31,11 +31,11 @@ import org.apache.calcite.rel.core.Union;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.UnionDataSource;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.server.QueryResponse;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 
 import java.util.ArrayList;
@@ -116,7 +116,7 @@ public class DruidUnionDataSourceRel extends DruidRel<DruidUnionDataSourceRel>
   }
 
   @Override
-  public Sequence<Object[]> runQuery()
+  public QueryResponse<Object[]> runQuery()
   {
     // runQuery doesn't need to finalize aggregations, because the fact that runQuery is happening suggests this
     // is the outermost query and it will actually get run as a native query. Druid's native query layer will

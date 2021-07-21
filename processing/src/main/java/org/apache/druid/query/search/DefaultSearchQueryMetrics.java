@@ -25,8 +25,10 @@ import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.BitmapResultFactory;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryMetrics;
+import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
 
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -238,6 +240,12 @@ public class DefaultSearchQueryMetrics implements SearchQueryMetrics
   }
 
   @Override
+  public QueryMetrics reportNodeRows(long numRows)
+  {
+    return delegateQueryMetrics.reportNodeRows(numRows);
+  }
+
+  @Override
   public QueryMetrics reportBitmapConstructionTime(long timeNs)
   {
     return delegateQueryMetrics.reportBitmapConstructionTime(timeNs);
@@ -298,8 +306,8 @@ public class DefaultSearchQueryMetrics implements SearchQueryMetrics
   }
 
   @Override
-  public void emit(ServiceEmitter emitter)
+  public void emit(ServiceEmitter emitter, @Nullable ResponseContext responseContext)
   {
-    delegateQueryMetrics.emit(emitter);
+    delegateQueryMetrics.emit(emitter, responseContext);
   }
 }

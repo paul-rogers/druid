@@ -410,6 +410,11 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       }
     }
 
+    if (queryMetrics != null) {
+      queryMetrics.preFilters(new ArrayList<>(preFilters));
+      queryMetrics.postFilters(postFilters);
+    }
+
     final ImmutableBitmap preFilterBitmap;
     if (preFilters.isEmpty()) {
       preFilterBitmap = null;
@@ -429,8 +434,6 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     }
 
     if (queryMetrics != null) {
-      queryMetrics.preFilters(new ArrayList<>(preFilters));
-      queryMetrics.postFilters(postFilters);
       queryMetrics.reportSegmentRows(totalRows);
       queryMetrics.reportPreFilteredRows(preFilteredRows);
     }

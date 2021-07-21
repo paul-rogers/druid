@@ -19,13 +19,13 @@
 
 package org.apache.druid.query.context;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.NonnullPair;
 import org.apache.druid.query.SegmentDescriptor;
-import org.apache.druid.query.context.ResponseContext.Key;
 import org.joda.time.Interval;
 import org.junit.Assert;
 import org.junit.Test;
@@ -74,9 +74,21 @@ public class ResponseContextTest
     }
 
     @Override
-    public BiFunction<Object, Object, Object> getMergeFunction()
+    public ResponseContext.Visibility getPhase()
     {
-      return mergeFunction;
+      return ResponseContext.Visibility.HEADER_AND_TRAILER;
+    }
+
+    @Override
+    public Object readValue(JsonParser jp)
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Object mergeValues(Object oldValue, Object newValue)
+    {
+      return mergeFunction.apply(oldValue, newValue);
     }
   }
 
@@ -89,9 +101,21 @@ public class ResponseContextTest
     }
 
     @Override
-    public BiFunction<Object, Object, Object> getMergeFunction()
+    public ResponseContext.Visibility getPhase()
     {
-      return (Object a, Object b) -> a;
+      return ResponseContext.Visibility.HEADER_AND_TRAILER;
+    }
+
+    @Override
+    public Object readValue(JsonParser jp)
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Object mergeValues(Object oldValue, Object newValue)
+    {
+      return newValue;
     }
   };
 
@@ -138,14 +162,14 @@ public class ResponseContextTest
 
     final String queryId = "queryId";
     final String queryId2 = "queryId2";
-    ctx.put(Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
-    ctx.add(Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, 3));
-    ctx.add(Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId2, 4));
-    ctx.add(Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, -1));
-    ctx.add(Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, -2));
+    ctx.put(ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
+    ctx.add(ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, 3));
+    ctx.add(ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId2, 4));
+    ctx.add(ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, -1));
+    ctx.add(ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, -2));
     Assert.assertEquals(
         ImmutableMap.of(queryId, 0, queryId2, 4),
-        ctx.get(Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS)
+        ctx.get(ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS)
     );
 
     final SegmentDescriptor sd01 = new SegmentDescriptor(interval01, "01", 0);
@@ -229,14 +253,14 @@ public class ResponseContextTest
     final DefaultObjectMapper mapper = new DefaultObjectMapper();
     Assert.assertEquals(
         mapper.writeValueAsString(ImmutableMap.of("ETag", "string-value")),
-        ctx1.serializeWith(mapper, Integer.MAX_VALUE).getResult()
+        ctx1.toHeader(mapper, Integer.MAX_VALUE).getResult()
     );
 
     final ResponseContext ctx2 = ResponseContext.createEmpty();
-    ctx2.add(ResponseContext.Key.NUM_SCANNED_ROWS, 100);
+    ctx2.add(ResponseContext.Key.CPU_CONSUMED_NANOS, 100);
     Assert.assertEquals(
-        mapper.writeValueAsString(ImmutableMap.of("count", 100)),
-        ctx2.serializeWith(mapper, Integer.MAX_VALUE).getResult()
+        mapper.writeValueAsString(ImmutableMap.of("cpuConsumed", 100)),
+        ctx2.toHeader(mapper, Integer.MAX_VALUE).getResult()
     );
   }
 
@@ -244,15 +268,15 @@ public class ResponseContextTest
   public void serializeWithTruncateValueTest() throws IOException
   {
     final ResponseContext ctx = ResponseContext.createEmpty();
-    ctx.put(ResponseContext.Key.NUM_SCANNED_ROWS, 100);
+    ctx.put(ResponseContext.Key.CPU_CONSUMED_NANOS, 100);
     ctx.put(ResponseContext.Key.ETAG, "long-string-that-is-supposed-to-be-removed-from-result");
     final DefaultObjectMapper objectMapper = new DefaultObjectMapper();
     final String fullString = objectMapper.writeValueAsString(ctx.getDelegate());
-    final ResponseContext.SerializationResult res1 = ctx.serializeWith(objectMapper, Integer.MAX_VALUE);
+    final ResponseContext.SerializationResult res1 = ctx.toHeader(objectMapper, Integer.MAX_VALUE);
     Assert.assertEquals(fullString, res1.getResult());
     final ResponseContext ctxCopy = ResponseContext.createEmpty();
     ctxCopy.merge(ctx);
-    final ResponseContext.SerializationResult res2 = ctx.serializeWith(objectMapper, 30);
+    final ResponseContext.SerializationResult res2 = ctx.toHeader(objectMapper, 30);
     ctxCopy.remove(ResponseContext.Key.ETAG);
     ctxCopy.put(ResponseContext.Key.TRUNCATED, true);
     Assert.assertEquals(
@@ -265,7 +289,7 @@ public class ResponseContextTest
   public void serializeWithTruncateArrayTest() throws IOException
   {
     final ResponseContext ctx = ResponseContext.createEmpty();
-    ctx.put(ResponseContext.Key.NUM_SCANNED_ROWS, 100);
+    ctx.put(ResponseContext.Key.CPU_CONSUMED_NANOS, 100);
     ctx.put(
         ResponseContext.Key.UNCOVERED_INTERVALS,
         Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
@@ -276,11 +300,11 @@ public class ResponseContextTest
     );
     final DefaultObjectMapper objectMapper = new DefaultObjectMapper();
     final String fullString = objectMapper.writeValueAsString(ctx.getDelegate());
-    final ResponseContext.SerializationResult res1 = ctx.serializeWith(objectMapper, Integer.MAX_VALUE);
+    final ResponseContext.SerializationResult res1 = ctx.toHeader(objectMapper, Integer.MAX_VALUE);
     Assert.assertEquals(fullString, res1.getResult());
     final ResponseContext ctxCopy = ResponseContext.createEmpty();
     ctxCopy.merge(ctx);
-    final ResponseContext.SerializationResult res2 = ctx.serializeWith(objectMapper, 70);
+    final ResponseContext.SerializationResult res2 = ctx.toHeader(objectMapper, 70);
     ctxCopy.put(ResponseContext.Key.UNCOVERED_INTERVALS, Arrays.asList(0, 1, 2, 3, 4));
     ctxCopy.remove(ResponseContext.Key.MISSING_SEGMENTS);
     ctxCopy.put(ResponseContext.Key.TRUNCATED, true);
@@ -305,11 +329,11 @@ public class ResponseContextTest
         mapper
     );
     Assert.assertEquals("string-value", ctx.get(ResponseContext.Key.ETAG));
-    Assert.assertEquals(100, ctx.get(ResponseContext.Key.NUM_SCANNED_ROWS));
-    Assert.assertEquals(100000, ctx.get(ResponseContext.Key.CPU_CONSUMED_NANOS));
+    Assert.assertEquals(100L, ctx.get(ResponseContext.Key.NUM_SCANNED_ROWS));
+    Assert.assertEquals(100000L, ctx.get(ResponseContext.Key.CPU_CONSUMED_NANOS));
     ctx.add(ResponseContext.Key.NUM_SCANNED_ROWS, 10L);
     Assert.assertEquals(110L, ctx.get(ResponseContext.Key.NUM_SCANNED_ROWS));
-    ctx.add(ResponseContext.Key.CPU_CONSUMED_NANOS, 100);
+    ctx.add(ResponseContext.Key.CPU_CONSUMED_NANOS, 100L);
     Assert.assertEquals(100100L, ctx.get(ResponseContext.Key.CPU_CONSUMED_NANOS));
   }
 

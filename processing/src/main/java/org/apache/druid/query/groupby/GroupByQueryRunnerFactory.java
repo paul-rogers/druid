@@ -24,6 +24,7 @@ import com.google.inject.Inject;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.QueryRunner;
@@ -102,7 +103,13 @@ public class GroupByQueryRunnerFactory implements QueryRunnerFactory<ResultRow, 
         throw new ISE("Got a [%s] which isn't a %s", query.getClass(), GroupByQuery.class);
       }
 
-      return strategySelector.strategize((GroupByQuery) query).process((GroupByQuery) query, adapter);
+      //noinspection unchecked
+      return strategySelector.strategize((GroupByQuery) query)
+                             .process(
+                                 (GroupByQuery) query,
+                                 adapter,
+                                 (QueryMetrics<GroupByQuery>) queryPlus.getQueryMetrics()
+                             );
     }
   }
 

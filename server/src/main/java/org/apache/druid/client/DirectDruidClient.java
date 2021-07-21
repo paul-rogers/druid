@@ -32,7 +32,6 @@ import org.apache.druid.java.util.common.RE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.common.guava.BaseSequence;
-import org.apache.druid.java.util.common.guava.CloseQuietly;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.logger.Logger;
@@ -85,6 +84,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
+ *
  */
 public class DirectDruidClient<T> implements QueryRunner<T>
 {
@@ -105,18 +105,9 @@ public class DirectDruidClient<T> implements QueryRunner<T>
   private final boolean isSmile;
   private final ScheduledExecutorService queryCancellationExecutor;
 
-  /**
-   * Removes the magical fields added by {@link #makeResponseContextForQuery()}.
-   */
-  public static void removeMagicResponseContextFields(ResponseContext responseContext)
+  public static ConcurrentResponseContext makeResponseContextForQuery()
   {
-    responseContext.remove(ResponseContext.Key.QUERY_TOTAL_BYTES_GATHERED);
-    responseContext.remove(ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS);
-  }
-
-  public static ResponseContext makeResponseContextForQuery()
-  {
-    final ResponseContext responseContext = ConcurrentResponseContext.createEmpty();
+    final ConcurrentResponseContext responseContext = ConcurrentResponseContext.createEmpty();
     responseContext.put(ResponseContext.Key.QUERY_TOTAL_BYTES_GATHERED, new AtomicLong());
     responseContext.put(Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
     return responseContext;
@@ -235,7 +226,8 @@ public class DirectDruidClient<T> implements QueryRunner<T>
 
           log.debug("Initial response from url[%s] for queryId[%s]", url, query.getId());
           responseStartTimeNs = System.nanoTime();
-          acquireResponseMetrics().reportNodeTimeToFirstByte(responseStartTimeNs - requestStartTimeNs).emit(emitter);
+          acquireResponseMetrics().reportNodeTimeToFirstByte(responseStartTimeNs - requestStartTimeNs)
+                                  .emit(emitter, context);
 
           final boolean continueReading;
           try {
@@ -252,7 +244,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
             );
             // context may be null in case of error or query timeout
             if (responseContext != null) {
-              context.merge(ResponseContext.deserialize(responseContext, objectMapper));
+              context.merge(objectMapper.readValue(responseContext, ResponseContext.class));
             }
             continueReading = enqueue(response.getContent(), 0L);
           }
@@ -368,7 +360,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
             responseMetrics.reportBackPressureTime(channelSuspendedTime.get());
           }
 
-          responseMetrics.emit(emitter);
+          responseMetrics.emit(emitter, context);
           synchronized (done) {
             try {
               // An empty byte array is put at the end to give the SequenceInputStream.close() as something to close out
@@ -464,7 +456,8 @@ public class DirectDruidClient<T> implements QueryRunner<T>
            .setHeader(
                HttpHeaders.Names.CONTENT_TYPE,
                isSmile ? SmileMediaTypes.APPLICATION_JACKSON_SMILE : MediaType.APPLICATION_JSON
-           ),
+           )
+           .setHeader(QueryResource.HEADER_INCLUDE_TRAILER, "Yes"),
           responseHandler,
           Duration.millis(timeLeft)
       );
@@ -505,7 +498,8 @@ public class DirectDruidClient<T> implements QueryRunner<T>
           @Override
           public JsonParserIterator<T> make()
           {
-            return new JsonParserIterator<T>(
+            return new JsonParserIterator<>(
+                JsonParserIterator.ResultStructure.OBJECT,
                 queryResultType,
                 future,
                 url,
@@ -518,7 +512,22 @@ public class DirectDruidClient<T> implements QueryRunner<T>
           @Override
           public void cleanup(JsonParserIterator<T> iterFromMake)
           {
-            CloseQuietly.close(iterFromMake);
+            try {
+              iterFromMake.close();
+            }
+            catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+
+            if (iterFromMake.isSuccess()) {
+              if (iterFromMake.responseContext() != null) {
+                context.merge(objectMapper.convertValue(iterFromMake.responseContext(), ResponseContext.class));
+              }
+
+              final QueryMetrics<? super Query<T>> queryMetrics = toolChest.makeMetrics(query);
+              queryMetrics.reportNodeRows(iterFromMake.getResultRows());
+              queryMetrics.emit(emitter, context);
+            }
           }
         }
     );
@@ -544,10 +553,14 @@ public class DirectDruidClient<T> implements QueryRunner<T>
       try {
         Future<StatusResponseHolder> responseFuture = httpClient.go(
             new Request(HttpMethod.DELETE, new URL(cancelUrl))
-            .setContent(objectMapper.writeValueAsBytes(query))
-            .setHeader(HttpHeaders.Names.CONTENT_TYPE, isSmile ? SmileMediaTypes.APPLICATION_JACKSON_SMILE : MediaType.APPLICATION_JSON),
+                .setContent(objectMapper.writeValueAsBytes(query))
+                .setHeader(
+                    HttpHeaders.Names.CONTENT_TYPE,
+                    isSmile ? SmileMediaTypes.APPLICATION_JACKSON_SMILE : MediaType.APPLICATION_JSON
+                ),
             StatusResponseHandler.getInstance(),
-            Duration.standardSeconds(1));
+            Duration.standardSeconds(1)
+        );
 
         Runnable checkRunnable = () -> {
           try {
@@ -556,10 +569,12 @@ public class DirectDruidClient<T> implements QueryRunner<T>
             }
             StatusResponseHolder response = responseFuture.get();
             if (response.getStatus().getCode() >= 500) {
-              log.error("Error cancelling query[%s]: queriable node returned status[%d] [%s].",
+              log.error(
+                  "Error cancelling query[%s]: queriable node returned status[%d] [%s].",
                   query,
                   response.getStatus().getCode(),
-                  response.getStatus().getReasonPhrase());
+                  response.getStatus().getReasonPhrase()
+              );
             }
           }
           catch (ExecutionException | InterruptedException e) {

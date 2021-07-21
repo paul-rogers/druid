@@ -31,12 +31,15 @@ import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.guava.Accumulator;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Yielder;
+import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.context.ResponseContextDeserializer;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.nio.ByteOrder;
 
 /**
+ *
  */
 public class DruidDefaultSerializersModule extends SimpleModule
 {
@@ -142,5 +145,6 @@ public class DruidDefaultSerializersModule extends SimpleModule
           }
         }
     );
+    addDeserializer(ResponseContext.class, new ResponseContextDeserializer());
   }
 }

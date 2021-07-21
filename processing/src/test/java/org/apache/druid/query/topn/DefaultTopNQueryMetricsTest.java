@@ -69,7 +69,7 @@ public class DefaultTopNQueryMetricsTest
         .build();
     queryMetrics.query(query);
 
-    queryMetrics.reportQueryTime(0).emit(serviceEmitter);
+    queryMetrics.reportQueryTime(0).emit(serviceEmitter, null);
     Map<String, Object> actualEvent = cachingEmitter.getLastEmittedEvent().toMap();
     Assert.assertEquals(17, actualEvent.size());
     Assert.assertTrue(actualEvent.containsKey("feed"));

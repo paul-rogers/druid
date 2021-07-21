@@ -19,20 +19,26 @@
 
 package org.apache.druid.query;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.druid.java.util.common.StringUtils;
 
-/**
- * This exception is thrown when {@link org.apache.druid.query.context.ResponseContext} is truncated after serialization
- * in historicals or realtime tasks. The serialized response context can be truncated if its size is larger than
- * {@code QueryResource#RESPONSE_CTX_HEADER_LEN_LIMIT}.
- *
- * See {@link org.apache.druid.query.context.ResponseContext#toHeader} and
- * {@code ResponseContextConfig#shouldFailOnTruncatedResponseContext}.
- */
-public class TruncatedResponseContextException extends RuntimeException
+public class BadHeaderException extends BadQueryException
 {
-  public TruncatedResponseContextException(String message, Object... arguments)
+  public static final String ERROR_CODE = "Improper HTTP header";
+
+  public BadHeaderException(String header, String message)
   {
-    super(StringUtils.nonStrictFormat(message, arguments));
+    this(ERROR_CODE, StringUtils.format("Header [%s]: %s", header, message), BadHeaderException.class.getName());
+  }
+
+  @JsonCreator
+  private BadHeaderException(
+      @JsonProperty("error") String errorCode,
+      @JsonProperty("errorMessage") String errorMessage,
+      @JsonProperty("errorClass") String errorClass
+  )
+  {
+    super(errorCode, errorMessage, errorClass);
   }
 }

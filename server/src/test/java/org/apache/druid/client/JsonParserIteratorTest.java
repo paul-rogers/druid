@@ -70,6 +70,7 @@ public class JsonParserIteratorTest
     public void testConvertFutureTimeoutToQueryTimeoutException()
     {
       JsonParserIterator<Object> iterator = new JsonParserIterator<>(
+          JsonParserIterator.ResultStructure.ARRAY,
           JAVA_TYPE,
           Futures.immediateFailedFuture(
               new QueryException(
@@ -93,6 +94,7 @@ public class JsonParserIteratorTest
     public void testConvertFutureCancelationToQueryInterruptedException()
     {
       JsonParserIterator<Object> iterator = new JsonParserIterator<>(
+          JsonParserIterator.ResultStructure.ARRAY,
           JAVA_TYPE,
           Futures.immediateCancelledFuture(),
           URL,
@@ -109,6 +111,7 @@ public class JsonParserIteratorTest
     public void testConvertFutureInterruptedToQueryInterruptedException()
     {
       JsonParserIterator<Object> iterator = new JsonParserIterator<>(
+          JsonParserIterator.ResultStructure.ARRAY,
           JAVA_TYPE,
           Futures.immediateFailedFuture(new InterruptedException("interrupted future")),
           URL,
@@ -132,6 +135,7 @@ public class JsonParserIteratorTest
           exceptionThrowingStream.read(ArgumentMatchers.any(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyInt())
       ).thenThrow(ioException);
       JsonParserIterator<Object> iterator = new JsonParserIterator<>(
+          JsonParserIterator.ResultStructure.ARRAY,
           JAVA_TYPE,
           Futures.immediateFuture(exceptionThrowingStream),
           URL,
@@ -176,6 +180,7 @@ public class JsonParserIteratorTest
     public void testRestoreException() throws JsonProcessingException
     {
       JsonParserIterator<Object> iterator = new JsonParserIterator<>(
+          JsonParserIterator.ResultStructure.ARRAY,
           JAVA_TYPE,
           Futures.immediateFuture(mockErrorResponse(exception)),
           URL,
@@ -198,6 +203,7 @@ public class JsonParserIteratorTest
     public void testConvertQueryExceptionWithNullErrorCodeToQueryInterruptedException() throws JsonProcessingException
     {
       JsonParserIterator<Object> iterator = new JsonParserIterator<>(
+          JsonParserIterator.ResultStructure.ARRAY,
           JAVA_TYPE,
           Futures.immediateFuture(mockErrorResponse(new QueryException(null, "query exception test", null, null))),
           URL,
@@ -215,6 +221,7 @@ public class JsonParserIteratorTest
         throws JsonProcessingException
     {
       JsonParserIterator<Object> iterator = new JsonParserIterator<>(
+          JsonParserIterator.ResultStructure.ARRAY,
           JAVA_TYPE,
           Futures.immediateFuture(
               mockErrorResponse(new QueryException("test error", "query exception test", null, null))
@@ -239,6 +246,7 @@ public class JsonParserIteratorTest
     public void testTimeoutBeforeCallingFuture()
     {
       JsonParserIterator<?> iterator = new JsonParserIterator<>(
+          JsonParserIterator.ResultStructure.ARRAY,
           JAVA_TYPE,
           Mockito.mock(Future.class),
           URL,
@@ -265,6 +273,7 @@ public class JsonParserIteratorTest
         }
       };
       JsonParserIterator<?> iterator = new JsonParserIterator<>(
+          JsonParserIterator.ResultStructure.ARRAY,
           JAVA_TYPE,
           future,
           URL,
@@ -283,6 +292,7 @@ public class JsonParserIteratorTest
       ExecutorService service = Execs.singleThreaded("timeout-test");
       try {
         JsonParserIterator<?> iterator = new JsonParserIterator<>(
+            JsonParserIterator.ResultStructure.ARRAY,
             JAVA_TYPE,
             service.submit(() -> {
               Thread.sleep(2000); // Sleep longer than timeout

@@ -85,7 +85,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
   @Override
   public Sequence<T> run(final QueryPlus<T> queryPlus, final ResponseContext responseContext)
   {
-    QueryPlus<T> queryWithMetrics = queryPlus.withQueryMetrics(queryToolChest);
+    final QueryPlus<T> queryWithMetrics = queryPlus.withQueryMetrics(queryToolChest);
     final QueryMetrics<?> queryMetrics = queryWithMetrics.getQueryMetrics();
 
     applyCustomDimensions.accept(queryMetrics);
@@ -120,7 +120,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
               queryMetrics.reportWaitTime(startTimeNs - creationTimeNs);
             }
             try {
-              queryMetrics.emit(emitter);
+              queryMetrics.emit(emitter, responseContext);
             }
             catch (Exception e) {
               // Query should not fail, because of emitter failure. Swallowing the exception.

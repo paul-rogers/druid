@@ -799,8 +799,10 @@ public class SystemSchema extends AbstractSchema
             public Object[] current()
             {
               final TaskStatusPlus task = it.next();
-              @Nullable final String host = task.getLocation().getHost();
-              @Nullable final String hostAndPort;
+              @Nullable
+              final String host = task.getLocation().getHost();
+              @Nullable
+              final String hostAndPort;
 
               if (host == null) {
                 hostAndPort = null;
@@ -1079,6 +1081,7 @@ public class SystemSchema extends AbstractSchema
 
     final JavaType javaType = jsonMapper.getTypeFactory().constructType(typeRef);
     return new JsonParserIterator<>(
+        JsonParserIterator.ResultStructure.ARRAY,
         javaType,
         Futures.immediateFuture(responseHolder.getContent()),
         request.getUrl().toString(),

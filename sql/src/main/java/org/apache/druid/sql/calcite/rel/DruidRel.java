@@ -22,7 +22,7 @@ package org.apache.druid.sql.calcite.rel;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.AbstractRelNode;
-import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.server.QueryResponse;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 
 import javax.annotation.Nullable;
@@ -45,7 +45,7 @@ public abstract class DruidRel<T extends DruidRel> extends AbstractRelNode
   @Nullable
   public abstract PartialDruidQuery getPartialDruidQuery();
 
-  public abstract Sequence<Object[]> runQuery();
+  public abstract QueryResponse<Object[]> runQuery();
 
   public abstract T withPartialQuery(PartialDruidQuery newQueryBuilder);
 
