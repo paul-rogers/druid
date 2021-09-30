@@ -112,4 +112,12 @@ public class QueryResponse<T>
   {
     return new QueryResponse<>(Sequences.wrap(results, wrapper), responseContext, resultsComplete);
   }
+  
+  /**
+   * Create a new response with new (presumably rewritten) results.
+   */
+  public QueryResponse<T> rewrite(Sequence<T> newResults)
+  {
+	return new QueryResponse<>(newResults, responseContext, resultsComplete);
+  }
 }

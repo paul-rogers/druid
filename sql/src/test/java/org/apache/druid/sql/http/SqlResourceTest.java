@@ -51,6 +51,7 @@ import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.ResourceLimitExceededException;
+import org.apache.druid.server.QueryResponse;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.QueryStackTests;
 import org.apache.druid.server.initialization.ServerConfig;
@@ -1385,16 +1386,17 @@ public class SqlResourceTest extends CalciteTestBase
     }
 
     @Override
-    public Sequence<Object[]> execute()
+    public QueryResponse<Object[]> execute()
     {
       final Function<Sequence<Object[]>, Sequence<Object[]>> sequenceMapFn =
           Optional.ofNullable(sequenceMapFnSupplier.get()).orElse(Function.identity());
 
       if (executeLatchSupplier.get() != null) {
         if (executeLatchSupplier.get().rhs) {
-          Sequence<Object[]> sequence = sequenceMapFn.apply(super.execute());
+          QueryResponse<Object[]> response = super.execute();
+          Sequence<Object[]> sequence = sequenceMapFn.apply(response.getResults());
           executeLatchSupplier.get().lhs.countDown();
-          return sequence;
+          return response.rewrite(sequence);
         } else {
           try {
             if (!executeLatchSupplier.get().lhs.await(1, TimeUnit.SECONDS)) {
@@ -1404,10 +1406,10 @@ public class SqlResourceTest extends CalciteTestBase
           catch (InterruptedException e) {
             throw new RuntimeException(e);
           }
-          return sequenceMapFn.apply(super.execute());
+          return super.execute().map(sequenceMapFn);
         }
       } else {
-        return sequenceMapFn.apply(super.execute());
+    	  return super.execute().map(sequenceMapFn);
       }
     }
   }

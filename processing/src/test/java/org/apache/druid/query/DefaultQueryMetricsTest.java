@@ -151,7 +151,7 @@ public class DefaultQueryMetricsTest
 
     // Here we are testing that Queried Segment Count does not get emitted by the DefaultQueryMetrics and the last
     // metric remains as query/node/bytes
-    queryMetrics.reportQueriedSegmentCount(25).emit(serviceEmitter);
+    queryMetrics.reportQueriedSegmentCount(25).emit(serviceEmitter, null);
     actualEvent = cachingEmitter.getLastEmittedEvent().toMap();
     Assert.assertEquals("query/node/bytes", actualEvent.get("metric"));
     Assert.assertEquals(10L, actualEvent.get("value"));

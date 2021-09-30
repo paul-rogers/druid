@@ -20,3 +20,6 @@ LICENSE.BINARY
 NOTICE.BINARY
 README.BINARY
 README
+**/.pmd
+**/.pmdruleset.xml
+.java-version

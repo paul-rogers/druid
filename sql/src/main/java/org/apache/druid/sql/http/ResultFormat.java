@@ -104,14 +104,7 @@ public enum ResultFormat
 
   public abstract Writer createFormatter(OutputStream outputStream, ObjectMapper jsonMapper) throws IOException;
 
-  @Override
-  @JsonValue
-  public String toString()
-  {
-    return name;
-  }
-
-  public interface Writer extends Closeable
+  interface Writer extends Closeable
   {
     /**
      * Start of the response, called once per writer.
