@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.context;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -61,29 +62,36 @@ public abstract class ResponseContext
    * The base interface of a response context key.
    * Should be implemented by every context key.
    */
-  public interface BaseKey<T>
+  public interface BaseKey
   {
     @JsonValue
     String getName();
 
     /**
-     * Which phase this key
+     * The phase (header, trailer, none) where this key is emitted.
      */
     Visibility getPhase();
 
     /**
      * Reads a value of this key from a JSON stream. Used by {@link ResponseContextDeserializer}.
      */
-    T readValue(JsonParser jp);
+    Object readValue(JsonParser jp);
 
     /**
      * Merges two values of type T.
      *
      * This method may modify "oldValue" but must not modify "newValue".
      */
-    T mergeValues(T oldValue, T newValue);
+    Object mergeValues(Object oldValue, Object newValue);
+    
+    /**
+     * Returns true if this key can be removed to reduce header size when the
+     * header would otherwise be too large.
+     */
+    @JsonIgnore
+    boolean canDrop();
   }
-
+  
   public enum Visibility
   {
     /**
@@ -110,7 +118,8 @@ public abstract class ResponseContext
    * <pre>{@code
    * public enum ExtensionResponseContextKey implements BaseKey
    * {
-   *   EXTENSION_KEY_1("extension_key_1"), EXTENSION_KEY_2("extension_key_2");
+   *   EXTENSION_KEY_1("extension_key_1"),
+   *   EXTENSION_KEY_2("extension_key_2");
    *
    *   static {
    *     for (BaseKey key : values()) ResponseContext.Key.registerKey(key);
@@ -132,12 +141,15 @@ public abstract class ResponseContext
    * }</pre>
    * Make sure all extension enum values added with {@link Key#registerKey} method.
    */
-  public enum Key implements BaseKey<Object>
+  public enum Key implements BaseKey
   {
     /**
      * Lists intervals for which NO segment is present.
      */
-    UNCOVERED_INTERVALS("uncoveredIntervals", Visibility.HEADER_AND_TRAILER, new TypeReference<List<Interval>>() {}) {
+    UNCOVERED_INTERVALS(
+    		"uncoveredIntervals", 
+    		Visibility.HEADER_AND_TRAILER, true,
+    		new TypeReference<List<Interval>>() {}) {
       @Override
       @SuppressWarnings("unchecked")
       public Object mergeValues(Object oldValue, Object newValue)
@@ -150,7 +162,10 @@ public abstract class ResponseContext
     /**
      * Indicates if the number of uncovered intervals exceeded the limit (true/false).
      */
-    UNCOVERED_INTERVALS_OVERFLOWED("uncoveredIntervalsOverflowed", Visibility.HEADER_AND_TRAILER, Boolean.class) {
+    UNCOVERED_INTERVALS_OVERFLOWED(
+    		"uncoveredIntervalsOverflowed", 
+    		Visibility.HEADER_AND_TRAILER, false,
+    		Boolean.class) {
       @Override
       public Object mergeValues(Object oldValue, Object newValue)
       {
@@ -169,7 +184,10 @@ public abstract class ResponseContext
      *
      * @see org.apache.druid.query.Query#getMostSpecificId
      */
-    REMAINING_RESPONSES_FROM_QUERY_SERVERS("remainingResponsesFromQueryServers", Visibility.NONE, Object.class) {
+    REMAINING_RESPONSES_FROM_QUERY_SERVERS(
+    		"remainingResponsesFromQueryServers", 
+    		Visibility.NONE, true,
+    		Object.class) {
       @Override
       @SuppressWarnings("unchecked")
       public Object mergeValues(Object totalRemainingPerId, Object idAndNumResponses)
@@ -188,7 +206,7 @@ public abstract class ResponseContext
      */
     MISSING_SEGMENTS(
         "missingSegments",
-        Visibility.HEADER_AND_TRAILER,
+        Visibility.HEADER_AND_TRAILER, true,
         new TypeReference<List<SegmentDescriptor>>() {}
     ) {
       @Override
@@ -204,25 +222,33 @@ public abstract class ResponseContext
      * Entity tag. A part of HTTP cache validation mechanism.
      * Is being removed from the context before sending and used as a separate HTTP header.
      */
-    ETAG("ETag", Visibility.NONE, String.class),
+    ETAG("ETag", Visibility.NONE, true, String.class),
     /**
      * Query total bytes gathered.
      */
-    QUERY_TOTAL_BYTES_GATHERED("queryTotalBytesGathered", Visibility.NONE, Long.class),
+    QUERY_TOTAL_BYTES_GATHERED(
+    		"queryTotalBytesGathered", 
+    		Visibility.NONE, true,
+    		Long.class),
     /**
      * This variable indicates when a running query should be expired,
      * and is effective only when 'timeout' of queryContext has a positive value.
      * Continuously updated by {@link org.apache.druid.query.scan.ScanQueryEngine}
      * by reducing its value on the time of every scan iteration.
      */
-    TIMEOUT_AT("timeoutAt", Visibility.NONE, Long.class),
+    TIMEOUT_AT(
+    		"timeoutAt", 
+    		Visibility.NONE, true,
+    		Long.class),
     /**
      * The number of rows scanned by {@link org.apache.druid.query.scan.ScanQueryEngine}.
      *
      * Named "count" for backwards compatibility with older data servers that still send this, even though it's now
      * marked with {@link Visibility#NONE}.
      */
-    NUM_SCANNED_ROWS("count", Visibility.NONE, Long.class) {
+    NUM_SCANNED_ROWS("count", 
+    		Visibility.NONE, true,
+    		Long.class) {
       @Override
       public Object mergeValues(Object oldValue, Object newValue)
       {
@@ -234,7 +260,10 @@ public abstract class ResponseContext
      * Resulting value on a Broker is a sum of downstream values from historicals / realtime nodes.
      * For additional information see {@link org.apache.druid.query.CPUTimeMetricQueryRunner}
      */
-    CPU_CONSUMED_NANOS("cpuConsumed", Visibility.TRAILER, Long.class) {
+    CPU_CONSUMED_NANOS(
+    		"cpuConsumed", 
+    		Visibility.TRAILER, false,
+    		Long.class) {
       @Override
       public Object mergeValues(Object oldValue, Object newValue)
       {
@@ -244,7 +273,10 @@ public abstract class ResponseContext
     /**
      * Indicates if a {@link ResponseContext} was truncated during serialization.
      */
-    TRUNCATED("truncated", Visibility.HEADER_AND_TRAILER, Boolean.class) {
+    TRUNCATED(
+    		"truncated", 
+    		Visibility.HEADER_AND_TRAILER, false,
+    		Boolean.class) {
       @Override
       public Object mergeValues(Object oldValue, Object newValue)
       {
@@ -256,7 +288,7 @@ public abstract class ResponseContext
      */
     METRICS(
         "metrics",
-        Visibility.TRAILER,
+        Visibility.TRAILER, false,
         new TypeReference<MultiQueryMetricsCollector>() {}
     ) {
       @Override
@@ -316,12 +348,14 @@ public abstract class ResponseContext
 
     private final String name;
     private final Visibility visibility;
+    private final boolean canDrop;
     private final Function<JsonParser, Object> parseFunction;
 
-    Key(String name, Visibility visibility, Class<?> serializedClass)
+    Key(String name, Visibility visibility, boolean canDrop, Class<?> serializedClass)
     {
       this.name = name;
       this.visibility = visibility;
+      this.canDrop = canDrop;
       this.parseFunction = jp -> {
         try {
           return jp.readValueAs(serializedClass);
@@ -332,10 +366,11 @@ public abstract class ResponseContext
       };
     }
 
-    Key(String name, Visibility visibility, TypeReference<?> serializedTypeReference)
+    Key(String name, Visibility visibility, boolean canDrop, TypeReference<?> serializedTypeReference)
     {
       this.name = name;
       this.visibility = visibility;
+      this.canDrop = canDrop;
       this.parseFunction = jp -> {
         try {
           return jp.readValueAs(serializedTypeReference);
@@ -356,6 +391,12 @@ public abstract class ResponseContext
     public Visibility getPhase()
     {
       return visibility;
+    }
+    
+    @Override
+    public boolean canDrop()
+    {
+    	return canDrop;
     }
 
     @Override
@@ -471,48 +512,50 @@ public abstract class ResponseContext
     final String fullSerializedString = objectMapper.writeValueAsString(headerMap);
     if (fullSerializedString.length() <= maxCharsNumber) {
       return new SerializationResult(null, fullSerializedString);
-    } else {
-      // Indicates that the context is truncated during serialization.
-      headerMap.put(Key.TRUNCATED, true);
-      final ObjectNode contextJsonNode = objectMapper.valueToTree(headerMap);
-      final List<Map.Entry<String, JsonNode>> sortedNodesByLength = Lists.newArrayList(contextJsonNode.fields());
-      sortedNodesByLength.sort(VALUE_LENGTH_REVERSED_COMPARATOR);
-      int needToRemoveCharsNumber = objectMapper.writeValueAsString(headerMap).length() - maxCharsNumber;
-      // The complexity of this block is O(n*m*log(m)) where n - context size, m - context's array size
-      for (Map.Entry<String, JsonNode> e : sortedNodesByLength) {
-        final String fieldName = e.getKey();
-        final JsonNode node = e.getValue();
-        if (Key.UNCOVERED_INTERVALS.getName().equals(fieldName) || Key.MISSING_SEGMENTS.getName().equals(fieldName)) {
-          if (needToRemoveCharsNumber >= node.toString().length()) {
-            // We need to remove more chars than the field's length so removing it completely
-            contextJsonNode.remove(fieldName);
-            // Since the field is completely removed (name + value) we need to do a recalculation
-            needToRemoveCharsNumber = contextJsonNode.toString().length() - maxCharsNumber;
-          } else {
-            final ArrayNode arrayNode = (ArrayNode) node;
-            needToRemoveCharsNumber -= removeNodeElementsToSatisfyCharsLimit(arrayNode, needToRemoveCharsNumber);
-            if (arrayNode.size() == 0) {
-              // The field is empty, removing it because an empty array field may be misleading
-              // for the recipients of the truncated response context.
-              contextJsonNode.remove(fieldName);
-              // Since the field is completely removed (name + value) we need to do a recalculation
-              needToRemoveCharsNumber = contextJsonNode.toString().length() - maxCharsNumber;
-            }
-          }
-        }
-
-        if (needToRemoveCharsNumber <= 0) {
-          break;
-        }
-      }
-
-      if (needToRemoveCharsNumber > 0) {
-        // Still too long, and no more shortenable keys.
-        throw new ISE("Response context too long for header; cannot shorten");
-      }
-
-      return new SerializationResult(contextJsonNode.toString(), fullSerializedString);
     }
+
+    int needToRemoveCharsNumber = fullSerializedString.length() - maxCharsNumber;
+    // Indicates that the context is truncated during serialization.
+    headerMap.put(Key.TRUNCATED, true);
+    // Account for the extra field just added
+    needToRemoveCharsNumber += Key.TRUNCATED.getName().length() + 7;
+    final ObjectNode contextJsonNode = objectMapper.valueToTree(headerMap);
+    final List<Map.Entry<String, JsonNode>> sortedNodesByLength = Lists.newArrayList(contextJsonNode.fields());
+    sortedNodesByLength.sort(VALUE_LENGTH_REVERSED_COMPARATOR);
+    // The complexity of this block is O(n*m*log(m)) where n - context size, m - context's array size
+    for (Map.Entry<String, JsonNode> e : sortedNodesByLength) {
+      final String fieldName = e.getKey();
+      final JsonNode node = e.getValue();
+      if (Key.keyOf(fieldName).canDrop()) {
+        int removeLength = node.toString().length() + node.asText().length();
+        if (node instanceof ArrayNode) {
+          final ArrayNode arrayNode = (ArrayNode) node;
+          int oldTarget = needToRemoveCharsNumber;
+          needToRemoveCharsNumber -= removeNodeElementsToSatisfyCharsLimit(arrayNode, needToRemoveCharsNumber);
+          if (arrayNode.size() == 0) {
+            // The field is now empty, removing it because an empty array field may be misleading
+            // for the recipients of the truncated response context.
+            contextJsonNode.remove(fieldName);
+            needToRemoveCharsNumber = oldTarget - removeLength;
+          }
+        } else {
+          // Remove the field
+          contextJsonNode.remove(fieldName);
+          needToRemoveCharsNumber -= removeLength;
+        }
+      }
+
+      if (needToRemoveCharsNumber <= 0) {
+        break;
+      }
+    }
+
+    if (needToRemoveCharsNumber > 0) {
+      // Still too long, and no more shortenable keys.
+      throw new ISE("Response context too long for header; cannot shorten");
+    }
+
+    return new SerializationResult(contextJsonNode.toString(), fullSerializedString);
   }
 
   public Map<BaseKey, Object> trailerCopy()

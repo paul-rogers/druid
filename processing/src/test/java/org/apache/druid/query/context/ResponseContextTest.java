@@ -26,6 +26,7 @@ import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.NonnullPair;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.query.context.ResponseContext.Key;
 import org.joda.time.Interval;
 import org.junit.Assert;
 import org.junit.Test;
@@ -43,8 +44,11 @@ public class ResponseContextTest
 
   enum ExtensionResponseContextKey implements ResponseContext.BaseKey
   {
-    EXTENSION_KEY_1("extension_key_1"),
-    EXTENSION_KEY_2("extension_key_2", (oldValue, newValue) -> (long) oldValue + (long) newValue);
+    // Droppable header key
+    EXTENSION_KEY_1("extension_key_1",  true),
+    // Non-droppable header key
+    EXTENSION_KEY_2("extension_key_2", false, 
+        (oldValue, newValue) -> (long) oldValue + (long) newValue);
 
     static {
       for (ResponseContext.BaseKey key : values()) {
@@ -53,17 +57,21 @@ public class ResponseContextTest
     }
 
     private final String name;
+    private boolean canDrop;
     private final BiFunction<Object, Object, Object> mergeFunction;
 
-    ExtensionResponseContextKey(String name)
+    ExtensionResponseContextKey(String name, boolean canDrop)
     {
       this.name = name;
+      this.canDrop = canDrop;
       this.mergeFunction = (oldValue, newValue) -> newValue;
     }
 
-    ExtensionResponseContextKey(String name, BiFunction<Object, Object, Object> mergeFunction)
+    ExtensionResponseContextKey(String name, boolean canDrop,
+        BiFunction<Object, Object, Object> mergeFunction)
     {
       this.name = name;
+      this.canDrop = canDrop;
       this.mergeFunction = mergeFunction;
     }
 
@@ -71,6 +79,11 @@ public class ResponseContextTest
     public String getName()
     {
       return name;
+    }
+    
+    @Override
+    public boolean canDrop() {
+      return canDrop;
     }
 
     @Override
@@ -104,6 +117,12 @@ public class ResponseContextTest
     public ResponseContext.Visibility getPhase()
     {
       return ResponseContext.Visibility.HEADER_AND_TRAILER;
+    }
+    
+    @Override
+    public boolean canDrop()
+    {
+      return true;
     }
 
     @Override
@@ -150,14 +169,14 @@ public class ResponseContextTest
     ctx.add(ResponseContext.Key.UNCOVERED_INTERVALS, Collections.singletonList(interval01));
     Assert.assertArrayEquals(
         Collections.singletonList(interval01).toArray(),
-        ((List) ctx.get(ResponseContext.Key.UNCOVERED_INTERVALS)).toArray()
+        ((List<?>) ctx.get(ResponseContext.Key.UNCOVERED_INTERVALS)).toArray()
     );
     final Interval interval12 = Intervals.of("2019-01-02/P1D");
     final Interval interval23 = Intervals.of("2019-01-03/P1D");
     ctx.add(ResponseContext.Key.UNCOVERED_INTERVALS, Arrays.asList(interval12, interval23));
     Assert.assertArrayEquals(
         Arrays.asList(interval01, interval12, interval23).toArray(),
-        ((List) ctx.get(ResponseContext.Key.UNCOVERED_INTERVALS)).toArray()
+        ((List<?>) ctx.get(ResponseContext.Key.UNCOVERED_INTERVALS)).toArray()
     );
 
     final String queryId = "queryId";
@@ -176,14 +195,14 @@ public class ResponseContextTest
     ctx.add(ResponseContext.Key.MISSING_SEGMENTS, Collections.singletonList(sd01));
     Assert.assertArrayEquals(
         Collections.singletonList(sd01).toArray(),
-        ((List) ctx.get(ResponseContext.Key.MISSING_SEGMENTS)).toArray()
+        ((List<?>) ctx.get(ResponseContext.Key.MISSING_SEGMENTS)).toArray()
     );
     final SegmentDescriptor sd12 = new SegmentDescriptor(interval12, "12", 1);
     final SegmentDescriptor sd23 = new SegmentDescriptor(interval23, "23", 2);
     ctx.add(ResponseContext.Key.MISSING_SEGMENTS, Arrays.asList(sd12, sd23));
     Assert.assertArrayEquals(
         Arrays.asList(sd01, sd12, sd23).toArray(),
-        ((List) ctx.get(ResponseContext.Key.MISSING_SEGMENTS)).toArray()
+        ((List<?>) ctx.get(ResponseContext.Key.MISSING_SEGMENTS)).toArray()
     );
 
     ctx.add(ResponseContext.Key.NUM_SCANNED_ROWS, 0L);
@@ -223,11 +242,11 @@ public class ResponseContextTest
     Assert.assertEquals(3L, ctx1.get(ResponseContext.Key.NUM_SCANNED_ROWS));
     Assert.assertArrayEquals(
         Arrays.asList(interval01, interval12).toArray(),
-        ((List) ctx1.get(ResponseContext.Key.UNCOVERED_INTERVALS)).toArray()
+        ((List<?>) ctx1.get(ResponseContext.Key.UNCOVERED_INTERVALS)).toArray()
     );
     Assert.assertArrayEquals(
         Collections.singletonList(sd01).toArray(),
-        ((List) ctx1.get(ResponseContext.Key.MISSING_SEGMENTS)).toArray()
+        ((List<?>) ctx1.get(ResponseContext.Key.MISSING_SEGMENTS)).toArray()
     );
   }
 
@@ -249,17 +268,23 @@ public class ResponseContextTest
   public void serializeWithCorrectnessTest() throws JsonProcessingException
   {
     final ResponseContext ctx1 = ResponseContext.createEmpty();
-    ctx1.add(ResponseContext.Key.ETAG, "string-value");
+    ctx1.add(ExtensionResponseContextKey.EXTENSION_KEY_1, "string-value");
     final DefaultObjectMapper mapper = new DefaultObjectMapper();
     Assert.assertEquals(
-        mapper.writeValueAsString(ImmutableMap.of("ETag", "string-value")),
+        mapper.writeValueAsString(ImmutableMap.of(
+        		ExtensionResponseContextKey.EXTENSION_KEY_1.getName(), 
+        		"string-value")),
         ctx1.toHeader(mapper, Integer.MAX_VALUE).getResult()
     );
 
     final ResponseContext ctx2 = ResponseContext.createEmpty();
-    ctx2.add(ResponseContext.Key.CPU_CONSUMED_NANOS, 100);
+    // Add two non-header fields, and one that will be in the header
+    ctx2.add(Key.ETAG, "not in header");
+    ctx2.add(Key.CPU_CONSUMED_NANOS, 100);
+    ctx2.add(ExtensionResponseContextKey.EXTENSION_KEY_2, 100);
     Assert.assertEquals(
-        mapper.writeValueAsString(ImmutableMap.of("cpuConsumed", 100)),
+        mapper.writeValueAsString(ImmutableMap.of(
+        		ExtensionResponseContextKey.EXTENSION_KEY_2.getName(), 100)),
         ctx2.toHeader(mapper, Integer.MAX_VALUE).getResult()
     );
   }
@@ -268,8 +293,8 @@ public class ResponseContextTest
   public void serializeWithTruncateValueTest() throws IOException
   {
     final ResponseContext ctx = ResponseContext.createEmpty();
-    ctx.put(ResponseContext.Key.CPU_CONSUMED_NANOS, 100);
-    ctx.put(ResponseContext.Key.ETAG, "long-string-that-is-supposed-to-be-removed-from-result");
+    ctx.put(ExtensionResponseContextKey.EXTENSION_KEY_2, 100);
+    ctx.put(ExtensionResponseContextKey.EXTENSION_KEY_1, "long-string-that-is-supposed-to-be-removed-from-result");
     final DefaultObjectMapper objectMapper = new DefaultObjectMapper();
     final String fullString = objectMapper.writeValueAsString(ctx.getDelegate());
     final ResponseContext.SerializationResult res1 = ctx.toHeader(objectMapper, Integer.MAX_VALUE);
@@ -277,7 +302,7 @@ public class ResponseContextTest
     final ResponseContext ctxCopy = ResponseContext.createEmpty();
     ctxCopy.merge(ctx);
     final ResponseContext.SerializationResult res2 = ctx.toHeader(objectMapper, 30);
-    ctxCopy.remove(ResponseContext.Key.ETAG);
+    ctxCopy.remove(ExtensionResponseContextKey.EXTENSION_KEY_1);
     ctxCopy.put(ResponseContext.Key.TRUNCATED, true);
     Assert.assertEquals(
         ctxCopy.getDelegate(),

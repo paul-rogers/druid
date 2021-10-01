@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 
 import java.io.IOException;
 
+@SuppressWarnings("serial")
 public class ResponseContextDeserializer extends StdDeserializer<ResponseContext>
 {
   public ResponseContextDeserializer()
@@ -49,7 +50,7 @@ public class ResponseContextDeserializer extends StdDeserializer<ResponseContext
     jp.nextToken();
 
     while (jp.currentToken() == JsonToken.FIELD_NAME) {
-      final ResponseContext.BaseKey<?> key = ResponseContext.Key.keyOf(jp.getText());
+      final ResponseContext.BaseKey key = ResponseContext.Key.keyOf(jp.getText());
 
       jp.nextToken();
       final Object value = key.readValue(jp);
