@@ -162,7 +162,7 @@ public class SqlResource
                           queryResponse.getResponseContext().orElse(ResponseContext.createEmpty());
 
                       responseContext.add(
-                          ResponseContext.Key.METRICS,
+                          ResponseContext.Keys.METRICS,
                           MultiQueryMetricsCollector.newCollector().add(
                               SingleQueryMetricsCollector
                                   .newCollector()

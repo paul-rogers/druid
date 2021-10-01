@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableList;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.query.context.DefaultResponseContext;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.context.ResponseContext.Key;
+import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.spec.MultipleSpecificSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
@@ -47,8 +47,8 @@ public class ReportTimelineMissingSegmentQueryRunnerTest
         = new ReportTimelineMissingSegmentQueryRunner<>(missingSegment);
     final ResponseContext responseContext = DefaultResponseContext.createEmpty();
     runner.run(QueryPlus.wrap(new TestQuery()), responseContext);
-    Assert.assertNotNull(responseContext.get(Key.MISSING_SEGMENTS));
-    Assert.assertEquals(Collections.singletonList(missingSegment), responseContext.get(Key.MISSING_SEGMENTS));
+    Assert.assertNotNull(responseContext.get(Keys.MISSING_SEGMENTS));
+    Assert.assertEquals(Collections.singletonList(missingSegment), responseContext.get(Keys.MISSING_SEGMENTS));
   }
 
   @Test
@@ -63,8 +63,8 @@ public class ReportTimelineMissingSegmentQueryRunnerTest
         = new ReportTimelineMissingSegmentQueryRunner<>(missingSegments);
     final ResponseContext responseContext = DefaultResponseContext.createEmpty();
     runner.run(QueryPlus.wrap(new TestQuery()), responseContext);
-    Assert.assertNotNull(responseContext.get(Key.MISSING_SEGMENTS));
-    Assert.assertEquals(missingSegments, responseContext.get(Key.MISSING_SEGMENTS));
+    Assert.assertNotNull(responseContext.get(Keys.MISSING_SEGMENTS));
+    Assert.assertEquals(missingSegments, responseContext.get(Keys.MISSING_SEGMENTS));
   }
 
   private static class TestQuery extends BaseQuery<Object>

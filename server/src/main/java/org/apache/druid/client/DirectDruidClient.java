@@ -55,7 +55,7 @@ import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.query.aggregation.MetricManipulatorFns;
 import org.apache.druid.query.context.ConcurrentResponseContext;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.context.ResponseContext.Key;
+import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.server.QueryResource;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -108,8 +108,8 @@ public class DirectDruidClient<T> implements QueryRunner<T>
   public static ConcurrentResponseContext makeResponseContextForQuery()
   {
     final ConcurrentResponseContext responseContext = ConcurrentResponseContext.createEmpty();
-    responseContext.put(ResponseContext.Key.QUERY_TOTAL_BYTES_GATHERED, new AtomicLong());
-    responseContext.put(Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
+    responseContext.put(Keys.QUERY_TOTAL_BYTES_GATHERED, new AtomicLong());
+    responseContext.put(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
     return responseContext;
   }
 
@@ -159,7 +159,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
       final long requestStartTimeNs = System.nanoTime();
       final long timeoutAt = query.getContextValue(QUERY_FAIL_TIME);
       final long maxScatterGatherBytes = QueryContexts.getMaxScatterGatherBytes(query);
-      final AtomicLong totalBytesGathered = (AtomicLong) context.get(ResponseContext.Key.QUERY_TOTAL_BYTES_GATHERED);
+      final AtomicLong totalBytesGathered = (AtomicLong) context.get(Keys.QUERY_TOTAL_BYTES_GATHERED);
       final long maxQueuedBytes = QueryContexts.getMaxQueuedBytes(query, 0);
       final boolean usingBackpressure = maxQueuedBytes > 0;
 
@@ -239,7 +239,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
             );
             final String responseContext = response.headers().get(QueryResource.HEADER_RESPONSE_CONTEXT);
             context.add(
-                ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS,
+                Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS,
                 new NonnullPair<>(query.getMostSpecificId(), VAL_TO_REDUCE_REMAINING_RESPONSES)
             );
             // context may be null in case of error or query timeout

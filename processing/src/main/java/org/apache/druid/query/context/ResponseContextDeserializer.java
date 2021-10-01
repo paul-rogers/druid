@@ -49,8 +49,9 @@ public class ResponseContextDeserializer extends StdDeserializer<ResponseContext
 
     jp.nextToken();
 
+    ResponseContext.Keys keys = ResponseContext.Keys.instance();
     while (jp.currentToken() == JsonToken.FIELD_NAME) {
-      final ResponseContext.BaseKey key = ResponseContext.Key.keyOf(jp.getText());
+      final ResponseContext.Key key = keys.keyOf(jp.getText());
 
       jp.nextToken();
       final Object value = key.readValue(jp);

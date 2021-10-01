@@ -72,7 +72,7 @@ import org.apache.druid.query.Result;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.aggregation.MetricManipulatorFns;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.context.ResponseContext.Key;
+import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.query.filter.DimFilterUtils;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.spec.QuerySegmentSpec;
@@ -219,7 +219,7 @@ public class CachingClusteredClient implements QuerySegmentWalker
   )
   {
     responseContext.add(
-        Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS,
+        Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS,
         new NonnullPair<>(query.getMostSpecificId(), numQueryServers)
     );
   }
@@ -361,7 +361,7 @@ public class CachingClusteredClient implements QuerySegmentWalker
         @Nullable
         final String currentEtag = cacheKeyManager.computeResultLevelCachingEtag(segmentServers, queryCacheKey);
         if (null != currentEtag) {
-          responseContext.put(Key.ETAG, currentEtag);
+          responseContext.put(Keys.ETAG, currentEtag);
         }
         if (currentEtag != null && currentEtag.equals(prevEtag)) {
           return new ClusterQueryResult<>(Sequences.empty(), 0);
@@ -499,8 +499,8 @@ public class CachingClusteredClient implements QuerySegmentWalker
         // Which is not necessarily an indication that the data doesn't exist or is
         // incomplete. The data could exist and just not be loaded yet.  In either
         // case, though, this query will not include any data from the identified intervals.
-        responseContext.add(ResponseContext.Key.UNCOVERED_INTERVALS, uncoveredIntervals);
-        responseContext.add(ResponseContext.Key.UNCOVERED_INTERVALS_OVERFLOWED, uncoveredIntervalsOverflowed);
+        responseContext.add(Keys.UNCOVERED_INTERVALS, uncoveredIntervals);
+        responseContext.add(Keys.UNCOVERED_INTERVALS_OVERFLOWED, uncoveredIntervalsOverflowed);
       }
     }
 

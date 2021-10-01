@@ -56,6 +56,7 @@ import org.apache.druid.query.SingleQueryMetricsCollector;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.context.ConcurrentResponseContext;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.join.JoinableFactory;
@@ -415,7 +416,7 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
           );
 
           responseContext.add(
-              ResponseContext.Key.METRICS,
+              Keys.METRICS,
               MultiQueryMetricsCollector.newCollector().add(
                   SingleQueryMetricsCollector.newCollector()
                                              .setSubQueryId(subQueryWithId.getSubQueryId())
@@ -635,9 +636,9 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
             {
               if (isDone) {
                 // TODO(gianm): Use Key property rather than hardcoding METRICS
-                final Object metricsObject = responseContext.get(ResponseContext.Key.METRICS);
+                final Object metricsObject = responseContext.get(Keys.METRICS);
                 if (metricsObject != null) {
-                  receivingContext.add(ResponseContext.Key.METRICS, metricsObject);
+                  receivingContext.add(Keys.METRICS, metricsObject);
                 }
               }
             }
@@ -663,7 +664,7 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
     @Override
     public Sequence<T> run(QueryPlus<T> queryPlus, ResponseContext responseContext)
     {
-      final Object donorMetrics = donorContext.get(ResponseContext.Key.METRICS);
+      final Object donorMetrics = donorContext.get(Keys.METRICS);
       final Sequence<T> baseResults = baseRunner.run(queryPlus, responseContext);
 
       if (donorMetrics == null) {
@@ -677,7 +678,7 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
               public void after(boolean isDone, Throwable thrown)
               {
                 if (isDone) {
-                  responseContext.add(ResponseContext.Key.METRICS, donorMetrics);
+                  responseContext.add(Keys.METRICS, donorMetrics);
                 }
               }
             }

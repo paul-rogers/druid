@@ -35,6 +35,7 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.segment.BaseObjectColumnValueSelector;
 import org.apache.druid.segment.Segment;
@@ -70,7 +71,7 @@ public class ScanQueryEngine
     // "legacy" should be non-null due to toolChest.mergeResults
     final boolean legacy = Preconditions.checkNotNull(query.isLegacy(), "Expected non-null 'legacy' parameter");
 
-    final Object numScannedRows = responseContext.get(ResponseContext.Key.NUM_SCANNED_ROWS);
+    final Object numScannedRows = responseContext.get(Keys.NUM_SCANNED_ROWS);
     if (numScannedRows != null) {
       long count = (long) numScannedRows;
       if (count >= query.getScanRowsLimit() && query.getOrder().equals(ScanQuery.Order.NONE)) {
@@ -78,7 +79,7 @@ public class ScanQueryEngine
       }
     }
     final boolean hasTimeout = QueryContexts.hasTimeout(query);
-    final long timeoutAt = (long) responseContext.get(ResponseContext.Key.TIMEOUT_AT);
+    final long timeoutAt = (long) responseContext.get(Keys.TIMEOUT_AT);
     final long start = System.currentTimeMillis();
     final StorageAdapter adapter = segment.asStorageAdapter();
 
@@ -125,7 +126,7 @@ public class ScanQueryEngine
 
     final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
 
-    responseContext.add(ResponseContext.Key.NUM_SCANNED_ROWS, 0L);
+    responseContext.add(Keys.NUM_SCANNED_ROWS, 0L);
     final long limit = calculateRemainingScanRowsLimit(query, responseContext);
     return Sequences.concat(
             adapter
@@ -189,10 +190,10 @@ public class ScanQueryEngine
                             } else {
                               throw new UOE("resultFormat[%s] is not supported", resultFormat.toString());
                             }
-                            responseContext.add(ResponseContext.Key.NUM_SCANNED_ROWS, offset - lastOffset);
+                            responseContext.add(Keys.NUM_SCANNED_ROWS, offset - lastOffset);
                             if (hasTimeout) {
                               responseContext.put(
-                                  ResponseContext.Key.TIMEOUT_AT,
+                                  Keys.TIMEOUT_AT,
                                   timeoutAt - (System.currentTimeMillis() - start)
                               );
                             }
@@ -265,7 +266,7 @@ public class ScanQueryEngine
   private long calculateRemainingScanRowsLimit(ScanQuery query, ResponseContext responseContext)
   {
     if (query.getOrder().equals(ScanQuery.Order.NONE)) {
-      return query.getScanRowsLimit() - (long) responseContext.get(ResponseContext.Key.NUM_SCANNED_ROWS);
+      return query.getScanRowsLimit() - (long) responseContext.get(Keys.NUM_SCANNED_ROWS);
     }
     return query.getScanRowsLimit();
   }

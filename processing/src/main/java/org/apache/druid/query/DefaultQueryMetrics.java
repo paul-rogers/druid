@@ -26,6 +26,7 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.query.filter.Filter;
 import org.joda.time.Interval;
 
@@ -421,7 +422,7 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
         // HashMap instead of ImmutableMap because it must be mutable.
         //   (responseContext.add updates the original map in place).
         responseContext.add(
-            ResponseContext.Key.METRICS,
+            Keys.METRICS,
             MultiQueryMetricsCollector.newCollector().add(metricsCollector.setSubQueryId(subQueryId))
         );
       }

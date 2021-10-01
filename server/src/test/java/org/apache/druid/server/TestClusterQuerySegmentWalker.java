@@ -40,7 +40,7 @@ import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.TableDataSource;
-import org.apache.druid.query.context.ResponseContext.Key;
+import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
@@ -167,9 +167,9 @@ public class TestClusterQuerySegmentWalker implements QuerySegmentWalker
     // the LocalQuerySegmentWalker constructor instead since this walker is not mimic remote DruidServer objects
     // to actually serve the queries
     return (theQuery, responseContext) -> {
-      responseContext.put(Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
+      responseContext.put(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
       responseContext.add(
-          Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS,
+          Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS,
           new NonnullPair<>(theQuery.getQuery().getMostSpecificId(), 0)
       );
       if (scheduler != null) {

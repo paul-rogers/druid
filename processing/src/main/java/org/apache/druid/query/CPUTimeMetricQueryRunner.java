@@ -26,6 +26,7 @@ import org.apache.druid.java.util.common.guava.SequenceWrapper;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.utils.JvmUtils;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -88,7 +89,7 @@ public class CPUTimeMetricQueryRunner<T> implements QueryRunner<T>
             if (report) {
               final long cpuTimeNs = cpuTimeAccumulator.get();
               if (cpuTimeNs > 0) {
-                responseContext.add(ResponseContext.Key.CPU_CONSUMED_NANOS, cpuTimeNs);
+                responseContext.add(Keys.CPU_CONSUMED_NANOS, cpuTimeNs);
                 queryWithMetrics.getQueryMetrics().reportCpuTime(cpuTimeNs).emit(emitter, responseContext);
               }
             }

@@ -33,7 +33,7 @@ import org.apache.druid.java.util.common.guava.YieldingAccumulator;
 import org.apache.druid.java.util.common.guava.YieldingSequenceBase;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.context.ResponseContext.Key;
+import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.segment.SegmentMissingException;
 
 import java.util.ArrayList;
@@ -143,9 +143,9 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
     // The remainingResponses MUST be not null but 0 in the responseContext at this point.
     final ConcurrentHashMap<String, Integer> idToRemainingResponses =
         (ConcurrentHashMap<String, Integer>) Preconditions.checkNotNull(
-            context.get(Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS),
+            context.get(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS),
             "%s in responseContext",
-            Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS.getName()
+            Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS.getName()
         );
 
     final int remainingResponses = Preconditions.checkNotNull(
@@ -157,7 +157,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
       throw new ISE("Failed to check missing segments due to missing responses from [%d] servers", remainingResponses);
     }
 
-    final Object maybeMissingSegments = context.get(ResponseContext.Key.MISSING_SEGMENTS);
+    final Object maybeMissingSegments = context.get(Keys.MISSING_SEGMENTS);
     if (maybeMissingSegments == null) {
       return Collections.emptyList();
     }
@@ -229,7 +229,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
           retryCount++;
           LOG.info("[%,d] missing segments found. Retry attempt [%,d]", missingSegments.size(), retryCount);
 
-          context.put(ResponseContext.Key.MISSING_SEGMENTS, new ArrayList<>());
+          context.put(ResponseContext.Keys.MISSING_SEGMENTS, new ArrayList<>());
           final QueryPlus<T> retryQueryPlus = queryPlus.withQuery(
               Queries.withSpecificSegments(queryPlus.getQuery(), missingSegments)
           );

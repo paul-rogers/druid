@@ -19,14 +19,18 @@
 
 package org.apache.druid.query.context;
 
-import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.base.Strings;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.NonnullPair;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext.Key;
+import org.apache.druid.query.context.ResponseContext.Keys;
+import org.apache.druid.query.context.ResponseContext.StringKey;
+import org.apache.druid.query.context.ResponseContext.Visibility;
+import org.apache.druid.query.context.ResponseContext.CounterKey;
 import org.joda.time.Interval;
 import org.junit.Assert;
 import org.junit.Test;
@@ -37,216 +41,135 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
 
 public class ResponseContextTest
 {
+  // Droppable header key
+  static final Key EXTN_STRING_KEY = new StringKey(
+      "extn_string_key", Visibility.HEADER_AND_TRAILER, true);
+  // Non-droppable header key
+  static final Key EXTN_COUNTER_KEY = new CounterKey(
+      "extn_counter_key", Visibility.HEADER_AND_TRAILER);
 
-  enum ExtensionResponseContextKey implements ResponseContext.BaseKey
-  {
-    // Droppable header key
-    EXTENSION_KEY_1("extension_key_1",  true),
-    // Non-droppable header key
-    EXTENSION_KEY_2("extension_key_2", false, 
-        (oldValue, newValue) -> (long) oldValue + (long) newValue);
-
-    static {
-      for (ResponseContext.BaseKey key : values()) {
-        ResponseContext.Key.registerKey(key);
-      }
-    }
-
-    private final String name;
-    private boolean canDrop;
-    private final BiFunction<Object, Object, Object> mergeFunction;
-
-    ExtensionResponseContextKey(String name, boolean canDrop)
-    {
-      this.name = name;
-      this.canDrop = canDrop;
-      this.mergeFunction = (oldValue, newValue) -> newValue;
-    }
-
-    ExtensionResponseContextKey(String name, boolean canDrop,
-        BiFunction<Object, Object, Object> mergeFunction)
-    {
-      this.name = name;
-      this.canDrop = canDrop;
-      this.mergeFunction = mergeFunction;
-    }
-
-    @Override
-    public String getName()
-    {
-      return name;
-    }
-    
-    @Override
-    public boolean canDrop() {
-      return canDrop;
-    }
-
-    @Override
-    public ResponseContext.Visibility getPhase()
-    {
-      return ResponseContext.Visibility.HEADER_AND_TRAILER;
-    }
-
-    @Override
-    public Object readValue(JsonParser jp)
-    {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Object mergeValues(Object oldValue, Object newValue)
-    {
-      return mergeFunction.apply(oldValue, newValue);
-    }
+  static {
+    Keys.instance().registerKeys(new Key[] {
+        EXTN_STRING_KEY,
+        EXTN_COUNTER_KEY
+    });
   }
-
-  private final ResponseContext.BaseKey nonregisteredKey = new ResponseContext.BaseKey()
-  {
-    @Override
-    public String getName()
-    {
-      return "non-registered-key";
-    }
-
-    @Override
-    public ResponseContext.Visibility getPhase()
-    {
-      return ResponseContext.Visibility.HEADER_AND_TRAILER;
-    }
-    
-    @Override
-    public boolean canDrop()
-    {
-      return true;
-    }
-
-    @Override
-    public Object readValue(JsonParser jp)
-    {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Object mergeValues(Object oldValue, Object newValue)
-    {
-      return newValue;
-    }
-  };
+  
+  static final Key UNREGISTERED_KEY = new StringKey(
+      "unregistered-key", Visibility.HEADER_AND_TRAILER, true);
 
   @Test(expected = IllegalStateException.class)
   public void putISETest()
   {
-    ResponseContext.createEmpty().put(nonregisteredKey, new Object());
+    ResponseContext.createEmpty().put(UNREGISTERED_KEY, new Object());
   }
 
   @Test(expected = IllegalStateException.class)
   public void addISETest()
   {
-    ResponseContext.createEmpty().add(nonregisteredKey, new Object());
+    ResponseContext.createEmpty().add(UNREGISTERED_KEY, new Object());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void registerKeyIAETest()
   {
-    ResponseContext.Key.registerKey(ResponseContext.Key.NUM_SCANNED_ROWS);
+    Keys.instance.registerKey(Keys.NUM_SCANNED_ROWS);
   }
 
   @Test
   public void mergeValueTest()
   {
     final ResponseContext ctx = ResponseContext.createEmpty();
-    ctx.add(ResponseContext.Key.ETAG, "dummy-etag");
-    Assert.assertEquals("dummy-etag", ctx.get(ResponseContext.Key.ETAG));
-    ctx.add(ResponseContext.Key.ETAG, "new-dummy-etag");
-    Assert.assertEquals("new-dummy-etag", ctx.get(ResponseContext.Key.ETAG));
+    ctx.add(Keys.ETAG, "dummy-etag");
+    Assert.assertEquals("dummy-etag", ctx.get(Keys.ETAG));
+    ctx.add(Keys.ETAG, "new-dummy-etag");
+    Assert.assertEquals("new-dummy-etag", ctx.get(Keys.ETAG));
 
     final Interval interval01 = Intervals.of("2019-01-01/P1D");
-    ctx.add(ResponseContext.Key.UNCOVERED_INTERVALS, Collections.singletonList(interval01));
+    ctx.add(Keys.UNCOVERED_INTERVALS, Collections.singletonList(interval01));
     Assert.assertArrayEquals(
         Collections.singletonList(interval01).toArray(),
-        ((List<?>) ctx.get(ResponseContext.Key.UNCOVERED_INTERVALS)).toArray()
+        ((List<?>) ctx.get(Keys.UNCOVERED_INTERVALS)).toArray()
     );
     final Interval interval12 = Intervals.of("2019-01-02/P1D");
     final Interval interval23 = Intervals.of("2019-01-03/P1D");
-    ctx.add(ResponseContext.Key.UNCOVERED_INTERVALS, Arrays.asList(interval12, interval23));
+    ctx.add(Keys.UNCOVERED_INTERVALS, Arrays.asList(interval12, interval23));
     Assert.assertArrayEquals(
         Arrays.asList(interval01, interval12, interval23).toArray(),
-        ((List<?>) ctx.get(ResponseContext.Key.UNCOVERED_INTERVALS)).toArray()
+        ((List<?>) ctx.get(Keys.UNCOVERED_INTERVALS)).toArray()
     );
 
     final String queryId = "queryId";
     final String queryId2 = "queryId2";
-    ctx.put(ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
-    ctx.add(ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, 3));
-    ctx.add(ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId2, 4));
-    ctx.add(ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, -1));
-    ctx.add(ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, -2));
+    ctx.put(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
+    ctx.add(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, 3));
+    ctx.add(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId2, 4));
+    ctx.add(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, -1));
+    ctx.add(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, -2));
     Assert.assertEquals(
         ImmutableMap.of(queryId, 0, queryId2, 4),
-        ctx.get(ResponseContext.Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS)
+        ctx.get(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS)
     );
 
     final SegmentDescriptor sd01 = new SegmentDescriptor(interval01, "01", 0);
-    ctx.add(ResponseContext.Key.MISSING_SEGMENTS, Collections.singletonList(sd01));
+    ctx.add(Keys.MISSING_SEGMENTS, Collections.singletonList(sd01));
     Assert.assertArrayEquals(
         Collections.singletonList(sd01).toArray(),
-        ((List<?>) ctx.get(ResponseContext.Key.MISSING_SEGMENTS)).toArray()
+        ((List<?>) ctx.get(Keys.MISSING_SEGMENTS)).toArray()
     );
     final SegmentDescriptor sd12 = new SegmentDescriptor(interval12, "12", 1);
     final SegmentDescriptor sd23 = new SegmentDescriptor(interval23, "23", 2);
-    ctx.add(ResponseContext.Key.MISSING_SEGMENTS, Arrays.asList(sd12, sd23));
+    ctx.add(Keys.MISSING_SEGMENTS, Arrays.asList(sd12, sd23));
     Assert.assertArrayEquals(
         Arrays.asList(sd01, sd12, sd23).toArray(),
-        ((List<?>) ctx.get(ResponseContext.Key.MISSING_SEGMENTS)).toArray()
+        ((List<?>) ctx.get(Keys.MISSING_SEGMENTS)).toArray()
     );
 
-    ctx.add(ResponseContext.Key.NUM_SCANNED_ROWS, 0L);
-    Assert.assertEquals(0L, ctx.get(ResponseContext.Key.NUM_SCANNED_ROWS));
-    ctx.add(ResponseContext.Key.NUM_SCANNED_ROWS, 1L);
-    Assert.assertEquals(1L, ctx.get(ResponseContext.Key.NUM_SCANNED_ROWS));
-    ctx.add(ResponseContext.Key.NUM_SCANNED_ROWS, 3L);
-    Assert.assertEquals(4L, ctx.get(ResponseContext.Key.NUM_SCANNED_ROWS));
+    ctx.add(Keys.NUM_SCANNED_ROWS, 0L);
+    Assert.assertEquals(0L, ctx.get(Keys.NUM_SCANNED_ROWS));
+    ctx.add(Keys.NUM_SCANNED_ROWS, 1L);
+    Assert.assertEquals(1L, ctx.get(Keys.NUM_SCANNED_ROWS));
+    ctx.add(Keys.NUM_SCANNED_ROWS, 3L);
+    Assert.assertEquals(4L, ctx.get(Keys.NUM_SCANNED_ROWS));
 
-    ctx.add(ResponseContext.Key.UNCOVERED_INTERVALS_OVERFLOWED, false);
-    Assert.assertEquals(false, ctx.get(ResponseContext.Key.UNCOVERED_INTERVALS_OVERFLOWED));
-    ctx.add(ResponseContext.Key.UNCOVERED_INTERVALS_OVERFLOWED, true);
-    Assert.assertEquals(true, ctx.get(ResponseContext.Key.UNCOVERED_INTERVALS_OVERFLOWED));
-    ctx.add(ResponseContext.Key.UNCOVERED_INTERVALS_OVERFLOWED, false);
-    Assert.assertEquals(true, ctx.get(ResponseContext.Key.UNCOVERED_INTERVALS_OVERFLOWED));
+    ctx.add(Keys.UNCOVERED_INTERVALS_OVERFLOWED, false);
+    Assert.assertEquals(false, ctx.get(Keys.UNCOVERED_INTERVALS_OVERFLOWED));
+    ctx.add(Keys.UNCOVERED_INTERVALS_OVERFLOWED, true);
+    Assert.assertEquals(true, ctx.get(Keys.UNCOVERED_INTERVALS_OVERFLOWED));
+    ctx.add(Keys.UNCOVERED_INTERVALS_OVERFLOWED, false);
+    Assert.assertEquals(true, ctx.get(Keys.UNCOVERED_INTERVALS_OVERFLOWED));
   }
 
   @Test
   public void mergeResponseContextTest()
   {
     final ResponseContext ctx1 = ResponseContext.createEmpty();
-    ctx1.put(ResponseContext.Key.ETAG, "dummy-etag-1");
+    ctx1.put(Keys.ETAG, "dummy-etag-1");
     final Interval interval01 = Intervals.of("2019-01-01/P1D");
-    ctx1.put(ResponseContext.Key.UNCOVERED_INTERVALS, Collections.singletonList(interval01));
-    ctx1.put(ResponseContext.Key.NUM_SCANNED_ROWS, 1L);
+    ctx1.put(Keys.UNCOVERED_INTERVALS, Collections.singletonList(interval01));
+    ctx1.put(Keys.NUM_SCANNED_ROWS, 1L);
 
     final ResponseContext ctx2 = ResponseContext.createEmpty();
-    ctx2.put(ResponseContext.Key.ETAG, "dummy-etag-2");
+    ctx2.put(Keys.ETAG, "dummy-etag-2");
     final Interval interval12 = Intervals.of("2019-01-02/P1D");
-    ctx2.put(ResponseContext.Key.UNCOVERED_INTERVALS, Collections.singletonList(interval12));
+    ctx2.put(Keys.UNCOVERED_INTERVALS, Collections.singletonList(interval12));
     final SegmentDescriptor sd01 = new SegmentDescriptor(interval01, "01", 0);
-    ctx2.put(ResponseContext.Key.MISSING_SEGMENTS, Collections.singletonList(sd01));
-    ctx2.put(ResponseContext.Key.NUM_SCANNED_ROWS, 2L);
+    ctx2.put(Keys.MISSING_SEGMENTS, Collections.singletonList(sd01));
+    ctx2.put(Keys.NUM_SCANNED_ROWS, 2L);
 
     ctx1.merge(ctx2);
-    Assert.assertEquals("dummy-etag-2", ctx1.get(ResponseContext.Key.ETAG));
-    Assert.assertEquals(3L, ctx1.get(ResponseContext.Key.NUM_SCANNED_ROWS));
+    Assert.assertEquals("dummy-etag-2", ctx1.get(Keys.ETAG));
+    Assert.assertEquals(3L, ctx1.get(Keys.NUM_SCANNED_ROWS));
     Assert.assertArrayEquals(
         Arrays.asList(interval01, interval12).toArray(),
-        ((List<?>) ctx1.get(ResponseContext.Key.UNCOVERED_INTERVALS)).toArray()
+        ((List<?>) ctx1.get(Keys.UNCOVERED_INTERVALS)).toArray()
     );
     Assert.assertArrayEquals(
         Collections.singletonList(sd01).toArray(),
-        ((List<?>) ctx1.get(ResponseContext.Key.MISSING_SEGMENTS)).toArray()
+        ((List<?>) ctx1.get(Keys.MISSING_SEGMENTS)).toArray()
     );
   }
 
@@ -256,9 +179,9 @@ public class ResponseContextTest
     final ResponseContext ctx = new ResponseContext()
     {
       @Override
-      protected Map<BaseKey, Object> getDelegate()
+      protected Map<Key, Object> getDelegate()
       {
-        return ImmutableMap.of(nonregisteredKey, "non-registered-key");
+        return ImmutableMap.of(UNREGISTERED_KEY, "non-registered-key");
       }
     };
     ResponseContext.createEmpty().merge(ctx);
@@ -268,23 +191,23 @@ public class ResponseContextTest
   public void serializeWithCorrectnessTest() throws JsonProcessingException
   {
     final ResponseContext ctx1 = ResponseContext.createEmpty();
-    ctx1.add(ExtensionResponseContextKey.EXTENSION_KEY_1, "string-value");
+    ctx1.add(EXTN_STRING_KEY, "string-value");
     final DefaultObjectMapper mapper = new DefaultObjectMapper();
     Assert.assertEquals(
         mapper.writeValueAsString(ImmutableMap.of(
-        		ExtensionResponseContextKey.EXTENSION_KEY_1.getName(), 
+        		EXTN_STRING_KEY.getName(), 
         		"string-value")),
         ctx1.toHeader(mapper, Integer.MAX_VALUE).getResult()
     );
 
     final ResponseContext ctx2 = ResponseContext.createEmpty();
     // Add two non-header fields, and one that will be in the header
-    ctx2.add(Key.ETAG, "not in header");
-    ctx2.add(Key.CPU_CONSUMED_NANOS, 100);
-    ctx2.add(ExtensionResponseContextKey.EXTENSION_KEY_2, 100);
+    ctx2.add(Keys.ETAG, "not in header");
+    ctx2.add(Keys.CPU_CONSUMED_NANOS, 100);
+    ctx2.add(EXTN_COUNTER_KEY, 100);
     Assert.assertEquals(
         mapper.writeValueAsString(ImmutableMap.of(
-        		ExtensionResponseContextKey.EXTENSION_KEY_2.getName(), 100)),
+        		EXTN_COUNTER_KEY.getName(), 100)),
         ctx2.toHeader(mapper, Integer.MAX_VALUE).getResult()
     );
   }
@@ -293,46 +216,61 @@ public class ResponseContextTest
   public void serializeWithTruncateValueTest() throws IOException
   {
     final ResponseContext ctx = ResponseContext.createEmpty();
-    ctx.put(ExtensionResponseContextKey.EXTENSION_KEY_2, 100);
-    ctx.put(ExtensionResponseContextKey.EXTENSION_KEY_1, "long-string-that-is-supposed-to-be-removed-from-result");
+    ctx.put(EXTN_COUNTER_KEY, 100L);
+    ctx.put(EXTN_STRING_KEY, "long-string-that-is-supposed-to-be-removed-from-result");
     final DefaultObjectMapper objectMapper = new DefaultObjectMapper();
     final String fullString = objectMapper.writeValueAsString(ctx.getDelegate());
     final ResponseContext.SerializationResult res1 = ctx.toHeader(objectMapper, Integer.MAX_VALUE);
     Assert.assertEquals(fullString, res1.getResult());
     final ResponseContext ctxCopy = ResponseContext.createEmpty();
     ctxCopy.merge(ctx);
-    final ResponseContext.SerializationResult res2 = ctx.toHeader(objectMapper, 30);
-    ctxCopy.remove(ExtensionResponseContextKey.EXTENSION_KEY_1);
-    ctxCopy.put(ResponseContext.Key.TRUNCATED, true);
+    final int target = EXTN_COUNTER_KEY.getName().length() + 3 +
+                       Keys.TRUNCATED.getName().length() + 5 +
+                       15; // Fudge factor for quotes, separators, etc.
+    final ResponseContext.SerializationResult res2 = ctx.toHeader(objectMapper, target);
+    ctxCopy.remove(EXTN_STRING_KEY);
+    ctxCopy.put(Keys.TRUNCATED, true);
     Assert.assertEquals(
         ctxCopy.getDelegate(),
         ResponseContext.deserialize(res2.getResult(), objectMapper).getDelegate()
     );
   }
 
+  // Interval value for the test. Must match the deserialized value.
+  private static Interval interval(int n) {
+    return Intervals.of(String.format("2021-01-%02d/PT1M", n));
+  }
+  
+  // Length of above with quotes and comma.
+  static private final int INTERVAL_LEN = 52; 
+  
   @Test
   public void serializeWithTruncateArrayTest() throws IOException
   {
     final ResponseContext ctx = ResponseContext.createEmpty();
-    ctx.put(ResponseContext.Key.CPU_CONSUMED_NANOS, 100);
     ctx.put(
-        ResponseContext.Key.UNCOVERED_INTERVALS,
-        Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+        Keys.UNCOVERED_INTERVALS,
+        Arrays.asList(interval(1), interval(2), interval(3), interval(4),
+                      interval(5), interval(6))
     );
+    // This value should be longer than the above so it is fully removed
+    // before we truncate the above.
     ctx.put(
-        ResponseContext.Key.MISSING_SEGMENTS,
-        Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+        EXTN_STRING_KEY,
+        Strings.repeat("x", INTERVAL_LEN * 7)
     );
     final DefaultObjectMapper objectMapper = new DefaultObjectMapper();
     final String fullString = objectMapper.writeValueAsString(ctx.getDelegate());
     final ResponseContext.SerializationResult res1 = ctx.toHeader(objectMapper, Integer.MAX_VALUE);
     Assert.assertEquals(fullString, res1.getResult());
+    final int maxLen = INTERVAL_LEN * 4 + Keys.UNCOVERED_INTERVALS.getName().length() + 4 +
+                       Keys.TRUNCATED.getName().length() + 6;
+    final ResponseContext.SerializationResult res2 = ctx.toHeader(objectMapper, maxLen);
     final ResponseContext ctxCopy = ResponseContext.createEmpty();
-    ctxCopy.merge(ctx);
-    final ResponseContext.SerializationResult res2 = ctx.toHeader(objectMapper, 70);
-    ctxCopy.put(ResponseContext.Key.UNCOVERED_INTERVALS, Arrays.asList(0, 1, 2, 3, 4));
-    ctxCopy.remove(ResponseContext.Key.MISSING_SEGMENTS);
-    ctxCopy.put(ResponseContext.Key.TRUNCATED, true);
+    // The resulting key array length will be half the start
+    // length.
+    ctxCopy.put(Keys.UNCOVERED_INTERVALS, Arrays.asList(interval(1), interval(2), interval(3)));
+    ctxCopy.put(Keys.TRUNCATED, true);
     Assert.assertEquals(
         ctxCopy.getDelegate(),
         ResponseContext.deserialize(res2.getResult(), objectMapper).getDelegate()
@@ -346,20 +284,20 @@ public class ResponseContextTest
     final ResponseContext ctx = ResponseContext.deserialize(
         mapper.writeValueAsString(
             ImmutableMap.of(
-                "ETag", "string-value",
-                "count", 100L,
-                "cpuConsumed", 100000L
+                Keys.ETAG.getName(), "string-value",
+                Keys.NUM_SCANNED_ROWS.getName(), 100L,
+                Keys.CPU_CONSUMED_NANOS.getName(), 100000L
             )
         ),
         mapper
     );
-    Assert.assertEquals("string-value", ctx.get(ResponseContext.Key.ETAG));
-    Assert.assertEquals(100L, ctx.get(ResponseContext.Key.NUM_SCANNED_ROWS));
-    Assert.assertEquals(100000L, ctx.get(ResponseContext.Key.CPU_CONSUMED_NANOS));
-    ctx.add(ResponseContext.Key.NUM_SCANNED_ROWS, 10L);
-    Assert.assertEquals(110L, ctx.get(ResponseContext.Key.NUM_SCANNED_ROWS));
-    ctx.add(ResponseContext.Key.CPU_CONSUMED_NANOS, 100L);
-    Assert.assertEquals(100100L, ctx.get(ResponseContext.Key.CPU_CONSUMED_NANOS));
+    Assert.assertEquals("string-value", ctx.get(Keys.ETAG));
+    Assert.assertEquals(100L, ctx.get(Keys.NUM_SCANNED_ROWS));
+    Assert.assertEquals(100000L, ctx.get(Keys.CPU_CONSUMED_NANOS));
+    ctx.add(Keys.NUM_SCANNED_ROWS, 10L);
+    Assert.assertEquals(110L, ctx.get(Keys.NUM_SCANNED_ROWS));
+    ctx.add(Keys.CPU_CONSUMED_NANOS, 100L);
+    Assert.assertEquals(100100L, ctx.get(Keys.CPU_CONSUMED_NANOS));
   }
 
   @Test(expected = IllegalStateException.class)
@@ -373,35 +311,19 @@ public class ResponseContextTest
   }
 
   @Test
-  public void extensionEnumIntegrityTest()
-  {
-    Assert.assertEquals(
-        ExtensionResponseContextKey.EXTENSION_KEY_1,
-        ResponseContext.Key.keyOf(ExtensionResponseContextKey.EXTENSION_KEY_1.getName())
-    );
-    Assert.assertEquals(
-        ExtensionResponseContextKey.EXTENSION_KEY_2,
-        ResponseContext.Key.keyOf(ExtensionResponseContextKey.EXTENSION_KEY_2.getName())
-    );
-    for (ResponseContext.BaseKey key : ExtensionResponseContextKey.values()) {
-      Assert.assertTrue(ResponseContext.Key.getAllRegisteredKeys().contains(key));
-    }
-  }
-
-  @Test
   public void extensionEnumMergeTest()
   {
     final ResponseContext ctx = ResponseContext.createEmpty();
-    ctx.add(ResponseContext.Key.ETAG, "etag");
-    ctx.add(ExtensionResponseContextKey.EXTENSION_KEY_1, "string-value");
-    ctx.add(ExtensionResponseContextKey.EXTENSION_KEY_2, 2L);
+    ctx.add(Keys.ETAG, "etag");
+    ctx.add(EXTN_STRING_KEY, "string-value");
+    ctx.add(EXTN_COUNTER_KEY, 2L);
     final ResponseContext ctxFinal = ResponseContext.createEmpty();
-    ctxFinal.add(ResponseContext.Key.ETAG, "old-etag");
-    ctxFinal.add(ExtensionResponseContextKey.EXTENSION_KEY_1, "old-string-value");
-    ctxFinal.add(ExtensionResponseContextKey.EXTENSION_KEY_2, 1L);
+    ctxFinal.add(Keys.ETAG, "old-etag");
+    ctxFinal.add(EXTN_STRING_KEY, "old-string-value");
+    ctxFinal.add(EXTN_COUNTER_KEY, 1L);
     ctxFinal.merge(ctx);
-    Assert.assertEquals("etag", ctxFinal.get(ResponseContext.Key.ETAG));
-    Assert.assertEquals("string-value", ctxFinal.get(ExtensionResponseContextKey.EXTENSION_KEY_1));
-    Assert.assertEquals(1L + 2L, ctxFinal.get(ExtensionResponseContextKey.EXTENSION_KEY_2));
+    Assert.assertEquals("etag", ctxFinal.get(Keys.ETAG));
+    Assert.assertEquals("string-value", ctxFinal.get(EXTN_STRING_KEY));
+    Assert.assertEquals(1L + 2L, ctxFinal.get(EXTN_COUNTER_KEY));
   }
 }
