@@ -20,17 +20,18 @@
 package org.apache.druid.query.context;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.NonnullPair;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.query.context.ResponseContext.CounterKey;
 import org.apache.druid.query.context.ResponseContext.Key;
 import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.query.context.ResponseContext.StringKey;
 import org.apache.druid.query.context.ResponseContext.Visibility;
-import org.apache.druid.query.context.ResponseContext.CounterKey;
 import org.joda.time.Interval;
 import org.junit.Assert;
 import org.junit.Test;
@@ -76,7 +77,7 @@ public class ResponseContextTest
   @Test(expected = IllegalArgumentException.class)
   public void registerKeyIAETest()
   {
-    Keys.instance.registerKey(Keys.NUM_SCANNED_ROWS);
+    Keys.INSTANCE.registerKey(Keys.NUM_SCANNED_ROWS);
   }
 
   @Test
@@ -195,10 +196,9 @@ public class ResponseContextTest
     final DefaultObjectMapper mapper = new DefaultObjectMapper();
     Assert.assertEquals(
         mapper.writeValueAsString(ImmutableMap.of(
-        		EXTN_STRING_KEY.getName(), 
-        		"string-value")),
-        ctx1.toHeader(mapper, Integer.MAX_VALUE).getResult()
-    );
+            EXTN_STRING_KEY.getName(),
+            "string-value")),
+        ctx1.toHeader(mapper, Integer.MAX_VALUE).getResult());
 
     final ResponseContext ctx2 = ResponseContext.createEmpty();
     // Add two non-header fields, and one that will be in the header
@@ -207,9 +207,8 @@ public class ResponseContextTest
     ctx2.add(EXTN_COUNTER_KEY, 100);
     Assert.assertEquals(
         mapper.writeValueAsString(ImmutableMap.of(
-        		EXTN_COUNTER_KEY.getName(), 100)),
-        ctx2.toHeader(mapper, Integer.MAX_VALUE).getResult()
-    );
+            EXTN_COUNTER_KEY.getName(), 100)),
+        ctx2.toHeader(mapper, Integer.MAX_VALUE).getResult());
   }
 
   @Test
@@ -237,12 +236,13 @@ public class ResponseContextTest
   }
 
   // Interval value for the test. Must match the deserialized value.
-  private static Interval interval(int n) {
-    return Intervals.of(String.format("2021-01-%02d/PT1M", n));
+  private static Interval interval(int n)
+  {
+    return Intervals.of(StringUtils.format("2021-01-%02d/PT1M", n));
   }
   
   // Length of above with quotes and comma.
-  static private final int INTERVAL_LEN = 52; 
+  private static final int INTERVAL_LEN = 52; 
   
   @Test
   public void serializeWithTruncateArrayTest() throws IOException

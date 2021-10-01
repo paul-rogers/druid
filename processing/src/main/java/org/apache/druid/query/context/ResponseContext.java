@@ -33,10 +33,9 @@ import org.apache.druid.guice.annotations.PublicApi;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.NonnullPair;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.MultiQueryMetricsCollector;
 import org.apache.druid.query.SegmentDescriptor;
-import org.apache.druid.query.context.ResponseContext.Key;
-import org.apache.druid.query.context.ResponseContext.Keys;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
@@ -113,7 +112,7 @@ public abstract class ResponseContext
     NONE
   }
   
-  public static abstract class AbstractKey implements Key
+  public abstract static class AbstractKey implements Key
   {
     private final String name;
     private final Visibility visibility;
@@ -283,9 +282,12 @@ public abstract class ResponseContext
      * Lists intervals for which NO segment is present.
      */
     public static Key UNCOVERED_INTERVALS = new AbstractKey(
-    		"uncoveredIntervals", 
-    		Visibility.HEADER_AND_TRAILER, true,
-    		new TypeReference<List<Interval>>() {}) {
+        "uncoveredIntervals",
+        Visibility.HEADER_AND_TRAILER, true,
+        new TypeReference<List<Interval>>()
+        {
+        })
+    {
       @Override
       @SuppressWarnings("unchecked")
       public Object mergeValues(Object oldValue, Object newValue)
@@ -300,8 +302,8 @@ public abstract class ResponseContext
      * Indicates if the number of uncovered intervals exceeded the limit (true/false).
      */
     public static Key UNCOVERED_INTERVALS_OVERFLOWED = new BooleanKey(
-    		"uncoveredIntervalsOverflowed", 
-    		Visibility.HEADER_AND_TRAILER);
+        "uncoveredIntervalsOverflowed",
+        Visibility.HEADER_AND_TRAILER);
     
     /**
      * Map of most relevant query ID to remaining number of responses from query nodes.
@@ -316,9 +318,10 @@ public abstract class ResponseContext
      * @see org.apache.druid.query.Query#getMostSpecificId
      */
     public static Key REMAINING_RESPONSES_FROM_QUERY_SERVERS = new AbstractKey(
-    		"remainingResponsesFromQueryServers", 
-    		Visibility.NONE, true,
-    		Object.class) {
+        "remainingResponsesFromQueryServers",
+        Visibility.NONE, true,
+        Object.class)
+    {
       @Override
       @SuppressWarnings("unchecked")
       public Object mergeValues(Object totalRemainingPerId, Object idAndNumResponses)
@@ -327,8 +330,7 @@ public abstract class ResponseContext
         final NonnullPair<String, Integer> pair = (NonnullPair<String, Integer>) idAndNumResponses;
         map.compute(
             pair.lhs,
-            (id, remaining) -> remaining == null ? pair.rhs : remaining + pair.rhs
-        );
+            (id, remaining) -> remaining == null ? pair.rhs : remaining + pair.rhs);
         return map;
       }
     };
@@ -339,8 +341,10 @@ public abstract class ResponseContext
     public static Key MISSING_SEGMENTS = new AbstractKey(
         "missingSegments",
         Visibility.HEADER_AND_TRAILER, true,
-        new TypeReference<List<SegmentDescriptor>>() {}
-    ) {
+        new TypeReference<List<SegmentDescriptor>>()
+        {
+        })
+    {
       @Override
       @SuppressWarnings("unchecked")
       public Object mergeValues(Object oldValue, Object newValue)
@@ -361,8 +365,8 @@ public abstract class ResponseContext
      * Query total bytes gathered.
      */
     public static Key QUERY_TOTAL_BYTES_GATHERED = new LongKey(
-    		"queryTotalBytesGathered", 
-    		Visibility.NONE);
+        "queryTotalBytesGathered",
+        Visibility.NONE);
     
     /**
      * This variable indicates when a running query should be expired,
@@ -371,8 +375,8 @@ public abstract class ResponseContext
      * by reducing its value on the time of every scan iteration.
      */
     public static Key TIMEOUT_AT = new LongKey(
-    		"timeoutAt", 
-    		Visibility.NONE);
+        "timeoutAt",
+        Visibility.NONE);
     
     /**
      * The number of rows scanned by {@link org.apache.druid.query.scan.ScanQueryEngine}.
@@ -381,8 +385,8 @@ public abstract class ResponseContext
      * marked with {@link Visibility#NONE}.
      */
     public static Key NUM_SCANNED_ROWS = new CounterKey(
-        "count", 
-    		Visibility.NONE);
+        "count",
+        Visibility.NONE);
     
     /**
      * The total CPU time for threads related to Sequence processing of the query.
@@ -390,15 +394,15 @@ public abstract class ResponseContext
      * For additional information see {@link org.apache.druid.query.CPUTimeMetricQueryRunner}
      */
     public static Key CPU_CONSUMED_NANOS = new CounterKey(
-    		"cpuConsumed", 
-    		Visibility.TRAILER);
+        "cpuConsumed",
+        Visibility.TRAILER);
     
     /**
      * Indicates if a {@link ResponseContext} was truncated during serialization.
      */
     public static Key TRUNCATED = new BooleanKey(
-    		"truncated", 
-    		Visibility.HEADER_AND_TRAILER);
+        "truncated",
+        Visibility.HEADER_AND_TRAILER);
     
     /**
      * TODO(gianm): Javadocs.
@@ -416,7 +420,7 @@ public abstract class ResponseContext
       }
     };
     
-    public static final Keys instance = new Keys();
+    public static final Keys INSTANCE = new Keys();
 
     /**
      * ConcurrentSkipListMap is used to have the natural ordering of its keys.
@@ -426,7 +430,8 @@ public abstract class ResponseContext
     private ConcurrentMap<String, Key> registered_keys = new ConcurrentSkipListMap<>();
 
     static {
-      instance().registerKeys(new Key[] {
+      instance().registerKeys(new Key[]
+      {
           UNCOVERED_INTERVALS,
           UNCOVERED_INTERVALS_OVERFLOWED,
           REMAINING_RESPONSES_FROM_QUERY_SERVERS,
@@ -441,8 +446,9 @@ public abstract class ResponseContext
       });
     }
     
-    public static Keys instance() {
-      return instance;
+    public static Keys instance()
+    {
+      return INSTANCE;
     }
 
     /**
@@ -457,7 +463,8 @@ public abstract class ResponseContext
       }
     }
     
-    public void registerKeys(Key[] keys) {
+    public void registerKeys(Key[] keys)
+    {
       for (Key key : keys) {
         registerKey(key);
       }
@@ -604,8 +611,7 @@ public abstract class ResponseContext
       }
       final JsonNode node = e.getValue();
       int removeLength = fieldName.toString().length() + node.toString().length();
-      if (removeLength < needToRemoveCharsNumber || !(node instanceof ArrayNode))
-      {
+      if (removeLength < needToRemoveCharsNumber || !(node instanceof ArrayNode)) {
         // Remove the field
         contextJsonNode.remove(fieldName);
         needToRemoveCharsNumber -= removeLength;
@@ -630,7 +636,8 @@ public abstract class ResponseContext
     if (needToRemoveCharsNumber > 0) {
       // Still too long, and no more shortenable keys.
       throw new ISE(
-          String.format("Response context of length %d is too long for header, max = %d; minimum size = %d",
+          StringUtils.format(
+              "Response context of length %d is too long for header, max = %d; minimum size = %d",
               fullSerializedString.length(), maxCharsNumber, maxCharsNumber - needToRemoveCharsNumber));
     }
 
