@@ -55,6 +55,11 @@ import java.util.stream.Collectors;
 /**
  * The context for storing and passing data between chains of {@link org.apache.druid.query.QueryRunner}s.
  * The context is also transferred between Druid nodes with all the data it contains.
+ * <p>
+ * The response context consists of a set of key/value pairs. Keys are those defined in
+ * the <code>Keys</code> registry. Keys are indexed by key instance, not by name. The
+ * key defines the type of the associated value, including logic to merge values and
+ * to deserialize JSON values for that key.
  */
 @PublicApi
 public abstract class ResponseContext
@@ -93,6 +98,11 @@ public abstract class ResponseContext
     boolean canDrop();
   }
   
+  /**
+   * Where the key is emitted, if at all. Values in the context can be for internal
+   * use only: for return before the query results (header) or only after query
+   * results (trailer).
+   */
   public enum Visibility
   {
     /**
@@ -112,6 +122,11 @@ public abstract class ResponseContext
     NONE
   }
   
+  /**
+   * Abstract key class which provides most functionality except the
+   * type-specific merge logic. Parsing is provided by an associated
+   * parse function.
+   */
   public abstract static class AbstractKey implements Key
   {
     private final String name;
@@ -420,6 +435,11 @@ public abstract class ResponseContext
       }
     };
     
+    /**
+     * One and only global list of keys. This is a semi-constant: it is mutable
+     * at start-up time, but then is not thread-safe, and must remain unchanged
+     * for the duration of the server run.
+     */
     public static final Keys INSTANCE = new Keys();
 
     /**
@@ -446,6 +466,9 @@ public abstract class ResponseContext
       });
     }
     
+    /**
+     * Returns the single, global key registry for this server.
+     */
     public static Keys instance()
     {
       return INSTANCE;
@@ -463,6 +486,9 @@ public abstract class ResponseContext
       }
     }
     
+    /**
+     * Register a group of keys.
+     */
     public void registerKeys(Key[] keys)
     {
       for (Key key : keys) {
@@ -644,6 +670,11 @@ public abstract class ResponseContext
     return new SerializationResult(contextJsonNode.toString(), fullSerializedString);
   }
 
+  /**
+   * Return a map containing the key/value pairs to be returned in the
+   * response trailer. Note that, unlike the header, the trailer is optional
+   * and does not have a size limit.
+   */
   public Map<Key, Object> trailerCopy()
   {
     return getDelegate().entrySet()
