@@ -35,6 +35,7 @@ import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.GenericQueryMetricsFactory;
+import org.apache.druid.query.MultiQueryMetricsCollector;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryInterruptedException;
@@ -44,7 +45,11 @@ import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryToolChestWarehouse;
+import org.apache.druid.query.SingleQueryMetricsCollector;
 import org.apache.druid.query.context.ConcurrentResponseContext;
+import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.profile.FragmentNode;
+import org.apache.druid.query.profile.SliceNode;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -70,14 +75,181 @@ import java.util.concurrent.TimeUnit;
  * </ol>
  *
  * This object is not thread-safe.
+ * <p>
+ * Druid accumulates a number of types of metrics and statistics for each query.
+ * The lifecycle object also gathers the query-level information into a single
+ * place, the <code>LifecycleStats</code>, the distributes it out to the multiple
+ * users.
  */
 public class QueryLifecycle
 {
   private static final Logger log = new Logger(QueryLifecycle.class);
+  
+  /**
+   * Gathers query-level statistics then distributes them to the metrics system,
+   * logs, and response trailer.
+   */
+  public class LifecycleStats
+  {
+    String hostId;
+    String remoteAddress;
+    Throwable e;
+    long endTimeNs;
+    long bytesWritten;
+    long rowCount;
+    
+    /**
+     * Called by the query resource to provide the host on which this query is
+     * running, and the remote address that sent the request.
+     */
+    public void onStart(String hostId, String remoteAddress)
+    {
+      this.hostId = hostId;
+      this.remoteAddress = remoteAddress;
+    }
+    
+    /**
+     * Partial completion: results written, about to emit the trailer.
+     * Tally run time and bytes written up to now. Final result will
+     * differ a bit.
+     */
+    public void onResultsSent(long rowCount, long bytesWritten)
+    {
+      this.rowCount = rowCount;
+      this.bytesWritten = bytesWritten;
+      this.endTimeNs = System.nanoTime();
+    }
+    
+    /**
+     * Final completion: all results sent, including the possible
+     * trailer.
+     */
+    public void onCompletion(Throwable e, long bytesWritten)
+    {
+      this.e = e;
+      this.bytesWritten = bytesWritten;
+      this.endTimeNs = System.nanoTime();
+    }
+    
+    public String queryId() {
+      return baseQuery.getId();
+    }
+    
+    public boolean succeeded()
+    {
+      return e == null;
+    }
+    
+    public long startTimeNs()
+    {
+      return startNs;
+    }
+    
+    public long endTimeNs()
+    {
+      return endTimeNs;
+    }
+    
+    public long runTimeNs()
+    {
+      return endTimeNs - startTimeNs();
+    }
+    
+    public long runTimeMs() {
+      return TimeUnit.NANOSECONDS.toMillis(runTimeNs());
+    }
+    
+    public String identity()
+    {
+      return authenticationResult == null ? null : authenticationResult.getIdentity();
+    }
+    
+    public boolean wasInterrupted()
+    {
+      if (e == null) {
+        return false;
+      }
+      return (e instanceof QueryInterruptedException || e instanceof QueryTimeoutException);
+    }
+    
+    public Query<?> query()
+    {
+      return baseQuery;
+    }
+    
+    public void emitMetrics(QueryMetrics<?> queryMetrics) {
+      queryMetrics.success(succeeded());
+      queryMetrics.reportQueryTime(runTimeNs());
+
+      if (bytesWritten >= 0) {
+        queryMetrics.reportQueryBytes(bytesWritten);
+      }
+
+      String identify = identity();
+      if (identify != null) {
+        queryMetrics.identity(identify);
+      }
+    }
+    
+    public QueryStats queryStats() {
+      final Map<String, Object> statsMap = new LinkedHashMap<>();
+      statsMap.put("query/time", TimeUnit.NANOSECONDS.toMillis(runTimeNs()));
+      statsMap.put("query/bytes", bytesWritten);
+      statsMap.put("success", succeeded());
+
+      String identity = identity();
+      if (identity != null) {
+        statsMap.put("identity", identity);
+      }
+
+      if (e != null) {
+        statsMap.put("exception", e.toString());
+        if (QueryContexts.isDebug(baseQuery)) {
+          log.error(e, "Exception while processing queryId [%s]", baseQuery.getId());
+        } else {
+          log.noStackTrace().error(e, "Exception while processing queryId [%s]", baseQuery.getId());
+        }
+        if (wasInterrupted()) {
+          // Mimic behavior from QueryResource, where this code was originally taken from.
+          statsMap.put("interrupted", true);
+          statsMap.put("reason", e.toString());
+        }
+      }
+      return new QueryStats(statsMap);
+    }
+    
+    public void trailer(ResponseContext responseContext) {
+      responseContext.add(
+          ResponseContext.Keys.METRICS,
+          MultiQueryMetricsCollector.newCollector().add(
+              SingleQueryMetricsCollector
+                  .newCollector()
+                  .setQueryStart(getStartMs())
+                  .setQueryMs(runTimeMs())
+                  .setResultRows(rowCount)
+                  )
+          );
+      responseContext.add(ResponseContext.Keys.PROFILE, sliceNode());
+    }
+    
+    public SliceNode sliceNode()
+    {
+      SliceNode slice = new SliceNode(queryId());
+      slice.add(new FragmentNode(
+          hostId,
+          remoteAddress,
+          getStartMs(),
+          runTimeMs(),
+          rowCount
+      ));
+      return slice;
+    }
+  }
 
   private final QueryToolChestWarehouse warehouse;
   private final QuerySegmentWalker texasRanger;
   private final GenericQueryMetricsFactory queryMetricsFactory;
+  @SuppressWarnings("unused")
   private final ServiceEmitter emitter;
   private final RequestLogger requestLogger;
   private final AuthorizerMapper authorizerMapper;
@@ -88,7 +260,8 @@ public class QueryLifecycle
   private State state = State.NEW;
   private AuthenticationResult authenticationResult;
   private QueryToolChest toolChest;
-  private Query baseQuery;
+  private Query<?> baseQuery;
+  private final LifecycleStats stats;
 
   public QueryLifecycle(
       final QueryToolChestWarehouse warehouse,
@@ -111,8 +284,12 @@ public class QueryLifecycle
     this.defaultQueryConfig = defaultQueryConfig;
     this.startMs = startMs;
     this.startNs = startNs;
+    this.stats = new LifecycleStats();
   }
-
+  
+  public LifecycleStats stats() {
+    return stats;
+  }
 
   /**
    * For callers who have already authorized their query, and where simplicity is desired over flexibility. This method
@@ -145,7 +322,7 @@ public class QueryLifecycle
       queryResponse = (QueryResponse<T>) execute();
     }
     catch (Throwable e) {
-      emitLogsAndMetrics(e, null, -1);
+      emitLogsAndMetrics(e, -1);
       throw e;
     }
 
@@ -155,7 +332,7 @@ public class QueryLifecycle
           @Override
           public void after(final boolean isDone, final Throwable thrown)
           {
-            emitLogsAndMetrics(thrown, null, -1);
+            emitLogsAndMetrics(thrown, -1);
           }
         }
     );
@@ -166,8 +343,7 @@ public class QueryLifecycle
    *
    * @param baseQuery the query
    */
-  @SuppressWarnings("unchecked")
-  public void initialize(final Query baseQuery)
+  public void initialize(final Query<?> baseQuery)
   {
     transition(State.NEW, State.INITIALIZED);
 
@@ -267,10 +443,8 @@ public class QueryLifecycle
    * @param remoteAddress remote address, for logging; or null if unknown
    * @param bytesWritten  number of bytes written; will become a query/bytes metric if >= 0
    */
-  @SuppressWarnings("unchecked")
   public void emitLogsAndMetrics(
       @Nullable final Throwable e,
-      @Nullable final String remoteAddress,
       final long bytesWritten
   )
   {
@@ -285,60 +459,23 @@ public class QueryLifecycle
 
     state = State.DONE;
 
-    final boolean success = e == null;
-
+    stats.onCompletion(e, bytesWritten);
     try {
-      final long queryTimeNs = System.nanoTime() - startNs;
-
-      QueryMetrics queryMetrics = DruidMetrics.makeRequestMetrics(
+      @SuppressWarnings("unchecked")
+      QueryMetrics<?> queryMetrics = DruidMetrics.makeRequestMetrics(
           queryMetricsFactory,
           toolChest,
           baseQuery,
-          StringUtils.nullToEmptyNonDruidDataString(remoteAddress)
+          StringUtils.nullToEmptyNonDruidDataString(stats.remoteAddress)
       );
-      queryMetrics.success(success);
-      queryMetrics.reportQueryTime(queryTimeNs);
-
-      if (bytesWritten >= 0) {
-        queryMetrics.reportQueryBytes(bytesWritten);
-      }
-
-      if (authenticationResult != null) {
-        queryMetrics.identity(authenticationResult.getIdentity());
-      }
-
-      // Don't include response context, because by this point we've already returned the full query response.
-      queryMetrics.emit(emitter, null);
-
-      final Map<String, Object> statsMap = new LinkedHashMap<>();
-      statsMap.put("query/time", TimeUnit.NANOSECONDS.toMillis(queryTimeNs));
-      statsMap.put("query/bytes", bytesWritten);
-      statsMap.put("success", success);
-
-      if (authenticationResult != null) {
-        statsMap.put("identity", authenticationResult.getIdentity());
-      }
-
-      if (e != null) {
-        statsMap.put("exception", e.toString());
-        if (QueryContexts.isDebug(baseQuery)) {
-          log.error(e, "Exception while processing queryId [%s]", baseQuery.getId());
-        } else {
-          log.noStackTrace().error(e, "Exception while processing queryId [%s]", baseQuery.getId());
-        }
-        if (e instanceof QueryInterruptedException || e instanceof QueryTimeoutException) {
-          // Mimic behavior from QueryResource, where this code was originally taken from.
-          statsMap.put("interrupted", true);
-          statsMap.put("reason", e.toString());
-        }
-      }
+      stats.emitMetrics(queryMetrics);
 
       requestLogger.logNativeQuery(
           RequestLogLine.forNative(
               baseQuery,
               DateTimes.utc(startMs),
-              StringUtils.nullToEmptyNonDruidDataString(remoteAddress),
-              new QueryStats(statsMap)
+              StringUtils.nullToEmptyNonDruidDataString(stats.remoteAddress),
+              stats.queryStats()
           )
       );
     }

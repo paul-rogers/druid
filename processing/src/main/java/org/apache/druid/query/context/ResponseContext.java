@@ -36,6 +36,8 @@ import org.apache.druid.java.util.common.NonnullPair;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.MultiQueryMetricsCollector;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.query.profile.FragmentNode;
+import org.apache.druid.query.profile.SliceNode;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
@@ -435,6 +437,18 @@ public abstract class ResponseContext
       }
     };
     
+    public static Key PROFILE = new AbstractKey(
+        "profile",
+        Visibility.TRAILER, false,
+        new TypeReference<SliceNode>() {}
+    ) {
+      @Override
+      public Object mergeValues(Object oldValue, Object newValue)
+      {
+        return ((SliceNode) oldValue).merge((SliceNode) newValue);
+      }
+    };
+    
     /**
      * One and only global list of keys. This is a semi-constant: it is mutable
      * at start-up time, but then is not thread-safe, and must remain unchanged
@@ -462,7 +476,8 @@ public abstract class ResponseContext
           NUM_SCANNED_ROWS,
           CPU_CONSUMED_NANOS,
           TRUNCATED,
-          METRICS
+          METRICS,
+          PROFILE,
       });
     }
     
@@ -505,7 +520,7 @@ public abstract class ResponseContext
     {
       Key key = registered_keys.get(name);
       if (key == null) {
-        throw new ISE("Key [%s] has not yet been registered as a context key", name);
+        throw new ISE("Key [%s] is not registered as a context key", name);
       }
       return key;
     }
@@ -661,10 +676,8 @@ public abstract class ResponseContext
 
     if (needToRemoveCharsNumber > 0) {
       // Still too long, and no more shortenable keys.
-      throw new ISE(
-          StringUtils.format(
-              "Response context of length %d is too long for header, max = %d; minimum size = %d",
-              fullSerializedString.length(), maxCharsNumber, maxCharsNumber - needToRemoveCharsNumber));
+      throw new ISE("Response context of length %d is too long for header, max = %d; minimum size = %d",
+              fullSerializedString.length(), maxCharsNumber, maxCharsNumber - needToRemoveCharsNumber);
     }
 
     return new SerializationResult(contextJsonNode.toString(), fullSerializedString);
@@ -693,7 +706,7 @@ public abstract class ResponseContext
    * If it is impossible to satisfy the limit the method removes all {@code node}'s elements.
    * On every iteration it removes exactly half of the remained elements to reduce the overall complexity.
    *
-   * @param node                    {@link ArrayNode} which elements are being removed.
+   * @param node   {@link ArrayNode} which elements are being removed.
    * @param target the number of chars need to be removed.
    *
    * @return the number of removed chars.

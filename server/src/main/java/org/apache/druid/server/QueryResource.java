@@ -59,6 +59,7 @@ import org.apache.druid.query.SingleQueryMetricsCollector;
 import org.apache.druid.query.TruncatedResponseContextException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.context.ResponseContext.Keys;
+import org.apache.druid.server.QueryLifecycle.LifecycleStats;
 import org.apache.druid.server.metrics.QueryCountStatsProvider;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthConfig;
@@ -198,8 +199,10 @@ public class QueryResource implements QueryCountStatsProvider
     final String currThreadName = Thread.currentThread().getName();
     try {
       queryLifecycle.initialize(readQuery(req, in, ioReaderWriter));
+      LifecycleStats stats = queryLifecycle.stats();
       query = queryLifecycle.getQuery();
       final String queryId = query.getId();
+      stats.onStart(selfNode.getHostAndPort(), req.getRemoteAddr());
 
       final String queryThreadName = StringUtils.format(
           "%s[%s_%s_%s]",
@@ -226,7 +229,7 @@ public class QueryResource implements QueryCountStatsProvider
       final String prevEtag = getPreviousEtag(req);
 
       if (prevEtag != null && prevEtag.equals(responseContext.get(Keys.ETAG))) {
-        queryLifecycle.emitLogsAndMetrics(null, req.getRemoteAddr(), -1);
+        queryLifecycle.emitLogsAndMetrics(null, -1);
         successfulQueryCount.incrementAndGet();
         return Response.notModified().build();
       }
@@ -290,20 +293,9 @@ public class QueryResource implements QueryCountStatsProvider
                       // json serializer for Yielder will always close it
                       jsonGenerator.writeObject(yielder);
 
+                      stats.onResultsSent(resultRowCount.get(), countingOutputStream.getCount());
                       if (ioReaderWriter.isTrailerIncluded()) {
-                        // TODO(gianm): Copypasta?
-                        // TODO(gianm): Docs that this is not the same as query/time
-                        responseContext.add(
-                            ResponseContext.Keys.METRICS,
-                            MultiQueryMetricsCollector.newCollector().add(
-                                SingleQueryMetricsCollector
-                                    .newCollector()
-                                    .setQueryStart(queryLifecycle.getStartMs())
-                                    .setQueryMs(System.currentTimeMillis() - queryLifecycle.getStartMs())
-                                    .setResultRows(resultRowCount.get())
-                            )
-                        );
-
+                        stats.trailer(responseContext);
                         jsonGenerator.writeObjectField(JsonParserIterator.FIELD_CONTEXT, responseContext.trailerCopy());
                       }
 
@@ -319,7 +311,7 @@ public class QueryResource implements QueryCountStatsProvider
                     finally {
                       Thread.currentThread().setName(currThreadName);
 
-                      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), countingOutputStream.getCount());
+                      queryLifecycle.emitLogsAndMetrics(e, countingOutputStream.getCount());
 
                       if (e == null) {
                         successfulQueryCount.incrementAndGet();
@@ -387,27 +379,27 @@ public class QueryResource implements QueryCountStatsProvider
     }
     catch (QueryInterruptedException e) {
       interruptedQueryCount.incrementAndGet();
-      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), -1);
+      queryLifecycle.emitLogsAndMetrics(e, -1);
       return ioReaderWriter.getResponseWriter().gotError(e);
     }
     catch (QueryTimeoutException timeout) {
       timedOutQueryCount.incrementAndGet();
-      queryLifecycle.emitLogsAndMetrics(timeout, req.getRemoteAddr(), -1);
+      queryLifecycle.emitLogsAndMetrics(timeout, -1);
       return ioReaderWriter.getResponseWriter().gotTimeout(timeout);
     }
     catch (QueryCapacityExceededException cap) {
       failedQueryCount.incrementAndGet();
-      queryLifecycle.emitLogsAndMetrics(cap, req.getRemoteAddr(), -1);
+      queryLifecycle.emitLogsAndMetrics(cap, -1);
       return ioReaderWriter.getResponseWriter().gotLimited(cap);
     }
     catch (QueryUnsupportedException unsupported) {
       failedQueryCount.incrementAndGet();
-      queryLifecycle.emitLogsAndMetrics(unsupported, req.getRemoteAddr(), -1);
+      queryLifecycle.emitLogsAndMetrics(unsupported, -1);
       return ioReaderWriter.getResponseWriter().gotUnsupported(unsupported);
     }
     catch (BadJsonQueryException | ResourceLimitExceededException e) {
       interruptedQueryCount.incrementAndGet();
-      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), -1);
+      queryLifecycle.emitLogsAndMetrics(e, -1);
       return ioReaderWriter.getResponseWriter().gotBadQuery(e);
     }
     catch (ForbiddenException e) {
@@ -417,7 +409,7 @@ public class QueryResource implements QueryCountStatsProvider
     }
     catch (Exception e) {
       failedQueryCount.incrementAndGet();
-      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), -1);
+      queryLifecycle.emitLogsAndMetrics(e, -1);
 
       log.noStackTrace()
          .makeAlert(e, "Exception handling request")
