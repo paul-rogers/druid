@@ -49,7 +49,7 @@ public class ReportTimelineMissingSegmentQueryRunner<T> implements QueryRunner<T
   public Sequence<T> run(QueryPlus<T> queryPlus, ResponseContext responseContext)
   {
     LOG.debug("Reporting a missing segments[%s] for query[%s]", descriptors, queryPlus.getQuery().getId());
-    responseContext.add(ResponseContext.Keys.MISSING_SEGMENTS, descriptors);
+    responseContext.addMissingSegments(descriptors);
     return Sequences.empty();
   }
 }

@@ -108,8 +108,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
   public static ConcurrentResponseContext makeResponseContextForQuery()
   {
     final ConcurrentResponseContext responseContext = ConcurrentResponseContext.createEmpty();
-    responseContext.put(Keys.QUERY_TOTAL_BYTES_GATHERED, new AtomicLong());
-    responseContext.put(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
+    responseContext.initialize();
     return responseContext;
   }
 
@@ -159,7 +158,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
       final long requestStartTimeNs = System.nanoTime();
       final long timeoutAt = query.getContextValue(QUERY_FAIL_TIME);
       final long maxScatterGatherBytes = QueryContexts.getMaxScatterGatherBytes(query);
-      final AtomicLong totalBytesGathered = (AtomicLong) context.get(Keys.QUERY_TOTAL_BYTES_GATHERED);
+      final AtomicLong totalBytesGathered = context.getTotalBytes();
       final long maxQueuedBytes = QueryContexts.getMaxQueuedBytes(query, 0);
       final boolean usingBackpressure = maxQueuedBytes > 0;
 
@@ -238,10 +237,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
                 query.getSubQueryId()
             );
             final String responseContext = response.headers().get(QueryResource.HEADER_RESPONSE_CONTEXT);
-            context.add(
-                Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS,
-                new NonnullPair<>(query.getMostSpecificId(), VAL_TO_REDUCE_REMAINING_RESPONSES)
-            );
+            context.addRemainingResponse(query.getMostSpecificId(), VAL_TO_REDUCE_REMAINING_RESPONSES);
             // context may be null in case of error or query timeout
             if (responseContext != null) {
               context.merge(objectMapper.readValue(responseContext, ResponseContext.class));

@@ -167,11 +167,9 @@ public class TestClusterQuerySegmentWalker implements QuerySegmentWalker
     // the LocalQuerySegmentWalker constructor instead since this walker is not mimic remote DruidServer objects
     // to actually serve the queries
     return (theQuery, responseContext) -> {
-      responseContext.put(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
-      responseContext.add(
-          Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS,
-          new NonnullPair<>(theQuery.getQuery().getMostSpecificId(), 0)
-      );
+      responseContext.initializeRemainingResponses();
+      responseContext.addRemainingResponse(
+          theQuery.getQuery().getMostSpecificId(), 0);
       if (scheduler != null) {
         Set<SegmentServerSelector> segments = new HashSet<>();
         specs.forEach(spec -> segments.add(new SegmentServerSelector(spec)));

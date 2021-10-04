@@ -81,61 +81,97 @@ public class ResponseContextTest
   }
 
   @Test
-  public void mergeValueTest()
+  public void mergeETagTest()
   {
     final ResponseContext ctx = ResponseContext.createEmpty();
-    ctx.add(Keys.ETAG, "dummy-etag");
-    Assert.assertEquals("dummy-etag", ctx.get(Keys.ETAG));
-    ctx.add(Keys.ETAG, "new-dummy-etag");
-    Assert.assertEquals("new-dummy-etag", ctx.get(Keys.ETAG));
-
-    final Interval interval01 = Intervals.of("2019-01-01/P1D");
-    ctx.add(Keys.UNCOVERED_INTERVALS, Collections.singletonList(interval01));
+    ctx.putEntityTag("dummy-etag");
+    Assert.assertEquals("dummy-etag", ctx.getEntityTag());
+    ctx.putEntityTag("new-dummy-etag");
+    Assert.assertEquals("new-dummy-etag", ctx.getEntityTag());
+  }
+  
+  private static final Interval INTERVAL_01 = Intervals.of("2019-01-01/P1D");
+  private static final Interval INTERVAL_12 = Intervals.of("2019-01-02/P1D");
+  private static final Interval INTERVAL_23 = Intervals.of("2019-01-03/P1D");
+  
+  @Test
+  public void mergeUncoveredIntervalsTest()
+  {
+    final ResponseContext ctx = ResponseContext.createEmpty();
+    ctx.putUncoveredIntervals(Collections.singletonList(INTERVAL_01), false);
     Assert.assertArrayEquals(
-        Collections.singletonList(interval01).toArray(),
-        ((List<?>) ctx.get(Keys.UNCOVERED_INTERVALS)).toArray()
+        Collections.singletonList(INTERVAL_01).toArray(),
+        ctx.getUncoveredIntervals().toArray()
     );
-    final Interval interval12 = Intervals.of("2019-01-02/P1D");
-    final Interval interval23 = Intervals.of("2019-01-03/P1D");
-    ctx.add(Keys.UNCOVERED_INTERVALS, Arrays.asList(interval12, interval23));
+    ctx.add(Keys.UNCOVERED_INTERVALS, Arrays.asList(INTERVAL_12, INTERVAL_23));
     Assert.assertArrayEquals(
-        Arrays.asList(interval01, interval12, interval23).toArray(),
-        ((List<?>) ctx.get(Keys.UNCOVERED_INTERVALS)).toArray()
+        Arrays.asList(INTERVAL_01, INTERVAL_12, INTERVAL_23).toArray(),
+        ctx.getUncoveredIntervals().toArray()
     );
-
+  }
+  
+  @Test
+  public void mergeRemainingResponseTest()
+  {
+    final ResponseContext ctx = ResponseContext.createEmpty();
     final String queryId = "queryId";
     final String queryId2 = "queryId2";
-    ctx.put(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
-    ctx.add(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, 3));
-    ctx.add(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId2, 4));
-    ctx.add(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, -1));
-    ctx.add(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new NonnullPair<>(queryId, -2));
+    ctx.initialize();
+    ctx.addRemainingResponse(queryId, 3);
+    ctx.addRemainingResponse(queryId2, 4);
+    ctx.addRemainingResponse(queryId, -1);
+    ctx.addRemainingResponse(queryId, -2);
     Assert.assertEquals(
         ImmutableMap.of(queryId, 0, queryId2, 4),
         ctx.get(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS)
     );
-
-    final SegmentDescriptor sd01 = new SegmentDescriptor(interval01, "01", 0);
-    ctx.add(Keys.MISSING_SEGMENTS, Collections.singletonList(sd01));
+  }
+  
+  @Test
+  public void mergeMissingSegmentsTest()
+  {
+    final ResponseContext ctx = ResponseContext.createEmpty();
+    final SegmentDescriptor sd01 = new SegmentDescriptor(INTERVAL_01, "01", 0);
+    ctx.addMissingSegments(Collections.singletonList(sd01));
     Assert.assertArrayEquals(
         Collections.singletonList(sd01).toArray(),
-        ((List<?>) ctx.get(Keys.MISSING_SEGMENTS)).toArray()
+        ctx.getMissingSegments().toArray()
     );
-    final SegmentDescriptor sd12 = new SegmentDescriptor(interval12, "12", 1);
-    final SegmentDescriptor sd23 = new SegmentDescriptor(interval23, "23", 2);
-    ctx.add(Keys.MISSING_SEGMENTS, Arrays.asList(sd12, sd23));
+    final SegmentDescriptor sd12 = new SegmentDescriptor(INTERVAL_12, "12", 1);
+    final SegmentDescriptor sd23 = new SegmentDescriptor(INTERVAL_23, "23", 2);
+    ctx.addMissingSegments(Arrays.asList(sd12, sd23));
     Assert.assertArrayEquals(
         Arrays.asList(sd01, sd12, sd23).toArray(),
-        ((List<?>) ctx.get(Keys.MISSING_SEGMENTS)).toArray()
+        ctx.getMissingSegments().toArray()
     );
-
-    ctx.add(Keys.NUM_SCANNED_ROWS, 0L);
-    Assert.assertEquals(0L, ctx.get(Keys.NUM_SCANNED_ROWS));
-    ctx.add(Keys.NUM_SCANNED_ROWS, 1L);
-    Assert.assertEquals(1L, ctx.get(Keys.NUM_SCANNED_ROWS));
-    ctx.add(Keys.NUM_SCANNED_ROWS, 3L);
-    Assert.assertEquals(4L, ctx.get(Keys.NUM_SCANNED_ROWS));
-
+  }
+  
+  @Test
+  public void initScannedRowsTest()
+  {
+    final ResponseContext ctx = ResponseContext.createEmpty();
+    Assert.assertNull(ctx.getRowScanCount());
+    ctx.initializeRowScanCount();
+    Assert.assertEquals((Long) 0L, ctx.getRowScanCount());
+  }
+  
+  @Test
+  public void mergeScannedRowsTest()
+  {
+    final ResponseContext ctx = ResponseContext.createEmpty();
+    Assert.assertNull(ctx.getRowScanCount());
+    ctx.addRowScanCount(0L);
+    Assert.assertEquals((Long) 0L, ctx.getRowScanCount());
+    ctx.addRowScanCount(1L);
+    Assert.assertEquals((Long) 1L, ctx.getRowScanCount());
+    ctx.addRowScanCount(3L);
+    Assert.assertEquals((Long) 4L, ctx.getRowScanCount());
+  }
+  
+  @Test
+  public void mergeUncoveredIntervalsOverflowedTest()
+  {
+    final ResponseContext ctx = ResponseContext.createEmpty();
     ctx.add(Keys.UNCOVERED_INTERVALS_OVERFLOWED, false);
     Assert.assertEquals(false, ctx.get(Keys.UNCOVERED_INTERVALS_OVERFLOWED));
     ctx.add(Keys.UNCOVERED_INTERVALS_OVERFLOWED, true);
@@ -148,29 +184,27 @@ public class ResponseContextTest
   public void mergeResponseContextTest()
   {
     final ResponseContext ctx1 = ResponseContext.createEmpty();
-    ctx1.put(Keys.ETAG, "dummy-etag-1");
-    final Interval interval01 = Intervals.of("2019-01-01/P1D");
-    ctx1.put(Keys.UNCOVERED_INTERVALS, Collections.singletonList(interval01));
-    ctx1.put(Keys.NUM_SCANNED_ROWS, 1L);
+    ctx1.putEntityTag("dummy-etag-1");
+    ctx1.putUncoveredIntervals(Collections.singletonList(INTERVAL_01), false);
+    ctx1.addRowScanCount(1L);
 
     final ResponseContext ctx2 = ResponseContext.createEmpty();
-    ctx2.put(Keys.ETAG, "dummy-etag-2");
-    final Interval interval12 = Intervals.of("2019-01-02/P1D");
-    ctx2.put(Keys.UNCOVERED_INTERVALS, Collections.singletonList(interval12));
-    final SegmentDescriptor sd01 = new SegmentDescriptor(interval01, "01", 0);
-    ctx2.put(Keys.MISSING_SEGMENTS, Collections.singletonList(sd01));
-    ctx2.put(Keys.NUM_SCANNED_ROWS, 2L);
+    ctx2.putEntityTag("dummy-etag-2");
+    ctx2.putUncoveredIntervals(Collections.singletonList(INTERVAL_12), false);
+    final SegmentDescriptor sd01 = new SegmentDescriptor(INTERVAL_01, "01", 0);
+    ctx2.addMissingSegments(Collections.singletonList(sd01));
+    ctx2.addRowScanCount(2L);
 
     ctx1.merge(ctx2);
-    Assert.assertEquals("dummy-etag-2", ctx1.get(Keys.ETAG));
-    Assert.assertEquals(3L, ctx1.get(Keys.NUM_SCANNED_ROWS));
+    Assert.assertEquals("dummy-etag-2", ctx1.getEntityTag());
+    Assert.assertEquals((Long) 3L, ctx1.getRowScanCount());
     Assert.assertArrayEquals(
-        Arrays.asList(interval01, interval12).toArray(),
-        ((List<?>) ctx1.get(Keys.UNCOVERED_INTERVALS)).toArray()
+        Arrays.asList(INTERVAL_01, INTERVAL_12).toArray(),
+        ctx1.getUncoveredIntervals().toArray()
     );
     Assert.assertArrayEquals(
         Collections.singletonList(sd01).toArray(),
-        ((List<?>) ctx1.get(Keys.MISSING_SEGMENTS)).toArray()
+        ctx1.getMissingSegments().toArray()
     );
   }
 
@@ -202,8 +236,8 @@ public class ResponseContextTest
 
     final ResponseContext ctx2 = ResponseContext.createEmpty();
     // Add two non-header fields, and one that will be in the header
-    ctx2.add(Keys.ETAG, "not in header");
-    ctx2.add(Keys.CPU_CONSUMED_NANOS, 100);
+    ctx2.putEntityTag("not in header");
+    ctx2.addCpuNanos(100);
     ctx2.add(EXTN_COUNTER_KEY, 100);
     Assert.assertEquals(
         mapper.writeValueAsString(ImmutableMap.of(
@@ -291,13 +325,13 @@ public class ResponseContextTest
         ),
         mapper
     );
-    Assert.assertEquals("string-value", ctx.get(Keys.ETAG));
-    Assert.assertEquals(100L, ctx.get(Keys.NUM_SCANNED_ROWS));
-    Assert.assertEquals(100000L, ctx.get(Keys.CPU_CONSUMED_NANOS));
-    ctx.add(Keys.NUM_SCANNED_ROWS, 10L);
-    Assert.assertEquals(110L, ctx.get(Keys.NUM_SCANNED_ROWS));
-    ctx.add(Keys.CPU_CONSUMED_NANOS, 100L);
-    Assert.assertEquals(100100L, ctx.get(Keys.CPU_CONSUMED_NANOS));
+    Assert.assertEquals("string-value", ctx.getEntityTag());
+    Assert.assertEquals((Long) 100L, ctx.getRowScanCount());
+    Assert.assertEquals((Long) 100000L, ctx.getCpuNanos());
+    ctx.addRowScanCount(10L);
+    Assert.assertEquals((Long) 110L, ctx.getRowScanCount());
+    ctx.addCpuNanos(100L);
+    Assert.assertEquals((Long) 100100L, ctx.getCpuNanos());
   }
 
   @Test(expected = IllegalStateException.class)
@@ -314,15 +348,15 @@ public class ResponseContextTest
   public void extensionEnumMergeTest()
   {
     final ResponseContext ctx = ResponseContext.createEmpty();
-    ctx.add(Keys.ETAG, "etag");
+    ctx.putEntityTag("etag");
     ctx.add(EXTN_STRING_KEY, "string-value");
     ctx.add(EXTN_COUNTER_KEY, 2L);
     final ResponseContext ctxFinal = ResponseContext.createEmpty();
-    ctxFinal.add(Keys.ETAG, "old-etag");
+    ctxFinal.putEntityTag("old-etag");
     ctxFinal.add(EXTN_STRING_KEY, "old-string-value");
     ctxFinal.add(EXTN_COUNTER_KEY, 1L);
     ctxFinal.merge(ctx);
-    Assert.assertEquals("etag", ctxFinal.get(Keys.ETAG));
+    Assert.assertEquals("etag", ctxFinal.getEntityTag());
     Assert.assertEquals("string-value", ctxFinal.get(EXTN_STRING_KEY));
     Assert.assertEquals(1L + 2L, ctxFinal.get(EXTN_COUNTER_KEY));
   }

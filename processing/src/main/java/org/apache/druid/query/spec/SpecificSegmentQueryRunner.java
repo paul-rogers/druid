@@ -157,8 +157,7 @@ public class SpecificSegmentQueryRunner<T> implements QueryRunner<T>
 
   private void appendMissingSegment(ResponseContext responseContext)
   {
-    responseContext.add(
-        ResponseContext.Keys.MISSING_SEGMENTS,
+    responseContext.addMissingSegments(
         Collections.singletonList(specificSpec.getDescriptor())
     );
   }

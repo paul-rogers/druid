@@ -95,7 +95,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
       // Note: this variable is effective only when queryContext has a timeout.
       // See the comment of ResponseContext.Key.TIMEOUT_AT.
       final long timeoutAt = System.currentTimeMillis() + QueryContexts.getTimeout(queryPlus.getQuery());
-      responseContext.put(ResponseContext.Keys.TIMEOUT_AT, timeoutAt);
+      responseContext.putTimeoutTime(timeoutAt);
 
       if (query.getOrder().equals(ScanQuery.Order.NONE)) {
         // Use normal strategy
@@ -367,9 +367,9 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
       }
 
       // it happens in unit tests
-      final Number timeoutAt = (Number) responseContext.get(ResponseContext.Keys.TIMEOUT_AT);
+      final Long timeoutAt = responseContext.getTimeoutTime();
       if (timeoutAt == null || timeoutAt.longValue() == 0L) {
-        responseContext.put(ResponseContext.Keys.TIMEOUT_AT, JodaUtils.MAX_INSTANT);
+        responseContext.putTimeoutTime(JodaUtils.MAX_INSTANT);
       }
       //noinspection unchecked
       return engine.process(

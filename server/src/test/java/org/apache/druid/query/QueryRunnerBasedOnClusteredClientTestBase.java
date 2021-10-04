@@ -247,7 +247,7 @@ public abstract class QueryRunnerBasedOnClusteredClientTestBase
   protected static ResponseContext responseContext()
   {
     final ResponseContext responseContext = ConcurrentResponseContext.createEmpty();
-    responseContext.put(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
+    responseContext.initializeRemainingResponses();
     return responseContext;
   }
 

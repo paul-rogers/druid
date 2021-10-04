@@ -142,8 +142,8 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
     // The missingSegments in the responseContext is only valid when all servers have responded to the broker.
     // The remainingResponses MUST be not null but 0 in the responseContext at this point.
     final ConcurrentHashMap<String, Integer> idToRemainingResponses =
-        (ConcurrentHashMap<String, Integer>) Preconditions.checkNotNull(
-            context.get(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS),
+        Preconditions.checkNotNull(
+            context.getRemainingResponses(),
             "%s in responseContext",
             Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS.getName()
         );
@@ -157,7 +157,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
       throw new ISE("Failed to check missing segments due to missing responses from [%d] servers", remainingResponses);
     }
 
-    final Object maybeMissingSegments = context.get(Keys.MISSING_SEGMENTS);
+    final List<SegmentDescriptor> maybeMissingSegments = context.getMissingSegments();
     if (maybeMissingSegments == null) {
       return Collections.emptyList();
     }
@@ -229,7 +229,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
           retryCount++;
           LOG.info("[%,d] missing segments found. Retry attempt [%,d]", missingSegments.size(), retryCount);
 
-          context.put(ResponseContext.Keys.MISSING_SEGMENTS, new ArrayList<>());
+          context.initializeMissingSegments();
           final QueryPlus<T> retryQueryPlus = queryPlus.withQuery(
               Queries.withSpecificSegments(queryPlus.getQuery(), missingSegments)
           );

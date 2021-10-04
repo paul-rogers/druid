@@ -36,6 +36,7 @@ import org.apache.druid.java.util.common.NonnullPair;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.MultiQueryMetricsCollector;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.query.profile.FragmentNode;
 import org.apache.druid.query.profile.SliceNode;
 import org.joda.time.Interval;
@@ -51,6 +52,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -62,6 +64,45 @@ import java.util.stream.Collectors;
  * the <code>Keys</code> registry. Keys are indexed by key instance, not by name. The
  * key defines the type of the associated value, including logic to merge values and
  * to deserialize JSON values for that key.
+ * 
+ * <h4>Structure</h4>
+ * The context has evolved to perform multiple tasks. First, it holds three kinds
+ * of information:
+ * <ul>
+ * <li>Information to be returned in the query response header.
+ * (These are values tagged as <code>HEADER_AND_TRAILER</code>.)</li>
+ * <li>Values passed within a single server. These are tagged with
+ * visibility <code>NONE</code>.)</li>
+ * <li>Values returned in the trailer (AKA "query profile.") These are
+ * marked with <code>TRAILER</code>.)</li>
+ * </ul>
+ * Second, it performs multiple tasks:
+ * <ul>
+ * <li>Registers the keys to be used in the header. But, since it also holds
+ * internal information, the internal information also needs keys, though these
+ * are never serialized.</li>
+ * <li>Gathers information for the query as a whole, or for each segment within
+ * a query. That is, it gathers information at the lowest-level where that 
+ * information is available.</li>
+ * <li>Merges information back up the tree: from multiple segments, from multiple
+ * servers, etc.</li>
+ * <li>Manages headers size by dropping fields when the header would get too
+ * large.</li>
+ * </ul>
+ * 
+ * A result is that the information the context may be incomplete if some of it
+ * was previously dropped.
+ * 
+ * <h4>API</h4>
+ * 
+ * The query profile needs to obtain the full, untruncated information. To do this
+ * it piggy-backs on the set operations to obtain the full value. To ensure this
+ * is possible, code that works with standard values should call the <code>set</code>
+ * functions provided which will do the needed map updated, and will set the value
+ * in the query profile.
+ * <p>
+ * Extensions define additional keys. In this case, those marked as <code>TRAILER</code>
+ * are added to the extensions area in the profile object.
  */
 @PublicApi
 public abstract class ResponseContext
@@ -262,7 +303,13 @@ public abstract class ResponseContext
     @Override
     public Object mergeValues(Object oldValue, Object newValue)
     {
-      return (long) oldValue + ((Number) newValue).longValue();
+      if (oldValue == null) {
+        return newValue;
+      }
+      if (newValue == null) {
+        return oldValue;
+      }
+      return (Long) oldValue + (Long) newValue;
     }    
   }
 
@@ -297,7 +344,7 @@ public abstract class ResponseContext
   {
     /**
      * Lists intervals for which NO segment is present.
-     */
+      */
     public static Key UNCOVERED_INTERVALS = new AbstractKey(
         "uncoveredIntervals",
         Visibility.HEADER_AND_TRAILER, true,
@@ -358,9 +405,7 @@ public abstract class ResponseContext
     public static Key MISSING_SEGMENTS = new AbstractKey(
         "missingSegments",
         Visibility.HEADER_AND_TRAILER, true,
-        new TypeReference<List<SegmentDescriptor>>()
-        {
-        })
+        new TypeReference<List<SegmentDescriptor>>() {})
     {
       @Override
       @SuppressWarnings("unchecked")
@@ -381,9 +426,17 @@ public abstract class ResponseContext
     /**
      * Query total bytes gathered.
      */
-    public static Key QUERY_TOTAL_BYTES_GATHERED = new LongKey(
+    public static Key QUERY_TOTAL_BYTES_GATHERED = new AbstractKey(
         "queryTotalBytesGathered",
-        Visibility.NONE);
+        Visibility.NONE, false,
+        new TypeReference<AtomicLong>() {})
+    {
+      @Override
+      public Object mergeValues(Object oldValue, Object newValue)
+      {
+        return ((AtomicLong) newValue).addAndGet(((AtomicLong) newValue).get());
+      }
+    };
     
     /**
      * This variable indicates when a running query should be expired,
@@ -548,6 +601,26 @@ public abstract class ResponseContext
   {
     return DefaultResponseContext.createEmpty();
   }
+  
+  /**
+   * Initialize fields for a query context. Not needed when merging.
+   */
+  public void initialize() {
+    putValue(Keys.QUERY_TOTAL_BYTES_GATHERED, new AtomicLong());
+    initializeRemainingResponses();
+  }
+  
+  public void initializeRemainingResponses() {
+    putValue(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
+  }
+  
+  public void initializeMissingSegments() {
+    putValue(Keys.MISSING_SEGMENTS, new ArrayList<>());
+  }
+  
+  public void initializeRowScanCount() {
+    putValue(Keys.NUM_SCANNED_ROWS, 0L);
+  }
 
   /**
    * Deserializes a string into {@link ResponseContext} using given {@link ObjectMapper}.
@@ -561,19 +634,76 @@ public abstract class ResponseContext
   }
 
   /**
-   * Associates the specified object with the specified key.
+   * Associates the specified object with the specified extension key.
    *
    * @throws IllegalStateException if the key has not been registered.
    */
   public Object put(Key key, Object value)
   {
     final Key registeredKey = Keys.instance().keyOf(key.getName());
-    return getDelegate().put(registeredKey, value);
+    return putValue(registeredKey, value);
+  }
+  
+  public void putUncoveredIntervals(List<Interval> intervals, boolean overflowed) {
+    putValue(Keys.UNCOVERED_INTERVALS, intervals);
+    putValue(Keys.UNCOVERED_INTERVALS_OVERFLOWED, overflowed);
+  }
+  
+  public void putEntityTag(String eTag) {
+    putValue(Keys.ETAG, eTag);
+  }
+  
+  public void putTimeoutTime(long time) {
+    putValue(Keys.TIMEOUT_AT, time);
+  }
+  
+  /**
+   * Associates the specified object with the specified key. Assumes that
+   * the key is validated.
+   */
+  private Object putValue(Key key, Object value)
+  {
+    return getDelegate().put(key, value);
   }
 
   public Object get(Key key)
   {
     return getDelegate().get(key);
+  }
+  
+  @SuppressWarnings("unchecked")
+  public ConcurrentHashMap<String, Integer> getRemainingResponses() {
+    return (ConcurrentHashMap<String, Integer>) get(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS);
+  }
+  
+  @SuppressWarnings("unchecked")
+  public List<Interval> getUncoveredIntervals() {
+    return (List<Interval>) get(Keys.UNCOVERED_INTERVALS);
+  }
+  
+  @SuppressWarnings("unchecked")
+  public List<SegmentDescriptor> getMissingSegments() {
+    return (List<SegmentDescriptor>) get(Keys.MISSING_SEGMENTS);
+  }
+  
+  public String getEntityTag() {
+    return (String) get(Keys.ETAG);
+  }
+  
+  public AtomicLong getTotalBytes() {
+    return (AtomicLong) get(Keys.QUERY_TOTAL_BYTES_GATHERED);
+  }
+  
+  public Long getTimeoutTime() {
+    return (Long) get(Keys.TIMEOUT_AT);
+  }
+  
+  public Long getRowScanCount() {
+    return (Long) get(Keys.NUM_SCANNED_ROWS);
+  }
+  
+  public Long getCpuNanos() {
+    return (Long) get(Keys.CPU_CONSUMED_NANOS);
   }
 
   public Object remove(Key key)
@@ -590,7 +720,29 @@ public abstract class ResponseContext
   public Object add(Key key, Object value)
   {
     final Key registeredKey = Keys.instance().keyOf(key.getName());
-    return getDelegate().merge(registeredKey, value, key::mergeValues);
+    return addValue(registeredKey, value);
+  }
+  
+  public void addRemainingResponse(String id, int count) {
+    addValue(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS,
+        new NonnullPair<>(id, count));
+  }
+  
+  public void addMissingSegments(List<SegmentDescriptor> descriptors) {
+    addValue(Keys.MISSING_SEGMENTS, descriptors);
+  }
+  
+  public void addRowScanCount(long count) {
+    addValue(Keys.NUM_SCANNED_ROWS, count);
+  }
+  
+  public void addCpuNanos(long ns) {
+    addValue(Keys.CPU_CONSUMED_NANOS, ns);
+  }
+  
+  private Object addValue(Key key, Object value)
+  {
+    return getDelegate().merge(key, value, key::mergeValues);
   }
 
   /**

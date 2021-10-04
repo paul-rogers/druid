@@ -3292,7 +3292,7 @@ public class CachingClusteredClientTest
     final ResponseContext responseContext = initializeResponseContext();
 
     getDefaultQueryRunner().run(QueryPlus.wrap(query), responseContext);
-    Assert.assertEquals("MDs2yIUvYLVzaG6zmwTH1plqaYE=", responseContext.get(Keys.ETAG));
+    Assert.assertEquals("MDs2yIUvYLVzaG6zmwTH1plqaYE=", responseContext.getEntityTag());
   }
 
   @Test
@@ -3340,9 +3340,9 @@ public class CachingClusteredClientTest
     final ResponseContext responseContext = initializeResponseContext();
 
     getDefaultQueryRunner().run(QueryPlus.wrap(query), responseContext);
-    final Object etag1 = responseContext.get(Keys.ETAG);
+    final String etag1 = responseContext.getEntityTag();
     getDefaultQueryRunner().run(QueryPlus.wrap(query2), responseContext);
-    final Object etag2 = responseContext.get(Keys.ETAG);
+    final String etag2 = responseContext.getEntityTag();
     Assert.assertNotEquals(etag1, etag2);
   }
 
@@ -3363,7 +3363,7 @@ public class CachingClusteredClientTest
   private static ResponseContext initializeResponseContext()
   {
     final ResponseContext context = ResponseContext.createEmpty();
-    context.put(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
+    context.initializeRemainingResponses();
     return context;
   }
 }

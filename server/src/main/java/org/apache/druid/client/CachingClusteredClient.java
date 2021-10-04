@@ -218,10 +218,7 @@ public class CachingClusteredClient implements QuerySegmentWalker
       final int numQueryServers
   )
   {
-    responseContext.add(
-        Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS,
-        new NonnullPair<>(query.getMostSpecificId(), numQueryServers)
-    );
+    responseContext.addRemainingResponse(query.getMostSpecificId(), numQueryServers);
   }
 
   @Override
@@ -361,7 +358,7 @@ public class CachingClusteredClient implements QuerySegmentWalker
         @Nullable
         final String currentEtag = cacheKeyManager.computeResultLevelCachingEtag(segmentServers, queryCacheKey);
         if (null != currentEtag) {
-          responseContext.put(Keys.ETAG, currentEtag);
+          responseContext.putEntityTag(currentEtag);
         }
         if (currentEtag != null && currentEtag.equals(prevEtag)) {
           return new ClusterQueryResult<>(Sequences.empty(), 0);
@@ -499,8 +496,7 @@ public class CachingClusteredClient implements QuerySegmentWalker
         // Which is not necessarily an indication that the data doesn't exist or is
         // incomplete. The data could exist and just not be loaded yet.  In either
         // case, though, this query will not include any data from the identified intervals.
-        responseContext.add(Keys.UNCOVERED_INTERVALS, uncoveredIntervals);
-        responseContext.add(Keys.UNCOVERED_INTERVALS_OVERFLOWED, uncoveredIntervalsOverflowed);
+        responseContext.putUncoveredIntervals(uncoveredIntervals, uncoveredIntervalsOverflowed);
       }
     }
 

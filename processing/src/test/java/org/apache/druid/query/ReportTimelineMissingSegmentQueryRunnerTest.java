@@ -47,8 +47,8 @@ public class ReportTimelineMissingSegmentQueryRunnerTest
         = new ReportTimelineMissingSegmentQueryRunner<>(missingSegment);
     final ResponseContext responseContext = DefaultResponseContext.createEmpty();
     runner.run(QueryPlus.wrap(new TestQuery()), responseContext);
-    Assert.assertNotNull(responseContext.get(Keys.MISSING_SEGMENTS));
-    Assert.assertEquals(Collections.singletonList(missingSegment), responseContext.get(Keys.MISSING_SEGMENTS));
+    Assert.assertNotNull(responseContext.getMissingSegments());
+    Assert.assertEquals(Collections.singletonList(missingSegment), responseContext.getMissingSegments());
   }
 
   @Test
@@ -63,8 +63,8 @@ public class ReportTimelineMissingSegmentQueryRunnerTest
         = new ReportTimelineMissingSegmentQueryRunner<>(missingSegments);
     final ResponseContext responseContext = DefaultResponseContext.createEmpty();
     runner.run(QueryPlus.wrap(new TestQuery()), responseContext);
-    Assert.assertNotNull(responseContext.get(Keys.MISSING_SEGMENTS));
-    Assert.assertEquals(missingSegments, responseContext.get(Keys.MISSING_SEGMENTS));
+    Assert.assertNotNull(responseContext.getMissingSegments());
+    Assert.assertEquals(missingSegments, responseContext.getMissingSegments());
   }
 
   private static class TestQuery extends BaseQuery<Object>

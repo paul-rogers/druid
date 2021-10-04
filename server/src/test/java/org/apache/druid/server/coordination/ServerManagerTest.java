@@ -457,8 +457,8 @@ public class ServerManagerTest
     final ResponseContext responseContext = DefaultResponseContext.createEmpty();
     final List<Result<SearchResultValue>> results = queryRunner.run(QueryPlus.wrap(query), responseContext).toList();
     Assert.assertTrue(results.isEmpty());
-    Assert.assertNotNull(responseContext.get(Keys.MISSING_SEGMENTS));
-    Assert.assertEquals(unknownSegments, responseContext.get(Keys.MISSING_SEGMENTS));
+    Assert.assertNotNull(responseContext.getMissingSegments());
+    Assert.assertEquals(unknownSegments, responseContext.getMissingSegments());
   }
 
   @Test
@@ -476,8 +476,8 @@ public class ServerManagerTest
     final ResponseContext responseContext = DefaultResponseContext.createEmpty();
     final List<Result<SearchResultValue>> results = queryRunner.run(QueryPlus.wrap(query), responseContext).toList();
     Assert.assertTrue(results.isEmpty());
-    Assert.assertNotNull(responseContext.get(Keys.MISSING_SEGMENTS));
-    Assert.assertEquals(unknownSegments, responseContext.get(Keys.MISSING_SEGMENTS));
+    Assert.assertNotNull(responseContext.getMissingSegments());
+    Assert.assertEquals(unknownSegments, responseContext.getMissingSegments());
   }
 
   @Test
@@ -496,8 +496,8 @@ public class ServerManagerTest
     final ResponseContext responseContext = DefaultResponseContext.createEmpty();
     final List<Result<SearchResultValue>> results = queryRunner.run(QueryPlus.wrap(query), responseContext).toList();
     Assert.assertTrue(results.isEmpty());
-    Assert.assertNotNull(responseContext.get(Keys.MISSING_SEGMENTS));
-    Assert.assertEquals(unknownSegments, responseContext.get(Keys.MISSING_SEGMENTS));
+    Assert.assertNotNull(responseContext.getMissingSegments());
+    Assert.assertEquals(unknownSegments, responseContext.getMissingSegments());
   }
 
   @Test
@@ -527,8 +527,8 @@ public class ServerManagerTest
     final ResponseContext responseContext = DefaultResponseContext.createEmpty();
     final List<Result<SearchResultValue>> results = queryRunner.run(QueryPlus.wrap(query), responseContext).toList();
     Assert.assertTrue(results.isEmpty());
-    Assert.assertNotNull(responseContext.get(Keys.MISSING_SEGMENTS));
-    Assert.assertEquals(closedSegments, responseContext.get(Keys.MISSING_SEGMENTS));
+    Assert.assertNotNull(responseContext.getMissingSegments());
+    Assert.assertEquals(closedSegments, responseContext.getMissingSegments());
   }
 
   @Test
