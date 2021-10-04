@@ -33,16 +33,16 @@ import com.google.common.base.Objects;
  * every query is distributed to each data node once, possibly for many
  * segments.
  */
-public class SliceNode
+public class SliceProfile
 {
   private final String queryId;
   /**
    * Map of host names to fragments. Host names include the
    * host and port so that they are unique.
    */
-  private final Map<String, FragmentNode> fragments;
+  private final Map<String, FragmentProfile> fragments;
   
-  public SliceNode(String queryId)
+  public SliceProfile(String queryId)
   {
     // Merging is easier if we have an actual key, so if we
     // have no query ID, make one up: anonymous
@@ -50,9 +50,9 @@ public class SliceNode
     this.fragments = new HashMap<>();
   }
   
-  public SliceNode(
+  public SliceProfile(
       @JsonProperty("queryId") @Nullable String queryId,
-      @JsonProperty("fragments") @Nullable Map<String, FragmentNode> fragments
+      @JsonProperty("fragments") @Nullable Map<String, FragmentProfile> fragments
   )
   {
     this.queryId = queryId;
@@ -66,12 +66,12 @@ public class SliceNode
   }
   
   @JsonProperty
-  public Map<String, FragmentNode> getFragments()
+  public Map<String, FragmentProfile> getFragments()
   {
     return fragments;
   }
 
-  public void add(FragmentNode fragment) {
+  public void add(FragmentProfile fragment) {
     assert ! fragments.containsKey(fragment.getHost());
     fragments.put(fragment.getHost(), fragment);
   }
@@ -80,7 +80,7 @@ public class SliceNode
    * Merge a set of fragments for this slice. We assume each slice
    * runs on a distinct host.
    */
-  public SliceNode merge(SliceNode other) {
+  public SliceProfile merge(SliceProfile other) {
     assert queryId == other.queryId;
     fragments.putAll(other.fragments);
     return this;
@@ -94,10 +94,10 @@ public class SliceNode
   }
   
   public boolean equals(Object obj) {
-    if (obj == null || !(obj instanceof SliceNode)) {
+    if (obj == null || !(obj instanceof SliceProfile)) {
       return false;
     }
-    SliceNode other = (SliceNode) obj;
+    SliceProfile other = (SliceProfile) obj;
     return queryId.equals(queryId) &&
            fragments.equals(other.fragments);
   }   

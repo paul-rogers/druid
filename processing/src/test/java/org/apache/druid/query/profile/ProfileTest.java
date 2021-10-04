@@ -24,6 +24,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.druid.jackson.DefaultObjectMapper;
+import org.apache.druid.query.profile.OperatorProfile.OpaqueOperator;
 import org.junit.Test;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -34,15 +35,16 @@ public class ProfileTest
   @Test
   public void testFragment() throws JsonProcessingException
   {
-    FragmentNode fragment = new FragmentNode(
+    FragmentProfile fragment = new FragmentProfile(
         "myHost", "from-addr",
-        123456, 789, 123);
+        123456, 789, 123,
+        new OpaqueOperator());
     assertFalse(fragment.equals(null));
     assertFalse(fragment.equals("foo"));
     assertTrue(fragment.equals(fragment));
     final DefaultObjectMapper mapper = new DefaultObjectMapper();
     String json = mapper.writeValueAsString(fragment);
-    FragmentNode newValue = mapper.readerFor(FragmentNode.class).readValue(json);
+    FragmentProfile newValue = mapper.readerFor(FragmentProfile.class).readValue(json);
     assertTrue(fragment.equals(newValue));
   }
   
@@ -50,22 +52,24 @@ public class ProfileTest
   @Test
   public void testSlice() throws JsonProcessingException
   {
-    FragmentNode fragment1 = new FragmentNode(
+    FragmentProfile fragment1 = new FragmentProfile(
         "myHost", "from-addr",
-        123456, 789, 123);
-    FragmentNode fragment2 = new FragmentNode(
+        123456, 789, 123,
+        new OpaqueOperator());
+    FragmentProfile fragment2 = new FragmentProfile(
         "host2", "from-addr",
-        1234560, 7890, 1230);
+        1234560, 7890, 1230,
+        new OpaqueOperator());
     assertFalse(fragment1.equals(fragment2));
     
-    SliceNode slice1 = new SliceNode("query1");
+    SliceProfile slice1 = new SliceProfile("query1");
     assertEquals(0, slice1.getFragments().size());
     slice1.add(fragment1);
     assertFalse(slice1.equals(null));
     assertFalse(slice1.equals("foo"));
     assertTrue(slice1.equals(slice1));
     
-    SliceNode slice2 = new SliceNode("query1");
+    SliceProfile slice2 = new SliceProfile("query1");
     assertFalse(slice1.equals(slice2));
     slice2.add(fragment2);
     assertFalse(slice1.equals(slice2));
@@ -74,10 +78,10 @@ public class ProfileTest
     
     final DefaultObjectMapper mapper = new DefaultObjectMapper();
     String json = mapper.writeValueAsString(slice1);
-    SliceNode newValue = mapper.readerFor(SliceNode.class).readValue(json);
+    SliceProfile newValue = mapper.readerFor(SliceProfile.class).readValue(json);
     assertTrue(slice1.equals(newValue));
     
-    SliceNode slice3 = new SliceNode(null);
+    SliceProfile slice3 = new SliceProfile(null);
     assertEquals("anonymous", slice3.getQueryId());
   }
 }

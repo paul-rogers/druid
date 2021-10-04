@@ -48,8 +48,9 @@ import org.apache.druid.query.QueryToolChestWarehouse;
 import org.apache.druid.query.SingleQueryMetricsCollector;
 import org.apache.druid.query.context.ConcurrentResponseContext;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.profile.FragmentNode;
-import org.apache.druid.query.profile.SliceNode;
+import org.apache.druid.query.profile.FragmentProfile;
+import org.apache.druid.query.profile.OperatorProfile;
+import org.apache.druid.query.profile.SliceProfile;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -229,18 +230,21 @@ public class QueryLifecycle
                   .setResultRows(rowCount)
                   )
           );
-      responseContext.add(ResponseContext.Keys.PROFILE, sliceNode());
+      responseContext.add(
+          ResponseContext.Keys.PROFILE,
+          sliceNode(responseContext.popProfile()));
     }
     
-    public SliceNode sliceNode()
+    public SliceProfile sliceNode(OperatorProfile rootOperator)
     {
-      SliceNode slice = new SliceNode(queryId());
-      slice.add(new FragmentNode(
+      SliceProfile slice = new SliceProfile(queryId());
+      slice.add(new FragmentProfile(
           hostId,
           remoteAddress,
           getStartMs(),
           runTimeMs(),
-          rowCount
+          rowCount,
+          rootOperator
       ));
       return slice;
     }

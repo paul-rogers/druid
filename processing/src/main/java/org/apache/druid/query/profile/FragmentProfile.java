@@ -30,24 +30,32 @@ import com.google.common.base.Objects;
  * is a "fragment" of a larger query: it may be the only fragment, or it
  * may be one of many parallel queries scattered across data nodes.
  * <p>
+ * A fragment consists of a tree of operators, where "operator" means some
+ * operation within a query that produces interesting statistics. Druid is not
+ * really based on a DAG of operators, but it does have certain repeated patterns,
+ * such as scans or merges, which can, if we look at them sideways, be abstracted
+ * into an operator for purposes of explaing the query.
+ * <p>
  * Instances are compared only in tests. Instances are not used as
  * hash keys.
  */
-public class FragmentNode
+public class FragmentProfile
 {
   private final String host;
   private final String remoteAddress;
   private final long startTime;
   private final long durationMs;
   private final long rows;
+  private final OperatorProfile rootOperator;
   
   @JsonCreator
-  public FragmentNode(
+  public FragmentProfile(
       @JsonProperty("host") @Nullable String host,
       @JsonProperty("remoteAddress") @Nullable String remoteAddress,
       @JsonProperty("startTime") long startTime,
       @JsonProperty("durationMs") long durationMs,
-      @JsonProperty("rows") long rows
+      @JsonProperty("rows") long rows,
+      @JsonProperty("rootOperator") OperatorProfile rootOperator
   )
   {
     assert host != null;
@@ -56,6 +64,7 @@ public class FragmentNode
     this.startTime = startTime;
     this.durationMs = durationMs;
     this.rows = rows;
+    this.rootOperator = rootOperator;
   }
   
   @JsonProperty
@@ -88,18 +97,29 @@ public class FragmentNode
     return rows;
   }
   
+  @JsonProperty
+  public OperatorProfile getRootOperator()
+  {
+    return rootOperator;
+  }
+  
+  /**
+   * Primarily for testing. Ensures that the scalar fields are equal,
+   * does not do a deep compare of operators.
+   */
   @Override
   public boolean equals(Object o)
   {
-    if (o == null || !(o instanceof FragmentNode)) {
+    if (o == null || !(o instanceof FragmentProfile)) {
       return false;
     }
-    FragmentNode other = (FragmentNode) o;
+    FragmentProfile other = (FragmentProfile) o;
     return host.equals(other.host) &&
            remoteAddress.equals(other.remoteAddress) &&
            startTime == other.startTime &&
            durationMs == other.durationMs &&
-           rows == other.rows;
+           rows == other.rows &&
+           rootOperator.getClass() == other.rootOperator.getClass();
   }
   
   @Override
@@ -110,6 +130,7 @@ public class FragmentNode
         .add("startTime", startTime)
         .add("durationMs", durationMs)
         .add("rows", rows)
+        .add("rootOperator", rootOperator)
         .toString();
   }
 }

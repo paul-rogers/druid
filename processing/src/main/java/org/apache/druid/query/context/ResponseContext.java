@@ -28,17 +28,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import org.apache.druid.guice.annotations.PublicApi;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.NonnullPair;
-import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.MultiQueryMetricsCollector;
 import org.apache.druid.query.SegmentDescriptor;
-import org.apache.druid.query.context.ResponseContext.Keys;
-import org.apache.druid.query.profile.FragmentNode;
-import org.apache.druid.query.profile.SliceNode;
+import org.apache.druid.query.profile.OperatorProfile;
+import org.apache.druid.query.profile.OperatorProfile.OpaqueOperator;
+import org.apache.druid.query.profile.SliceProfile;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
@@ -103,6 +103,21 @@ import java.util.stream.Collectors;
  * <p>
  * Extensions define additional keys. In this case, those marked as <code>TRAILER</code>
  * are added to the extensions area in the profile object.
+ * 
+ * <h4>Query Profile</h4>
+ * 
+ * This class holds a slice (sub-query) profile that contains fragments (a sub-query
+ * which ran on a specific node) which contains operators. When merging fragment, each
+ * becomes a separate entry within the slice, keyed by node. When running a sub-query,
+ * a sub-query operator wraps the sub-query fragment.
+ * <p>
+ * This class also provides a way for one runner to returns its operator profile to
+ * its parent runner. The <code>QueryRunner</code> is a functional: it has only one
+ * method. Yet, we want that method to return both results and profile information.
+ * To avoid making massive changes, we instead, use this class, which is passed to
+ * each runner, to hold the operator profile returned to the parent. If the runner
+ * produces no profile, then we substitute an "opaque" (empty) operator instead,
+ * which allows us to change runners incrementally.
  */
 @PublicApi
 public abstract class ResponseContext
@@ -493,12 +508,12 @@ public abstract class ResponseContext
     public static Key PROFILE = new AbstractKey(
         "profile",
         Visibility.TRAILER, false,
-        new TypeReference<SliceNode>() {}
+        new TypeReference<SliceProfile>() {}
     ) {
       @Override
       public Object mergeValues(Object oldValue, Object newValue)
       {
-        return ((SliceNode) oldValue).merge((SliceNode) newValue);
+        return ((SliceProfile) oldValue).merge((SliceProfile) newValue);
       }
     };
     
@@ -586,6 +601,8 @@ public abstract class ResponseContext
       return Collections.unmodifiableCollection(registered_keys.values());
     }
   }
+  
+  private OperatorProfile profile;
 
   protected abstract Map<Key, Object> getDelegate();
 
@@ -914,5 +931,16 @@ public abstract class ResponseContext
     {
       return truncatedResult != null;
     }
+  }
+  
+  public void pushProfile(OperatorProfile profile) {
+    Preconditions.checkState(this.profile == null);
+    this.profile = profile;
+  }
+  
+  public OperatorProfile popProfile() {
+    OperatorProfile popped = profile;
+    profile = null;
+    return popped == null ? new OpaqueOperator() : popped;
   }
 }
