@@ -44,6 +44,12 @@ import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.SinkQueryRunners;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.profile.ConcatProfile;
+import org.apache.druid.query.profile.MergeProfile;
+import org.apache.druid.query.profile.OperatorProfile;
+import org.apache.druid.query.profile.ScanQueryProfile;
+import org.apache.druid.query.profile.SortProfile;
+import org.apache.druid.query.profile.Timer;
 import org.apache.druid.query.spec.MultipleSpecificSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
@@ -91,6 +97,9 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
     // in single thread and in jetty thread instead of processing thread
     return (queryPlus, responseContext) -> {
       ScanQuery query = (ScanQuery) queryPlus.getQuery();
+      ScanQueryProfile profile = new ScanQueryProfile();
+      responseContext.pushProfile(profile);
+      Timer runTimer = Timer.createStarted();
 
       // Note: this variable is effective only when queryContext has a timeout.
       // See the comment of ResponseContext.Key.TIMEOUT_AT.
@@ -99,14 +108,24 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
 
       if (query.getOrder().equals(ScanQuery.Order.NONE)) {
         // Use normal strategy
+        responseContext.pushGroup();
         Sequence<ScanResultValue> returnedRows = Sequences.concat(
             Sequences.map(
                 Sequences.simple(queryRunners),
                 input -> input.run(queryPlus, responseContext)
             )
         );
+        List<OperatorProfile> group = responseContext.popGroup();
+        if (group.size() == 1) {
+          profile.child = group.get(0);
+        } else {
+          profile.child = new ConcatProfile(group);
+        }
+        profile.timeNs = runTimer.get();
         if (query.getScanRowsLimit() <= Integer.MAX_VALUE) {
-          return returnedRows.limit(Math.toIntExact(query.getScanRowsLimit()));
+          int limit = Math.toIntExact(query.getScanRowsLimit());
+          profile.limit = limit;
+          return returnedRows.limit(limit);
         } else {
           return returnedRows;
         }
@@ -124,7 +143,9 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
         if (query.getScanRowsLimit() <= maxRowsQueuedForOrdering) {
           // Use priority queue strategy
           try {
-            return stableLimitingSort(
+            Timer sortTimer = Timer.createStarted();
+            responseContext.pushGroup();
+            Sequence<ScanResultValue> result = stableLimitingSort(
                 Sequences.concat(Sequences.map(
                     Sequences.simple(queryRunnersOrdered),
                     input -> input.run(queryPlus, responseContext)
@@ -132,8 +153,20 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
                 query,
                 intervalsOrdered
             );
+            SortProfile sortProfile = new SortProfile();
+            profile.order = query.getOrder();
+            sortProfile.timeNs = sortTimer.get();
+            List<OperatorProfile> group = responseContext.popGroup();
+            if (group.size() == 1) {
+              profile.child = group.get(0);
+            } else {
+              profile.child = new ConcatProfile(group);
+            }
+            profile.child = sortProfile;
+            return result;
           }
           catch (IOException e) {
+            profile.timeNs = runTimer.get();
             throw new RuntimeException(e);
           }
         } else {
@@ -147,6 +180,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
             ((SinkQueryRunners<ScanResultValue>) queryRunners).runnerIntervalMappingIterator()
                                                               .forEachRemaining(intervalsAndRunnersOrdered::add);
           } else {
+            profile.timeNs = runTimer.get();
             throw new ISE("Number of segment descriptors does not equal number of "
                           + "query runners...something went wrong!");
           }
@@ -188,8 +222,12 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
                                                               .collect(Collectors.toList()))
                                            .collect(Collectors.toList());
 
-            return nWayMergeAndLimit(groupedRunners, queryPlus, responseContext);
+            Sequence<ScanResultValue> results = nWayMergeAndLimit(groupedRunners, queryPlus, responseContext);
+            profile.timeNs = runTimer.get();
+            profile.child = responseContext.popProfile();
+            return results;
           }
+          profile.timeNs = runTimer.get();
           throw ResourceLimitExceededException.withMessage(
               "Time ordering is not supported for a Scan query with %,d segments per time chunk and a row limit of %,d. "
               + "Try reducing your query limit below maxRowsQueuedForOrdering (currently %,d), or using compaction to "
@@ -309,6 +347,10 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
       ResponseContext responseContext
   )
   {
+    MergeProfile profile = new MergeProfile();
+    responseContext.pushProfile(profile);
+    responseContext.pushGroup();
+    Timer runTimer = Timer.createStarted();
     // Starting from the innermost Sequences.map:
     // (1) Deaggregate each ScanResultValue returned by the query runners
     // (2) Combine the deaggregated ScanResultValues into a single sequence
@@ -334,6 +376,8 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
                     )
             )
         );
+    profile.timeNs = runTimer.get();
+    profile.children = responseContext.popGroup();
     long limit = ((ScanQuery) (queryPlus.getQuery())).getScanRowsLimit();
     if (limit == Long.MAX_VALUE) {
       return resultSequence;

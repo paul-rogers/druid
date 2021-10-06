@@ -46,6 +46,7 @@ import org.apache.druid.query.metadata.metadata.ColumnAnalysis;
 import org.apache.druid.query.metadata.metadata.ColumnIncluderator;
 import org.apache.druid.query.metadata.metadata.SegmentAnalysis;
 import org.apache.druid.query.metadata.metadata.SegmentMetadataQuery;
+import org.apache.druid.query.profile.SegmentMetadataScanProfile;
 import org.apache.druid.segment.Metadata;
 import org.apache.druid.segment.Segment;
 import org.joda.time.Interval;
@@ -86,12 +87,14 @@ public class SegmentMetadataQueryRunnerFactory implements QueryRunnerFactory<Seg
       @Override
       public Sequence<SegmentAnalysis> run(QueryPlus<SegmentAnalysis> inQ, ResponseContext responseContext)
       {
+        long startTime = System.nanoTime();
         SegmentMetadataQuery updatedQuery = ((SegmentMetadataQuery) inQ.getQuery())
             .withFinalizedAnalysisTypes(toolChest.getConfig());
         final SegmentAnalyzer analyzer = new SegmentAnalyzer(updatedQuery.getAnalysisTypes());
         final Map<String, ColumnAnalysis> analyzedColumns = analyzer.analyze(segment);
         final long numRows = analyzer.numRows(segment);
         long totalSize = 0;
+        SegmentMetadataScanProfile profile = new SegmentMetadataScanProfile(segment.getId());
 
         if (analyzer.analyzingSize()) {
           // Initialize with the size of the whitespace, 1 byte per
@@ -163,7 +166,7 @@ public class SegmentMetadataQueryRunnerFactory implements QueryRunnerFactory<Seg
           }
         }
 
-        return Sequences.simple(
+        Sequence<SegmentAnalysis> result = Sequences.simple(
             Collections.singletonList(
                 new SegmentAnalysis(
                     segment.getId().toString(),
@@ -178,6 +181,8 @@ public class SegmentMetadataQueryRunnerFactory implements QueryRunnerFactory<Seg
                 )
             )
         );
+        profile.timeNs = System.nanoTime() - startTime;
+        return result;
       }
     };
   }

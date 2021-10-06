@@ -360,4 +360,12 @@ public class ResponseContextTest
     Assert.assertEquals("string-value", ctxFinal.get(EXTN_STRING_KEY));
     Assert.assertEquals(1L + 2L, ctxFinal.get(EXTN_COUNTER_KEY));
   }
+  
+  @Test
+  public void toMapTest() {
+    final ResponseContext ctx = ResponseContext.createEmpty();
+    ctx.putEntityTag("etag");
+    Map<String, Object> map = ctx.toMap();
+    Assert.assertEquals(map.get(ResponseContext.Keys.ETAG.getName()), "etag");
+  }
 }

@@ -72,8 +72,8 @@ public class SliceProfile
   }
 
   public void add(FragmentProfile fragment) {
-    assert ! fragments.containsKey(fragment.getHost());
-    fragments.put(fragment.getHost(), fragment);
+    assert ! fragments.containsKey(fragment.host);
+    fragments.put(fragment.host, fragment);
   }
   
   /**

@@ -17,20 +17,22 @@
  * under the License.
  */
 
-package org.apache.druid.java.util.common;
+package org.apache.druid.query.profile;
 
-/**
- */
-@SuppressWarnings("serial")
-public class ISE extends IllegalStateException
+import org.apache.druid.timeline.SegmentId;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class SegmentMetadataScanProfile extends OperatorProfile
 {
-  public ISE(String formatText, Object... arguments)
-  {
-    super(StringUtils.nonStrictFormat(formatText, arguments));
+  public final SegmentId segment;
+  
+  public SegmentMetadataScanProfile(SegmentId segment) {
+    this.segment = segment;
   }
-
-  public ISE(Throwable cause, String formatText, Object... arguments)
-  {
-    super(StringUtils.nonStrictFormat(formatText, arguments), cause);
+  
+  @JsonProperty
+  public SegmentId getSegment() {
+    return segment;
   }
 }

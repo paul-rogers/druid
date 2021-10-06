@@ -37,6 +37,8 @@ import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.query.filter.Filter;
+import org.apache.druid.query.profile.SegmentScanProfile;
+import org.apache.druid.query.profile.Timer;
 import org.apache.druid.segment.BaseObjectColumnValueSelector;
 import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.StorageAdapter;
@@ -70,10 +72,16 @@ public class ScanQueryEngine
   {
     // "legacy" should be non-null due to toolChest.mergeResults
     final boolean legacy = Preconditions.checkNotNull(query.isLegacy(), "Expected non-null 'legacy' parameter");
+    SegmentScanProfile profile = new SegmentScanProfile(segment.getId());
+    profile.batchSize = query.getBatchSize();
+    responseContext.pushProfile(profile);
+    Timer runTimer = Timer.createStarted();
 
     final Long numScannedRows = responseContext.getRowScanCount();
     if (numScannedRows != null) {
       if (numScannedRows >= query.getScanRowsLimit() && query.getOrder().equals(ScanQuery.Order.NONE)) {
+        profile.limited = true;
+        profile.timeNs = runTimer.get();
         return Sequences.empty();
       }
     }
@@ -83,9 +91,9 @@ public class ScanQueryEngine
     final StorageAdapter adapter = segment.asStorageAdapter();
 
     if (adapter == null) {
-      throw new ISE(
-          "Null storage adapter found. Probably trying to issue a query against a segment being memory unmapped."
-      );
+      String msg = "Null storage adapter found. Probably trying to issue a query against a segment being memory unmapped.";
+      profile.error = msg;
+      throw new ISE(msg);
     }
 
     final List<String> allColumns = new ArrayList<>();
@@ -117,13 +125,20 @@ public class ScanQueryEngine
         allColumns.remove(ColumnHolder.TIME_COLUMN_NAME);
       }
     }
+    profile.columnCount = allColumns.size();
 
     final List<Interval> intervals = query.getQuerySegmentSpec().getIntervals();
-    Preconditions.checkArgument(intervals.size() == 1, "Can only handle a single interval, got[%s]", intervals);
+    try {
+      Preconditions.checkArgument(intervals.size() == 1, "Can only handle a single interval, got[%s]", intervals);
+    } catch(IllegalArgumentException e) {
+      profile.error = e.getMessage();
+      throw e;
+    }
 
     final SegmentId segmentId = segment.getId();
 
     final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
+    profile.filtered = filter != null;
 
     responseContext.initializeRowScanCount();
     final long limit = calculateRemainingScanRowsLimit(query, responseContext);
@@ -144,6 +159,7 @@ public class ScanQueryEngine
                       @Override
                       public Iterator<ScanResultValue> make()
                       {
+                        profile.cursorCount++;
                         final List<BaseObjectColumnValueSelector> columnSelectors = new ArrayList<>(allColumns.size());
 
                         for (String column : allColumns) {
@@ -177,7 +193,9 @@ public class ScanQueryEngine
                               throw new NoSuchElementException();
                             }
                             if (hasTimeout && System.currentTimeMillis() >= timeoutAt) {
-                              throw new QueryTimeoutException(StringUtils.nonStrictFormat("Query [%s] timed out", query.getId()));
+                              String msg = StringUtils.nonStrictFormat("Query [%s] timed out", query.getId());
+                              profile.error = msg;
+                              throw new QueryTimeoutException(msg);
                             }
                             final long lastOffset = offset;
                             final Object events;
@@ -187,9 +205,12 @@ public class ScanQueryEngine
                             } else if (ScanQuery.ResultFormat.RESULT_FORMAT_LIST.equals(resultFormat)) {
                               events = rowsToList();
                             } else {
-                              throw new UOE("resultFormat[%s] is not supported", resultFormat.toString());
+                              UOE e = new UOE("resultFormat[%s] is not supported", resultFormat.toString());
+                              profile.error = e.getMessage();
+                              throw e;
                             }
                             responseContext.addRowScanCount(offset - lastOffset);
+                            profile.rowCount += offset - lastOffset;
                             if (hasTimeout) {
                               responseContext.putTimeoutTime(
                                   timeoutAt - (System.currentTimeMillis() - start)
@@ -251,6 +272,7 @@ public class ScanQueryEngine
                       @Override
                       public void cleanup(Iterator<ScanResultValue> iterFromMake)
                       {
+                        profile.timeNs = runTimer.get();
                       }
                     }
             ))

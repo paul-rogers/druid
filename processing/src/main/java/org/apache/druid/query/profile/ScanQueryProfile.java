@@ -17,20 +17,16 @@
  * under the License.
  */
 
-package org.apache.druid.java.util.common;
+package org.apache.druid.query.profile;
 
-/**
- */
-@SuppressWarnings("serial")
-public class ISE extends IllegalStateException
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class ScanQueryProfile extends OperatorProfile
 {
-  public ISE(String formatText, Object... arguments)
-  {
-    super(StringUtils.nonStrictFormat(formatText, arguments));
-  }
-
-  public ISE(Throwable cause, String formatText, Object... arguments)
-  {
-    super(StringUtils.nonStrictFormat(formatText, arguments), cause);
-  }
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+  public long limit;
+  @JsonProperty
+  public OperatorProfile child;
 }

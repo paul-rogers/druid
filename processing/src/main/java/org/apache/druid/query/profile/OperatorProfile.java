@@ -19,18 +19,59 @@
 
 package org.apache.druid.query.profile;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
+/**
+ * Profile of an "operator" in Druid. A typical query is composed of a series
+ * of (relational or other) operators strung together to process a data flow.
+ * Druid does not really use operators, having more of a functional architecture.
+ * However, the functions essentially do the work that a traditional operator
+ * would do, so we retain the traditional terminology.
+ * <p>
+ * An operator is any function in Druid that obtains, transforms, combines
+ * or otherwise operates on data. Trivial QueryRunners are omitted as they
+ * provide no performance-related metrics. Thus, the tree of operators is a
+ * simplified, truncated view of the Druid functional call stack over the life
+ * of the query.
+ */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "kind")
 @JsonSubTypes(value = {
     @JsonSubTypes.Type(name = OperatorProfile.OPAQUE, value = OperatorProfile.OpaqueOperator.class),
+    @JsonSubTypes.Type(name = OperatorProfile.RECEIVER, value = ReceiverProfile.class),
+    @JsonSubTypes.Type(name = OperatorProfile.SEGMENT_METADATA_SCAN, value = SegmentMetadataScanProfile.class),
+    @JsonSubTypes.Type(name = OperatorProfile.MERGE, value = MergeProfile.class),
+    @JsonSubTypes.Type(name = OperatorProfile.SCAN_QUERY, value = ScanQueryProfile.class),
+    @JsonSubTypes.Type(name = OperatorProfile.SORT, value = SortProfile.class),
+    @JsonSubTypes.Type(name = OperatorProfile.CONCAT, value = ConcatProfile.class),
+    @JsonSubTypes.Type(name = OperatorProfile.SEGMENT_SCAN, value = SegmentScanProfile.class),
 })
-public interface OperatorProfile
+public abstract class OperatorProfile
 {
   public static final String OPAQUE = "opaque";
+  public static final String RECEIVER = "receiver";
+  public static final String SEGMENT_METADATA_SCAN = "segment-metadata";
+  public static final String MERGE = "merge";
+  public static final String SCAN_QUERY = "scan-query";
+  public static final String SORT = "sort";
+  public static final String CONCAT = "concat";
+  public static final String SEGMENT_SCAN = "segment-scan";
   
-  public class OpaqueOperator implements OperatorProfile
+  /**
+   * The total wall clock time, in ns, taken by this operator.
+   * Includes the time of all child operators. The time for just
+   * this operator <i>should</i> be the total time minus the time
+   * for all children.
+   */
+  @JsonProperty
+  public long timeNs;
+  
+  /**
+   * A temporary placeholder for places that don't yet report
+   * an operator profile.
+   */
+  public static class OpaqueOperator extends OperatorProfile
   {
   }
 }

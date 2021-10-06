@@ -59,6 +59,7 @@ import org.apache.druid.query.SingleQueryMetricsCollector;
 import org.apache.druid.query.TruncatedResponseContextException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.context.ResponseContext.Keys;
+import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.server.QueryLifecycle.LifecycleStats;
 import org.apache.druid.server.metrics.QueryCountStatsProvider;
 import org.apache.druid.server.security.Access;
@@ -87,6 +88,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
@@ -202,7 +204,7 @@ public class QueryResource implements QueryCountStatsProvider
       LifecycleStats stats = queryLifecycle.stats();
       query = queryLifecycle.getQuery();
       final String queryId = query.getId();
-      stats.onStart(selfNode.getHostAndPort(), req.getRemoteAddr());
+      stats.onStart(selfNode, req.getRemoteAddr());
 
       final String queryThreadName = StringUtils.format(
           "%s[%s_%s_%s]",
@@ -238,6 +240,18 @@ public class QueryResource implements QueryCountStatsProvider
       final Yielder<?> yielder = Yielders.each(
           results.map(
               r -> {
+                // The returned values may be batches of rows held within
+                // a wrapper. If so, get the actual row count. For all others,
+                // treat each item as one row.
+                // TODO: Are there other cases?
+                if (r instanceof ScanResultValue) {
+                  ScanResultValue srv = (ScanResultValue) r;
+                  Object events = srv.getEvents();
+                  if (r instanceof List) {
+                    resultRowCount.addAndGet(((List<?>) events).size());
+                    return r;
+                  }
+                }
                 resultRowCount.incrementAndGet();
                 return r;
               }

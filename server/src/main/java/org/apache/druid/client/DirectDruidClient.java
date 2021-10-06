@@ -27,7 +27,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import org.apache.druid.java.util.common.NonnullPair;
 import org.apache.druid.java.util.common.RE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.concurrent.Execs;
@@ -55,7 +54,7 @@ import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.query.aggregation.MetricManipulatorFns;
 import org.apache.druid.query.context.ConcurrentResponseContext;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.context.ResponseContext.Keys;
+import org.apache.druid.query.profile.ReceiverProfile;
 import org.apache.druid.server.QueryResource;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -71,8 +70,8 @@ import java.io.InputStream;
 import java.io.SequenceInputStream;
 import java.net.URL;
 import java.util.Enumeration;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -84,7 +83,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- *
+ * Execute a subquery and return the results as a sequence.
  */
 public class DirectDruidClient<T> implements QueryRunner<T>
 {
@@ -147,10 +146,13 @@ public class DirectDruidClient<T> implements QueryRunner<T>
     QueryToolChest<T, Query<T>> toolChest = warehouse.getToolChest(query);
     boolean isBySegment = QueryContexts.isBySegment(query);
     final JavaType queryResultType = isBySegment ? toolChest.getBySegmentResultType() : toolChest.getBaseResultType();
-
+    
     final ListenableFuture<InputStream> future;
     final String url = scheme + "://" + host + "/druid/v2/";
     final String cancelUrl = url + query.getId();
+
+    final ReceiverProfile profile = new ReceiverProfile(host, url);
+    context.pushProfile(profile);
 
     try {
       log.debug("Querying queryId[%s] url[%s]", query.getId(), url);
@@ -225,8 +227,10 @@ public class DirectDruidClient<T> implements QueryRunner<T>
 
           log.debug("Initial response from url[%s] for queryId[%s]", url, query.getId());
           responseStartTimeNs = System.nanoTime();
-          acquireResponseMetrics().reportNodeTimeToFirstByte(responseStartTimeNs - requestStartTimeNs)
+          long ttfb = responseStartTimeNs - requestStartTimeNs;
+          acquireResponseMetrics().reportNodeTimeToFirstByte(ttfb)
                                   .emit(emitter, context);
+          profile.firstByteNs = ttfb;
 
           final boolean continueReading;
           try {
@@ -240,7 +244,9 @@ public class DirectDruidClient<T> implements QueryRunner<T>
             context.addRemainingResponse(query.getMostSpecificId(), VAL_TO_REDUCE_REMAINING_RESPONSES);
             // context may be null in case of error or query timeout
             if (responseContext != null) {
-              context.merge(objectMapper.readValue(responseContext, ResponseContext.class));
+              ResponseContext receivedContext = objectMapper.readValue(responseContext, ResponseContext.class);
+              context.merge(receivedContext);
+              profile.response = receivedContext.toMap();
             }
             continueReading = enqueue(response.getContent(), 0L);
           }
@@ -258,7 +264,9 @@ public class DirectDruidClient<T> implements QueryRunner<T>
             );
           }
           catch (InterruptedException e) {
-            log.error(e, "Queue appending interrupted");
+            String msg = "Queue appending interrupted";
+            log.error(e, msg);
+            profile.error = msg;
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
           }
@@ -324,6 +332,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
             }
             catch (InterruptedException e) {
               log.error(e, "Unable to put finalizing input stream into Sequence queue for url [%s]", url);
+              profile.error = "Unable to put finalizing input stream into Sequence queue";
               Thread.currentThread().interrupt();
               throw new RuntimeException(e);
             }
@@ -339,6 +348,8 @@ public class DirectDruidClient<T> implements QueryRunner<T>
           long stopTimeNs = System.nanoTime();
           long nodeTimeNs = stopTimeNs - requestStartTimeNs;
           final long nodeTimeMs = TimeUnit.NANOSECONDS.toMillis(nodeTimeNs);
+          profile.timeNs = nodeTimeNs;
+          profile.bytes = totalByteCount.get();
           log.debug(
               "Completed queryId[%s] request to url[%s] with %,d bytes returned in %,d millis [%,f b/s].",
               query.getId(),
@@ -354,6 +365,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
 
           if (usingBackpressure) {
             responseMetrics.reportBackPressureTime(channelSuspendedTime.get());
+            profile.backPressureNs = channelSuspendedTime.get();
           }
 
           responseMetrics.emit(emitter, context);
@@ -365,11 +377,13 @@ public class DirectDruidClient<T> implements QueryRunner<T>
             }
             catch (InterruptedException e) {
               log.error(e, "Unable to put finalizing input stream into Sequence queue for url [%s]", url);
+              profile.error = "Unable to put finalizing input stream into Sequence queue";
               Thread.currentThread().interrupt();
               throw new RuntimeException(e);
             }
             finally {
               done.set(true);
+              profile.succeeded = true;
             }
           }
           return ClientResponse.finished(clientResponse.getObj());
@@ -385,11 +399,13 @@ public class DirectDruidClient<T> implements QueryRunner<T>
               e.getMessage()
           );
           setupResponseReadFailure(msg, e);
+          profile.error = e.getMessage();
         }
 
         private void setupResponseReadFailure(String msg, Throwable th)
         {
           fail.set(msg);
+          profile.error = msg;
           queue.clear();
           queue.offer(
               InputStreamHolder.fromStream(
@@ -418,6 +434,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
           if (timeLeft <= 0) {
             String msg = StringUtils.format("Query[%s] url[%s] timed out.", query.getId(), url);
             setupResponseReadFailure(msg, null);
+            profile.error = msg;
             throw new QueryTimeoutException(msg);
           } else {
             return timeLeft;
@@ -433,6 +450,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
                 url
             );
             setupResponseReadFailure(msg, null);
+            profile.error = msg;
             throw new ResourceLimitExceededException(msg);
           }
         }
@@ -441,7 +459,9 @@ public class DirectDruidClient<T> implements QueryRunner<T>
       long timeLeft = timeoutAt - System.currentTimeMillis();
 
       if (timeLeft <= 0) {
-        throw new QueryTimeoutException(StringUtils.nonStrictFormat("Query[%s] url[%s] timed out.", query.getId(), url));
+        String msg = StringUtils.nonStrictFormat("Query[%s] url[%s] timed out.", query.getId(), url);
+        profile.error = msg;
+        throw new QueryTimeoutException(msg);
       }
 
       future = httpClient.go(
@@ -505,24 +525,33 @@ public class DirectDruidClient<T> implements QueryRunner<T>
             );
           }
 
+          @SuppressWarnings("unchecked")
           @Override
           public void cleanup(JsonParserIterator<T> iterFromMake)
           {
             try {
+              Map<String, Object> trailer = iterFromMake.responseTrailer();
+              if (trailer != null) {
+                profile.fragment = (Map<String, Object>) trailer.get(ResponseContext.Keys.PROFILE.getName());
+              }
               iterFromMake.close();
             }
             catch (IOException e) {
+              profile.error = e.getMessage();
               throw new RuntimeException(e);
             }
 
             if (iterFromMake.isSuccess()) {
-              if (iterFromMake.responseContext() != null) {
-                context.merge(objectMapper.convertValue(iterFromMake.responseContext(), ResponseContext.class));
-              }
+//              Map<String, Object> childResponseContext = iterFromMake.responseContext();
+//              profile.response = childResponseContext;
+//              if (childResponseContext != null) {
+//                context.merge(objectMapper.convertValue(iterFromMake.responseContext(), ResponseContext.class));
+//              }
 
               final QueryMetrics<? super Query<T>> queryMetrics = toolChest.makeMetrics(query);
               queryMetrics.reportNodeRows(iterFromMake.getResultRows());
               queryMetrics.emit(emitter, context);
+              profile.rows = iterFromMake.getResultRows();
             }
           }
         }
@@ -555,8 +584,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
                     isSmile ? SmileMediaTypes.APPLICATION_JACKSON_SMILE : MediaType.APPLICATION_JSON
                 ),
             StatusResponseHandler.getInstance(),
-            Duration.standardSeconds(1)
-        );
+            Duration.standardSeconds(1));
 
         Runnable checkRunnable = () -> {
           try {
@@ -565,12 +593,10 @@ public class DirectDruidClient<T> implements QueryRunner<T>
             }
             StatusResponseHolder response = responseFuture.get();
             if (response.getStatus().getCode() >= 500) {
-              log.error(
-                  "Error cancelling query[%s]: queriable node returned status[%d] [%s].",
+              log.error("Error cancelling query[%s]: queriable node returned status[%d] [%s].",
                   query,
                   response.getStatus().getCode(),
-                  response.getStatus().getReasonPhrase()
-              );
+                  response.getStatus().getReasonPhrase());
             }
           }
           catch (ExecutionException | InterruptedException e) {

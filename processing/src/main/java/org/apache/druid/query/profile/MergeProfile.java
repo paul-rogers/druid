@@ -17,20 +17,30 @@
  * under the License.
  */
 
-package org.apache.druid.java.util.common;
+package org.apache.druid.query.profile;
+
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
+ * Represents an n-way merge. Because of the functional style of programming,
+ * it is not possible to obtain things like the detailed merge time or the
+ * row count. These can be inferred, however, as the sum of any incoming row
+ * counts, and as the time for this operator minus the sum of the times of
+ * incoming operators.
  */
-@SuppressWarnings("serial")
-public class ISE extends IllegalStateException
+public class MergeProfile extends OperatorProfile
 {
-  public ISE(String formatText, Object... arguments)
-  {
-    super(StringUtils.nonStrictFormat(formatText, arguments));
+  @JsonProperty
+  public List<OperatorProfile> children;
+  
+  @JsonCreator
+  public MergeProfile() {
   }
-
-  public ISE(Throwable cause, String formatText, Object... arguments)
-  {
-    super(StringUtils.nonStrictFormat(formatText, arguments), cause);
+  
+  public MergeProfile(List<OperatorProfile> children) {
+    this.children = children;
   }
 }

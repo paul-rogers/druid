@@ -48,9 +48,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-/**
- * TODO(gianm): Document behaviors, response formats
- */
 public class JsonParserIterator<T> implements Iterator<T>, Closeable
 {
   public static final String FIELD_RESULTS = "results";
@@ -67,10 +64,11 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
 
   private JsonParser jp;
   private ObjectCodec objectCodec;
-  private Map<String, Object> responseContext;
+  private Map<String, Object> responseTrailer;
   private long resultRows = 0;
   private boolean success = false;
-  private final ResultStructure resultStructure;
+  private final ResultStructure expectedStructure;
+  private ResultStructure actualStructure;
   private final JavaType typeRef;
   private final Future<InputStream> future;
   private final String url;
@@ -93,7 +91,7 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
       ObjectMapper objectMapper
   )
   {
-    this.resultStructure = resultStructure;
+    this.expectedStructure = resultStructure;
     this.typeRef = typeRef;
     this.future = future;
     this.url = url;
@@ -114,8 +112,6 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
   @Override
   public boolean hasNext()
   {
-    // TODO(gianm): Need a way to handle this during rolling updates -- make sure all data servers support context
-    //   before updating the Brokers?
     init();
 
     try {
@@ -123,33 +119,34 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
         return false;
       }
 
-      if (jp.getCurrentToken() == JsonToken.END_ARRAY) {
-        if (resultStructure == ResultStructure.OBJECT) {
-          // Read response context, if present (it occurs after the main results).
+      if (jp.getCurrentToken() != JsonToken.END_ARRAY) {
+        return true;
+      }
+      if (actualStructure == ResultStructure.OBJECT) {
+        // Read response context, if present (it occurs after the main results).
+        jp.nextToken();
+
+        // TODO: this is rather pedantic: there must be exactly one field.
+        // Makes it hard to extend. Ignore all but the known fields?
+        if (jp.currentToken() == JsonToken.FIELD_NAME && FIELD_CONTEXT.equals(jp.getText())) {
           jp.nextToken();
-
-          if (jp.currentToken() == JsonToken.FIELD_NAME && FIELD_CONTEXT.equals(jp.getText())) {
-            jp.nextToken();
-            responseContext = jp.getCodec().readValue(jp, JacksonUtils.TYPE_REFERENCE_MAP_STRING_OBJECT);
-          }
-
-          if (jp.nextToken() != JsonToken.END_OBJECT) {
-            throw wrongTokenException(JsonToken.END_OBJECT);
-          }
+          responseTrailer = jp.getCodec().readValue(jp, JacksonUtils.TYPE_REFERENCE_MAP_STRING_OBJECT);
         }
 
-        // Should be at the end of the response.
-        if (jp.nextToken() != null) {
-          throw wrongTokenException(null);
+        if (jp.nextToken() != JsonToken.END_OBJECT) {
+          throw wrongTokenException(JsonToken.END_OBJECT);
         }
-
-        jp.close();
-        jp = null;
-        success = true;
-        return false;
       }
 
-      return true;
+      // Should be at the end of the response.
+      if (jp.nextToken() != null) {
+        throw wrongTokenException(null);
+      }
+
+      jp.close();
+      jp = null;
+      success = true;
+      return false;
     }
     catch (IOException e) {
       throw new RuntimeException(e);
@@ -248,7 +245,11 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
 
         final JsonToken nextToken = jp.nextToken();
 
-        if (resultStructure == ResultStructure.ARRAY) {
+        // We may expect an object (with trailer), but the server could be a prior version that does
+        // not support that feature, and so has returned an array anyway. So, here we check
+        // what the server has given us, now what we wanted.
+        if (nextToken == JsonToken.START_ARRAY) {
+          actualStructure = ResultStructure.ARRAY;
           // Expect that a top-level array contains results, and a top-level object contains an error.
 
           if (nextToken == JsonToken.START_ARRAY) {
@@ -261,7 +262,8 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
           }
         } else {
           // Expect a top-level object to contain key "results" or "error".
-          assert resultStructure == ResultStructure.OBJECT;
+          assert expectedStructure == ResultStructure.OBJECT;
+          actualStructure = ResultStructure.OBJECT;
 
           if (!nextToken.equals(JsonToken.START_OBJECT)) {
             throw wrongTokenException(JsonToken.START_OBJECT);
@@ -308,9 +310,9 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
   }
 
   @Nullable
-  public Map<String, Object> responseContext()
+  public Map<String, Object> responseTrailer()
   {
-    return responseContext;
+    return responseTrailer;
   }
 
   /**

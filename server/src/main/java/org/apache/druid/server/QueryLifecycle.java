@@ -49,8 +49,6 @@ import org.apache.druid.query.SingleQueryMetricsCollector;
 import org.apache.druid.query.context.ConcurrentResponseContext;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.profile.FragmentProfile;
-import org.apache.druid.query.profile.OperatorProfile;
-import org.apache.druid.query.profile.SliceProfile;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -59,6 +57,8 @@ import org.apache.druid.server.security.AuthorizerMapper;
 
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
+
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -92,7 +92,7 @@ public class QueryLifecycle
    */
   public class LifecycleStats
   {
-    String hostId;
+    DruidNode node;
     String remoteAddress;
     Throwable e;
     long endTimeNs;
@@ -103,9 +103,9 @@ public class QueryLifecycle
      * Called by the query resource to provide the host on which this query is
      * running, and the remote address that sent the request.
      */
-    public void onStart(String hostId, String remoteAddress)
+    public void onStart(DruidNode node, String remoteAddress)
     {
-      this.hostId = hostId;
+      this.node = node;
       this.remoteAddress = remoteAddress;
     }
     
@@ -230,23 +230,23 @@ public class QueryLifecycle
                   .setResultRows(rowCount)
                   )
           );
+      
+      // Each query execution is a "fragment": either the root fragment of
+      // a client query, or a fragment (scattered execution) of a subquery.
       responseContext.add(
           ResponseContext.Keys.PROFILE,
-          sliceNode(responseContext.popProfile()));
-    }
-    
-    public SliceProfile sliceNode(OperatorProfile rootOperator)
-    {
-      SliceProfile slice = new SliceProfile(queryId());
-      slice.add(new FragmentProfile(
-          hostId,
-          remoteAddress,
-          getStartMs(),
-          runTimeMs(),
-          rowCount,
-          rootOperator
-      ));
-      return slice;
+          new FragmentProfile(
+            node.getHostAndPort(),
+            node.getServiceName(),
+            remoteAddress,
+            baseQuery,
+            new ArrayList<>(baseQuery.getRequiredColumns()),
+            getStartMs(),
+            runTimeNs(),
+            responseContext.getCpuNanos(),
+            rowCount,
+            responseContext.popProfile())
+      );
     }
   }
 
