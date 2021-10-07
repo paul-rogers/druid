@@ -32,6 +32,8 @@ import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
+import org.apache.druid.query.profile.IndexScanProfile;
+import org.apache.druid.query.profile.IndexScanProfile.CursorProfile;
 import org.apache.druid.segment.column.BaseColumn;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.NumericColumn;
@@ -91,16 +93,18 @@ public class QueryableIndexCursorSequenceBuilder
     this.bitmapIndexSelector = bitmapIndexSelector;
   }
 
-  public Sequence<Cursor> build(final Granularity gran)
+  public Sequence<Cursor> build(final Granularity gran, IndexScanProfile profile)
   {
     final Offset baseOffset;
 
+    int indexRows = index.getNumRows();
+    profile.indexRows = indexRows;
     if (filterBitmap == null) {
       baseOffset = descending
-                   ? new SimpleDescendingOffset(index.getNumRows())
-                   : new SimpleAscendingOffset(index.getNumRows());
+                   ? new SimpleDescendingOffset(indexRows)
+                   : new SimpleAscendingOffset(indexRows);
     } else {
-      baseOffset = BitmapOffset.of(filterBitmap, descending, index.getNumRows());
+      baseOffset = BitmapOffset.of(filterBitmap, descending, indexRows);
     }
 
     // Column caches shared amongst all cursors in this sequence.
@@ -111,6 +115,8 @@ public class QueryableIndexCursorSequenceBuilder
     final Closer closer = Closer.create();
     closer.register(timestamps);
 
+    profile.granularity = gran.toString();
+    profile.descending = descending;
     Iterable<Interval> iterable = gran.getIterable(interval);
     if (descending) {
       iterable = Lists.reverse(ImmutableList.copyOf(iterable));
@@ -334,6 +340,7 @@ public class QueryableIndexCursorSequenceBuilder
     private final int vectorSize;
     private final VectorOffset offset;
     private final VectorColumnSelectorFactory columnSelectorFactory;
+    private final CursorProfile profile;
 
     public QueryableIndexVectorCursor(
         final VectorColumnSelectorFactory vectorColumnSelectorFactory,
@@ -346,6 +353,8 @@ public class QueryableIndexCursorSequenceBuilder
       this.vectorSize = vectorSize;
       this.offset = offset;
       this.closer = closer;
+      this.profile = profile;
+      profile.type = CursorProfile.VECTOR_INDEX;
     }
 
     @Override
@@ -395,6 +404,12 @@ public class QueryableIndexCursorSequenceBuilder
         throw new RuntimeException(e);
       }
     }
+    
+    @Override
+    public void finalize() {
+      profile.preFilterRows = offset.getBaseCount();
+      profile.postFilterRows = offset.getCount();
+    }
   }
 
   private static class QueryableIndexCursor implements HistoricalCursor
@@ -402,12 +417,15 @@ public class QueryableIndexCursorSequenceBuilder
     private final Offset cursorOffset;
     private final ColumnSelectorFactory columnSelectorFactory;
     private final DateTime bucketStart;
+    private final CursorProfile profile;
 
     QueryableIndexCursor(Offset cursorOffset, ColumnSelectorFactory columnSelectorFactory, DateTime bucketStart)
     {
       this.cursorOffset = cursorOffset;
       this.columnSelectorFactory = columnSelectorFactory;
       this.bucketStart = bucketStart;
+      this.profile = profile;
+      profile.type = CursorProfile.INDEX;
     }
 
     @Override
@@ -462,6 +480,12 @@ public class QueryableIndexCursorSequenceBuilder
     public void reset()
     {
       cursorOffset.reset();
+    }
+    
+    @Override
+    public void finalize() {
+      profile.preFilterRows = cursorOffset.getBaseCount();
+      profile.postFilterRows = cursorOffset.getCount();
     }
   }
 

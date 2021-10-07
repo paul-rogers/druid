@@ -61,6 +61,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -233,6 +234,12 @@ public class QueryLifecycle
       
       // Each query execution is a "fragment": either the root fragment of
       // a client query, or a fragment (scattered execution) of a subquery.
+      ArrayList<String> cols = null;
+      Set<String> reqCols = baseQuery.getRequiredColumns();
+      if (reqCols != null) {
+        cols = new ArrayList<>();
+        cols.addAll(reqCols);
+      }
       responseContext.add(
           ResponseContext.Keys.PROFILE,
           new FragmentProfile(
@@ -240,7 +247,7 @@ public class QueryLifecycle
             node.getServiceName(),
             remoteAddress,
             baseQuery,
-            new ArrayList<>(baseQuery.getRequiredColumns()),
+            cols,
             getStartMs(),
             runTimeNs(),
             responseContext.getCpuNanos(),

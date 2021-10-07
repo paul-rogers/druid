@@ -15,7 +15,7 @@ public class SegmentScanProfile extends OperatorProfile
   @JsonProperty
   public int columnCount;
   @JsonProperty
-  public boolean filtered;
+  public String filter;
   @JsonProperty
   public int batchSize;
   @JsonProperty

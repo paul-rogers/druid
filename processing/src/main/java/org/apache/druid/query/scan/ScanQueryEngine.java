@@ -37,6 +37,8 @@ import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.query.filter.Filter;
+import org.apache.druid.query.profile.ProfileUtils;
+import org.apache.druid.query.profile.QueryMetricsAdapter;
 import org.apache.druid.query.profile.SegmentScanProfile;
 import org.apache.druid.query.profile.Timer;
 import org.apache.druid.segment.BaseObjectColumnValueSelector;
@@ -62,6 +64,10 @@ import java.util.Set;
 public class ScanQueryEngine
 {
   static final String LEGACY_TIMESTAMP_KEY = "timestamp";
+  
+  public interface CloseableIterator<T> extends Iterator<T> {
+    void close();
+  }
 
   public Sequence<ScanResultValue> process(
       final ScanQuery query,
@@ -78,12 +84,10 @@ public class ScanQueryEngine
     Timer runTimer = Timer.createStarted();
 
     final Long numScannedRows = responseContext.getRowScanCount();
-    if (numScannedRows != null) {
-      if (numScannedRows >= query.getScanRowsLimit() && query.getOrder().equals(ScanQuery.Order.NONE)) {
-        profile.limited = true;
-        profile.timeNs = runTimer.get();
-        return Sequences.empty();
-      }
+    if (numScannedRows != null && numScannedRows >= query.getScanRowsLimit() && query.getOrder().equals(ScanQuery.Order.NONE)) {
+      profile.limited = true;
+      profile.timeNs = runTimer.get();
+      return Sequences.empty();
     }
     final boolean hasTimeout = QueryContexts.hasTimeout(query);
     final Long timeoutAt = responseContext.getTimeoutTime();
@@ -138,7 +142,7 @@ public class ScanQueryEngine
     final SegmentId segmentId = segment.getId();
 
     final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
-    profile.filtered = filter != null;
+    profile.filter = ProfileUtils.classOf(filter);
 
     responseContext.initializeRowScanCount();
     final long limit = calculateRemainingScanRowsLimit(query, responseContext);
@@ -151,7 +155,7 @@ public class ScanQueryEngine
                     Granularities.ALL,
                     query.getOrder().equals(ScanQuery.Order.DESCENDING) ||
                     (query.getOrder().equals(ScanQuery.Order.NONE) && query.isDescending()),
-                    queryMetrics
+                    QueryMetricsAdapter.wrap(queryMetrics, responseContext)
                 )
                 .map(cursor -> new BaseSequence<>(
                     new BaseSequence.IteratorMaker<ScanResultValue, Iterator<ScanResultValue>>()
@@ -176,7 +180,7 @@ public class ScanQueryEngine
                         }
 
                         final int batchSize = query.getBatchSize();
-                        return new Iterator<ScanResultValue>()
+                        return new CloseableIterator<ScanResultValue>()
                         {
                           private long offset = 0;
 
@@ -266,6 +270,10 @@ public class ScanQueryEngine
 
                             return value;
                           }
+                          
+                          public void close() {
+                            cursor.finalize();
+                          }
                         };
                       }
 
@@ -273,6 +281,7 @@ public class ScanQueryEngine
                       public void cleanup(Iterator<ScanResultValue> iterFromMake)
                       {
                         profile.timeNs = runTimer.get();
+                        ((CloseableIterator<ScanResultValue>) iterFromMake).close();
                       }
                     }
             ))

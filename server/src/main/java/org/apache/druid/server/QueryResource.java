@@ -247,7 +247,7 @@ public class QueryResource implements QueryCountStatsProvider
                 if (r instanceof ScanResultValue) {
                   ScanResultValue srv = (ScanResultValue) r;
                   Object events = srv.getEvents();
-                  if (r instanceof List) {
+                  if (events instanceof List) {
                     resultRowCount.addAndGet(((List<?>) events).size());
                     return r;
                   }

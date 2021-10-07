@@ -280,7 +280,7 @@ public interface QueryMetrics<QueryType extends Query<?>>
   QueryMetrics<QueryType> reportQueryBytes(long byteCount);
 
   /**
-   * Registeres "segments queried count" metric.
+   * Registers "segments queried count" metric.
    */
   QueryMetrics<QueryType> reportQueriedSegmentCount(long segmentCount);
 

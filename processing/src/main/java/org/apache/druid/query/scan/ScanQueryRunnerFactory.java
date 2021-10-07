@@ -20,6 +20,7 @@
 package org.apache.druid.query.scan;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
@@ -28,6 +29,7 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.UOE;
+import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.guava.Yielder;
@@ -60,6 +62,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -99,7 +102,6 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
       ScanQuery query = (ScanQuery) queryPlus.getQuery();
       ScanQueryProfile profile = new ScanQueryProfile();
       responseContext.pushProfile(profile);
-      Timer runTimer = Timer.createStarted();
 
       // Note: this variable is effective only when queryContext has a timeout.
       // See the comment of ResponseContext.Key.TIMEOUT_AT.
@@ -108,20 +110,40 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
 
       if (query.getOrder().equals(ScanQuery.Order.NONE)) {
         // Use normal strategy
+        
+        // We need to gather the profiles from the child runners, which
+        // we do by grabbing the list of child profiles from the response context
+        // at the completion of the iteration over the sequence of query runners.
+        // There is no real run time for this runner since all it does is set
+        // up a sequence and return.
+        profile.strategy = ScanQueryProfile.CONCAT_STRATEGY;
         responseContext.pushGroup();
+        BaseSequence.IteratorMaker<QueryRunner<ScanResultValue>, Iterator<QueryRunner<ScanResultValue>>> runnerIter = 
+            new BaseSequence.IteratorMaker<QueryRunner<ScanResultValue>, Iterator<QueryRunner<ScanResultValue>>>()
+        {
+          @Override
+          public Iterator<QueryRunner<ScanResultValue>> make()
+          {
+            return queryRunners.iterator();
+          }
+
+          @Override
+          public void cleanup(Iterator<QueryRunner<ScanResultValue>> iterFromMake)
+          {
+            List<OperatorProfile> group = responseContext.popGroup();
+            if (group.size() == 1) {
+              profile.child = group.get(0);
+            } else {
+              profile.child = new ConcatProfile(group);
+            }
+          }
+        };
         Sequence<ScanResultValue> returnedRows = Sequences.concat(
             Sequences.map(
-                Sequences.simple(queryRunners),
-                input -> input.run(queryPlus, responseContext)
+                new BaseSequence<>(runnerIter),
+                input ->input.run(queryPlus, responseContext)
             )
         );
-        List<OperatorProfile> group = responseContext.popGroup();
-        if (group.size() == 1) {
-          profile.child = group.get(0);
-        } else {
-          profile.child = new ConcatProfile(group);
-        }
-        profile.timeNs = runTimer.get();
         if (query.getScanRowsLimit() <= Integer.MAX_VALUE) {
           int limit = Math.toIntExact(query.getScanRowsLimit());
           profile.limit = limit;
@@ -143,6 +165,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
         if (query.getScanRowsLimit() <= maxRowsQueuedForOrdering) {
           // Use priority queue strategy
           try {
+            profile.strategy = ScanQueryProfile.PQUEUE_STRATEGY;
             Timer sortTimer = Timer.createStarted();
             responseContext.pushGroup();
             Sequence<ScanResultValue> result = stableLimitingSort(
@@ -154,7 +177,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
                 intervalsOrdered
             );
             SortProfile sortProfile = new SortProfile();
-            profile.order = query.getOrder();
+            sortProfile.order = query.getOrder();
             sortProfile.timeNs = sortTimer.get();
             List<OperatorProfile> group = responseContext.popGroup();
             if (group.size() == 1) {
@@ -166,11 +189,11 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
             return result;
           }
           catch (IOException e) {
-            profile.timeNs = runTimer.get();
             throw new RuntimeException(e);
           }
         } else {
           // Use n-way merge strategy
+          profile.strategy = ScanQueryProfile.MERGE_STRATEGY;
           List<Pair<Interval, QueryRunner<ScanResultValue>>> intervalsAndRunnersOrdered = new ArrayList<>();
           if (intervalsOrdered.size() == queryRunnersOrdered.size()) {
             for (int i = 0; i < queryRunnersOrdered.size(); i++) {
@@ -180,7 +203,6 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
             ((SinkQueryRunners<ScanResultValue>) queryRunners).runnerIntervalMappingIterator()
                                                               .forEachRemaining(intervalsAndRunnersOrdered::add);
           } else {
-            profile.timeNs = runTimer.get();
             throw new ISE("Number of segment descriptors does not equal number of "
                           + "query runners...something went wrong!");
           }
@@ -223,11 +245,9 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
                                            .collect(Collectors.toList());
 
             Sequence<ScanResultValue> results = nWayMergeAndLimit(groupedRunners, queryPlus, responseContext);
-            profile.timeNs = runTimer.get();
             profile.child = responseContext.popProfile();
             return results;
           }
-          profile.timeNs = runTimer.get();
           throw ResourceLimitExceededException.withMessage(
               "Time ordering is not supported for a Scan query with %,d segments per time chunk and a row limit of %,d. "
               + "Try reducing your query limit below maxRowsQueuedForOrdering (currently %,d), or using compaction to "

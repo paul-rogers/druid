@@ -32,6 +32,9 @@ import org.apache.druid.query.BitmapResultFactory;
 import org.apache.druid.query.DefaultBitmapResultFactory;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.filter.Filter;
+import org.apache.druid.query.profile.IndexScanProfile;
+import org.apache.druid.query.profile.ProfileUtils;
+import org.apache.druid.query.profile.QueryMetricsAdapter;
 import org.apache.druid.segment.column.BaseColumn;
 import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnCapabilities;
@@ -273,6 +276,8 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       @Nullable QueryMetrics<?> queryMetrics
   )
   {
+    IndexScanProfile profile = new IndexScanProfile();
+    QueryMetricsAdapter.setProfile(queryMetrics, profile);
     if (queryMetrics != null) {
       queryMetrics.vectorized(false);
     }
@@ -280,12 +285,16 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     final Interval actualInterval = computeCursorInterval(gran, interval);
 
     if (actualInterval == null) {
+      profile.type = IndexScanProfile.EMPTY_SCAN;
       return Sequences.empty();
     }
+    profile.interval = actualInterval.toString();
 
     final ColumnSelectorBitmapIndexSelector bitmapIndexSelector = makeBitmapIndexSelector(virtualColumns);
 
     final FilterAnalysis filterAnalysis = analyzeFilter(filter, bitmapIndexSelector, queryMetrics);
+    profile.hasPreFilter = filterAnalysis.getPreFilterBitmap()  != null;
+    profile.postFilter = ProfileUtils.classOf(filterAnalysis.getPostFilter());
 
     return Sequences.filter(
         new QueryableIndexCursorSequenceBuilder(

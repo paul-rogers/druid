@@ -42,4 +42,6 @@ public interface Cursor
   boolean isDone();
   boolean isDoneOrInterrupted();
   void reset();
+  default void finalize() {
+  }
 }

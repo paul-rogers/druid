@@ -58,6 +58,15 @@ public abstract class Offset implements ReadableOffset, Cloneable
    * org.apache.druid.segment.FilteredOffset} and reduce reference indirection, when only {@link ReadableOffset} API is needed.
    */
   public abstract ReadableOffset getBaseReadableOffset();
+  
+  public int getCount()
+  {
+    return 0;
+  }
+  
+  public int getBaseCount() {
+    return 0;
+  }
 
   @Override
   public Offset clone()

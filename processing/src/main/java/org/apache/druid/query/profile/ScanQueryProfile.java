@@ -22,11 +22,35 @@ package org.apache.druid.query.profile;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+/**
+ * Represents the execution of a ScanQuery. This operator can not track
+ * its time, the timeNs field is always 0. Time is spent in the child
+ * operators.
+ * <p>
+ * The scan query simply runs a set of child queries, one per fragment,
+ * and merges the results. The strategy of the merge depends on the
+ * kind of ordering requested.
+ */
 public class ScanQueryProfile extends OperatorProfile
 {
+  /**
+   * No ordering, just concatenate the results.
+   */
+  public static final String CONCAT_STRATEGY = "concat";
+  /**
+   * The result size is limited, a priority queue is used.
+   */
+  public static final String PQUEUE_STRATEGY = "priority-queue";
+  /**
+   * Results are already ordered, and are just merged.
+   */
+  public static final String MERGE_STRATEGY = "merge";
+  
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public long limit;
   @JsonProperty
   public OperatorProfile child;
+  @JsonProperty
+  public String strategy;
 }

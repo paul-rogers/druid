@@ -223,84 +223,85 @@ public class JsonParserIterator<T> implements Iterator<T>, Closeable
 
   private void init()
   {
-    if (jp == null) {
-      try {
-        long timeLeftMillis = timeoutAt - System.currentTimeMillis();
-        if (checkTimeout(timeLeftMillis)) {
-          throw timeoutQuery();
-        }
-        InputStream is = hasTimeout ? future.get(timeLeftMillis, TimeUnit.MILLISECONDS) : future.get();
+    if (jp != null) {
+      return;
+    }
+    try {
+      long timeLeftMillis = timeoutAt - System.currentTimeMillis();
+      if (checkTimeout(timeLeftMillis)) {
+        throw timeoutQuery();
+      }
+      InputStream is = hasTimeout ? future.get(timeLeftMillis, TimeUnit.MILLISECONDS) : future.get();
 
-        if (is != null) {
-          jp = objectMapper.getFactory().createParser(is);
-        } else if (checkTimeout()) {
-          throw timeoutQuery();
-        } else {
-          // TODO: NettyHttpClient should check the actual cause of the failure and set it in the future properly.
-          throw ResourceLimitExceededException.withMessage(
-              "Possibly max scatter-gather bytes limit reached while reading from url[%s].",
-              url
-          );
-        }
+      if (is != null) {
+        jp = objectMapper.getFactory().createParser(is);
+      } else if (checkTimeout()) {
+        throw timeoutQuery();
+      } else {
+        // TODO: NettyHttpClient should check the actual cause of the failure and set it in the future properly.
+        throw ResourceLimitExceededException.withMessage(
+            "Possibly max scatter-gather bytes limit reached while reading from url[%s].",
+            url
+        );
+      }
 
-        final JsonToken nextToken = jp.nextToken();
+      final JsonToken nextToken = jp.nextToken();
 
-        // We may expect an object (with trailer), but the server could be a prior version that does
-        // not support that feature, and so has returned an array anyway. So, here we check
-        // what the server has given us, now what we wanted.
+      // We may expect an object (with trailer), but the server could be a prior version that does
+      // not support that feature, and so has returned an array anyway. So, here we check
+      // what the server has given us, now what we wanted.
+      if (nextToken == JsonToken.START_ARRAY) {
+        actualStructure = ResultStructure.ARRAY;
+        // Expect that a top-level array contains results, and a top-level object contains an error.
+
         if (nextToken == JsonToken.START_ARRAY) {
-          actualStructure = ResultStructure.ARRAY;
-          // Expect that a top-level array contains results, and a top-level object contains an error.
-
-          if (nextToken == JsonToken.START_ARRAY) {
-            jp.nextToken();
-            objectCodec = jp.getCodec();
-          } else if (nextToken == JsonToken.START_OBJECT) {
-            throw convertException(jp.getCodec().readValue(jp, QueryException.class));
-          } else {
-            throw wrongTokenException(JsonToken.START_ARRAY);
-          }
+          jp.nextToken();
+          objectCodec = jp.getCodec();
+        } else if (nextToken == JsonToken.START_OBJECT) {
+          throw convertException(jp.getCodec().readValue(jp, QueryException.class));
         } else {
-          // Expect a top-level object to contain key "results" or "error".
-          assert expectedStructure == ResultStructure.OBJECT;
-          actualStructure = ResultStructure.OBJECT;
+          throw wrongTokenException(JsonToken.START_ARRAY);
+        }
+      } else {
+        // Expect a top-level object to contain key "results" or "error".
+        assert expectedStructure == ResultStructure.OBJECT;
+        actualStructure = ResultStructure.OBJECT;
 
-          if (!nextToken.equals(JsonToken.START_OBJECT)) {
-            throw wrongTokenException(JsonToken.START_OBJECT);
-          }
+        if (!nextToken.equals(JsonToken.START_OBJECT)) {
+          throw wrongTokenException(JsonToken.START_OBJECT);
+        }
 
+        jp.nextToken();
+
+        if (!jp.currentToken().equals(JsonToken.FIELD_NAME)) {
+          throw wrongTokenException(JsonToken.FIELD_NAME);
+        }
+
+        if (FIELD_ERROR.equals(jp.getText())) {
           jp.nextToken();
+          throw convertException(jp.getCodec().readValue(jp, QueryInterruptedException.class));
+        } else if (!FIELD_RESULTS.equals(jp.getText())) {
+          throw convertException(new IAE("Unexpected starting field[%s] from url[%s]", jp.getText(), url));
+        }
 
-          if (!jp.currentToken().equals(JsonToken.FIELD_NAME)) {
-            throw wrongTokenException(JsonToken.FIELD_NAME);
-          }
+        jp.nextToken();
 
-          if (FIELD_ERROR.equals(jp.getText())) {
-            jp.nextToken();
-            throw convertException(jp.getCodec().readValue(jp, QueryInterruptedException.class));
-          } else if (!FIELD_RESULTS.equals(jp.getText())) {
-            throw convertException(new IAE("Unexpected starting field[%s] from url[%s]", jp.getText(), url));
-          }
-
+        if (jp.currentToken() == JsonToken.START_ARRAY) {
           jp.nextToken();
-
-          if (jp.currentToken() == JsonToken.START_ARRAY) {
-            jp.nextToken();
-            objectCodec = jp.getCodec();
-          } else {
-            throw wrongTokenException(JsonToken.START_ARRAY);
-          }
+          objectCodec = jp.getCodec();
+        } else {
+          throw wrongTokenException(JsonToken.START_ARRAY);
         }
       }
-      catch (ExecutionException | CancellationException e) {
-        throw convertException(e.getCause() == null ? e : e.getCause());
-      }
-      catch (IOException | InterruptedException e) {
-        throw convertException(e);
-      }
-      catch (TimeoutException e) {
-        throw new QueryTimeoutException(StringUtils.nonStrictFormat("Query [%s] timed out!", queryId), host);
-      }
+    }
+    catch (ExecutionException | CancellationException e) {
+      throw convertException(e.getCause() == null ? e : e.getCause());
+    }
+    catch (IOException | InterruptedException e) {
+      throw convertException(e);
+    }
+    catch (TimeoutException e) {
+      throw new QueryTimeoutException(StringUtils.nonStrictFormat("Query [%s] timed out!", queryId), host);
     }
   }
 
