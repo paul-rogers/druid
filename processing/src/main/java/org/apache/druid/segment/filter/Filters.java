@@ -26,6 +26,8 @@ import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.ints.IntIterable;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntList;
+
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.query.BitmapResultFactory;
@@ -427,7 +429,7 @@ public class Filters
   }
 
   @Nullable
-  public static Filter convertToCNFFromQueryContext(Query query, @Nullable Filter filter)
+  public static Filter convertToCNFFromQueryContext(Query<?> query, @Nullable Filter filter)
   {
     if (filter == null) {
       return null;
@@ -595,13 +597,11 @@ public class Filters
     return normalizedOrClauses;
   }
 
-
   public static boolean filterMatchesNull(Filter filter)
   {
     ValueMatcher valueMatcher = filter.makeMatcher(ALL_NULL_COLUMN_SELECTOR_FACTORY);
     return valueMatcher.matches();
   }
-
 
   /**
    * Returns a list equivalent to the input list, but with nulls removed. If the original list has no nulls,
@@ -650,5 +650,34 @@ public class Filters
     }
 
     return retVal;
+  }
+  
+  /**
+   * Return the estimated filter count for use in metrics. Each AND is expanded,
+   * all others are treated as a single filter.
+   */
+  public static int count(final Collection<Filter> filters) {
+    if (CollectionUtils.isEmpty(filters)) {
+      return 0;
+    }
+    int count = 0;
+    for (Filter filter : filters) {
+      count += count(filter);
+    }
+    return count;
+  }
+  
+  /**
+   * Return the estimated filter count for use in metrics. Each AND is expanded,
+   * all others are treated as a single filter.
+   */
+  public static int count(Filter filter) {
+    if (filter == null) {
+      return 0;
+    }
+    if (filter instanceof AndFilter) {
+      return count(((AndFilter) filter).getFilters());
+    }
+    return 1;
   }
 }

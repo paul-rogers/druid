@@ -42,9 +42,27 @@ import java.util.Iterator;
  */
 public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
 {
+  public interface BitmapMetrics
+  {
+    void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap);
+    
+    public static BitmapMetrics stub() {
+      return new BitmapMetricsStub();
+    }
+  }
+  
+  public static class BitmapMetricsStub implements BitmapMetrics
+  {
+    @Override
+    public void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap)
+    {
+    }
+  }
+ 
   private final BitmapFactory bitmapFactory;
   private final VirtualColumns virtualColumns;
   private final ColumnSelector index;
+  private final BitmapMetrics cursorMetrics;
 
   public ColumnSelectorBitmapIndexSelector(
       final BitmapFactory bitmapFactory,
@@ -52,9 +70,20 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
       final ColumnSelector index
   )
   {
+    this(bitmapFactory, virtualColumns, index, BitmapMetrics.stub());
+  }
+  
+  public ColumnSelectorBitmapIndexSelector(
+      final BitmapFactory bitmapFactory,
+      final VirtualColumns virtualColumns,
+      final ColumnSelector index,
+      BitmapMetrics cursorMetrics
+  )
+  {
     this.bitmapFactory = bitmapFactory;
     this.virtualColumns = virtualColumns;
     this.index = index;
+    this.cursorMetrics = cursorMetrics;
   }
 
   @Nullable
@@ -102,7 +131,6 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
         @Override
         public void close()
         {
-
         }
       };
     }
@@ -115,6 +143,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
     if (!(col instanceof DictionaryEncodedColumn)) {
       return null;
     }
+    @SuppressWarnings("unchecked")
     final DictionaryEncodedColumn<String> column = (DictionaryEncodedColumn<String>) col;
     return new CloseableIndexed<String>()
     {
@@ -278,11 +307,14 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
 
     final ColumnHolder columnHolder = index.getColumnHolder(dimension);
     if (columnHolder == null || !columnHolder.getCapabilities().isFilterable()) {
+      final ImmutableBitmap bitmap;
       if (NullHandling.isNullOrEquivalent(value)) {
-        return bitmapFactory.complement(bitmapFactory.makeEmptyImmutableBitmap(), getNumRows());
+        bitmap = bitmapFactory.complement(bitmapFactory.makeEmptyImmutableBitmap(), getNumRows());
       } else {
-        return bitmapFactory.makeEmptyImmutableBitmap();
+        bitmap = bitmapFactory.makeEmptyImmutableBitmap();
       }
+      cursorMetrics.bitmapIndex(dimension, columnHolder.getCardinality(), null, bitmap);
+      return bitmap;
     }
 
     if (!columnHolder.getCapabilities().hasBitmapIndexes()) {
@@ -290,7 +322,9 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
     }
 
     final BitmapIndex bitmapIndex = columnHolder.getBitmapIndex();
-    return bitmapIndex.getBitmap(bitmapIndex.getIndex(value));
+    final ImmutableBitmap bitmap = bitmapIndex.getBitmap(bitmapIndex.getIndex(value));
+    cursorMetrics.bitmapIndex(dimension, columnHolder.getCardinality(), value, bitmap);
+    return bitmap;
   }
 
   @Override

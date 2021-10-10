@@ -60,6 +60,17 @@ public class SimpleDescendingOffset extends SimpleSettableOffset
   }
 
   @Override
+  public int getCount()
+  {
+    return initialOffset - currentOffset;
+  }
+  
+  @Override
+  public int getBaseCount() {
+    return getCount();
+  }
+
+  @Override
   public ReadableOffset getBaseReadableOffset()
   {
     return this;

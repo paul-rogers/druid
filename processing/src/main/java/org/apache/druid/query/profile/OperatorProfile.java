@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.profile;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -46,10 +47,11 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
     @JsonSubTypes.Type(name = OperatorProfile.SORT, value = SortProfile.class),
     @JsonSubTypes.Type(name = OperatorProfile.CONCAT, value = ConcatProfile.class),
     @JsonSubTypes.Type(name = OperatorProfile.SEGMENT_SCAN, value = SegmentScanProfile.class),
+    @JsonSubTypes.Type(name = OperatorProfile.INDEX_SCAN, value = IndexScanProfile.class),
 })
 public abstract class OperatorProfile
 {
-  public static final String OPAQUE = "opaque";
+  public static final String OPAQUE = "unknown";
   public static final String RECEIVER = "receiver";
   public static final String SEGMENT_METADATA_SCAN = "segment-metadata";
   public static final String MERGE = "merge";
@@ -57,6 +59,7 @@ public abstract class OperatorProfile
   public static final String SORT = "sort";
   public static final String CONCAT = "concat";
   public static final String SEGMENT_SCAN = "segment-scan";
+  public static final String INDEX_SCAN = "index-scan";
   
   /**
    * The total wall clock time, in ns, taken by this operator.
@@ -65,6 +68,7 @@ public abstract class OperatorProfile
    * for all children.
    */
   @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public long timeNs;
   
   /**

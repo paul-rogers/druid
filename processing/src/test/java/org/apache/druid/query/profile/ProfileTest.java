@@ -202,7 +202,7 @@ public class ProfileTest
     SegmentScanProfile segScan = new SegmentScanProfile(
         SegmentId.dummy("data-source", 3));
     segScan.timeNs = 7;
-    segScan.rowCount = 100;
+    segScan.rows = 100;
     segScan.limited = true;
     segScan.columnCount = 101;
     segScan.batchSize = 102;

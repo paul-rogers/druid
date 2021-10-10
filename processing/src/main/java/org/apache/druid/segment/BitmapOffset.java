@@ -128,6 +128,7 @@ public class BitmapOffset extends Offset
   private final IntIterator iteratorForReset;
   private final int valueForReset;
   private int value;
+  private int counter;
 
   static IntIterator getReverseBitmapOffsetIterator(ImmutableBitmap bitmapIndex)
   {
@@ -185,6 +186,7 @@ public class BitmapOffset extends Offset
   {
     if (iterator.hasNext()) {
       value = iterator.next();
+      counter++;
     } else {
       value = INVALID_VALUE;
     }
@@ -201,6 +203,18 @@ public class BitmapOffset extends Offset
   {
     iterator = safeClone(iteratorForReset);
     value = valueForReset;
+    counter = 0;
+  }
+
+  @Override
+  public int getCount()
+  {
+    return counter;
+  }
+  
+  @Override
+  public int getBaseCount() {
+    return counter;
   }
 
   @Override

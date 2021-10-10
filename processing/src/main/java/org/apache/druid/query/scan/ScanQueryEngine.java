@@ -35,7 +35,6 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.profile.ProfileUtils;
 import org.apache.druid.query.profile.QueryMetricsAdapter;
@@ -61,6 +60,12 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
+/**
+ * The scan query engine implements the native ScanQuery by creating a Sequence which
+ * will iterate over either the segment, or a set of one or more indexes on top of a
+ * segment. The scan query provides per-row filtering. Some filtering is converted to
+ * an indexed lookup (such as foo="bar"), and others are applied per row.
+ */
 public class ScanQueryEngine
 {
   static final String LEGACY_TIMESTAMP_KEY = "timestamp";
@@ -83,6 +88,8 @@ public class ScanQueryEngine
     responseContext.pushProfile(profile);
     Timer runTimer = Timer.createStarted();
 
+    // If the query has a row limit, and the query execution has already
+    // returned at least that number of rows, then just return an empty sequence.
     final Long numScannedRows = responseContext.getRowScanCount();
     if (numScannedRows != null && numScannedRows >= query.getScanRowsLimit() && query.getOrder().equals(ScanQuery.Order.NONE)) {
       profile.limited = true;
@@ -101,8 +108,8 @@ public class ScanQueryEngine
     }
 
     final List<String> allColumns = new ArrayList<>();
-
     if (query.getColumns() != null && !query.getColumns().isEmpty()) {
+      // The query provides the set of columns to return.
       if (legacy && !query.getColumns().contains(LEGACY_TIMESTAMP_KEY)) {
         allColumns.add(LEGACY_TIMESTAMP_KEY);
       }
@@ -111,6 +118,9 @@ public class ScanQueryEngine
       // the compactedList form easier to use.
       allColumns.addAll(query.getColumns());
     } else {
+      // No columns specified in the query. This is the equivalent of a SELECT *:
+      // include all columns from the datasource.
+      profile.isWildcard = true;
       final Set<String> availableColumns = Sets.newLinkedHashSet(
           Iterables.concat(
               Collections.singleton(legacy ? LEGACY_TIMESTAMP_KEY : ColumnHolder.TIME_COLUMN_NAME),
@@ -139,6 +149,8 @@ public class ScanQueryEngine
       throw e;
     }
 
+    Interval interval = intervals.get(0);
+    profile.interval = interval.toString();
     final SegmentId segmentId = segment.getId();
 
     final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
@@ -146,11 +158,12 @@ public class ScanQueryEngine
 
     responseContext.initializeRowScanCount();
     final long limit = calculateRemainingScanRowsLimit(query, responseContext);
-    return Sequences.concat(
+    responseContext.pushGroup();
+    Sequence<ScanResultValue> cursors = Sequences.concat(
             adapter
                 .makeCursors(
                     filter,
-                    intervals.get(0),
+                    interval,
                     query.getVirtualColumns(),
                     Granularities.ALL,
                     query.getOrder().equals(ScanQuery.Order.DESCENDING) ||
@@ -164,10 +177,10 @@ public class ScanQueryEngine
                       public Iterator<ScanResultValue> make()
                       {
                         profile.cursorCount++;
-                        final List<BaseObjectColumnValueSelector> columnSelectors = new ArrayList<>(allColumns.size());
+                        final List<BaseObjectColumnValueSelector<?>> columnSelectors = new ArrayList<>(allColumns.size());
 
                         for (String column : allColumns) {
-                          final BaseObjectColumnValueSelector selector;
+                          final BaseObjectColumnValueSelector<?> selector;
 
                           if (legacy && LEGACY_TIMESTAMP_KEY.equals(column)) {
                             selector = cursor.getColumnSelectorFactory()
@@ -214,7 +227,7 @@ public class ScanQueryEngine
                               throw e;
                             }
                             responseContext.addRowScanCount(offset - lastOffset);
-                            profile.rowCount += offset - lastOffset;
+                            profile.rows += offset - lastOffset;
                             if (hasTimeout) {
                               responseContext.putTimeoutTime(
                                   timeoutAt - (System.currentTimeMillis() - start)
@@ -272,7 +285,7 @@ public class ScanQueryEngine
                           }
                           
                           public void close() {
-                            cursor.finalize();
+                            cursor.close();
                           }
                         };
                       }
@@ -286,6 +299,8 @@ public class ScanQueryEngine
                     }
             ))
     );
+    profile.scans = responseContext.popGroup();
+    return cursors;
   }
 
   /**

@@ -20,7 +20,6 @@
 package org.apache.druid.query.scan;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
@@ -422,6 +421,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
       this.segment = segment;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public Sequence<ScanResultValue> run(QueryPlus<ScanResultValue> queryPlus, ResponseContext responseContext)
     {

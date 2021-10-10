@@ -21,6 +21,8 @@ package org.apache.druid.segment;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
+
+import org.apache.druid.collections.bitmap.BitmapFactory;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
@@ -33,8 +35,10 @@ import org.apache.druid.query.DefaultBitmapResultFactory;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.profile.IndexScanProfile;
-import org.apache.druid.query.profile.ProfileUtils;
+import org.apache.druid.query.profile.IndexScanProfile.CursorProfileMetrics;
 import org.apache.druid.query.profile.QueryMetricsAdapter;
+import org.apache.druid.query.profile.Timer;
+import org.apache.druid.segment.ColumnSelectorBitmapIndexSelector.BitmapMetrics;
 import org.apache.druid.segment.column.BaseColumn;
 import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnCapabilities;
@@ -64,6 +68,166 @@ import java.util.Objects;
 public class QueryableIndexStorageAdapter implements StorageAdapter
 {
   public static final int DEFAULT_VECTOR_SIZE = 512;
+  
+  /**
+   * Receiver for metrics generated in the cursor creation process.
+   * The methods here mostly follow the those in {@link QueryMetrics}, with
+   * some simplifications. Decouples the cursor creation code from the details of
+   * QueryMetrics, and allows a variety of metrics gathering strategies.
+   */
+  public interface CursorMetrics extends BitmapMetrics {
+    /**
+     * Whether there is anybody listening for metrics. If not, expensive metrics-only
+     * operations can be skipped.
+     */
+    boolean isLive();
+    
+    void preFilters(List<Filter> preFilters);
+
+    void postFilters(List<Filter> postFilters);
+
+    /**
+     * Reports the total number of rows in the processed segment.
+     */
+    void reportSegmentRows(long numRows);
+
+    /**
+     * Reports the number of rows to scan in the segment after applying {@link #preFilters(List)}. If the are no
+     * preFilters, this metric is equal to {@link #reportSegmentRows(long)}.
+     */
+    void reportPreFilteredRows(long numRows);
+
+    /**
+     * Creates a {@link BitmapResultFactory} which may record some information along bitmap construction from {@link
+     * #preFilters(List)}. The returned BitmapResultFactory may add some dimensions to this QueryMetrics from it's {@link
+     * BitmapResultFactory#toImmutableBitmap(Object)} method. See {@link BitmapResultFactory} Javadoc for more
+     * information.
+     */
+    BitmapResultFactory<?> makeBitmapResultFactory(BitmapFactory factory);
+    
+    /**
+     * Reports the time spent constructing bitmap from {@link #preFilters(List)} of the query. Not reported, if there are
+     * no preFilters.
+     */
+    void reportBitmapConstructionTime(long timeNs);
+    
+    /**
+     * Create a cursor metrics based on whether the QueryMetrics is provided or not.
+     */
+    public static CursorMetrics of(@Nullable QueryMetrics<?> queryMetrics)
+    {
+      return queryMetrics == null ? new CursorMetricsStub() : new CursorMetricsShim(queryMetrics);
+    }
+  }
+  
+  /**
+   * "Do nothing" version of the cursor metrics used when no metrics are wanted.
+   * Avoids having to enclose each metrics call in "if (metrics != null)".
+   */
+  public static class CursorMetricsStub implements CursorMetrics
+  {
+    @Override
+    public boolean isLive()
+    {
+      return false;
+    }
+    
+    @Override
+    public void preFilters(List<Filter> preFilters)
+    {
+    }
+
+    @Override
+    public void postFilters(List<Filter> postFilters)
+    {
+    }
+
+    @Override
+    public void reportSegmentRows(long numRows)
+    {
+    }
+
+    @Override
+    public void reportPreFilteredRows(long numRows)
+    {
+    }
+
+    @Override
+    public BitmapResultFactory<?> makeBitmapResultFactory(BitmapFactory factory)
+    {
+      throw new ISE("Should not call this for a non-live cursor metrics");
+    }
+
+    @Override
+    public void reportBitmapConstructionTime(long timeNs)
+    {
+    }
+
+    @Override
+    public void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap)
+    {
+    }
+  }
+  
+  /**
+   * Converts the cursor metrics to the form needed by QueryMetrics. Should
+   * be used only when a QueryMetrics is provided.
+   */
+  public static class CursorMetricsShim implements CursorMetrics
+  {
+    private final QueryMetrics<?> queryMetrics;
+    
+    public CursorMetricsShim(QueryMetrics<?> queryMetrics) {
+      this.queryMetrics = queryMetrics;
+    }
+
+    @Override
+    public boolean isLive()
+    {
+      return true;
+    }
+    
+    @Override
+    public void preFilters(List<Filter> preFilters)
+    {
+      queryMetrics.preFilters(new ArrayList<>(preFilters));
+    }
+
+    @Override
+    public void postFilters(List<Filter> postFilters)
+    {
+      queryMetrics.postFilters(postFilters);
+    }
+
+    @Override
+    public void reportSegmentRows(long numRows)
+    {
+      queryMetrics.reportSegmentRows(numRows);
+    }
+
+    @Override
+    public void reportPreFilteredRows(long numRows)
+    {
+      queryMetrics.reportPreFilteredRows(numRows);
+    }
+
+    @Override
+    public BitmapResultFactory<?> makeBitmapResultFactory(BitmapFactory factory)
+    {
+      return queryMetrics.makeBitmapResultFactory(factory);
+    }
+
+    @Override
+    public void reportBitmapConstructionTime(long timeNs)
+    {
+      queryMetrics.reportBitmapConstructionTime(timeNs);
+    }
+
+    @Override
+    public void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap)
+    {
+    }
+  }
 
   private final QueryableIndex index;
 
@@ -109,7 +273,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       if (!(col instanceof DictionaryEncodedColumn)) {
         return Integer.MAX_VALUE;
       }
-      return ((DictionaryEncodedColumn) col).getCardinality();
+      return ((DictionaryEncodedColumn<?>) col).getCardinality();
     }
     catch (IOException e) {
       throw new UncheckedIOException(e);
@@ -146,7 +310,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
 
   @Override
   @Nullable
-  public Comparable getMinValue(String dimension)
+  public Comparable<?> getMinValue(String dimension)
   {
     ColumnHolder columnHolder = index.getColumnHolder(dimension);
     if (columnHolder != null && columnHolder.getCapabilities().hasBitmapIndexes()) {
@@ -158,7 +322,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
 
   @Override
   @Nullable
-  public Comparable getMaxValue(String dimension)
+  public Comparable<?> getMaxValue(String dimension)
   {
     ColumnHolder columnHolder = index.getColumnHolder(dimension);
     if (columnHolder != null && columnHolder.getCapabilities().hasBitmapIndexes()) {
@@ -213,7 +377,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
   {
     if (filter != null) {
       final boolean filterCanVectorize =
-          filter.shouldUseBitmapIndex(makeBitmapIndexSelector(virtualColumns)) || filter.canVectorizeMatcher(this);
+          filter.shouldUseBitmapIndex(makeBitmapIndexSelector(virtualColumns, null)) || filter.canVectorizeMatcher(this);
 
       if (!filterCanVectorize) {
         return false;
@@ -249,7 +413,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       return null;
     }
 
-    final ColumnSelectorBitmapIndexSelector bitmapIndexSelector = makeBitmapIndexSelector(virtualColumns);
+    final ColumnSelectorBitmapIndexSelector bitmapIndexSelector = makeBitmapIndexSelector(virtualColumns, null);
 
     final FilterAnalysis filterAnalysis = analyzeFilter(filter, bitmapIndexSelector, queryMetrics);
 
@@ -283,18 +447,18 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     }
 
     final Interval actualInterval = computeCursorInterval(gran, interval);
-
     if (actualInterval == null) {
-      profile.type = IndexScanProfile.EMPTY_SCAN;
+      profile.interval = interval.toString();
+      profile.isEmpty = true;
       return Sequences.empty();
     }
     profile.interval = actualInterval.toString();
+    CursorProfileMetrics cursorMetrics = new CursorProfileMetrics(profile, queryMetrics);
 
-    final ColumnSelectorBitmapIndexSelector bitmapIndexSelector = makeBitmapIndexSelector(virtualColumns);
+    final ColumnSelectorBitmapIndexSelector bitmapIndexSelector = makeBitmapIndexSelector(virtualColumns, cursorMetrics);
 
-    final FilterAnalysis filterAnalysis = analyzeFilter(filter, bitmapIndexSelector, queryMetrics);
-    profile.hasPreFilter = filterAnalysis.getPreFilterBitmap()  != null;
-    profile.postFilter = ProfileUtils.classOf(filterAnalysis.getPostFilter());
+    final FilterAnalysis filterAnalysis = analyzeFilter(filter, bitmapIndexSelector,
+        cursorMetrics);
 
     return Sequences.filter(
         new QueryableIndexCursorSequenceBuilder(
@@ -307,7 +471,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
             descending,
             filterAnalysis.getPostFilter(),
             bitmapIndexSelector
-        ).build(gran),
+        ).build(gran, profile),
         Objects::nonNull
     );
   }
@@ -358,12 +522,18 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
   }
 
   @VisibleForTesting
-  public ColumnSelectorBitmapIndexSelector makeBitmapIndexSelector(final VirtualColumns virtualColumns)
+  public ColumnSelectorBitmapIndexSelector makeBitmapIndexSelector(
+      final VirtualColumns virtualColumns, 
+      BitmapMetrics bitmapMetrics)
   {
+    if (bitmapMetrics == null) {
+      bitmapMetrics = BitmapMetrics.stub();
+    }
     return new ColumnSelectorBitmapIndexSelector(
         index.getBitmapFactoryForDimensions(),
         virtualColumns,
-        index
+        index,
+        bitmapMetrics
     );
   }
 
@@ -371,7 +541,16 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
   public FilterAnalysis analyzeFilter(
       @Nullable final Filter filter,
       ColumnSelectorBitmapIndexSelector indexSelector,
-      @Nullable QueryMetrics queryMetrics
+      @Nullable QueryMetrics<?> queryMetrics
+  )
+  {
+    return analyzeFilter(filter, indexSelector, CursorMetrics.of(queryMetrics));
+  }
+  
+  public FilterAnalysis analyzeFilter(
+      @Nullable final Filter filter,
+      ColumnSelectorBitmapIndexSelector indexSelector,
+      CursorMetrics cursorMetrics
   )
   {
     final int totalRows = index.getNumRows();
@@ -401,9 +580,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       if (filter instanceof AndFilter) {
         // If we get an AndFilter, we can split the subfilters across both filtering stages
         for (Filter subfilter : ((AndFilter) filter).getFilters()) {
-
           if (subfilter.supportsBitmapIndex(indexSelector) && subfilter.shouldUseBitmapIndex(indexSelector)) {
-
             preFilters.add(subfilter);
           } else {
             postFilters.add(subfilter);
@@ -419,33 +596,28 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       }
     }
 
-    if (queryMetrics != null) {
-      queryMetrics.preFilters(new ArrayList<>(preFilters));
-      queryMetrics.postFilters(postFilters);
-    }
+    cursorMetrics.preFilters(preFilters);
+    cursorMetrics.postFilters(postFilters);
 
+    // Compute the final pre-filter bitmap as the intersection of the individual column bitmaps.
     final ImmutableBitmap preFilterBitmap;
     if (preFilters.isEmpty()) {
       preFilterBitmap = null;
-    } else {
-      if (queryMetrics != null) {
+    } else if (cursorMetrics.isLive()) {
         BitmapResultFactory<?> bitmapResultFactory =
-            queryMetrics.makeBitmapResultFactory(indexSelector.getBitmapFactory());
-        long bitmapConstructionStartNs = System.nanoTime();
+            cursorMetrics.makeBitmapResultFactory(indexSelector.getBitmapFactory());
+        Timer timer = Timer.createStarted();
         // Use AndFilter.getBitmapResult to intersect the preFilters to get its short-circuiting behavior.
         preFilterBitmap = AndFilter.getBitmapIndex(indexSelector, bitmapResultFactory, preFilters);
         preFilteredRows = preFilterBitmap.size();
-        queryMetrics.reportBitmapConstructionTime(System.nanoTime() - bitmapConstructionStartNs);
-      } else {
-        BitmapResultFactory<?> bitmapResultFactory = new DefaultBitmapResultFactory(indexSelector.getBitmapFactory());
-        preFilterBitmap = AndFilter.getBitmapIndex(indexSelector, bitmapResultFactory, preFilters);
-      }
+        cursorMetrics.reportBitmapConstructionTime(timer.get());
+    } else {
+      BitmapResultFactory<?> bitmapResultFactory = new DefaultBitmapResultFactory(indexSelector.getBitmapFactory());
+      preFilterBitmap = AndFilter.getBitmapIndex(indexSelector, bitmapResultFactory, preFilters);
     }
 
-    if (queryMetrics != null) {
-      queryMetrics.reportSegmentRows(totalRows);
-      queryMetrics.reportPreFilteredRows(preFilteredRows);
-    }
+    cursorMetrics.reportSegmentRows(totalRows);
+    cursorMetrics.reportPreFilteredRows(preFilteredRows);
 
     return new FilterAnalysis(preFilterBitmap, Filters.maybeAnd(postFilters).orElse(null));
   }

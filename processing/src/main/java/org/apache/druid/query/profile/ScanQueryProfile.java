@@ -50,7 +50,7 @@ public class ScanQueryProfile extends OperatorProfile
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public long limit;
   @JsonProperty
-  public OperatorProfile child;
-  @JsonProperty
   public String strategy;
+  @JsonProperty
+  public OperatorProfile child;
 }

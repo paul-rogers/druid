@@ -40,6 +40,12 @@ public interface ColumnHolder
   ColumnCapabilities getCapabilities();
 
   int getLength();
+  
+  /**
+   * Returns the column cardinality, or -1 if cardinality is undefined
+   * for the column type.
+   */
+  int getCardinality();
   BaseColumn getColumn();
   @Nullable
   BitmapIndex getBitmapIndex();
@@ -49,5 +55,5 @@ public interface ColumnHolder
   /**
    * Returns a new instance of a {@link SettableColumnValueSelector}, corresponding to the type of this column.
    */
-  SettableColumnValueSelector makeNewSettableColumnValueSelector();
+  SettableColumnValueSelector<?> makeNewSettableColumnValueSelector();
 }

@@ -81,6 +81,20 @@ class SimpleColumnHolder implements ColumnHolder
       return column.length();
     }
   }
+  
+  @Override
+  public int getCardinality() {
+    BaseColumn col = getColumn();
+    if (col == null) {
+      return -1;
+    }
+    if (!(col instanceof DictionaryEncodedColumn)) {
+      return -1;
+    }
+    @SuppressWarnings("unchecked")
+    final DictionaryEncodedColumn<String> dictCol = (DictionaryEncodedColumn<String>) col;
+    return dictCol.getCardinality();
+  }
 
   @Override
   public BaseColumn getColumn()

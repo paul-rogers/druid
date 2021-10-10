@@ -35,6 +35,7 @@ public final class FilteredOffset extends Offset
 {
   private final Offset baseOffset;
   private final ValueMatcher filterMatcher;
+  private int counter;
 
   FilteredOffset(
       Offset baseOffset,
@@ -73,6 +74,7 @@ public final class FilteredOffset extends Offset
     while (!Thread.currentThread().isInterrupted()) {
       baseOffset.increment();
       if (!baseOffset.withinBounds() || filterMatcher.matches()) {
+        counter++;
         return;
       }
     }
@@ -89,6 +91,18 @@ public final class FilteredOffset extends Offset
   {
     baseOffset.reset();
     incrementIfNeededOnCreationOrReset();
+    counter = 0;
+  }
+
+  @Override
+  public int getCount()
+  {
+    return counter;
+  }
+  
+  @Override
+  public int getBaseCount() {
+    return baseOffset.getCount();
   }
 
   private void incrementIfNeededOnCreationOrReset()

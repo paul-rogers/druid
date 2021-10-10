@@ -34,6 +34,7 @@ import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.query.profile.IndexScanProfile;
 import org.apache.druid.query.profile.IndexScanProfile.CursorProfile;
+import org.apache.druid.query.profile.ProfileUtils;
 import org.apache.druid.segment.column.BaseColumn;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.NumericColumn;
@@ -176,19 +177,19 @@ public class QueryableIndexCursorSequenceBuilder
                 );
                 final DateTime myBucket = gran.toDateTime(inputInterval.getStartMillis());
 
+                final Offset cursorOffset;
                 if (postFilter == null) {
-                  return new QueryableIndexCursor(baseCursorOffset, columnSelectorFactory, myBucket);
+                  cursorOffset = baseCursorOffset;
                 } else {
-                  FilteredOffset filteredOffset = new FilteredOffset(
+                  cursorOffset = new FilteredOffset(
                       baseCursorOffset,
                       columnSelectorFactory,
                       descending,
                       postFilter,
                       bitmapIndexSelector
                   );
-                  return new QueryableIndexCursor(filteredOffset, columnSelectorFactory, myBucket);
                 }
-
+                return new QueryableIndexCursor(cursorOffset, columnSelectorFactory, myBucket, profile.addCursor());
               }
             }
         ),
@@ -340,7 +341,6 @@ public class QueryableIndexCursorSequenceBuilder
     private final int vectorSize;
     private final VectorOffset offset;
     private final VectorColumnSelectorFactory columnSelectorFactory;
-    private final CursorProfile profile;
 
     public QueryableIndexVectorCursor(
         final VectorColumnSelectorFactory vectorColumnSelectorFactory,
@@ -353,8 +353,6 @@ public class QueryableIndexCursorSequenceBuilder
       this.vectorSize = vectorSize;
       this.offset = offset;
       this.closer = closer;
-      this.profile = profile;
-      profile.type = CursorProfile.VECTOR_INDEX;
     }
 
     @Override
@@ -404,12 +402,6 @@ public class QueryableIndexCursorSequenceBuilder
         throw new RuntimeException(e);
       }
     }
-    
-    @Override
-    public void finalize() {
-      profile.preFilterRows = offset.getBaseCount();
-      profile.postFilterRows = offset.getCount();
-    }
   }
 
   private static class QueryableIndexCursor implements HistoricalCursor
@@ -419,13 +411,14 @@ public class QueryableIndexCursorSequenceBuilder
     private final DateTime bucketStart;
     private final CursorProfile profile;
 
-    QueryableIndexCursor(Offset cursorOffset, ColumnSelectorFactory columnSelectorFactory, DateTime bucketStart)
+    QueryableIndexCursor(Offset cursorOffset, ColumnSelectorFactory columnSelectorFactory, DateTime bucketStart, CursorProfile profile)
     {
       this.cursorOffset = cursorOffset;
       this.columnSelectorFactory = columnSelectorFactory;
       this.bucketStart = bucketStart;
       this.profile = profile;
       profile.type = CursorProfile.INDEX;
+      profile.offsetType = ProfileUtils.classOf(cursorOffset);
     }
 
     @Override
@@ -453,7 +446,7 @@ public class QueryableIndexCursorSequenceBuilder
       // Must call BaseQuery.checkInterrupted() after cursorOffset.increment(), not before, because
       // FilteredOffset.increment() is a potentially long, not an "instant" operation (unlike to all other subclasses
       // of Offset) and it returns early on interruption, leaving itself in an illegal state. We should not let
-      // aggregators, etc. access this illegal state and throw a QueryInterruptedException by calling
+      // aggregator s, etc. access this illegal state and throw a QueryInterruptedException by calling
       // BaseQuery.checkInterrupted().
       BaseQuery.checkInterrupted();
     }
@@ -483,12 +476,11 @@ public class QueryableIndexCursorSequenceBuilder
     }
     
     @Override
-    public void finalize() {
+    public void close() {
       profile.preFilterRows = cursorOffset.getBaseCount();
       profile.postFilterRows = cursorOffset.getCount();
     }
   }
-
 
   public abstract static class TimestampCheckingOffset extends Offset
   {
@@ -496,6 +488,7 @@ public class QueryableIndexCursorSequenceBuilder
     final NumericColumn timestamps;
     final long timeLimit;
     final boolean allWithinThreshold;
+    int counter;
 
     TimestampCheckingOffset(
         Offset baseOffset,
@@ -533,6 +526,16 @@ public class QueryableIndexCursorSequenceBuilder
     public void reset()
     {
       baseOffset.reset();
+      counter = 0;
+    }
+
+    public int getCount()
+    {
+      return counter;
+    }
+    
+    public int getBaseCount() {
+      return baseOffset.getCount();
     }
 
     @Override
@@ -547,6 +550,7 @@ public class QueryableIndexCursorSequenceBuilder
     public void increment()
     {
       baseOffset.increment();
+      counter++;
     }
 
     @SuppressWarnings("MethodDoesntCallSuperMethod")
