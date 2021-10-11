@@ -48,7 +48,9 @@ import org.apache.druid.query.QueryToolChestWarehouse;
 import org.apache.druid.query.SingleQueryMetricsCollector;
 import org.apache.druid.query.context.ConcurrentResponseContext;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.profile.ChildFragmentProfile;
 import org.apache.druid.query.profile.FragmentProfile;
+import org.apache.druid.query.profile.RootNativeFragmentProfile;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -95,6 +97,7 @@ public class QueryLifecycle
   {
     DruidNode node;
     String remoteAddress;
+    Query<?> receivedQuery;
     Throwable e;
     long endTimeNs;
     long bytesWritten;
@@ -104,10 +107,11 @@ public class QueryLifecycle
      * Called by the query resource to provide the host on which this query is
      * running, and the remote address that sent the request.
      */
-    public void onStart(DruidNode node, String remoteAddress)
+    public void onStart(DruidNode node, String remoteAddress, Query<?> receivedQuery)
     {
       this.node = node;
       this.remoteAddress = remoteAddress;
+      this.receivedQuery = receivedQuery;
     }
     
     /**
@@ -179,6 +183,9 @@ public class QueryLifecycle
       return baseQuery;
     }
     
+    /**
+     * Emit final metrics for the query.
+     */
     public void emitMetrics(QueryMetrics<?> queryMetrics) {
       queryMetrics.success(succeeded());
       queryMetrics.reportQueryTime(runTimeNs());
@@ -193,7 +200,7 @@ public class QueryLifecycle
       }
     }
     
-    public QueryStats queryStats() {
+     public QueryStats queryStats() {
       final Map<String, Object> statsMap = new LinkedHashMap<>();
       statsMap.put("query/time", TimeUnit.NANOSECONDS.toMillis(runTimeNs()));
       statsMap.put("query/bytes", bytesWritten);
@@ -220,6 +227,10 @@ public class QueryLifecycle
       return new QueryStats(statsMap);
     }
     
+    /**
+     * Create the response trailer, if requested. Includes the query profile as well
+     * as various other trailer fields.
+     */
     public void trailer(ResponseContext responseContext) {
       responseContext.add(
           ResponseContext.Keys.METRICS,
@@ -234,26 +245,73 @@ public class QueryLifecycle
       
       // Each query execution is a "fragment": either the root fragment of
       // a client query, or a fragment (scattered execution) of a subquery.
+      // Assuming that only sub-queries have a context.
+      FragmentProfile profile;
+      if (isClientQuery()) {
+        profile = makeRootFragmentProfile(responseContext);
+      } else {
+        profile = makeChildFragmentProfile(responseContext);
+      }
+      responseContext.add(ResponseContext.Keys.PROFILE, profile);
+    }
+    
+    /**
+     * Infer if this received query came from a client or Druid. Only a client query
+     * will have no context. Sometimes the client will set the query ID, (example, the
+     * pydruid Python client), so accept a context with only a query ID as also a client query.
+     * <p>
+     * TODO: Is there a cleaner solution?
+     */
+    public boolean isClientQuery() {
+      Map<String, Object> context = receivedQuery.getContext();
+      if (receivedQuery.getContext() == null) {
+        return true;
+      }
+      if (context.size() != 1) {
+        return false;
+      }
+      return context.containsKey("queryId");
+    }
+    
+    /**
+     * Profile for a native query submitted by the client. Includes the remote
+     * address and full query.
+     */
+    private FragmentProfile makeRootFragmentProfile(ResponseContext responseContext) {
       ArrayList<String> cols = null;
       Set<String> reqCols = baseQuery.getRequiredColumns();
       if (reqCols != null) {
         cols = new ArrayList<>();
         cols.addAll(reqCols);
       }
-      responseContext.add(
-          ResponseContext.Keys.PROFILE,
-          new FragmentProfile(
-            node.getHostAndPort(),
-            node.getServiceName(),
-            remoteAddress,
-            baseQuery,
-            cols,
-            getStartMs(),
-            runTimeNs(),
-            responseContext.getCpuNanos(),
-            rowCount,
-            responseContext.popProfile())
-      );
+      return new RootNativeFragmentProfile(
+          node.getHostAndPort(),
+          node.getServiceName(),
+          remoteAddress,
+          baseQuery.getId(),
+          receivedQuery,
+          cols,
+          getStartMs(),
+          runTimeNs(),
+          responseContext.getCpuNanos(),
+          rowCount,
+          responseContext.popProfile());
+    }
+    
+    /**
+     * Child fragment profile for a query submitted by another Druid node. This
+     * fragment will be combined into the parent's root node.
+     */
+    private FragmentProfile makeChildFragmentProfile(ResponseContext responseContext) {
+      return new ChildFragmentProfile(
+          node.getHostAndPort(),
+          node.getServiceName(),
+          receivedQuery,
+          getStartMs(),
+          runTimeNs(),
+          responseContext.getCpuNanos(),
+          rowCount,
+          responseContext.popProfile());
     }
   }
 

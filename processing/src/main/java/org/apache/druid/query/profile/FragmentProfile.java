@@ -1,22 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
-
 package org.apache.druid.query.profile;
 
 import java.util.List;
@@ -29,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
+import com.google.common.base.Objects.ToStringHelper;
 
 /**
  * JSON-serializable description of a query request. A query request
@@ -40,6 +22,9 @@ import com.google.common.base.Objects;
  * really based on a DAG of operators, but it does have certain repeated patterns,
  * such as scans or merges, which can, if we look at them sideways, be abstracted
  * into an operator for purposes of explaining the query.
+ * <p>
+ * This base class is common to the "root" fragment submitted by the client
+ * and an internal fragment submitted by another Druid node.
  * <p>
  * Instances are compared only in tests. Instances are not used as
  * hash keys.
@@ -58,22 +43,6 @@ public class FragmentProfile
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public final String service;
-  /**
-   * Optional address of the client which sent the query.
-   */
-  @JsonProperty
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  public final String remoteAddress;
-  /**
-   * Native query as received by the host.
-   */
-  @JsonProperty
-  public final Query<?> query;
-  /**
-   * Columns required to process the query.
-   */
-  @JsonProperty
-  public final List<String> columns;
   /**
    * Unix timestamp of the query start time.
    */
@@ -104,14 +73,11 @@ public class FragmentProfile
    */
   @JsonProperty
   public final OperatorProfile rootOperator;
-  
+
   @JsonCreator
   public FragmentProfile(
       @JsonProperty("host") @Nullable String host,
       @JsonProperty("service") @Nullable String service,
-      @JsonProperty("remoteAddress") @Nullable String remoteAddress,
-      @JsonProperty("query") Query<?> query,
-      @JsonProperty("columns") List<String> columns,
       @JsonProperty("startTime") long startTime,
       @JsonProperty("timeNs") long timeNs,
       @JsonProperty("cpuNs") long cpuNs,
@@ -122,9 +88,6 @@ public class FragmentProfile
     assert host != null;
     this.host = host;
     this.service = service;
-    this.query = query;
-    this.columns = columns;
-    this.remoteAddress = remoteAddress;
     this.startTime = startTime;
     this.timeNs = timeNs;
     this.cpuNs = cpuNs;
@@ -139,16 +102,12 @@ public class FragmentProfile
   @Override
   public boolean equals(Object o)
   {
-    if (o == null || !(o instanceof FragmentProfile)) {
+    if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    FragmentProfile other = (FragmentProfile) o;
+    ChildFragmentProfile other = (ChildFragmentProfile) o;
     return host.equals(other.host) &&
            service.equals(other.service) &&
-           remoteAddress.equals(other.remoteAddress) &&
-           // Used only for testing: checking the type is sufficient
-           isSameQueryType(query, other.query) &&
-           columns.equals(other.columns) && 
            startTime == other.startTime &&
            timeNs == other.timeNs &&
            cpuNs == other.cpuNs &&
@@ -156,29 +115,14 @@ public class FragmentProfile
            rootOperator.getClass() == other.rootOperator.getClass();
   }
   
-  public static boolean isSameQueryType(Query<?> query1, Query<?> query2) {
-    if (query1 == null && query2 == null) {
-      return true;
-    }
-    if (query1 == null || query2 == null) {
-      return false;
-    }
-    return query1.getClass() == query2.getClass() ;
-  }
-  
-  @Override
-  public String toString() {
+  protected ToStringHelper toStringHelper() {
     return Objects.toStringHelper(this)
         .add("host", host)
         .add("service", service)
-        .add("remoteAddress", remoteAddress)
-        .add("query", query)
-        .add("columns", columns)
         .add("startTime", startTime)
         .add("timeNs", timeNs)
         .add("cpuNs", cpuNs)
         .add("rows", rows)
-        .add("rootOperator", rootOperator)
-        .toString();
+        .add("rootOperator", rootOperator);
   }
 }

@@ -506,7 +506,7 @@ public abstract class ResponseContext
     public static Key PROFILE = new AbstractKey(
         "profile",
         Visibility.TRAILER, false,
-        new TypeReference<Map>() {}
+        new TypeReference<Map<String, Object>>() {}
     ) {
       @Override
       public Object mergeValues(Object oldValue, Object newValue)

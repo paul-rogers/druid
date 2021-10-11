@@ -45,7 +45,6 @@ import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.query.BadHeaderException;
 import org.apache.druid.query.BadJsonQueryException;
 import org.apache.druid.query.BadQueryException;
-import org.apache.druid.query.MultiQueryMetricsCollector;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryCapacityExceededException;
 import org.apache.druid.query.QueryContexts;
@@ -55,7 +54,6 @@ import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.ResourceLimitExceededException;
-import org.apache.druid.query.SingleQueryMetricsCollector;
 import org.apache.druid.query.TruncatedResponseContextException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.context.ResponseContext.Keys;
@@ -200,12 +198,28 @@ public class QueryResource implements QueryCountStatsProvider
 
     final String currThreadName = Thread.currentThread().getName();
     try {
-      queryLifecycle.initialize(readQuery(req, in, ioReaderWriter));
+      // Read and preserve the query as received from the client.
+      Query<?> receivedQuery = readQuery(req, in, ioReaderWriter);
+      
+      // Rewrite the query with the etag, if available.
+      Query<?> initQuery = receivedQuery;
+      final String prevEtag = getPreviousEtag(req);
+      if (prevEtag != null) {
+        initQuery = initQuery.withOverriddenContext(
+            ImmutableMap.of(HEADER_IF_NONE_MATCH, prevEtag)
+        );
+      }
+
+      // Initialize the lifecycle, which rewrites the query with context.
+      queryLifecycle.initialize(initQuery);
+      
+      // Initialize the query stats using the original received query.
       LifecycleStats stats = queryLifecycle.stats();
+      stats.onStart(selfNode, req.getRemoteAddr(), receivedQuery);
+
+      // Obtained the rewritten query.
       query = queryLifecycle.getQuery();
       final String queryId = query.getId();
-      stats.onStart(selfNode, req.getRemoteAddr());
-
       final String queryThreadName = StringUtils.format(
           "%s[%s_%s_%s]",
           currThreadName,
@@ -228,7 +242,6 @@ public class QueryResource implements QueryCountStatsProvider
       final QueryResponse<?> queryResponse = queryLifecycle.execute();
       final Sequence<?> results = queryResponse.getResults();
       final ResponseContext responseContext = queryResponse.getResponseContextEarly();
-      final String prevEtag = getPreviousEtag(req);
 
       if (prevEtag != null && prevEtag.equals(responseContext.getEntityTag())) {
         queryLifecycle.emitLogsAndMetrics(null, -1);
@@ -444,22 +457,12 @@ public class QueryResource implements QueryCountStatsProvider
       final ResourceIOReaderWriter ioReaderWriter
   ) throws IOException
   {
-    Query baseQuery;
     try {
-      baseQuery = ioReaderWriter.getRequestMapper().readValue(in, Query.class);
+      return ioReaderWriter.getRequestMapper().readValue(in, Query.class);
     }
     catch (JsonParseException e) {
       throw new BadJsonQueryException(e);
     }
-    String prevEtag = getPreviousEtag(req);
-
-    if (prevEtag != null) {
-      baseQuery = baseQuery.withOverriddenContext(
-          ImmutableMap.of(HEADER_IF_NONE_MATCH, prevEtag)
-      );
-    }
-
-    return baseQuery;
   }
 
   private static String getPreviousEtag(final HttpServletRequest req)
@@ -555,7 +558,7 @@ public class QueryResource implements QueryCountStatsProvider
     JsonGenerator newOutputGenerator(
         OutputStream outputStream,
         @Nullable QueryToolChest toolChest,
-        @Nullable Query query,
+        @Nullable Query<?> query,
         boolean serializeDateTimeAsLong
     ) throws IOException
     {

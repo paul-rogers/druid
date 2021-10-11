@@ -27,15 +27,12 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.query.Druids.SegmentMetadataQueryBuilder;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.context.DefaultResponseContext;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.metadata.metadata.SegmentMetadataQuery;
 import org.apache.druid.query.profile.OperatorProfile.OpaqueOperator;
 import org.apache.druid.timeline.SegmentId;
 import org.junit.Test;
@@ -55,9 +52,9 @@ public class ProfileTest
   @Test
   public void testFragment() throws JsonProcessingException
   {
-    FragmentProfile fragment = new FragmentProfile(
+    FragmentProfile fragment = new RootNativeFragmentProfile(
         "myHost", "myService", "from-addr",
-        mockQuery(),
+        "myQuery",  mockQuery(),
         Lists.newArrayList("foo", "bar"),
         123456, 789, 123, 456,
         new OpaqueOperator());
@@ -66,49 +63,8 @@ public class ProfileTest
     assertTrue(fragment.equals(fragment));
     final DefaultObjectMapper mapper = new DefaultObjectMapper();
     String json = mapper.writeValueAsString(fragment);
-    FragmentProfile newValue = mapper.readerFor(FragmentProfile.class).readValue(json);
+    ChildFragmentProfile newValue = mapper.readerFor(ChildFragmentProfile.class).readValue(json);
     assertTrue(fragment.equals(newValue));
-  }
-  
-  @SuppressWarnings("unlikely-arg-type")
-  @Test
-  public void testSlice() throws JsonProcessingException
-  {
-    FragmentProfile fragment1 = new FragmentProfile(
-        "myHost", "myService", "from-addr",
-        mockQuery(),
-        Lists.newArrayList("foo", "bar"),
-        123456, 789, 123, 456,
-        new OpaqueOperator());
-    FragmentProfile fragment2 = new FragmentProfile(
-        "myHost2", "myService2", "from-addr",
-        mockQuery(),
-        Lists.newArrayList("foo", "bar"),
-        1234560, 7890, 1230, 4560,
-        new OpaqueOperator());
-    assertFalse(fragment1.equals(fragment2));
-    
-    SliceProfile slice1 = new SliceProfile("query1");
-    assertEquals(0, slice1.getFragments().size());
-    slice1.add(fragment1);
-    assertFalse(slice1.equals(null));
-    assertFalse(slice1.equals("foo"));
-    assertTrue(slice1.equals(slice1));
-    
-    SliceProfile slice2 = new SliceProfile("query1");
-    assertFalse(slice1.equals(slice2));
-    slice2.add(fragment2);
-    assertFalse(slice1.equals(slice2));
-    slice1.merge(slice2);
-    assertEquals(2, slice1.getFragments().size());
-    
-    final DefaultObjectMapper mapper = new DefaultObjectMapper();
-    String json = mapper.writeValueAsString(slice1);
-    SliceProfile newValue = mapper.readerFor(SliceProfile.class).readValue(json);
-    assertTrue(slice1.equals(newValue));
-    
-    SliceProfile slice3 = new SliceProfile(null);
-    assertEquals("anonymous", slice3.getQueryId());
   }
   
   /**
@@ -119,9 +75,9 @@ public class ProfileTest
   @Test
   public void testResponseContext() throws IOException {
     ResponseContext ctx = ResponseContext.createEmpty();
-    FragmentProfile fragment = new FragmentProfile(
+    FragmentProfile fragment = new RootNativeFragmentProfile(
         "myHost", "myService", "from-addr",
-        mockQuery(),
+        "myQuery", mockQuery(),
         Lists.newArrayList("foo", "bar"),
         123456, 789, 123, 456,
         new OpaqueOperator());
@@ -129,9 +85,16 @@ public class ProfileTest
     final DefaultObjectMapper mapper = new DefaultObjectMapper();
     String json = mapper.writeValueAsString(ctx.trailerCopy());
     ResponseContext newValue = ResponseContext.deserialize(json, mapper);
+    
+    // Verify that the profile was decoded as a map (to ensure compatibility).
     @SuppressWarnings("unchecked")
     Map<String, Object> map = (Map<String, Object>) newValue.get(ResponseContext.Keys.PROFILE);
     assertEquals("myQuery", map.get("queryId"));
+    @SuppressWarnings("unchecked")
+    Map<String, Object> queryMap = (Map<String, Object>) map.get("query");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> dsMap = (Map<String, Object>) queryMap.get("dataSource");
+    assertEquals("myTable", dsMap.get("name"));
   }
   
   @Test

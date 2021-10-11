@@ -78,7 +78,7 @@ public class ReceiverProfile extends OperatorProfile
   /**
    * The number of rows received from the sender.
    * 
-   * @See the note in {@link FragmentProfile#rows} for caveats.
+   * @See the note in {@link ChildFragmentProfile#rows} for caveats.
    */
   @JsonProperty
   public long rows;

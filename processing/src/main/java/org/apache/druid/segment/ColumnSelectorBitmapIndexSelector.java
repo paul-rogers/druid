@@ -62,7 +62,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
   private final BitmapFactory bitmapFactory;
   private final VirtualColumns virtualColumns;
   private final ColumnSelector index;
-  private final BitmapMetrics cursorMetrics;
+  private final BitmapMetrics metrics;
 
   public ColumnSelectorBitmapIndexSelector(
       final BitmapFactory bitmapFactory,
@@ -83,7 +83,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
     this.bitmapFactory = bitmapFactory;
     this.virtualColumns = virtualColumns;
     this.index = index;
-    this.cursorMetrics = cursorMetrics;
+    this.metrics = cursorMetrics;
   }
 
   @Nullable
@@ -313,7 +313,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
       } else {
         bitmap = bitmapFactory.makeEmptyImmutableBitmap();
       }
-      cursorMetrics.bitmapIndex(dimension, columnHolder.getCardinality(), null, bitmap);
+      metrics.bitmapIndex(dimension, columnHolder.getCardinality(), null, bitmap);
       return bitmap;
     }
 
@@ -323,7 +323,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
 
     final BitmapIndex bitmapIndex = columnHolder.getBitmapIndex();
     final ImmutableBitmap bitmap = bitmapIndex.getBitmap(bitmapIndex.getIndex(value));
-    cursorMetrics.bitmapIndex(dimension, columnHolder.getCardinality(), value, bitmap);
+    metrics.bitmapIndex(dimension, columnHolder.getCardinality(), value, bitmap);
     return bitmap;
   }
 
