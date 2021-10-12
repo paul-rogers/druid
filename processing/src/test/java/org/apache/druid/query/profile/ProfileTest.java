@@ -63,7 +63,7 @@ public class ProfileTest
     assertTrue(fragment.equals(fragment));
     final DefaultObjectMapper mapper = new DefaultObjectMapper();
     String json = mapper.writeValueAsString(fragment);
-    ChildFragmentProfile newValue = mapper.readerFor(ChildFragmentProfile.class).readValue(json);
+    RootNativeFragmentProfile newValue = mapper.readerFor(RootNativeFragmentProfile.class).readValue(json);
     assertTrue(fragment.equals(newValue));
   }
   
@@ -169,7 +169,6 @@ public class ProfileTest
     segScan.limited = true;
     segScan.columnCount = 101;
     segScan.batchSize = 102;
-    segScan.cursorCount = 103;
     segScan.error = "An error";
     
     ConcatProfile container = new ConcatProfile();

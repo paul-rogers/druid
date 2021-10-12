@@ -28,14 +28,16 @@ import org.apache.druid.query.Query;
 import org.joda.time.Interval;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.google.common.base.Objects;
 
 /**
  * Fragment that represents a sub-query: a query submitted by another
  * Druid node.
  */
+@JsonPropertyOrder({"host", "service",
+  "columns", "rows", "startTime", "timeNs", "cpuNs", "query", "rootOperator"})
 public class ChildFragmentProfile extends FragmentProfile
 {
   /**

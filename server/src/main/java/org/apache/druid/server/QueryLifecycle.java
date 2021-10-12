@@ -553,7 +553,7 @@ public class QueryLifecycle
     }
   }
 
-  public Query getQuery()
+  public Query<?> getQuery()
   {
     return baseQuery;
   }

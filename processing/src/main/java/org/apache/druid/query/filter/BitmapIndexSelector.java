@@ -26,6 +26,7 @@ import org.apache.druid.collections.spatial.ImmutableRTree;
 import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.data.CloseableIndexed;
+import org.apache.druid.segment.filter.DimensionPredicateFilter;
 
 import javax.annotation.Nullable;
 
@@ -33,6 +34,32 @@ import javax.annotation.Nullable;
  */
 public interface BitmapIndexSelector
 {
+  public interface BitmapMetrics
+  {
+    void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap);
+    void shortCircuit(boolean value);
+    void predicateFilter(String dimension, BitmapIndexSelector selector, DimensionPredicateFilter filter, Object bitmap);
+  }
+  
+  public static class BitmapMetricsStub implements BitmapMetrics
+  {
+    @Override
+    public void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap)
+    {
+    }
+    
+    @Override
+    public void shortCircuit(boolean value) {
+    }
+
+    @Override
+    public void predicateFilter(String dimension, BitmapIndexSelector selector, DimensionPredicateFilter filter, Object bitmap)
+    {
+    }
+  }
+  
+  BitmapMetrics METRICS_STUB = new BitmapMetricsStub();
+ 
   @MustBeClosed
   @Nullable
   CloseableIndexed<String> getDimensionValues(String dimension);
@@ -44,4 +71,6 @@ public interface BitmapIndexSelector
   @Nullable
   ImmutableBitmap getBitmapIndex(String dimension, String value);
   ImmutableRTree getSpatialIndex(String dimension);
+  BitmapMetrics getMetrics();
+  int getCardinality(String dimension);
 }

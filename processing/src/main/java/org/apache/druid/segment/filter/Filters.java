@@ -23,6 +23,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
+
 import it.unimi.dsi.fastutil.ints.IntIterable;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -248,7 +250,9 @@ public class Filters
     // Missing dimension -> match all rows if the predicate matches null; match no rows otherwise
     try (final CloseableIndexed<String> dimValues = selector.getDimensionValues(dimension)) {
       if (dimValues == null || dimValues.size() == 0) {
-        return ImmutableList.of(predicate.apply(null) ? allTrue(selector) : allFalse(selector));
+        final boolean nullMatches = predicate.apply(null); 
+        selector.getMetrics().shortCircuit(nullMatches);
+        return ImmutableList.of(nullMatches ? allTrue(selector) : allFalse(selector));
       }
 
       // Apply predicate to all dimension values and union the matching bitmaps
@@ -679,5 +683,43 @@ public class Filters
       return count(((AndFilter) filter).getFilters());
     }
     return 1;
+  }
+  
+  public static Filter effectiveFilter(Filter filter) {
+    if (filter == null) {
+      return null;
+    }
+    if (filter instanceof AndFilter) {
+      LinkedHashSet<Filter> children = ((AndFilter) filter).getFilters();
+      if (children.isEmpty()) {
+        return null;
+      }
+      if (children.size() == 1) {
+        return Iterators.getOnlyElement(children.iterator());
+      }
+    }
+    return filter;
+  }
+  
+  public static void sortFilters(Collection<Filter> filters, BitmapIndexSelector indexSelector, List<Filter> preFilters, List<Filter> postFilters)
+  {
+    if (CollectionUtils.isEmpty(filters)) {
+      return;
+    }
+    for (Filter filter : filters) {
+      sortFilter(filter, indexSelector, preFilters, postFilters);
+    }
+  }
+  
+  public static void sortFilter(Filter filter, BitmapIndexSelector indexSelector, List<Filter> preFilters, List<Filter> postFilters) {
+    if (filter instanceof AndFilter) {
+      // If we get an AndFilter, we can split the subfilters across both filtering stages
+      sortFilters(((AndFilter) filter).getFilters(), indexSelector, preFilters, postFilters);
+    // If we get an OrFilter or a single filter, handle the filter in one stage
+    } else if (filter.supportsBitmapIndex(indexSelector) && filter.shouldUseBitmapIndex(indexSelector)) {
+      preFilters.add(filter);
+    } else {
+      postFilters.add(filter);
+    }
   }
 }

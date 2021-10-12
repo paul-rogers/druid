@@ -94,6 +94,7 @@ public class AndFilter implements BooleanFilter
       final T bitmapResult = filter.getBitmapResult(selector, bitmapResultFactory);
       if (bitmapResultFactory.isEmpty(bitmapResult)) {
         // Short-circuit.
+        selector.getMetrics().shortCircuit(false);
         return bitmapResultFactory.wrapAllFalse(Filters.allFalse(selector));
       }
       bitmapResults.add(bitmapResult);

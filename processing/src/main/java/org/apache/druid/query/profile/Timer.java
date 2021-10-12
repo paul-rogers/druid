@@ -19,7 +19,7 @@ public class Timer
   }
   
   public void start() {
-    if (startTime != 0) {
+    if (startTime == 0) {
       startTime = System.nanoTime();
     }
   }

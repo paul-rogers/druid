@@ -34,6 +34,7 @@ import org.apache.druid.query.filter.DimFilters;
 import org.apache.druid.query.filter.ExtractionDimFilter;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.SelectorDimFilter;
+import org.apache.druid.query.filter.BitmapIndexSelector.BitmapMetrics;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnCapabilities;
@@ -185,7 +186,20 @@ public class ExtractionDimFilterTest
     {
       return null;
     }
+
+    @Override
+    public BitmapMetrics getMetrics()
+    {
+      return BitmapIndexSelector.METRICS_STUB;
+    }
+
+    @Override
+    public int getCardinality(String dimension)
+    {
+      return 0;
+    }
   };
+  
   private static final ExtractionFn DIM_EXTRACTION_FN = new DimExtractionFn()
   {
     @Override

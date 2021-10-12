@@ -88,7 +88,9 @@ public class DimensionPredicateFilter implements Filter
   @Override
   public <T> T getBitmapResult(BitmapIndexSelector selector, BitmapResultFactory<T> bitmapResultFactory)
   {
-    return Filters.matchPredicate(dimension, selector, bitmapResultFactory, predicateFactory.makeStringPredicate());
+    T result = Filters.matchPredicate(dimension, selector, bitmapResultFactory, predicateFactory.makeStringPredicate());
+    selector.getMetrics().predicateFilter(dimension, selector, this, result);
+    return result;
   }
 
   @Override

@@ -33,6 +33,7 @@ import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.LikeDimFilter;
 import org.apache.druid.query.filter.RegexDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
+import org.apache.druid.query.filter.BitmapIndexSelector.BitmapMetrics;
 import org.apache.druid.query.ordering.StringComparators;
 import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnCapabilities;
@@ -158,50 +159,7 @@ public class LikeFilterBenchmark
         ),
         dictionary
     ).get();
-    selector = new BitmapIndexSelector()
-    {
-      @Override
-      public CloseableIndexed<String> getDimensionValues(String dimension)
-      {
-        return dictionary;
-      }
-
-      @Override
-      public ColumnCapabilities.Capable hasMultipleValues(final String dimension)
-      {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public int getNumRows()
-      {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public BitmapFactory getBitmapFactory()
-      {
-        return bitmapFactory;
-      }
-
-      @Override
-      public ImmutableBitmap getBitmapIndex(String dimension, String value)
-      {
-        return bitmapIndex.getBitmap(bitmapIndex.getIndex(value));
-      }
-
-      @Override
-      public BitmapIndex getBitmapIndex(String dimension)
-      {
-        return bitmapIndex;
-      }
-
-      @Override
-      public ImmutableRTree getSpatialIndex(String dimension)
-      {
-        throw new UnsupportedOperationException();
-      }
-    };
+    selector = new MockBitmapIndexSelector(dictionary, bitmapFactory, bitmapIndex);
   }
 
   @Benchmark

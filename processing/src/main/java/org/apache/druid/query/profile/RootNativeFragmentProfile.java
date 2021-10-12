@@ -9,8 +9,15 @@ import org.apache.druid.query.Query;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.google.common.base.Objects;
 
+/**
+ * Root fragment (top-level query) for a native query, whether received
+ * by the Broker or a data node.
+ */
+@JsonPropertyOrder({"host", "service", "queryId", "remoteAddress",
+  "columns", "startTime", "timeNs", "cpuNs", "rows", "query", "rootOperator"})
 public class RootNativeFragmentProfile extends FragmentProfile
 {
   /**
@@ -20,17 +27,18 @@ public class RootNativeFragmentProfile extends FragmentProfile
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public final String remoteAddress;
   /**
+   * Query ID assigned to the query by the receiving host.
+   */
+  @JsonProperty
+  public final String queryId;
+  /**
    * Columns required to process the query.
    */
   @JsonProperty
   public final List<String> columns;
   /**
-   * QueryID assigned to the query by the receiving host.
-   */
-  @JsonProperty
-  public final String queryId;
-  /**
-   * Native query as received by the host without query ID or context.
+   * Original, unrewritten native query as received by the host,
+   * typically without query ID or context.
    */
   @JsonProperty
   public final Query<?> query;
@@ -74,9 +82,6 @@ public class RootNativeFragmentProfile extends FragmentProfile
   @Override
   public boolean equals(Object o)
   {
-    if (o == null || !(o instanceof ChildFragmentProfile)) {
-      return false;
-    }
     if (!super.equals(o)) {
       return false;
     }

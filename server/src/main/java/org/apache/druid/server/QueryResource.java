@@ -281,6 +281,7 @@ public class QueryResource implements QueryCountStatsProvider
             .ok(
                 new StreamingOutput()
                 {
+                  @SuppressWarnings("unchecked")
                   @Override
                   public void write(OutputStream outputStream) throws IOException, WebApplicationException
                   {
@@ -557,7 +558,7 @@ public class QueryResource implements QueryCountStatsProvider
 
     JsonGenerator newOutputGenerator(
         OutputStream outputStream,
-        @Nullable QueryToolChest toolChest,
+        @Nullable QueryToolChest<?, Query<?>> toolChest,
         @Nullable Query<?> query,
         boolean serializeDateTimeAsLong
     ) throws IOException

@@ -33,12 +33,13 @@ import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.BitmapResultFactory;
 import org.apache.druid.query.DefaultBitmapResultFactory;
 import org.apache.druid.query.QueryMetrics;
+import org.apache.druid.query.filter.BitmapIndexSelector.BitmapMetrics;
+import org.apache.druid.query.filter.BitmapIndexSelector;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.profile.IndexScanProfile;
 import org.apache.druid.query.profile.IndexScanProfile.CursorProfileMetrics;
 import org.apache.druid.query.profile.QueryMetricsAdapter;
 import org.apache.druid.query.profile.Timer;
-import org.apache.druid.segment.ColumnSelectorBitmapIndexSelector.BitmapMetrics;
 import org.apache.druid.segment.column.BaseColumn;
 import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnCapabilities;
@@ -48,6 +49,7 @@ import org.apache.druid.segment.column.DictionaryEncodedColumn;
 import org.apache.druid.segment.column.NumericColumn;
 import org.apache.druid.segment.data.Indexed;
 import org.apache.druid.segment.filter.AndFilter;
+import org.apache.druid.segment.filter.DimensionPredicateFilter;
 import org.apache.druid.segment.filter.Filters;
 import org.apache.druid.segment.vector.VectorCursor;
 import org.joda.time.DateTime;
@@ -57,7 +59,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -167,13 +168,23 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     public void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap)
     {
     }
+
+    @Override
+    public void shortCircuit(boolean value)
+    {
+    }
+
+    @Override
+    public void predicateFilter(String dimension, BitmapIndexSelector selector, DimensionPredicateFilter filter, Object bitmap)
+    {
+    }
   }
   
   /**
    * Converts the cursor metrics to the form needed by QueryMetrics. Should
    * be used only when a QueryMetrics is provided.
    */
-  public static class CursorMetricsShim implements CursorMetrics
+  public static class CursorMetricsShim extends CursorMetricsStub
   {
     private final QueryMetrics<?> queryMetrics;
     
@@ -221,11 +232,6 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     public void reportBitmapConstructionTime(long timeNs)
     {
       queryMetrics.reportBitmapConstructionTime(timeNs);
-    }
-
-    @Override
-    public void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap)
-    {
     }
   }
 
@@ -526,9 +532,6 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       final VirtualColumns virtualColumns, 
       BitmapMetrics bitmapMetrics)
   {
-    if (bitmapMetrics == null) {
-      bitmapMetrics = BitmapMetrics.stub();
-    }
     return new ColumnSelectorBitmapIndexSelector(
         index.getBitmapFactoryForDimensions(),
         virtualColumns,
@@ -569,48 +572,26 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
      *
      * Any subfilters that cannot be processed entirely with bitmap indexes will be moved to the post-filtering stage.
      */
-    final List<Filter> preFilters;
+    final List<Filter> preFilters = new ArrayList<>();
     final List<Filter> postFilters = new ArrayList<>();
-    int preFilteredRows = totalRows;
-    if (filter == null) {
-      preFilters = Collections.emptyList();
-    } else {
-      preFilters = new ArrayList<>();
-
-      if (filter instanceof AndFilter) {
-        // If we get an AndFilter, we can split the subfilters across both filtering stages
-        for (Filter subfilter : ((AndFilter) filter).getFilters()) {
-          if (subfilter.supportsBitmapIndex(indexSelector) && subfilter.shouldUseBitmapIndex(indexSelector)) {
-            preFilters.add(subfilter);
-          } else {
-            postFilters.add(subfilter);
-          }
-        }
-      } else {
-        // If we get an OrFilter or a single filter, handle the filter in one stage
-        if (filter.supportsBitmapIndex(indexSelector) && filter.shouldUseBitmapIndex(indexSelector)) {
-          preFilters.add(filter);
-        } else {
-          postFilters.add(filter);
-        }
-      }
-    }
+    Filters.sortFilter(filter, indexSelector, preFilters, postFilters);
 
     cursorMetrics.preFilters(preFilters);
     cursorMetrics.postFilters(postFilters);
 
     // Compute the final pre-filter bitmap as the intersection of the individual column bitmaps.
+    int preFilteredRows = totalRows;
     final ImmutableBitmap preFilterBitmap;
     if (preFilters.isEmpty()) {
       preFilterBitmap = null;
     } else if (cursorMetrics.isLive()) {
-        BitmapResultFactory<?> bitmapResultFactory =
-            cursorMetrics.makeBitmapResultFactory(indexSelector.getBitmapFactory());
-        Timer timer = Timer.createStarted();
-        // Use AndFilter.getBitmapResult to intersect the preFilters to get its short-circuiting behavior.
-        preFilterBitmap = AndFilter.getBitmapIndex(indexSelector, bitmapResultFactory, preFilters);
-        preFilteredRows = preFilterBitmap.size();
-        cursorMetrics.reportBitmapConstructionTime(timer.get());
+      BitmapResultFactory<?> bitmapResultFactory =
+          cursorMetrics.makeBitmapResultFactory(indexSelector.getBitmapFactory());
+      Timer timer = Timer.createStarted();
+      // Use AndFilter.getBitmapResult to intersect the preFilters to get its short-circuiting behavior.
+      preFilterBitmap = AndFilter.getBitmapIndex(indexSelector, bitmapResultFactory, preFilters);
+      preFilteredRows = preFilterBitmap.size();
+      cursorMetrics.reportBitmapConstructionTime(timer.get());
     } else {
       BitmapResultFactory<?> bitmapResultFactory = new DefaultBitmapResultFactory(indexSelector.getBitmapFactory());
       preFilterBitmap = AndFilter.getBitmapIndex(indexSelector, bitmapResultFactory, preFilters);

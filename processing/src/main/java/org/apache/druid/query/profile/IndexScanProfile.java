@@ -8,17 +8,24 @@ import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.query.BitmapResultFactory;
 import org.apache.druid.query.DefaultBitmapResultFactory;
 import org.apache.druid.query.QueryMetrics;
+import org.apache.druid.query.filter.BitmapIndexSelector;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.segment.QueryableIndexStorageAdapter.CursorMetrics;
+import org.apache.druid.segment.filter.DimensionPredicateFilter;
 import org.apache.druid.segment.filter.Filters;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * Represents the scan of an indexed storage, which typically means a
  * segment scan.
  */
+// Order does not matter for JSON, but does for us poor humans.
+@JsonPropertyOrder({"interval", "indexRows", "granularity", "vectorized", 
+  "isEmpty", "indexFilters", "unknownIndexCount", "preFilteredRows", 
+  "bitmapTimeNs", "filterCount", "rows", "cursors"})
 public class IndexScanProfile extends OperatorProfile
 {
   public static class CursorProfileMetrics implements CursorMetrics
@@ -51,14 +58,14 @@ public class IndexScanProfile extends OperatorProfile
     public void postFilters(List<Filter> postFilters)
     {
       base.postFilters(postFilters);
-      profile.postFilterCount += Filters.count(postFilters);
+      profile.filterCount += Filters.count(postFilters);
     }
 
     @Override
     public void reportSegmentRows(long numRows)
     {
       base.reportSegmentRows(numRows);
-      profile.segmentRows = numRows;
+      profile.indexRows = numRows;
     }
 
     @Override
@@ -90,10 +97,35 @@ public class IndexScanProfile extends OperatorProfile
     @Override
     public void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap)
     {
-      if (profile.preFilters == null) {
-        profile.preFilters = new ArrayList<>();
+      addFilterProfile(new PreFilterProfile(
+          PreFilterProfile.BITMAP_FILTER, dimension, cardinality,
+          value, bitmap.size()));
+    }
+    
+    @Override
+    public void shortCircuit(boolean value)
+    {
+      profile.shortCircuit = "all " + Boolean.toString(value);
+    }
+
+    @Override
+    public void predicateFilter(String dimension, BitmapIndexSelector selector, DimensionPredicateFilter filter, Object bitmap)
+    {
+      if (bitmap == null || !(bitmap instanceof ImmutableBitmap)) {
+        return;
       }
-      profile.preFilters.add(new PreFilterProfile(dimension, cardinality, value, bitmap.size()));
+      addFilterProfile(new PreFilterProfile(
+          ProfileUtils.classOf(filter), dimension,
+          selector.getCardinality(dimension),
+          null, ((ImmutableBitmap) bitmap).size()));
+    }
+    
+    private void addFilterProfile(PreFilterProfile filterProfile)
+    {
+      if (profile.indexFilters == null) {
+        profile.indexFilters = new ArrayList<>();
+      }
+      profile.indexFilters.add(filterProfile);
       
       // Keep track of the number of prefilters (index lookups) not explained via this call:
       // indicates a gap in the profile gathering mechanism.
@@ -103,6 +135,7 @@ public class IndexScanProfile extends OperatorProfile
     }
   }
   
+  @JsonPropertyOrder({"type", "offsetType", "preFilterRows", "postFilterRows"})
   public static class CursorProfile
   {
     public static String INDEX = "index";
@@ -118,18 +151,44 @@ public class IndexScanProfile extends OperatorProfile
     public int postFilterRows;
   }
   
+  @JsonPropertyOrder({"kind", "dimension", "cardinality", "value", "rows"})
   public static class PreFilterProfile
   {
+    public static final String BITMAP_FILTER = "bitmap";
+    public static final String PREDICATE_FILTER = "predicate";
+    
+    /**
+     * The kind of filter. "Bitmap" means a direct column bitmap, while
+     * any other value is the name of the filter class which provides
+     * a predicate evaluated to a bitmap.
+     */
+    @JsonProperty
+    public String kind;
+    /**
+     * Name of the dimension column for this filter.
+     */
     @JsonProperty
     public String dimension;
+    /**
+     * Cardinality of the dimension.
+     */
     @JsonProperty
     public int cardinality;
+    /**
+     * Value for the filter. Not currently available for predicate
+     * filters.
+     */
     @JsonProperty
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public String value;
+    /**
+     * The number of rows which match this filter.
+     */
     @JsonProperty
     public int rows;
     
-    PreFilterProfile(String dimension, int cardinality, String value, int rows) {
+    PreFilterProfile(String kind, String dimension, int cardinality, String value, int rows) {
+      this.kind = kind;
       this.dimension = dimension;
       this.cardinality = cardinality;
       this.value = value;
@@ -138,12 +197,6 @@ public class IndexScanProfile extends OperatorProfile
   }
   
   /**
-   * True if the cursor uses the (faster) vectorized implementation.
-   */
-  @JsonProperty
-  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-  public boolean vectorized;
-  /**
    * Time interval to be scanned. This is the actual input interval
    * if isEmpty is true, else the portion of the input interval that
    * is covered by the segment.
@@ -151,33 +204,52 @@ public class IndexScanProfile extends OperatorProfile
   @JsonProperty
   public String interval;
   /**
-   * True if the time interval does not actually overlap with
-   * the segment data interval: indicates no rows are returned.
+   * Number of rows in the index (segment file).
    */
   @JsonProperty
-  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-  public boolean isEmpty;
-  @JsonProperty
-  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-  public int unknownIndexCount;
-  @JsonProperty
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  public List<PreFilterProfile> preFilters;
-  @JsonProperty
-  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-  public int postFilterCount;
+  public long indexRows;
   /**
-   * The total number of rows in this index (segment file).
+   * True if the cursor uses the (faster) vectorized implementation.
    */
-  @JsonProperty
-  public int indexRows;
   /**
    * Rollup granularity of the query.
    */
   @JsonProperty
   public String granularity;
   @JsonProperty
-  public long segmentRows;
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+  public boolean descending;
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+  public boolean vectorized;
+  /**
+   * True if the time interval does not actually overlap with
+   * the segment data interval: indicates no rows are returned.
+   */
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+  public boolean isEmpty;
+  /**
+   * Details of the filters implemented as index lookups.
+   */
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public List<PreFilterProfile> indexFilters;
+  /**
+   * Temporary value: the number of filters turned into index lookups which
+   * are not accounted for in the the index filters field. Should normally
+   * be 0. If non-zero, then there is another code path to implement.
+   */
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+  public int unknownIndexCount;
+  /**
+   * Set to "all true" or "all false" if the engine detects a filter which
+   * can be evaluated as always being true or false.
+   */
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public String shortCircuit;
   /**
    * The number of rows after applying "pre filters": those that can be resolved
    * by using column bitmap indexes. This is "pre-filtered" because this is
@@ -197,7 +269,7 @@ public class IndexScanProfile extends OperatorProfile
   public long bitmapTimeNs;
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-  public boolean descending;
+  public int filterCount;
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public List<CursorProfile> cursors;

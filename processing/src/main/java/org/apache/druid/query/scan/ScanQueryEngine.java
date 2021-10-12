@@ -36,7 +36,6 @@ import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
-import org.apache.druid.query.profile.ProfileUtils;
 import org.apache.druid.query.profile.QueryMetricsAdapter;
 import org.apache.druid.query.profile.SegmentScanProfile;
 import org.apache.druid.query.profile.Timer;
@@ -154,7 +153,6 @@ public class ScanQueryEngine
     final SegmentId segmentId = segment.getId();
 
     final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
-    profile.filter = ProfileUtils.classOf(filter);
 
     responseContext.initializeRowScanCount();
     final long limit = calculateRemainingScanRowsLimit(query, responseContext);
@@ -176,7 +174,6 @@ public class ScanQueryEngine
                       @Override
                       public Iterator<ScanResultValue> make()
                       {
-                        profile.cursorCount++;
                         final List<BaseObjectColumnValueSelector<?>> columnSelectors = new ArrayList<>(allColumns.size());
 
                         for (String column : allColumns) {
@@ -272,7 +269,7 @@ public class ScanQueryEngine
 
                           private Object getColumnValue(int i)
                           {
-                            final BaseObjectColumnValueSelector selector = columnSelectors.get(i);
+                            final BaseObjectColumnValueSelector<?> selector = columnSelectors.get(i);
                             final Object value;
 
                             if (legacy && allColumns.get(i).equals(LEGACY_TIMESTAMP_KEY)) {
@@ -299,7 +296,7 @@ public class ScanQueryEngine
                     }
             ))
     );
-    profile.scans = responseContext.popGroup();
+    profile.cursors = responseContext.popGroup();
     return cursors;
   }
 

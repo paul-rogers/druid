@@ -42,23 +42,6 @@ import java.util.Iterator;
  */
 public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
 {
-  public interface BitmapMetrics
-  {
-    void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap);
-    
-    public static BitmapMetrics stub() {
-      return new BitmapMetricsStub();
-    }
-  }
-  
-  public static class BitmapMetricsStub implements BitmapMetrics
-  {
-    @Override
-    public void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap)
-    {
-    }
-  }
- 
   private final BitmapFactory bitmapFactory;
   private final VirtualColumns virtualColumns;
   private final ColumnSelector index;
@@ -70,7 +53,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
       final ColumnSelector index
   )
   {
-    this(bitmapFactory, virtualColumns, index, BitmapMetrics.stub());
+    this(bitmapFactory, virtualColumns, index, null);
   }
   
   public ColumnSelectorBitmapIndexSelector(
@@ -83,7 +66,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
     this.bitmapFactory = bitmapFactory;
     this.virtualColumns = virtualColumns;
     this.index = index;
-    this.metrics = cursorMetrics;
+    this.metrics = cursorMetrics == null ? BitmapIndexSelector.METRICS_STUB : cursorMetrics;
   }
 
   @Nullable
@@ -345,5 +328,22 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
   private boolean isVirtualColumn(final String columnName)
   {
     return virtualColumns.getVirtualColumn(columnName) != null;
+  }
+  
+  @Override
+  public BitmapMetrics getMetrics()
+  {
+    return metrics;
+  }
+  
+  @Override
+  public int getCardinality(final String columnName)
+  {
+    final ColumnHolder columnHolder = index.getColumnHolder(columnName);
+    if (columnHolder == null) {
+      return 0;
+    }
+    return columnHolder.getCardinality();
+    
   }
 }

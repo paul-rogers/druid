@@ -1,10 +1,6 @@
 package org.apache.druid.query.profile;
 
-import java.util.List;
-
 import javax.annotation.Nullable;
-
-import org.apache.druid.query.Query;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -105,7 +101,7 @@ public class FragmentProfile
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    ChildFragmentProfile other = (ChildFragmentProfile) o;
+    FragmentProfile other = (FragmentProfile) o;
     return host.equals(other.host) &&
            service.equals(other.service) &&
            startTime == other.startTime &&
