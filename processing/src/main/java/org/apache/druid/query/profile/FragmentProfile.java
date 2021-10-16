@@ -32,64 +32,53 @@ public class FragmentProfile
    */
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
-  public final String host;
+  public String host;
+  
   /**
    * Druid service running on the host.
    */
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
-  public final String service;
+  public String service;
+  
   /**
    * Unix timestamp of the query start time.
    */
   @JsonProperty
-  public final long startTime;
+  public long startTime;
+  
   /**
    * Query run time, in ns, on this host. Since the response includes
    * this object, the run time excludes the last bit of time required to
    * write the trailer that contains this profile.
    */
   @JsonProperty
-  public final long timeNs;
+  public long timeNs;
+  
   /**
    * CPU time to run the query, excluding top-level network deserialization
    * and serialization.
    */
   @JsonProperty
-  public final long cpuNs;
+  public long cpuNs;
+  
   /**
    * Number of rows returned by the query. The concept of "rows" is somewhat
    * ill-defined in Druid: this is the number that most closely responds to what
    * a SQL user might think of as a row.
    */
   @JsonProperty
-  public final long rows;
+  public long rows;
+  
   /**
    * The top-most "operator" (function, transform) for this fragment.
    */
   @JsonProperty
-  public final OperatorProfile rootOperator;
+  public OperatorProfile rootOperator;
 
-  @JsonCreator
-  public FragmentProfile(
-      @JsonProperty("host") @Nullable String host,
-      @JsonProperty("service") @Nullable String service,
-      @JsonProperty("startTime") long startTime,
-      @JsonProperty("timeNs") long timeNs,
-      @JsonProperty("cpuNs") long cpuNs,
-      @JsonProperty("rows") long rows,
-      @JsonProperty("rootOperator") OperatorProfile rootOperator
-  )
-  {
-    assert host != null;
-    this.host = host;
-    this.service = service;
-    this.startTime = startTime;
-    this.timeNs = timeNs;
-    this.cpuNs = cpuNs;
-    this.rows = rows;
-    this.rootOperator = rootOperator;
-  }
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public String error;
   
   /**
    * Primarily for testing. Ensures that the scalar fields are equal,

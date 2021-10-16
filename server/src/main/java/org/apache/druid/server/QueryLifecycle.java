@@ -50,6 +50,7 @@ import org.apache.druid.query.context.ConcurrentResponseContext;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.profile.ChildFragmentProfile;
 import org.apache.druid.query.profile.FragmentProfile;
+import org.apache.druid.query.profile.ProfileConsumer;
 import org.apache.druid.query.profile.RootNativeFragmentProfile;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
@@ -91,18 +92,20 @@ public class QueryLifecycle
   
   /**
    * Gathers query-level statistics then distributes them to the metrics system,
-   * logs, and response trailer.
+   * logs, response trailer and query profile.
    */
   public class LifecycleStats
   {
     DruidNode node;
     String remoteAddress;
     Query<?> receivedQuery;
-    Throwable e;
     long endTimeNs;
     long bytesWritten;
     long rowCount;
-    
+    ResponseContext responseContext;
+    FragmentProfile fragmentProfile;
+    Throwable e;
+ 
     /**
      * Called by the query resource to provide the host on which this query is
      * running, and the remote address that sent the request.
@@ -126,6 +129,11 @@ public class QueryLifecycle
       this.endTimeNs = System.nanoTime();
     }
     
+    public void setResponseContext(ResponseContext responseContext)
+    {
+      this.responseContext = responseContext;
+    }
+    
     /**
      * Final completion: all results sent, including the possible
      * trailer.
@@ -141,28 +149,18 @@ public class QueryLifecycle
       return baseQuery.getId();
     }
     
-    public boolean succeeded()
-    {
-      return e == null;
-    }
-    
-    public long startTimeNs()
-    {
-      return startNs;
-    }
-    
-    public long endTimeNs()
-    {
-      return endTimeNs;
-    }
-    
     public long runTimeNs()
     {
-      return endTimeNs - startTimeNs();
+      return endTimeNs - startNs;
     }
     
     public long runTimeMs() {
       return TimeUnit.NANOSECONDS.toMillis(runTimeNs());
+    }
+    
+    public boolean succeeded()
+    {
+      return e == null;
     }
     
     public String identity()
@@ -178,15 +176,18 @@ public class QueryLifecycle
       return (e instanceof QueryInterruptedException || e instanceof QueryTimeoutException);
     }
     
-    public Query<?> query()
-    {
-      return baseQuery;
-    }
-    
     /**
      * Emit final metrics for the query.
      */
-    public void emitMetrics(QueryMetrics<?> queryMetrics) {
+    public void emitMetrics()
+    {
+      @SuppressWarnings("unchecked")
+      QueryMetrics<?> queryMetrics = DruidMetrics.makeRequestMetrics(
+          queryMetricsFactory,
+          toolChest,
+          baseQuery,
+          StringUtils.nullToEmptyNonDruidDataString(stats.remoteAddress)
+      );
       queryMetrics.success(succeeded());
       queryMetrics.reportQueryTime(runTimeNs());
 
@@ -200,7 +201,8 @@ public class QueryLifecycle
       }
     }
     
-     public QueryStats queryStats() {
+    public QueryStats queryStats()
+    {
       final Map<String, Object> statsMap = new LinkedHashMap<>();
       statsMap.put("query/time", TimeUnit.NANOSECONDS.toMillis(runTimeNs()));
       statsMap.put("query/bytes", bytesWritten);
@@ -231,7 +233,7 @@ public class QueryLifecycle
      * Create the response trailer, if requested. Includes the query profile as well
      * as various other trailer fields.
      */
-    public void trailer(ResponseContext responseContext) {
+    public void trailer() {
       responseContext.add(
           ResponseContext.Keys.METRICS,
           MultiQueryMetricsCollector.newCollector().add(
@@ -243,16 +245,7 @@ public class QueryLifecycle
                   )
           );
       
-      // Each query execution is a "fragment": either the root fragment of
-      // a client query, or a fragment (scattered execution) of a subquery.
-      // Assuming that only sub-queries have a context.
-      FragmentProfile profile;
-      if (isClientQuery()) {
-        profile = makeRootFragmentProfile(responseContext);
-      } else {
-        profile = makeChildFragmentProfile(responseContext);
-      }
-      responseContext.add(ResponseContext.Keys.PROFILE, profile);
+      responseContext.add(ResponseContext.Keys.PROFILE, getProfile());
     }
     
     /**
@@ -262,56 +255,86 @@ public class QueryLifecycle
      * <p>
      * TODO: Is there a cleaner solution?
      */
-    public boolean isClientQuery() {
+    public boolean isClientQuery()
+    {
       Map<String, Object> context = receivedQuery.getContext();
-      if (receivedQuery.getContext() == null) {
+      if (context == null) {
         return true;
       }
       if (context.size() != 1) {
         return false;
       }
-      return context.containsKey("queryId");
+      return context.containsKey(BaseQuery.QUERY_ID);
+    }
+    
+   public FragmentProfile getProfile()
+    {
+      if (fragmentProfile != null) {
+        return fragmentProfile;
+      }
+      // Each query execution is a "fragment": either the root fragment of
+      // a client query, or a fragment (scattered execution) of a subquery.
+      // If this is the top-most native query for a SQL query, emit the
+      // full root native query fragment to capture the native query.
+      if (isClientQuery()) {
+        fragmentProfile = makeRootFragmentProfile();
+      } else {
+        fragmentProfile = makeChildFragmentProfile();
+      }
+      return fragmentProfile;
     }
     
     /**
      * Profile for a native query submitted by the client. Includes the remote
      * address and full query.
      */
-    private FragmentProfile makeRootFragmentProfile(ResponseContext responseContext) {
+    private FragmentProfile makeRootFragmentProfile() {
       ArrayList<String> cols = null;
       Set<String> reqCols = baseQuery.getRequiredColumns();
       if (reqCols != null) {
         cols = new ArrayList<>();
         cols.addAll(reqCols);
       }
-      return new RootNativeFragmentProfile(
-          node.getHostAndPort(),
-          node.getServiceName(),
-          remoteAddress,
-          baseQuery.getId(),
-          receivedQuery,
-          cols,
-          getStartMs(),
-          runTimeNs(),
-          responseContext.getCpuNanos(),
-          rowCount,
-          responseContext.popProfile());
+      RootNativeFragmentProfile profile = new RootNativeFragmentProfile();
+      fillFragmentProfile(profile);
+      profile.remoteAddress = remoteAddress;
+      profile.query = receivedQuery;
+      profile.queryId = baseQuery.getId();
+      profile.columns = cols;
+      return profile;
     }
     
     /**
      * Child fragment profile for a query submitted by another Druid node. This
      * fragment will be combined into the parent's root node.
      */
-    private FragmentProfile makeChildFragmentProfile(ResponseContext responseContext) {
-      return new ChildFragmentProfile(
-          node.getHostAndPort(),
-          node.getServiceName(),
-          receivedQuery,
-          getStartMs(),
-          runTimeNs(),
-          responseContext.getCpuNanos(),
-          rowCount,
-          responseContext.popProfile());
+    private FragmentProfile makeChildFragmentProfile() {
+      ChildFragmentProfile profile = new ChildFragmentProfile(receivedQuery);
+      fillFragmentProfile(profile);
+      return profile;
+    }
+    
+    private void fillFragmentProfile(FragmentProfile profile)
+    {
+      profile.host = node.getHostAndPort();
+      profile.service = node.getServiceName();
+      profile.startTime = getStartMs();
+      profile.timeNs = runTimeNs();
+      profile.cpuNs = responseContext.getCpuNanos();
+      profile.rows = rowCount;
+      profile.rootOperator = responseContext.popProfile();
+      if (wasInterrupted()) {
+        profile.error = "Interrupted";
+      } else if (!succeeded()) {
+        profile.error = e.getMessage();
+      }
+    }
+
+    public void writeProfile(ProfileConsumer profileConsumer)
+    {
+      if (isClientQuery()) {
+        profileConsumer.emit((RootNativeFragmentProfile) getProfile());
+      }
     }
   }
 
@@ -530,14 +553,7 @@ public class QueryLifecycle
 
     stats.onCompletion(e, bytesWritten);
     try {
-      @SuppressWarnings("unchecked")
-      QueryMetrics<?> queryMetrics = DruidMetrics.makeRequestMetrics(
-          queryMetricsFactory,
-          toolChest,
-          baseQuery,
-          StringUtils.nullToEmptyNonDruidDataString(stats.remoteAddress)
-      );
-      stats.emitMetrics(queryMetrics);
+      stats.emitMetrics();
 
       requestLogger.logNativeQuery(
           RequestLogLine.forNative(

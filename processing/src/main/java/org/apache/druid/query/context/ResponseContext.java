@@ -717,6 +717,11 @@ public abstract class ResponseContext
     return (List<SegmentDescriptor>) get(Keys.MISSING_SEGMENTS);
   }
   
+  public boolean getTruncated() {
+    Boolean value = (Boolean) get(Keys.TRUNCATED);
+    return value == null ? false : value;
+  }
+  
   public String getEntityTag() {
     return (String) get(Keys.ETAG);
   }

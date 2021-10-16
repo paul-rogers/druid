@@ -19,35 +19,31 @@
 
 package org.apache.druid.query.profile;
 
-import org.apache.druid.query.Query;
+import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.google.common.base.Objects;
+import com.google.common.base.Objects.ToStringHelper;
 
-/**
- * Root fragment (top-level query) for a native query, whether received
- * by the Broker or a data node.
- */
-@JsonPropertyOrder({"host", "service", "queryId", "remoteAddress",
-  "columns", "startTime", "timeNs", "cpuNs", "rows", "query", "rootOperator"})
-public class RootNativeFragmentProfile extends RootFragmentProfile
+public class RootFragmentProfile extends FragmentProfile
 {
   /**
-   * Original, unrewritten native query as received by the host,
-   * typically without query ID or context.
+   * Optional address of the client which sent the query.
    */
   @JsonProperty
-  public Query<?> query;
-  
-  public static boolean isSameQueryType(Query<?> query1, Query<?> query2) {
-    if (query1 == null && query2 == null) {
-      return true;
-    }
-    if (query1 == null || query2 == null) {
-      return false;
-    }
-    return query1.getClass() == query2.getClass() ;
-  }
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public String remoteAddress;
+  /**
+   * Query ID assigned to the query by the receiving host.
+   */
+  @JsonProperty
+  public String queryId;
+  /**
+   * Columns required to process the query.
+   */
+  @JsonProperty
+  public List<String> columns;
   
   /**
    * Primarily for testing. Ensures that the scalar fields are equal,
@@ -59,15 +55,17 @@ public class RootNativeFragmentProfile extends RootFragmentProfile
     if (!super.equals(o)) {
       return false;
     }
-    RootNativeFragmentProfile other = (RootNativeFragmentProfile) o;
-    // Used only for testing: checking the type is sufficient
-    return isSameQueryType(query, other.query);
+    RootFragmentProfile other = (RootFragmentProfile) o;
+    return Objects.equal(remoteAddress, other.remoteAddress) &&
+        Objects.equal(queryId, other.queryId) &&
+        Objects.equal(columns, other.columns);
   }
   
   @Override
-  public String toString() {
-    return toStringHelper()
-        .add("query", query)
-        .toString();
+  protected ToStringHelper toStringHelper() {
+    return super.toStringHelper()
+        .add("remoteAddress", remoteAddress)
+        .add("queryId", queryId)
+        .add("columns", columns);
   }
 }

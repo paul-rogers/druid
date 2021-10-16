@@ -33,6 +33,7 @@ public class ResourceType
   public static final String CONFIG = "CONFIG";
   public static final String STATE = "STATE";
   public static final String SYSTEM_TABLE = "SYSTEM_TABLE";
+  public static final String PROFILE = "PROFILE";
 
   private static final Set<String> KNOWN_TYPES = Sets.newConcurrentHashSet();
 
@@ -43,6 +44,7 @@ public class ResourceType
     registerResourceType(CONFIG);
     registerResourceType(STATE);
     registerResourceType(SYSTEM_TABLE);
+    registerResourceType(PROFILE);
   }
 
   /**

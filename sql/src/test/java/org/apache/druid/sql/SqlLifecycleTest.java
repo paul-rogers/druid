@@ -180,7 +180,7 @@ public class SqlLifecycleTest
     EasyMock.expectLastCall();
     EasyMock.replay(plannerFactory, serviceEmitter, requestLogger, mockPlanner, mockPlannerContext, mockPrepareResult, mockPlanResult);
 
-    lifecycle.finalizeStateAndEmitLogsAndMetrics(null, null, 10);
+    lifecycle.finalizeStateAndEmitLogsAndMetrics(null, 10);
     Assert.assertEquals(SqlLifecycle.State.DONE, lifecycle.getState());
     EasyMock.verify(plannerFactory, serviceEmitter, requestLogger, mockPlanner, mockPlannerContext, mockPrepareResult, mockPlanResult);
     EasyMock.reset(plannerFactory, serviceEmitter, requestLogger, mockPlanner, mockPlannerContext, mockPrepareResult, mockPlanResult);
@@ -283,7 +283,7 @@ public class SqlLifecycleTest
     EasyMock.expectLastCall();
     EasyMock.replay(plannerFactory, serviceEmitter, requestLogger, mockPlanner, mockPlannerContext, mockPrepareResult, mockPlanResult);
 
-    lifecycle.finalizeStateAndEmitLogsAndMetrics(null, null, 10);
+    lifecycle.finalizeStateAndEmitLogsAndMetrics(null, 10);
     Assert.assertEquals(SqlLifecycle.State.DONE, lifecycle.getState());
     EasyMock.verify(plannerFactory, serviceEmitter, requestLogger, mockPlanner, mockPlannerContext, mockPrepareResult, mockPlanResult);
     EasyMock.reset(plannerFactory, serviceEmitter, requestLogger, mockPlanner, mockPlannerContext, mockPrepareResult, mockPlanResult);

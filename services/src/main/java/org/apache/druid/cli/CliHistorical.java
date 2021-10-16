@@ -46,6 +46,7 @@ import org.apache.druid.guice.ServerTypeConfig;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.lookup.LookupModule;
+import org.apache.druid.query.profile.ProfileConsumerModule;
 import org.apache.druid.server.QueryResource;
 import org.apache.druid.server.ResponseContextConfig;
 import org.apache.druid.server.SegmentManager;
@@ -92,6 +93,7 @@ public class CliHistorical extends ServerRunnable
         new QueryableModule(),
         new QueryRunnerFactoryModule(),
         new JoinableFactoryModule(),
+        new ProfileConsumerModule(),
         binder -> {
           binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/historical");
           binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8083);

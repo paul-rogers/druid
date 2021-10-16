@@ -40,6 +40,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  */
 public class ReceiverProfile extends OperatorProfile
 {
+  public static final String TYPE = "receiver";
+  
   /**
    * The host to which the sub-query was sent.
    */

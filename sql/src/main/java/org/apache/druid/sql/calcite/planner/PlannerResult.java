@@ -20,7 +20,11 @@
 package org.apache.druid.sql.calcite.planner;
 
 import com.google.common.base.Supplier;
+
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.sql.SqlExplain;
 import org.apache.druid.server.QueryResponse;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -33,13 +37,19 @@ public class PlannerResult
 {
   private final Supplier<QueryResponse<Object[]>> resultsSupplier;
   private final RelDataType rowType;
+  private final RelNode root;
+  private final SqlExplain explain;
   private final AtomicBoolean didRun = new AtomicBoolean();
 
   public PlannerResult(
+      final RelNode root,
+      final SqlExplain explain,
       final Supplier<QueryResponse<Object[]>> resultsSupplier,
       final RelDataType rowType
   )
   {
+    this.root = root;
+    this.explain = explain;
     this.resultsSupplier = resultsSupplier;
     this.rowType = rowType;
   }
@@ -59,5 +69,15 @@ public class PlannerResult
   public RelDataType rowType()
   {
     return rowType;
+  }
+  
+  public RelNode getPlan()
+  {
+    return root;
+  }
+  
+  public boolean isExplain()
+  {
+    return explain != null;
   }
 }

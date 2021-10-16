@@ -7,6 +7,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class SortProfile extends OperatorProfile
 {
+  public static final String TYPE = "sort";
+  
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public ScanQuery.Order order;

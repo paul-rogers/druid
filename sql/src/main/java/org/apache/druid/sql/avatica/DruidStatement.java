@@ -343,7 +343,7 @@ public class DruidStatement implements Closeable
         try {
           onClose.run();
           synchronized (lock) {
-            sqlLifecycle.finalizeStateAndEmitLogsAndMetrics(t, null, -1);
+            sqlLifecycle.finalizeStateAndEmitLogsAndMetrics(t, -1);
           }
         }
         catch (Throwable t1) {
@@ -359,7 +359,7 @@ public class DruidStatement implements Closeable
       try {
         if (!(this.throwable instanceof ForbiddenException)) {
           synchronized (lock) {
-            sqlLifecycle.finalizeStateAndEmitLogsAndMetrics(this.throwable, null, -1);
+            sqlLifecycle.finalizeStateAndEmitLogsAndMetrics(this.throwable, -1);
           }
         } else {
           DruidMeta.logFailure(this.throwable);

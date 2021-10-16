@@ -35,6 +35,8 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 @JsonPropertyOrder({"strategy", "limit", "child", })
 public class ScanQueryProfile extends OperatorProfile
 {
+  public static final String TYPE = "scan-query";
+  
   /**
    * No ordering, just concatenate the results.
    */

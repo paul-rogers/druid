@@ -12,6 +12,8 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
   "batchSize", "limited", "cursors", "rows", "error"})
 public class SegmentScanProfile extends OperatorProfile
 {
+  public static final String TYPE = "segment-scan";
+  
   /**
    * The ID of the segment which was scanned.
    */

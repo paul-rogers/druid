@@ -48,16 +48,27 @@ public class ProfileTest
         .build();
   }
   
+  private RootNativeFragmentProfile mockRootProfile(int base) {
+    RootNativeFragmentProfile fragment = new RootNativeFragmentProfile();
+    fragment.host = "myHost";
+    fragment.service = "myService";
+    fragment.remoteAddress = "from-addr";
+    fragment.queryId = "myQuery" + Integer.toString(base);
+    fragment.query = mockQuery();
+    fragment.columns = Lists.newArrayList("foo", "bar");
+    fragment.startTime = 123456 + base;
+    fragment.timeNs = 789 + base;
+    fragment.cpuNs = 123 + base;
+    fragment.rows = 456 + base;
+    fragment.rootOperator = new OpaqueOperator();
+    return fragment;
+  }
+  
   @SuppressWarnings("unlikely-arg-type")
   @Test
   public void testFragment() throws JsonProcessingException
   {
-    FragmentProfile fragment = new RootNativeFragmentProfile(
-        "myHost", "myService", "from-addr",
-        "myQuery",  mockQuery(),
-        Lists.newArrayList("foo", "bar"),
-        123456, 789, 123, 456,
-        new OpaqueOperator());
+    FragmentProfile fragment = mockRootProfile(0);
     assertFalse(fragment.equals(null));
     assertFalse(fragment.equals("foo"));
     assertTrue(fragment.equals(fragment));
@@ -75,12 +86,7 @@ public class ProfileTest
   @Test
   public void testResponseContext() throws IOException {
     ResponseContext ctx = ResponseContext.createEmpty();
-    FragmentProfile fragment = new RootNativeFragmentProfile(
-        "myHost", "myService", "from-addr",
-        "myQuery", mockQuery(),
-        Lists.newArrayList("foo", "bar"),
-        123456, 789, 123, 456,
-        new OpaqueOperator());
+    FragmentProfile fragment = mockRootProfile(0);
     ctx.put(ResponseContext.Keys.PROFILE, fragment);
     final DefaultObjectMapper mapper = new DefaultObjectMapper();
     String json = mapper.writeValueAsString(ctx.trailerCopy());
@@ -89,7 +95,7 @@ public class ProfileTest
     // Verify that the profile was decoded as a map (to ensure compatibility).
     @SuppressWarnings("unchecked")
     Map<String, Object> map = (Map<String, Object>) newValue.get(ResponseContext.Keys.PROFILE);
-    assertEquals("myQuery", map.get("queryId"));
+    assertEquals("myQuery0", map.get("queryId"));
     @SuppressWarnings("unchecked")
     Map<String, Object> queryMap = (Map<String, Object>) map.get("query");
     @SuppressWarnings("unchecked")

@@ -69,19 +69,8 @@ public class ChildFragmentProfile extends FragmentProfile
   @JsonProperty
   public final StubQuery query;
   
-  @JsonCreator
-  public ChildFragmentProfile(
-      @JsonProperty("host") @Nullable String host,
-      @JsonProperty("service") @Nullable String service,
-      @JsonProperty("query") Query<?> query,
-      @JsonProperty("startTime") long startTime,
-      @JsonProperty("timeNs") long timeNs,
-      @JsonProperty("cpuNs") long cpuNs,
-      @JsonProperty("rows") long rows,
-      @JsonProperty("rootOperator") OperatorProfile rootOperator
-  )
+  public ChildFragmentProfile(Query<?> query)
   {
-    super(host, service, startTime, timeNs, cpuNs, rows, rootOperator);
     this.query = new StubQuery(query);
   }
   

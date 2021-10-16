@@ -25,14 +25,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class SegmentMetadataScanProfile extends OperatorProfile
 {
+  public static final String TYPE = "segment-metadata";
+  
+  @JsonProperty
   public final SegmentId segment;
   
   public SegmentMetadataScanProfile(SegmentId segment) {
     this.segment = segment;
-  }
-  
-  @JsonProperty
-  public SegmentId getSegment() {
-    return segment;
   }
 }

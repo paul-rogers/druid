@@ -128,7 +128,7 @@ public class DruidPlanner implements Closeable
   }
 
   /**
-   * Prepare an SQL query for execution, including some initial parsing and validation and any dyanmic parameter type
+   * Prepare an SQL query for execution, including some initial parsing and validation and any dynamic parameter type
    * resolution, to support prepared statements via JDBC.
    *
    * In some future this could perhaps re-use some of the work done by {@link #validate(String)}
@@ -214,12 +214,12 @@ public class DruidPlanner implements Closeable
    * {@link #planner} since we do not re-use artifacts or keep track of state between
    * {@link #validate}, {@link #prepare}, and {@link #plan} and instead repeat parsing and validation
    * for each step.
-   *
+   * <p>
    * Currently, that state tracking is done in {@link org.apache.druid.sql.SqlLifecycle}, which will create a new
    * planner for each of the corresponding steps so this isn't strictly necessary at this time, this method is here as
    * much to make this situation explicit and provide context for a future refactor as anything else (and some tests
    * do re-use the planner between validate, prepare, and plan, which will run into this issue).
-   *
+   * <p>
    * This could be improved by tying {@link org.apache.druid.sql.SqlLifecycle} and {@link DruidPlanner} states more
    * closely with the state of {@link #planner}, instead of repeating parsing and validation between each of these
    * steps.
@@ -282,7 +282,7 @@ public class DruidPlanner implements Closeable
         }
       };
 
-      return new PlannerResult(resultsSupplier, root.validatedRowType);
+      return new PlannerResult(root.rel, explain, resultsSupplier, root.validatedRowType);
     }
   }
 
@@ -363,7 +363,7 @@ public class DruidPlanner implements Closeable
 
         return QueryResponse.createWithEmptyContext(resultSequence);
       };
-      return new PlannerResult(resultsSupplier, root.validatedRowType);
+      return new PlannerResult(root.rel, explain, resultsSupplier, root.validatedRowType);
     }
   }
 
@@ -391,7 +391,7 @@ public class DruidPlanner implements Closeable
         )
     );
 
-    return new PlannerResult(resultsSupplier, getExplainStructType(rel.getCluster().getTypeFactory()));
+    return new PlannerResult(rel, explain, resultsSupplier, getExplainStructType(rel.getCluster().getTypeFactory()));
   }
 
   /**

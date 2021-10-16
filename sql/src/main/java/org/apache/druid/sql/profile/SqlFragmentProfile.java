@@ -17,37 +17,37 @@
  * under the License.
  */
 
-package org.apache.druid.query.profile;
+package org.apache.druid.sql.profile;
 
-import org.apache.druid.query.Query;
+import org.apache.curator.shaded.com.google.common.base.Objects;
+import org.apache.druid.query.profile.RootFragmentProfile;
+import org.apache.druid.sql.http.SqlQuery;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
- * Root fragment (top-level query) for a native query, whether received
- * by the Broker or a data node.
+ * Represents the profile information for a SQL query. Here,
+ * the <code>query</code> field is the SQL query, and
+ * <code>queryID</code> is the SQL query ID.
+ * <p>
+ * When stored, native and SQL queries are intermixed,
+ * both keyed by query ID. SQL query profiles contain the
+ * native queries as fragments: because the native queries
+ * are fragments, they do not get their own profiles.
  */
-@JsonPropertyOrder({"host", "service", "queryId", "remoteAddress",
-  "columns", "startTime", "timeNs", "cpuNs", "rows", "query", "rootOperator"})
-public class RootNativeFragmentProfile extends RootFragmentProfile
-{
+public class SqlFragmentProfile extends RootFragmentProfile
+{ 
   /**
-   * Original, unrewritten native query as received by the host,
-   * typically without query ID or context.
+   * Original SQL query received by the Broker.
    */
   @JsonProperty
-  public Query<?> query;
+  public SqlQuery query;
   
-  public static boolean isSameQueryType(Query<?> query1, Query<?> query2) {
-    if (query1 == null && query2 == null) {
-      return true;
-    }
-    if (query1 == null || query2 == null) {
-      return false;
-    }
-    return query1.getClass() == query2.getClass() ;
-  }
+  /**
+   * Query plan from Calcite: same as EXPLAIN PLAN FOR with JSON format.
+   */
+  @JsonProperty
+  public String plan;
   
   /**
    * Primarily for testing. Ensures that the scalar fields are equal,
@@ -59,15 +59,16 @@ public class RootNativeFragmentProfile extends RootFragmentProfile
     if (!super.equals(o)) {
       return false;
     }
-    RootNativeFragmentProfile other = (RootNativeFragmentProfile) o;
-    // Used only for testing: checking the type is sufficient
-    return isSameQueryType(query, other.query);
+    SqlFragmentProfile other = (SqlFragmentProfile) o;
+    return Objects.equal(query, other.query) &&
+           Objects.equal(plan, other.plan);
   }
   
   @Override
   public String toString() {
     return toStringHelper()
         .add("query", query)
+        .add("pan", plan)
         .toString();
   }
 }

@@ -29,6 +29,7 @@ import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.guice.annotations.Smile;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.profile.ProfileConsumer;
 import org.apache.druid.server.http.security.StateResourceFilter;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthorizerMapper;
@@ -63,7 +64,8 @@ public class BrokerQueryResource extends QueryResource
       AuthorizerMapper authorizerMapper,
       ResponseContextConfig responseContextConfig,
       @Self DruidNode selfNode,
-      TimelineServerView brokerServerView
+      TimelineServerView brokerServerView,
+      ProfileConsumer profileConsumer
   )
   {
     super(
@@ -74,7 +76,8 @@ public class BrokerQueryResource extends QueryResource
         authConfig,
         authorizerMapper,
         responseContextConfig,
-        selfNode
+        selfNode,
+        profileConsumer
     );
     this.brokerServerView = brokerServerView;
   }

@@ -19,21 +19,18 @@
 
 package org.apache.druid.query.profile;
 
-import java.util.List;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 /**
- * Represents an n-way merge. Because of the functional style of programming,
- * it is not possible to obtain things like the detailed merge time or the
- * row count. These can be inferred, however, as the sum of any incoming row
- * counts, and as the time for this operator minus the sum of the times of
- * incoming operators.
+ * Extensible sink for query profiles.
  */
-public class MergeProfile extends OperatorProfile
+public interface ProfileConsumer
 {
-  public static final String TYPE = "merge";
+  void emit(RootFragmentProfile profile);
   
-  @JsonProperty
-  public List<OperatorProfile> children;
+  public static class ProfileConsumerStub implements ProfileConsumer
+  {
+    @Override
+    public void emit(RootFragmentProfile profile)
+    {
+    }
+  }
 }

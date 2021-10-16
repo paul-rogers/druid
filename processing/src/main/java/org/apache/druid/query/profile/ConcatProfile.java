@@ -34,6 +34,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  */
 public class ConcatProfile extends OperatorProfile
 {
+  public static final String TYPE = "concat";
+  
   @JsonProperty
   public List<OperatorProfile> children;
   

@@ -19,21 +19,26 @@
 
 package org.apache.druid.query.profile;
 
-import java.util.List;
+import org.apache.druid.guice.JsonConfigProvider;
+import org.apache.druid.guice.ManageLifecycle;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.inject.Binder;
+import com.google.inject.Module;
 
-/**
- * Represents an n-way merge. Because of the functional style of programming,
- * it is not possible to obtain things like the detailed merge time or the
- * row count. These can be inferred, however, as the sum of any incoming row
- * counts, and as the time for this operator minus the sum of the times of
- * incoming operators.
- */
-public class MergeProfile extends OperatorProfile
+public class ProfileConsumerModule implements Module
 {
-  public static final String TYPE = "merge";
-  
-  @JsonProperty
-  public List<OperatorProfile> children;
+  static final String PROFILE_PROPERTY_PREFIX = "druid.profile";
+  static final String PROFILE_CONSUMER_PROPERTY_PREFIX = PROFILE_PROPERTY_PREFIX + ".consumer";
+
+  @Override
+  public void configure(Binder binder)
+  {
+    binder.bind(ProfileConsumer.class).toProvider(ProfileConsumerProvider.class); //.in(ManageLifecycle.class);
+    JsonConfigProvider.bindWithDefault(
+        binder,
+        PROFILE_CONSUMER_PROPERTY_PREFIX,
+        ProfileConsumerProvider.class,
+        NullProfileConsumerProvider.class
+    );
+  }
 }

@@ -20,7 +20,6 @@
 package org.apache.druid.sql.http;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.context.ResponseContext;

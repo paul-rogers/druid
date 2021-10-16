@@ -28,7 +28,7 @@ import org.apache.druid.sql.calcite.planner.PlannerContext;
 import javax.annotation.Nullable;
 import java.util.Set;
 
-public abstract class DruidRel<T extends DruidRel> extends AbstractRelNode
+public abstract class DruidRel<T extends DruidRel<?>> extends AbstractRelNode
 {
   private final QueryMaker queryMaker;
 

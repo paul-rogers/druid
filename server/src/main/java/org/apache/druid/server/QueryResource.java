@@ -57,20 +57,27 @@ import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.query.TruncatedResponseContextException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.context.ResponseContext.Keys;
+import org.apache.druid.query.profile.ProfileAccessor;
+import org.apache.druid.query.profile.ProfileConsumer;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.server.QueryLifecycle.LifecycleStats;
 import org.apache.druid.server.metrics.QueryCountStatsProvider;
 import org.apache.druid.server.security.Access;
+import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
+import org.apache.druid.server.security.Resource;
+import org.apache.druid.server.security.ResourceAction;
+import org.apache.druid.server.security.ResourceType;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -119,6 +126,7 @@ public class QueryResource implements QueryCountStatsProvider
   protected final QueryScheduler queryScheduler;
   protected final AuthConfig authConfig;
   protected final AuthorizerMapper authorizerMapper;
+  protected final ProfileConsumer profileConsumer;
 
   private final ResponseContextConfig responseContextConfig;
   private final DruidNode selfNode;
@@ -137,7 +145,8 @@ public class QueryResource implements QueryCountStatsProvider
       AuthConfig authConfig,
       AuthorizerMapper authorizerMapper,
       ResponseContextConfig responseContextConfig,
-      @Self DruidNode selfNode
+      @Self DruidNode selfNode,
+      ProfileConsumer profileConsumer
   )
   {
     this.queryLifecycleFactory = queryLifecycleFactory;
@@ -150,6 +159,7 @@ public class QueryResource implements QueryCountStatsProvider
     this.authorizerMapper = authorizerMapper;
     this.responseContextConfig = responseContextConfig;
     this.selfNode = selfNode;
+    this.profileConsumer = profileConsumer;
   }
 
   @DELETE
@@ -242,6 +252,7 @@ public class QueryResource implements QueryCountStatsProvider
       final QueryResponse<?> queryResponse = queryLifecycle.execute();
       final Sequence<?> results = queryResponse.getResults();
       final ResponseContext responseContext = queryResponse.getResponseContextEarly();
+      stats.setResponseContext(responseContext);
 
       if (prevEtag != null && prevEtag.equals(responseContext.getEntityTag())) {
         queryLifecycle.emitLogsAndMetrics(null, -1);
@@ -323,7 +334,7 @@ public class QueryResource implements QueryCountStatsProvider
 
                       stats.onResultsSent(resultRowCount.get(), countingOutputStream.getCount());
                       if (ioReaderWriter.isTrailerIncluded()) {
-                        stats.trailer(responseContext);
+                        stats.trailer();
                         jsonGenerator.writeObjectField(JsonParserIterator.FIELD_CONTEXT, responseContext.trailerCopy());
                       }
 
@@ -340,6 +351,7 @@ public class QueryResource implements QueryCountStatsProvider
                       Thread.currentThread().setName(currThreadName);
 
                       queryLifecycle.emitLogsAndMetrics(e, countingOutputStream.getCount());
+                      stats.writeProfile(profileConsumer);
 
                       if (e == null) {
                         successfulQueryCount.incrementAndGet();
@@ -671,6 +683,102 @@ public class QueryResource implements QueryCountStatsProvider
       return true;
     } else {
       throw new BadHeaderException(header, "Must be 'Yes' or 'No'");
+    }
+  }
+  
+  @GET
+  @Path("profile/{id}")
+  @Produces({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
+  public Object getProfile(
+      @PathParam("id") final String queryId,
+      // used to get request content-type, Accept header, remote address and auth-related headers
+      @Context final HttpServletRequest req
+  ) throws IOException
+  {
+    // Ensure the user can access profiles. Since profiles are global, and contain the original
+    // query, the user must be trusted with that level of information.
+    ResourceAction resourceAction = new ResourceAction(
+        new Resource(queryId, ResourceType.PROFILE),
+        Action.READ
+    );
+    Access authResult = AuthorizationUtils.authorizeResourceAction(
+        req,
+        resourceAction,
+        authorizerMapper
+    );
+
+    if (!authResult.isAllowed()) {
+      throw new ForbiddenException(authResult.toString());
+    }
+    
+    // The profile consumer must be able to also provide profiles.
+    if (!(profileConsumer instanceof ProfileAccessor)) {
+      return Response.status(Response.Status.NOT_FOUND).build();
+    }
+    ProfileAccessor accessor = (ProfileAccessor) profileConsumer;
+    
+    // Get the profile, returning a 404 error if not found.
+    try {
+      InputStream input = accessor.getProfile(queryId);
+      return new StreamingOutput() {
+        @Override
+        public void write(OutputStream out) throws IOException {
+          byte buf[] = new byte[1024];
+          try {
+            while (true) {
+              int n = input.read(buf);
+              if (n == -1) {
+                break;
+              }
+              out.write(buf, 0, n);
+            }
+            out.flush();
+          } finally {
+            input.close();
+          }
+        }
+      };
+    } catch (ProfileAccessor.ProfileNotFoundException e) {
+      return Response.status(Response.Status.NOT_FOUND).build();
+    }
+  }
+  
+  @GET
+  @Path("profiles")
+  @Produces({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
+  public Object getProfiles(
+      @QueryParam("limit") final Integer limit,
+      // used to get request content-type, Accept header, remote address and auth-related headers
+      @Context final HttpServletRequest req
+  ) throws IOException
+  {
+    // Ensure the user can access profiles. Since profiles are global, and contain the original
+    // query, the user must be trusted with that level of information.
+    ResourceAction resourceAction = new ResourceAction(
+        new Resource("*", ResourceType.PROFILE),
+        Action.READ
+    );
+    Access authResult = AuthorizationUtils.authorizeResourceAction(
+        req,
+        resourceAction,
+        authorizerMapper
+    );
+
+    if (!authResult.isAllowed()) {
+      throw new ForbiddenException(authResult.toString());
+    }
+    
+    // The profile consumer must be able to also provide profiles.
+    if (!(profileConsumer instanceof ProfileAccessor)) {
+      return Response.status(Response.Status.NOT_FOUND).build();
+    }
+    ProfileAccessor accessor = (ProfileAccessor) profileConsumer;
+    
+    // Get the list of profiles, returning a 404 error if not supported.
+    try {
+      return Response.ok(accessor.getProfiles(limit == null ? 100: limit)).build();
+    } catch (ProfileAccessor.ProfileNotFoundException e) {
+      return Response.status(Response.Status.NOT_FOUND).build();
     }
   }
 }

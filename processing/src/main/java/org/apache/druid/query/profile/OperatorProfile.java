@@ -39,28 +39,19 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "kind")
 @JsonSubTypes(value = {
-    @JsonSubTypes.Type(name = OperatorProfile.OPAQUE, value = OperatorProfile.OpaqueOperator.class),
-    @JsonSubTypes.Type(name = OperatorProfile.RECEIVER, value = ReceiverProfile.class),
-    @JsonSubTypes.Type(name = OperatorProfile.SEGMENT_METADATA_SCAN, value = SegmentMetadataScanProfile.class),
-    @JsonSubTypes.Type(name = OperatorProfile.MERGE, value = MergeProfile.class),
-    @JsonSubTypes.Type(name = OperatorProfile.SCAN_QUERY, value = ScanQueryProfile.class),
-    @JsonSubTypes.Type(name = OperatorProfile.SORT, value = SortProfile.class),
-    @JsonSubTypes.Type(name = OperatorProfile.CONCAT, value = ConcatProfile.class),
-    @JsonSubTypes.Type(name = OperatorProfile.SEGMENT_SCAN, value = SegmentScanProfile.class),
-    @JsonSubTypes.Type(name = OperatorProfile.INDEX_SCAN, value = IndexScanProfile.class),
+    @JsonSubTypes.Type(name = OperatorProfile.OpaqueOperator.TYPE, value = OperatorProfile.OpaqueOperator.class),
+    @JsonSubTypes.Type(name = ReceiverProfile.TYPE, value = ReceiverProfile.class),
+    @JsonSubTypes.Type(name = SegmentMetadataScanProfile.TYPE, value = SegmentMetadataScanProfile.class),
+    @JsonSubTypes.Type(name = MergeProfile.TYPE, value = MergeProfile.class),
+    @JsonSubTypes.Type(name = ScanQueryProfile.TYPE, value = ScanQueryProfile.class),
+    @JsonSubTypes.Type(name = SortProfile.TYPE, value = SortProfile.class),
+    @JsonSubTypes.Type(name = ConcatProfile.TYPE, value = ConcatProfile.class),
+    @JsonSubTypes.Type(name = SegmentScanProfile.TYPE, value = SegmentScanProfile.class),
+    @JsonSubTypes.Type(name = IndexScanProfile.TYPE, value = IndexScanProfile.class),
+    @JsonSubTypes.Type(name = RetryProfile.TYPE, value = RetryProfile.class),
 })
 public abstract class OperatorProfile
 {
-  public static final String OPAQUE = "unknown";
-  public static final String RECEIVER = "receiver";
-  public static final String SEGMENT_METADATA_SCAN = "segment-metadata";
-  public static final String MERGE = "merge";
-  public static final String SCAN_QUERY = "scan-query";
-  public static final String SORT = "sort";
-  public static final String CONCAT = "concat";
-  public static final String SEGMENT_SCAN = "segment-scan";
-  public static final String INDEX_SCAN = "index-scan";
-  
   /**
    * The total wall clock time, in ns, taken by this operator.
    * Includes the time of all child operators. The time for just
@@ -77,5 +68,6 @@ public abstract class OperatorProfile
    */
   public static class OpaqueOperator extends OperatorProfile
   {
+    public static final String TYPE = "unknown";
   }
 }

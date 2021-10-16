@@ -28,6 +28,8 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
   "bitmapTimeNs", "filterCount", "rows", "cursors"})
 public class IndexScanProfile extends OperatorProfile
 {
+  public static final String TYPE = "index-scan";
+  
   public static class CursorProfileMetrics implements CursorMetrics
   { 
     private final IndexScanProfile profile;

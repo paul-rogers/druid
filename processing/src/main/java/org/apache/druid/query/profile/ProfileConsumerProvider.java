@@ -19,21 +19,23 @@
 
 package org.apache.druid.query.profile;
 
-import java.util.List;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.google.inject.Provider;
 
 /**
- * Represents an n-way merge. Because of the functional style of programming,
- * it is not possible to obtain things like the detailed merge time or the
- * row count. These can be inferred, however, as the sum of any incoming row
- * counts, and as the time for this operator minus the sum of the times of
- * incoming operators.
+ * A Marker interface for things that can provide a ProfileConsumer.
+ * This can be combined with Jackson polymorphic serde
+ * to provide new ProfileConsumer implementations as plugins.
+ * <p>
+ * A profile consumer accepts query profiles for writing to disk,
+ * sending to another system, or just ignoring.
  */
-public class MergeProfile extends OperatorProfile
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(value = {
+    @JsonSubTypes.Type(name = NullProfileConsumerProvider.TYPE_NAME, value = NullProfileConsumerProvider.class),
+    @JsonSubTypes.Type(name = SimpleFileProfileConsumerProvider.TYPE_NAME, value = SimpleFileProfileConsumerProvider.class),
+})
+public interface ProfileConsumerProvider extends Provider<ProfileConsumer>
 {
-  public static final String TYPE = "merge";
-  
-  @JsonProperty
-  public List<OperatorProfile> children;
 }

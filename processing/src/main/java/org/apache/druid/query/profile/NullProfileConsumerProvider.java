@@ -19,21 +19,22 @@
 
 package org.apache.druid.query.profile;
 
-import java.util.List;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import org.apache.druid.query.profile.ProfileConsumer.ProfileConsumerStub;
 
 /**
- * Represents an n-way merge. Because of the functional style of programming,
- * it is not possible to obtain things like the detailed merge time or the
- * row count. These can be inferred, however, as the sum of any incoming row
- * counts, and as the time for this operator minus the sum of the times of
- * incoming operators.
+ * Profile consumer which discards profiles.
  */
-public class MergeProfile extends OperatorProfile
+@JsonTypeName(NullProfileConsumerProvider.TYPE_NAME)
+public class NullProfileConsumerProvider implements ProfileConsumerProvider
 {
-  public static final String TYPE = "merge";
+  public  static final String TYPE_NAME = "null";
   
-  @JsonProperty
-  public List<OperatorProfile> children;
+  private static final ProfileConsumer INSTANCE = new ProfileConsumerStub();
+  
+  @Override
+  public ProfileConsumer get()
+  {
+    return INSTANCE;
+  }
 }

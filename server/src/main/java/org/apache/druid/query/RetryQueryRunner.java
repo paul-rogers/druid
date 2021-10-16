@@ -34,9 +34,9 @@ import org.apache.druid.java.util.common.guava.YieldingSequenceBase;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.context.ResponseContext.Keys;
+import org.apache.druid.query.profile.RetryProfile;
 import org.apache.druid.segment.SegmentMissingException;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -54,7 +54,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
   private final ObjectMapper jsonMapper;
 
   /**
-   * Runnable executed after the broker creates query distribution tree for the first attempt. This is only
+   * Runnable executed after the broker creates the query distribution tree for the first attempt. This is only
    * for testing and must not be used in production code.
    */
   private final Runnable runnableAfterFirstAttempt;
@@ -99,6 +99,8 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
   @Override
   public Sequence<T> run(final QueryPlus<T> queryPlus, final ResponseContext context)
   {
+    RetryProfile profile = new RetryProfile();
+    context.pushProfile(profile);
     // Calling baseRunner.run() (which is SpecificQueryRunnable.run()) in the RetryingSequenceIterator
     // could be better because we can minimize the chance that data servers report missing segments as
     // we construct the query distribution tree when the query processing is actually started.
@@ -106,6 +108,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
     // This is because ResultLevelCachingQueryRunner requires to compute the cache key based on
     // the segments to query which is computed in SpecificQueryRunnable.run().
     final Sequence<T> baseSequence = baseRunner.run(queryPlus, context);
+    profile.children.add(context.popProfile());
     // runnableAfterFirstAttempt is only for testing, it must be no-op for production code.
     runnableAfterFirstAttempt.run();
 
@@ -120,7 +123,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
               @Override
               public RetryingSequenceIterator make()
               {
-                return new RetryingSequenceIterator(queryPlus, context, baseSequence);
+                return new RetryingSequenceIterator(queryPlus, context, baseSequence, profile);
               }
 
               @Override
@@ -136,7 +139,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
     };
   }
 
-  private List<SegmentDescriptor> getMissingSegments(QueryPlus<T> queryPlus, final ResponseContext context)
+  private List<SegmentDescriptor> getMissingSegments(QueryPlus<T> queryPlus, final ResponseContext context, RetryProfile profile)
   {
     // Sanity check before retrieving missingSegments from responseContext.
     // The missingSegments in the responseContext is only valid when all servers have responded to the broker.
@@ -157,11 +160,15 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
       throw new ISE("Failed to check missing segments due to missing responses from [%d] servers", remainingResponses);
     }
 
+    // TODO: the sender's response may contain a truncated list of missing segments.
+    // Check the TRUNCATED value: if true, then the we don't know the full set of
+    // missing segments.
     final List<SegmentDescriptor> maybeMissingSegments = context.getMissingSegments();
     if (maybeMissingSegments == null) {
       return Collections.emptyList();
     }
 
+    profile.addRetry(context);
     return jsonMapper.convertValue(
         maybeMissingSegments,
         new TypeReference<List<SegmentDescriptor>>()
@@ -171,7 +178,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
   }
 
   /**
-   * A lazy iterator populating {@link Sequence} by retrying the query. The first returned sequence is always the base
+   * A lazy iterator populating a {@link Sequence} by retrying the query. The first returned sequence is always the base
    * sequence from the baseQueryRunner. Subsequent sequences are created dynamically whenever it retries the query. All
    * the sequences populated by this iterator will be merged (not combined) with the base sequence.
    *
@@ -179,7 +186,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
    * each underlying sequence and pushes them to a {@link java.util.PriorityQueue}. Whenever it pops from the queue,
    * it pushes a new item from the sequence where the returned item was originally from. Since the first returned
    * sequence from this iterator is always the base sequence, the MergeSequence will call {@link Sequence#toYielder}
-   * on the base sequence first which in turn initializing query distribution tree. Once this tree is built, the query
+   * on the base sequence first which in turn initializes the query distribution tree. Once this tree is built, the query
    * servers (historicals and realtime tasks) will lock all segments to read and report missing segments to the broker.
    * If there are missing segments reported, this iterator will rewrite the query with those reported segments and
    * reissue the rewritten query.
@@ -191,6 +198,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
   {
     private final QueryPlus<T> queryPlus;
     private final ResponseContext context;
+    private final RetryProfile profile;
 
     private Sequence<T> sequence;
     private int retryCount = 0;
@@ -198,12 +206,14 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
     private RetryingSequenceIterator(
         QueryPlus<T> queryPlus,
         ResponseContext context,
-        Sequence<T> baseSequence
+        Sequence<T> baseSequence,
+        RetryProfile profile
     )
     {
       this.queryPlus = queryPlus;
       this.context = context;
       this.sequence = baseSequence;
+      this.profile = profile;
     }
 
     @Override
@@ -211,32 +221,32 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
     {
       if (sequence != null) {
         return true;
-      } else {
-        final List<SegmentDescriptor> missingSegments = getMissingSegments(queryPlus, context);
-        final int maxNumRetries = QueryContexts.getNumRetriesOnMissingSegments(
-            queryPlus.getQuery(),
-            config.getNumTries()
-        );
-        if (missingSegments.isEmpty()) {
-          return false;
-        } else if (retryCount >= maxNumRetries) {
-          if (!QueryContexts.allowReturnPartialResults(queryPlus.getQuery(), config.isReturnPartialResults())) {
-            throw new SegmentMissingException("No results found for segments[%s]", missingSegments);
-          } else {
-            return false;
-          }
+      }
+      final List<SegmentDescriptor> missingSegments = getMissingSegments(queryPlus, context, profile);
+      final int maxNumRetries = QueryContexts.getNumRetriesOnMissingSegments(
+          queryPlus.getQuery(),
+          config.getNumTries()
+      );
+      if (missingSegments.isEmpty()) {
+        return false;
+      }
+      if (retryCount >= maxNumRetries) {
+        if (!QueryContexts.allowReturnPartialResults(queryPlus.getQuery(), config.isReturnPartialResults())) {
+          throw new SegmentMissingException("No results found for segments[%s]", missingSegments);
         } else {
-          retryCount++;
-          LOG.info("[%,d] missing segments found. Retry attempt [%,d]", missingSegments.size(), retryCount);
-
-          context.initializeMissingSegments();
-          final QueryPlus<T> retryQueryPlus = queryPlus.withQuery(
-              Queries.withSpecificSegments(queryPlus.getQuery(), missingSegments)
-          );
-          sequence = retryRunnerCreateFn.apply(retryQueryPlus.getQuery(), missingSegments).run(retryQueryPlus, context);
-          return true;
+          return false;
         }
       }
+      retryCount++;
+      LOG.info("[%,d] missing segments found. Retry attempt [%,d]", missingSegments.size(), retryCount);
+
+      context.initializeMissingSegments();
+      final QueryPlus<T> retryQueryPlus = queryPlus.withQuery(
+          Queries.withSpecificSegments(queryPlus.getQuery(), missingSegments)
+      );
+      sequence = retryRunnerCreateFn.apply(retryQueryPlus.getQuery(), missingSegments).run(retryQueryPlus, context);
+      profile.children.add(context.popProfile());
+      return true;
     }
 
     @Override

@@ -24,6 +24,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import org.apache.calcite.avatica.remote.TypedValue;
+import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.sql.SqlExplainFormat;
+import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.tools.RelConversionException;
 import org.apache.calcite.tools.ValidationException;
@@ -34,10 +37,16 @@ import org.apache.druid.java.util.common.guava.SequenceWrapper;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
+import org.apache.druid.query.MultiQueryMetricsCollector;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryTimeoutException;
+import org.apache.druid.query.SingleQueryMetricsCollector;
+import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.profile.ProfileConsumer;
+import org.apache.druid.query.profile.RootFragmentProfile;
 import org.apache.druid.server.QueryScheduler;
+import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryResponse;
 import org.apache.druid.server.QueryStats;
 import org.apache.druid.server.RequestLogLine;
@@ -55,9 +64,12 @@ import org.apache.druid.sql.calcite.planner.PrepareResult;
 import org.apache.druid.sql.calcite.planner.ValidationResult;
 import org.apache.druid.sql.http.SqlParameter;
 import org.apache.druid.sql.http.SqlQuery;
+import org.apache.druid.sql.profile.SqlFragmentProfile;
 
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -86,13 +98,202 @@ import java.util.stream.Collectors;
 public class SqlLifecycle
 {
   private static final Logger log = new Logger(SqlLifecycle.class);
+  
+  /**
+   * Gathers query-level statistics then distributes them to the metrics system,
+   * logs, response trailer and query profile.
+   */
+  public class LifecycleStats
+  {
+    DruidNode node;
+    String remoteAddress;
+    SqlQuery receivedQuery;
+    String queryId;
+    long endTimeNs;
+    long bytesWritten;
+    long rowCount;
+    ResponseContext responseContext;
+    RootFragmentProfile fragmentProfile;
+    Throwable e;
+    
+    /**
+     * Called by the query resource to provide the host on which this query is
+     * running, and the remote address that sent the request.
+     */
+    public void onStart(DruidNode node, String remoteAddress, String sqlQueryId, SqlQuery query)
+    {
+      this.node = node;
+      this.remoteAddress = remoteAddress;
+      this.queryId = sqlQueryId;
+      this.receivedQuery = query;
+    }
+    
+    public void setResponseContext(ResponseContext responseContext)
+    {
+      this.responseContext = responseContext;
+    }
+    
+    /**
+     * Partial completion: results written, about to emit the trailer.
+     * Tally run time and bytes written up to now. Final result will
+     * differ a bit.
+     */
+    public void onResultsSent(long rowCount, long bytesWritten)
+    {
+      this.rowCount = rowCount;
+      this.bytesWritten = bytesWritten;
+      this.endTimeNs = System.nanoTime();
+    }
+    
+    /**
+     * Final completion: all results sent, including the possible
+     * trailer.
+     */
+    public void onCompletion(Throwable e, long bytesWritten)
+    {
+      this.e = e;
+      this.bytesWritten = bytesWritten;
+      this.endTimeNs = System.nanoTime();
+    }
+    
+    public long runTimeNs()
+    {
+      return endTimeNs - startNs;
+    }
+    
+    public long runTimeMs() {
+      return TimeUnit.NANOSECONDS.toMillis(runTimeNs());
+    }
+        
+    public boolean succeeded()
+    {
+      return e == null;
+    }
+    
+    public boolean wasInterrupted()
+    {
+      if (e == null) {
+        return false;
+      }
+      return (e instanceof QueryInterruptedException || e instanceof QueryTimeoutException);
+    }
+    
+    /**
+     * Create the response trailer, if requested. Includes the query profile as well
+     * as various other trailer fields.
+     */
+    public void trailer() {
+      responseContext.add(
+          ResponseContext.Keys.METRICS,
+          MultiQueryMetricsCollector.newCollector().add(
+              SingleQueryMetricsCollector
+                  .newCollector()
+                  .setQueryStart(getStartMs())
+                  // TODO(gianm): Docs that this is not the same as query/time
+                  .setQueryMs(runTimeMs())
+                  .setResultRows(rowCount)
+                  )
+          );
+      
+      if (!plannerResult.isExplain()) {
+        responseContext.add(ResponseContext.Keys.PROFILE, getProfile());
+      }
+    }
+    
+    /**
+     * Emit final metrics for the query.
+     */
+    public void emitMetrics()
+    {
+      ServiceMetricEvent.Builder metricBuilder = ServiceMetricEvent.builder();
+      if (plannerContext != null) {
+        metricBuilder.setDimension("id", plannerContext.getSqlQueryId());
+        metricBuilder.setDimension("nativeQueryIds", plannerContext.getNativeQueryIds().toString());
+      }
+      if (validationResult != null) {
+        metricBuilder.setDimension(
+            "dataSource",
+            validationResult.getResources().stream().map(Resource::getName).collect(Collectors.toList()).toString()
+        );
+      }
+      metricBuilder.setDimension("remoteAddress", StringUtils.nullToEmptyNonDruidDataString(remoteAddress));
+      metricBuilder.setDimension("success", String.valueOf(succeeded()));
+      emitter.emit(metricBuilder.build("sqlQuery/time", TimeUnit.NANOSECONDS.toMillis(runTimeNs())));
+      if (bytesWritten >= 0) {
+        emitter.emit(metricBuilder.build("sqlQuery/bytes", bytesWritten));
+      }      
+    }
+    
+    public QueryStats queryStats()
+    {
+      final Map<String, Object> statsMap = new LinkedHashMap<>();
+      statsMap.put("sqlQuery/time", TimeUnit.NANOSECONDS.toMillis(runTimeNs()));
+      statsMap.put("sqlQuery/bytes", bytesWritten);
+      statsMap.put("success", succeeded());
+      statsMap.put("context", queryContext);
+      if (plannerContext != null) {
+        statsMap.put("identity", plannerContext.getAuthenticationResult().getIdentity());
+        queryContext.put("nativeQueryIds", plannerContext.getNativeQueryIds().toString());
+      }
+      if (e != null) {
+        statsMap.put("exception", e.toString());
 
+        if (wasInterrupted()) {
+          statsMap.put("interrupted", true);
+          statsMap.put("reason", e.toString());
+        }
+      }
+      return new QueryStats(statsMap);
+    }
+    
+    private RootFragmentProfile getProfile()
+    {
+      if (fragmentProfile != null) {
+        return fragmentProfile;
+      }
+      ArrayList<String> cols = null;
+//      Set<String> reqCols = baseQuery.getRequiredColumns();
+//      if (reqCols != null) {
+//        cols = new ArrayList<>();
+//        cols.addAll(reqCols);
+//      }
+      SqlFragmentProfile profile = new SqlFragmentProfile();
+      profile.host = node.getHostAndPort();
+      profile.service = node.getServiceName();
+      profile.remoteAddress = remoteAddress;
+      profile.query = receivedQuery;
+      profile.queryId = queryId;
+      profile.plan = RelOptUtil.dumpPlan("", plannerResult.getPlan(), SqlExplainFormat.JSON, SqlExplainLevel.EXPPLAN_ATTRIBUTES);
+      profile.columns = cols;
+      profile.startTime = getStartMs();
+      profile.timeNs = runTimeNs();
+      profile.cpuNs = responseContext.getCpuNanos();
+      profile.rows = rowCount;
+      profile.rootOperator = responseContext.popProfile();
+      if (wasInterrupted()) {
+        profile.error = "Interrupted";
+      } else if (!succeeded()) {
+        profile.error = e.getMessage();
+      }
+      fragmentProfile = profile;
+      return fragmentProfile;
+    }
+    
+    public void writeProfile(ProfileConsumer profileConsumer)
+    {
+      if (!plannerResult.isExplain()) {
+        profileConsumer.emit(getProfile());
+      }
+    }
+  }
+  
   private final PlannerFactory plannerFactory;
   private final ServiceEmitter emitter;
   private final RequestLogger requestLogger;
   private final QueryScheduler queryScheduler;
   private final long startMs;
   private final long startNs;
+  private final LifecycleStats stats;
 
   /**
    * This lock coordinates the access to {@link #state} as there is a happens-before relationship
@@ -102,7 +303,7 @@ public class SqlLifecycle
   @GuardedBy("stateLock")
   private State state = State.NEW;
 
-  // init during intialize
+  // init during initialize
   private String sql;
   private Map<String, Object> queryContext;
   private List<TypedValue> parameters;
@@ -128,6 +329,11 @@ public class SqlLifecycle
     this.startMs = startMs;
     this.startNs = startNs;
     this.parameters = Collections.emptyList();
+    this.stats = new LifecycleStats();
+  }
+  
+  public LifecycleStats stats() {
+    return stats;
   }
 
   /**
@@ -169,7 +375,7 @@ public class SqlLifecycle
   }
 
   /**
-   * Assign dynamic parameters to be used to substitute values during query exection. This can be performed at any
+   * Assign dynamic parameters to be used to substitute values during query execution. This can be performed at any
    * part of the lifecycle.
    */
   public void setParameters(List<TypedValue> parameters)
@@ -268,7 +474,7 @@ public class SqlLifecycle
 
   /**
    * Prepare the query lifecycle for execution, without completely planning into something that is executable, but
-   * including some initial parsing and validation and any dyanmic parameter type resolution, to support prepared
+   * including some initial parsing and validation and any dynamic parameter type resolution, to support prepared
    * statements via JDBC.
    */
   public PrepareResult prepare() throws RelConversionException
@@ -360,7 +566,7 @@ public class SqlLifecycle
     }
     catch (Throwable e) {
       if (!(e instanceof ForbiddenException)) {
-        finalizeStateAndEmitLogsAndMetrics(e, null, -1);
+        finalizeStateAndEmitLogsAndMetrics(e, -1);
       }
       throw e;
     }
@@ -371,7 +577,7 @@ public class SqlLifecycle
           @Override
           public void after(boolean isDone, Throwable thrown)
           {
-            finalizeStateAndEmitLogsAndMetrics(thrown, null, -1);
+            finalizeStateAndEmitLogsAndMetrics(thrown, -1);
           }
         }
     );
@@ -420,7 +626,6 @@ public class SqlLifecycle
    */
   public void finalizeStateAndEmitLogsAndMetrics(
       @Nullable final Throwable e,
-      @Nullable final String remoteAddress,
       final long bytesWritten
   )
   {
@@ -441,53 +646,17 @@ public class SqlLifecycle
       }
     }
 
-    final boolean success = e == null;
-    final long queryTimeNs = System.nanoTime() - startNs;
-
+    stats.onCompletion(e, bytesWritten);
     try {
-      ServiceMetricEvent.Builder metricBuilder = ServiceMetricEvent.builder();
-      if (plannerContext != null) {
-        metricBuilder.setDimension("id", plannerContext.getSqlQueryId());
-        metricBuilder.setDimension("nativeQueryIds", plannerContext.getNativeQueryIds().toString());
-      }
-      if (validationResult != null) {
-        metricBuilder.setDimension(
-            "dataSource",
-            validationResult.getResources().stream().map(Resource::getName).collect(Collectors.toList()).toString()
-        );
-      }
-      metricBuilder.setDimension("remoteAddress", StringUtils.nullToEmptyNonDruidDataString(remoteAddress));
-      metricBuilder.setDimension("success", String.valueOf(success));
-      emitter.emit(metricBuilder.build("sqlQuery/time", TimeUnit.NANOSECONDS.toMillis(queryTimeNs)));
-      if (bytesWritten >= 0) {
-        emitter.emit(metricBuilder.build("sqlQuery/bytes", bytesWritten));
-      }
-
-      final Map<String, Object> statsMap = new LinkedHashMap<>();
-      statsMap.put("sqlQuery/time", TimeUnit.NANOSECONDS.toMillis(queryTimeNs));
-      statsMap.put("sqlQuery/bytes", bytesWritten);
-      statsMap.put("success", success);
-      statsMap.put("context", queryContext);
-      if (plannerContext != null) {
-        statsMap.put("identity", plannerContext.getAuthenticationResult().getIdentity());
-        queryContext.put("nativeQueryIds", plannerContext.getNativeQueryIds().toString());
-      }
-      if (e != null) {
-        statsMap.put("exception", e.toString());
-
-        if (e instanceof QueryInterruptedException || e instanceof QueryTimeoutException) {
-          statsMap.put("interrupted", true);
-          statsMap.put("reason", e.toString());
-        }
-      }
+      stats.emitMetrics();
 
       requestLogger.logSqlQuery(
           RequestLogLine.forSql(
               sql,
               queryContext,
               DateTimes.utc(startMs),
-              remoteAddress,
-              new QueryStats(statsMap)
+              StringUtils.nullToEmptyNonDruidDataString(stats.remoteAddress),
+              stats.queryStats()
           )
       );
     }

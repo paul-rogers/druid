@@ -27,14 +27,13 @@ import com.google.common.io.CountingOutputStream;
 import com.google.inject.Inject;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.druid.guice.annotations.Json;
+import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Yielder;
 import org.apache.druid.java.util.common.guava.Yielders;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.BadQueryException;
-import org.apache.druid.query.MultiQueryMetricsCollector;
 import org.apache.druid.query.QueryCapacityExceededException;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryTimeoutException;
@@ -43,12 +42,14 @@ import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.security.AuthorizerMapper;
-import org.apache.druid.query.SingleQueryMetricsCollector;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.profile.ProfileConsumer;
+import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryResponse;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.sql.SqlLifecycle;
+import org.apache.druid.sql.SqlLifecycle.LifecycleStats;
 import org.apache.druid.sql.SqlLifecycleFactory;
 import org.apache.druid.sql.SqlLifecycleManager;
 import org.apache.druid.sql.SqlPlanningException;
@@ -81,21 +82,28 @@ public class SqlResource
   private final AuthorizerMapper authorizerMapper;
   private final SqlLifecycleFactory sqlLifecycleFactory;
   private final SqlLifecycleManager sqlLifecycleManager;
+  private final DruidNode selfNode;
+  protected final ProfileConsumer profileConsumer;
 
   @Inject
   public SqlResource(
       @Json ObjectMapper jsonMapper,
       AuthorizerMapper authorizerMapper,
       SqlLifecycleFactory sqlLifecycleFactory,
-      SqlLifecycleManager sqlLifecycleManager
+      SqlLifecycleManager sqlLifecycleManager,
+      @Self DruidNode selfNode,
+      ProfileConsumer profileConsumer
   )
   {
     this.jsonMapper = Preconditions.checkNotNull(jsonMapper, "jsonMapper");
     this.authorizerMapper = Preconditions.checkNotNull(authorizerMapper, "authorizerMapper");
     this.sqlLifecycleFactory = Preconditions.checkNotNull(sqlLifecycleFactory, "sqlLifecycleFactory");
     this.sqlLifecycleManager = Preconditions.checkNotNull(sqlLifecycleManager, "sqlLifecycleManager");
+    this.selfNode = selfNode;
+    this.profileConsumer = profileConsumer;
   }
 
+  @SuppressWarnings("resource")
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   public Response doPost(
@@ -105,17 +113,20 @@ public class SqlResource
   {
     final SqlLifecycle lifecycle = sqlLifecycleFactory.factorize();
     final String sqlQueryId = lifecycle.initialize(sqlQuery.getQuery(), sqlQuery.getContext());
-    final String remoteAddr = req.getRemoteAddr();
     final String currThreadName = Thread.currentThread().getName();
 
     try {
       Thread.currentThread().setName(StringUtils.format("sql[%s]", sqlQueryId));
 
+      // Initialize the query stats using the original received query.
+      LifecycleStats stats = lifecycle.stats();
+      stats.onStart(selfNode, req.getRemoteAddr(), sqlQueryId, sqlQuery);
+
       lifecycle.setParameters(sqlQuery.getParameterList());
       lifecycle.validateAndAuthorize(req);
       // must add after lifecycle is authorized
       sqlLifecycleManager.add(sqlQueryId, lifecycle);
-
+      
       lifecycle.plan();
 
       final SqlRowTransformer rowTransformer = lifecycle.createRowTransformer();
@@ -155,23 +166,12 @@ public class SqlResource
                     yielder = null;
                     yielderToClose.close();
 
+                    final ResponseContext responseContext =
+                        queryResponse.getResponseContext().orElse(ResponseContext.createEmpty());
+                    stats.setResponseContext(responseContext);
+                    stats.onResultsSent(resultRowCount, os.getCount());
                     if (sqlQuery.getResultFormat().hasTrailer()) {
-                      // TODO(gianm): Copypasta?
-                      // TODO(gianm): Docs that this is not the same as query/time
-                      final ResponseContext responseContext =
-                          queryResponse.getResponseContext().orElse(ResponseContext.createEmpty());
-
-                      responseContext.add(
-                          ResponseContext.Keys.METRICS,
-                          MultiQueryMetricsCollector.newCollector().add(
-                              SingleQueryMetricsCollector
-                                  .newCollector()
-                                  .setQueryStart(lifecycle.getStartMs())
-                                  .setQueryMs(System.currentTimeMillis() - lifecycle.getStartMs())
-                                  .setResultRows(resultRowCount)
-                          )
-                      );
-
+                      stats.trailer();
                       writer.writeTrailer(responseContext);
                     }
 
@@ -186,7 +186,7 @@ public class SqlResource
                     if (yielder != null) {
                       yielder.close();
                     }
-                    endLifecycle(sqlQueryId, lifecycle, e, remoteAddr, os.getCount());
+                    endLifecycle(sqlQueryId, lifecycle, e, os.getCount());
                   }
                 }
             )
@@ -201,19 +201,19 @@ public class SqlResource
       }
     }
     catch (QueryCapacityExceededException cap) {
-      endLifecycle(sqlQueryId, lifecycle, cap, remoteAddr, -1);
+      endLifecycle(sqlQueryId, lifecycle, cap, -1);
       return buildNonOkResponse(QueryCapacityExceededException.STATUS_CODE, cap);
     }
     catch (QueryUnsupportedException unsupported) {
-      endLifecycle(sqlQueryId, lifecycle, unsupported, remoteAddr, -1);
+      endLifecycle(sqlQueryId, lifecycle, unsupported, -1);
       return buildNonOkResponse(QueryUnsupportedException.STATUS_CODE, unsupported);
     }
     catch (QueryTimeoutException timeout) {
-      endLifecycle(sqlQueryId, lifecycle, timeout, remoteAddr, -1);
+      endLifecycle(sqlQueryId, lifecycle, timeout, -1);
       return buildNonOkResponse(QueryTimeoutException.STATUS_CODE, timeout);
     }
     catch (SqlPlanningException | ResourceLimitExceededException e) {
-      endLifecycle(sqlQueryId, lifecycle, e, remoteAddr, -1);
+      endLifecycle(sqlQueryId, lifecycle, e, -1);
       return buildNonOkResponse(BadQueryException.STATUS_CODE, e);
     }
     catch (ForbiddenException e) {
@@ -222,7 +222,7 @@ public class SqlResource
     }
     catch (Exception e) {
       log.warn(e, "Failed to handle query: %s", sqlQuery);
-      endLifecycle(sqlQueryId, lifecycle, e, remoteAddr, -1);
+      endLifecycle(sqlQueryId, lifecycle, e, -1);
 
       final Exception exceptionToReport;
 
@@ -254,11 +254,11 @@ public class SqlResource
       String sqlQueryId,
       SqlLifecycle lifecycle,
       @Nullable final Throwable e,
-      @Nullable final String remoteAddress,
       final long bytesWritten
   )
   {
-    lifecycle.finalizeStateAndEmitLogsAndMetrics(e, remoteAddress, bytesWritten);
+    lifecycle.finalizeStateAndEmitLogsAndMetrics(e, bytesWritten);
+    lifecycle.stats().writeProfile(profileConsumer);
     sqlLifecycleManager.remove(sqlQueryId, lifecycle);
   }
 

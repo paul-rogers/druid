@@ -417,4 +417,12 @@ public class AuthorizationUtils
       input,
       Action.READ
   );
+  
+  /**
+   * Function for the common pattern of generating a resource-action for reading a query profile.
+   */
+  public static final Function<String, ResourceAction> PROFILE_READ_RA_GENERATOR = input -> new ResourceAction(
+      new Resource(input, ResourceType.PROFILE),
+      Action.READ
+  );
 }

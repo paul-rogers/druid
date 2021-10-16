@@ -89,6 +89,7 @@ public class ScanQueryLimitRowIterator implements CloseableIterator<ScanResultVa
     return !yielder.isDone() && count < limit;
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   public ScanResultValue next()
   {
@@ -101,7 +102,7 @@ public class ScanQueryLimitRowIterator implements CloseableIterator<ScanResultVa
     if (query.getOrder() == ScanQuery.Order.NONE ||
         !query.getContextBoolean(ScanQuery.CTX_KEY_OUTERMOST, true)) {
       ScanResultValue batch = yielder.get();
-      List events = (List) batch.getEvents();
+      List<?> events = (List<?>) batch.getEvents();
       if (events.size() <= limit - count) {
         count += events.size();
         yielder = yielder.next(null);
