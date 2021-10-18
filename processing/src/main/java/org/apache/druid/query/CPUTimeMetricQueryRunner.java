@@ -26,7 +26,6 @@ import org.apache.druid.java.util.common.guava.SequenceWrapper;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.utils.JvmUtils;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -56,7 +55,6 @@ public class CPUTimeMetricQueryRunner<T> implements QueryRunner<T>
     this.cpuTimeAccumulator = cpuTimeAccumulator == null ? new AtomicLong(0L) : cpuTimeAccumulator;
     this.report = report;
   }
-
 
   @Override
   public Sequence<T> run(final QueryPlus<T> queryPlus, final ResponseContext responseContext)

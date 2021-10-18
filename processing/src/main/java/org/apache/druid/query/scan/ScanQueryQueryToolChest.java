@@ -36,6 +36,8 @@ import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
+import org.apache.druid.query.profile.LimitProfile;
+import org.apache.druid.query.profile.MergeProfile;
 import org.apache.druid.segment.VirtualColumn;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.column.ValueType;
@@ -66,6 +68,8 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
   public QueryRunner<ScanResultValue> mergeResults(final QueryRunner<ScanResultValue> runner)
   {
     return (queryPlus, responseContext) -> {
+      final MergeProfile profile = new MergeProfile();
+      
       // Ensure "legacy" is a non-null value, such that all other nodes this query is forwarded to will treat it
       // the same way, even if they have different default legacy values.
       //
@@ -92,17 +96,26 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
                                                 .withLimit(newLimit);
 
       final Sequence<ScanResultValue> results;
+      final LimitProfile LimitProfile;
 
       if (!queryToRun.isLimited()) {
+        responseContext.pushProfile(profile);
+        responseContext.pushGroup();
         results = runner.run(queryPlus.withQuery(queryToRun), responseContext);
+        profile.children = responseContext.popGroup();
+        LimitProfile = null;
       } else {
+        LimitProfile = new LimitProfile();
+        LimitProfile.limit = newLimit;
+        LimitProfile.child = profile;
+        responseContext.pushProfile(LimitProfile);
         results = new BaseSequence<>(
             new BaseSequence.IteratorMaker<ScanResultValue, ScanQueryLimitRowIterator>()
             {
               @Override
               public ScanQueryLimitRowIterator make()
               {
-                return new ScanQueryLimitRowIterator(runner, queryPlus.withQuery(queryToRun), responseContext);
+                return new ScanQueryLimitRowIterator(runner, queryPlus.withQuery(queryToRun), responseContext, LimitProfile);
               }
 
               @Override
@@ -114,6 +127,9 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
       }
 
       if (originalQuery.getScanRowsOffset() > 0) {
+        if (LimitProfile != null) {
+          LimitProfile.offset = originalQuery.getScanRowsOffset();
+        }
         return new ScanQueryOffsetSequence(results, originalQuery.getScanRowsOffset());
       } else {
         return results;

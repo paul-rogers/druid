@@ -49,6 +49,9 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
     @JsonSubTypes.Type(name = SegmentScanProfile.TYPE, value = SegmentScanProfile.class),
     @JsonSubTypes.Type(name = IndexScanProfile.TYPE, value = IndexScanProfile.class),
     @JsonSubTypes.Type(name = RetryProfile.TYPE, value = RetryProfile.class),
+    @JsonSubTypes.Type(name = LimitProfile.TYPE, value = LimitProfile.class),
+    @JsonSubTypes.Type(name = DistributorProfile.TYPE, value = DistributorProfile.class),
+    @JsonSubTypes.Type(name = NativeQueryProfile.TYPE, value = NativeQueryProfile.class),
 })
 public abstract class OperatorProfile
 {

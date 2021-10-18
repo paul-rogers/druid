@@ -26,34 +26,37 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Operator profile node for a receiver: an operator which issues a
- * subquery over the wire, then receives the results. Implemented by
+ * partial query over the wire, then receives the results. Implemented by
  * the {@link org.apache.druid.client.DirectDruidClient} class.
  * <p>
- * The subquery is executed as a fragment by the remote node, which returns
+ * The query is "partial" because it is rewritten from the original query
+ * to cover only the interval(s) available on the target data node.
+ * <p>
+ * The partial query is executed as a fragment by the remote node, which returns
  * a fragment profile. Since the two nodes may be of different Druid versions,
  * the fragment is received as a generic map, <i>not</i> as a deserialized
- * fragment object.
- * <p>
- * This is a "one way" serializable object: it is to be serialized to JSON.
+ * fragment object. That is, this is a "one way" serializable object: it is
+ * to be serialized to JSON.
  * However, the receiver of the JSON may be in a server of a different version,
  * and that node should deserialize this object as a generic map.
  */
 public class ReceiverProfile extends OperatorProfile
 {
-  public static final String TYPE = "receiver";
+  // Uses the Druid-style scatter/gather terminology.
+  public static final String TYPE = "gather";
   
   /**
-   * The host to which the sub-query was sent.
+   * The host to which the partial query was sent.
    */
   @JsonProperty
   public final String host;
   /**
-   * The URL used to send the sub-query.
+   * The URL used to send the partial query.
    */
   @JsonProperty
   public final String url;
   /**
-   * Whether the subquery succeeded or failed.
+   * Whether the partial query succeeded or failed.
    */
   @JsonProperty
   public boolean succeeded;

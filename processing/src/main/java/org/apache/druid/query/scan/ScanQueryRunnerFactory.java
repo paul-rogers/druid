@@ -116,13 +116,13 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
         // There is no real run time for this runner since all it does is set
         // up a sequence and return.
         profile.strategy = ScanQueryProfile.CONCAT_STRATEGY;
-        responseContext.pushGroup();
         BaseSequence.IteratorMaker<QueryRunner<ScanResultValue>, Iterator<QueryRunner<ScanResultValue>>> runnerIter = 
             new BaseSequence.IteratorMaker<QueryRunner<ScanResultValue>, Iterator<QueryRunner<ScanResultValue>>>()
         {
           @Override
           public Iterator<QueryRunner<ScanResultValue>> make()
           {
+            responseContext.pushGroup();
             return queryRunners.iterator();
           }
 

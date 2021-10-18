@@ -28,16 +28,22 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
  * Root fragment (top-level query) for a native query, whether received
  * by the Broker or a data node.
  */
-@JsonPropertyOrder({"host", "service", "queryId", "remoteAddress",
+@JsonPropertyOrder({"version", "type", "host", "service", "queryId", "remoteAddress",
   "columns", "startTime", "timeNs", "cpuNs", "rows", "query", "rootOperator"})
 public class RootNativeFragmentProfile extends RootFragmentProfile
 {
+  public static final String QUERY_TYPE = "native";
+  
   /**
    * Original, unrewritten native query as received by the host,
    * typically without query ID or context.
    */
   @JsonProperty
   public Query<?> query;
+  
+  public RootNativeFragmentProfile() {
+    super(QUERY_TYPE);
+  }
   
   public static boolean isSameQueryType(Query<?> query1, Query<?> query2) {
     if (query1 == null && query2 == null) {

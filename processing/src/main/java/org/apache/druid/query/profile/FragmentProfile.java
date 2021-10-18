@@ -1,8 +1,5 @@
 package org.apache.druid.query.profile;
 
-import javax.annotation.Nullable;
-
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;

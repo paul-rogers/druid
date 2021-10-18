@@ -26,6 +26,8 @@ import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.profile.LimitProfile;
+import org.apache.druid.query.profile.MergeProfile;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -112,10 +114,13 @@ public class ScanQueryLimitRowIteratorTest
                             .context(ImmutableMap.of(ScanQuery.CTX_KEY_OUTERMOST, false))
                             .build();
     QueryPlus<ScanResultValue> queryPlus = QueryPlus.wrap(query);
+    LimitProfile limitProfile = new LimitProfile();
+    limitProfile.child = new MergeProfile();
     ScanQueryLimitRowIterator itr = new ScanQueryLimitRowIterator(
         ((queryInput, responseContext) -> Sequences.simple(multiEventScanResultValues)),
         queryPlus,
-        ResponseContext.createEmpty()
+        ResponseContext.createEmpty(),
+        limitProfile
     );
 
     int count = 0;
@@ -134,6 +139,12 @@ public class ScanQueryLimitRowIteratorTest
       count += events.size();
     }
     Assert.assertEquals(expectedNumRows, count);
+    Assert.assertEquals(expectedNumRows, limitProfile.rows);
+    // Batches will be equal to, or one greater than the expected count
+    // Depending on where the limit falls.
+    int expectedBatchCount = (expectedNumRows + batchSize - 1) / batchSize;
+    Assert.assertTrue(limitProfile.batches == expectedBatchCount ||
+                      limitProfile.batches == expectedBatchCount + 1);
   }
 
   /**
@@ -152,10 +163,13 @@ public class ScanQueryLimitRowIteratorTest
                             .resultFormat(RESULT_FORMAT)
                             .build();
     QueryPlus<ScanResultValue> queryPlus = QueryPlus.wrap(query);
+    LimitProfile limitProfile = new LimitProfile();
+    limitProfile.child = new MergeProfile();
     ScanQueryLimitRowIterator itr = new ScanQueryLimitRowIterator(
         ((queryInput, responseContext) -> Sequences.simple(singleEventScanResultValues)),
         queryPlus,
-        ResponseContext.createEmpty()
+        ResponseContext.createEmpty(),
+        limitProfile
     );
 
     int count = 0;
@@ -173,6 +187,8 @@ public class ScanQueryLimitRowIteratorTest
       count += events.size();
     }
     Assert.assertEquals(expectedNumRows, count);
+    Assert.assertEquals(expectedNumRows, limitProfile.rows);
+    Assert.assertEquals(expectedNumRows, limitProfile.batches);
   }
 
   /**
@@ -193,10 +209,13 @@ public class ScanQueryLimitRowIteratorTest
                             .build();
 
     QueryPlus<ScanResultValue> queryPlus = QueryPlus.wrap(query);
+    LimitProfile limitProfile = new LimitProfile();
+    limitProfile.child = new MergeProfile();
     ScanQueryLimitRowIterator itr = new ScanQueryLimitRowIterator(
         ((queryInput, responseContext) -> Sequences.simple(singleEventScanResultValues)),
         queryPlus,
-        ResponseContext.createEmpty()
+        ResponseContext.createEmpty(),
+        limitProfile
     );
 
     int count = 0;
@@ -208,5 +227,7 @@ public class ScanQueryLimitRowIteratorTest
       count += events.size();
     }
     Assert.assertEquals(expectedNumRows, count);
+    Assert.assertEquals(expectedNumRows, limitProfile.rows);
+    Assert.assertEquals(expectedNumRows, limitProfile.batches);
   }
 }

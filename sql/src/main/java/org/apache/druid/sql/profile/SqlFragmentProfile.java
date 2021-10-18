@@ -24,6 +24,8 @@ import org.apache.druid.query.profile.RootFragmentProfile;
 import org.apache.druid.sql.http.SqlQuery;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.annotation.JsonRawValue;
 
 /**
  * Represents the profile information for a SQL query. Here,
@@ -35,8 +37,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * native queries as fragments: because the native queries
  * are fragments, they do not get their own profiles.
  */
+@JsonPropertyOrder({"version", "type", "host", "service", "queryId",
+  "remoteAddress", "columns", "startTime", "timeNs", "cpuNs", "rows",
+  "query", "plan", "rootOperator"})
 public class SqlFragmentProfile extends RootFragmentProfile
 { 
+  public static final String QUERY_TYPE = "sql";
+  
   /**
    * Original SQL query received by the Broker.
    */
@@ -47,7 +54,12 @@ public class SqlFragmentProfile extends RootFragmentProfile
    * Query plan from Calcite: same as EXPLAIN PLAN FOR with JSON format.
    */
   @JsonProperty
+  @JsonRawValue
   public String plan;
+  
+  public SqlFragmentProfile() {
+    super(QUERY_TYPE);
+  }
   
   /**
    * Primarily for testing. Ensures that the scalar fields are equal,

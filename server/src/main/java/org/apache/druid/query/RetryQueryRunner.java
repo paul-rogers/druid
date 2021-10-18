@@ -161,7 +161,8 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
     }
 
     // TODO: the sender's response may contain a truncated list of missing segments.
-    // Check the TRUNCATED value: if true, then the we don't know the full set of
+    // Truncation is aggregated in the response context given as a parameter.
+    // Check the getTruncated() value: if true, then the we don't know the full set of
     // missing segments.
     final List<SegmentDescriptor> maybeMissingSegments = context.getMissingSegments();
     if (maybeMissingSegments == null) {

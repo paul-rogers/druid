@@ -30,6 +30,8 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.profile.LimitProfile;
+import org.apache.druid.query.profile.MergeProfile;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -54,21 +56,27 @@ public class ScanQueryLimitRowIterator implements CloseableIterator<ScanResultVa
   private Yielder<ScanResultValue> yielder;
   private ScanQuery.ResultFormat resultFormat;
   private long limit;
-  private long count = 0;
+  private long count;
   private ScanQuery query;
+  private LimitProfile profile;
 
   public ScanQueryLimitRowIterator(
       QueryRunner<ScanResultValue> baseRunner,
       QueryPlus<ScanResultValue> queryPlus,
-      ResponseContext responseContext
+      ResponseContext responseContext,
+      LimitProfile profile
   )
   {
     this.query = (ScanQuery) queryPlus.getQuery();
     this.resultFormat = query.getResultFormat();
     this.limit = query.getScanRowsLimit();
+    this.profile = profile;
+    responseContext.pushGroup();
     Query<ScanResultValue> historicalQuery =
         queryPlus.getQuery().withOverriddenContext(ImmutableMap.of(ScanQuery.CTX_KEY_OUTERMOST, false));
     Sequence<ScanResultValue> baseSequence = baseRunner.run(QueryPlus.wrap(historicalQuery), responseContext);
+    MergeProfile mergeProfile = (MergeProfile) profile.child;
+    mergeProfile.children = responseContext.popGroup();
     this.yielder = baseSequence.toYielder(
         null,
         new YieldingAccumulator<ScanResultValue, ScanResultValue>()
@@ -103,15 +111,18 @@ public class ScanQueryLimitRowIterator implements CloseableIterator<ScanResultVa
         !query.getContextBoolean(ScanQuery.CTX_KEY_OUTERMOST, true)) {
       ScanResultValue batch = yielder.get();
       List<?> events = (List<?>) batch.getEvents();
+      profile.batches++;
       if (events.size() <= limit - count) {
         count += events.size();
         yielder = yielder.next(null);
+        profile.rows += events.size();
         return batch;
       } else {
         // last batch
         // single batch length is <= Integer.MAX_VALUE, so this should not overflow
         int numLeft = (int) (limit - count);
         count = limit;
+        profile.rows += count;
         return new ScanResultValue(batch.getSegmentId(), batch.getColumns(), events.subList(0, numLeft));
       }
     } else {
@@ -127,6 +138,8 @@ public class ScanQueryLimitRowIterator implements CloseableIterator<ScanResultVa
         eventsToAdd.add(Iterables.getOnlyElement((List<Object>) srv.getEvents()));
         yielder = yielder.next(null);
         count++;
+        profile.batches++;
+        profile.rows++;
       }
       return new ScanResultValue(null, columns, eventsToAdd);
     }
