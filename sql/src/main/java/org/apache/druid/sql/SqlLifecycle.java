@@ -38,16 +38,18 @@ import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
 import org.apache.druid.query.MultiQueryMetricsCollector;
+import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.SingleQueryMetricsCollector;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.profile.NativeQueryProfile;
 import org.apache.druid.query.profile.ProfileConsumer;
 import org.apache.druid.query.profile.RootFragmentProfile;
-import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryResponse;
+import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.QueryStats;
 import org.apache.druid.server.RequestLogLine;
 import org.apache.druid.server.log.RequestLogger;
@@ -98,7 +100,7 @@ import java.util.stream.Collectors;
 public class SqlLifecycle
 {
   private static final Logger log = new Logger(SqlLifecycle.class);
-  
+
   /**
    * Gathers query-level statistics then distributes them to the metrics system,
    * logs, response trailer and query profile.
@@ -115,7 +117,7 @@ public class SqlLifecycle
     ResponseContext responseContext;
     RootFragmentProfile fragmentProfile;
     Throwable e;
-    
+
     /**
      * Called by the query resource to provide the host on which this query is
      * running, and the remote address that sent the request.
@@ -127,12 +129,12 @@ public class SqlLifecycle
       this.queryId = sqlQueryId;
       this.receivedQuery = query;
     }
-    
+
     public void setResponseContext(ResponseContext responseContext)
     {
       this.responseContext = responseContext;
     }
-    
+
     /**
      * Partial completion: results written, about to emit the trailer.
      * Tally run time and bytes written up to now. Final result will
@@ -144,7 +146,7 @@ public class SqlLifecycle
       this.bytesWritten = bytesWritten;
       this.endTimeNs = System.nanoTime();
     }
-    
+
     /**
      * Final completion: all results sent, including the possible
      * trailer.
@@ -155,21 +157,22 @@ public class SqlLifecycle
       this.bytesWritten = bytesWritten;
       this.endTimeNs = System.nanoTime();
     }
-    
+
     public long runTimeNs()
     {
       return endTimeNs - startNs;
     }
-    
-    public long runTimeMs() {
+
+    public long runTimeMs()
+    {
       return TimeUnit.NANOSECONDS.toMillis(runTimeNs());
     }
-        
+
     public boolean succeeded()
     {
       return e == null;
     }
-    
+
     public boolean wasInterrupted()
     {
       if (e == null) {
@@ -177,12 +180,13 @@ public class SqlLifecycle
       }
       return (e instanceof QueryInterruptedException || e instanceof QueryTimeoutException);
     }
-    
+
     /**
      * Create the response trailer, if requested. Includes the query profile as well
      * as various other trailer fields.
      */
-    public void trailer() {
+    public void trailer()
+    {
       responseContext.add(
           ResponseContext.Keys.METRICS,
           MultiQueryMetricsCollector.newCollector().add(
@@ -192,14 +196,14 @@ public class SqlLifecycle
                   // TODO(gianm): Docs that this is not the same as query/time
                   .setQueryMs(runTimeMs())
                   .setResultRows(rowCount)
-                  )
-          );
-      
+          )
+      );
+
       if (!plannerResult.isExplain()) {
         responseContext.add(ResponseContext.Keys.PROFILE, getProfile());
       }
     }
-    
+
     /**
      * Emit final metrics for the query.
      */
@@ -221,9 +225,9 @@ public class SqlLifecycle
       emitter.emit(metricBuilder.build("sqlQuery/time", TimeUnit.NANOSECONDS.toMillis(runTimeNs())));
       if (bytesWritten >= 0) {
         emitter.emit(metricBuilder.build("sqlQuery/bytes", bytesWritten));
-      }      
+      }
     }
-    
+
     public QueryStats queryStats()
     {
       final Map<String, Object> statsMap = new LinkedHashMap<>();
@@ -245,18 +249,12 @@ public class SqlLifecycle
       }
       return new QueryStats(statsMap);
     }
-    
+
     private RootFragmentProfile getProfile()
     {
       if (fragmentProfile != null) {
         return fragmentProfile;
       }
-      ArrayList<String> cols = null;
-//      Set<String> reqCols = baseQuery.getRequiredColumns();
-//      if (reqCols != null) {
-//        cols = new ArrayList<>();
-//        cols.addAll(reqCols);
-//      }
       SqlFragmentProfile profile = new SqlFragmentProfile();
       profile.host = node.getHostAndPort();
       profile.service = node.getServiceName();
@@ -264,7 +262,6 @@ public class SqlLifecycle
       profile.query = receivedQuery;
       profile.queryId = queryId;
       profile.plan = RelOptUtil.dumpPlan("", plannerResult.getPlan(), SqlExplainFormat.JSON, SqlExplainLevel.EXPPLAN_ATTRIBUTES);
-      profile.columns = cols;
       profile.startTime = getStartMs();
       profile.timeNs = runTimeNs();
       profile.cpuNs = responseContext.getCpuNanos();
@@ -275,10 +272,22 @@ public class SqlLifecycle
       } else if (!succeeded()) {
         profile.error = e.getMessage();
       }
+
+      // Capture the referenced columns to the top level fragment.
+      // The root operator really should be a native query profile, but we're
+      // playing it safe for the moment.
+      if (profile.rootOperator instanceof NativeQueryProfile) {
+        Query<?> nativeQuery = ((NativeQueryProfile) profile.rootOperator).query;
+        Set<String> reqCols = nativeQuery.getRequiredColumns();
+        if (reqCols != null) {
+          profile.columns = new ArrayList<>();
+          profile.columns.addAll(reqCols);
+        }
+      }
       fragmentProfile = profile;
       return fragmentProfile;
     }
-    
+
     public void writeProfile(ProfileConsumer profileConsumer)
     {
       if (!plannerResult.isExplain()) {
@@ -286,7 +295,7 @@ public class SqlLifecycle
       }
     }
   }
-  
+
   private final PlannerFactory plannerFactory;
   private final ServiceEmitter emitter;
   private final RequestLogger requestLogger;
@@ -331,8 +340,12 @@ public class SqlLifecycle
     this.parameters = Collections.emptyList();
     this.stats = new LifecycleStats();
   }
-  
-  public LifecycleStats stats() {
+
+  /**
+   * Returns the statistics gatherer and reporter for this lifecycle.
+   */
+  public LifecycleStats stats()
+  {
     return stats;
   }
 

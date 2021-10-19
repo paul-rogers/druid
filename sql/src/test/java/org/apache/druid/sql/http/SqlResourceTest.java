@@ -143,7 +143,7 @@ public class SqlResourceTest extends CalciteTestBase
       true,
       false
   );
-  
+
   @BeforeClass
   public static void setUpClass()
   {
@@ -1424,7 +1424,7 @@ public class SqlResourceTest extends CalciteTestBase
           return super.execute().map(sequenceMapFn);
         }
       } else {
-    	  return super.execute().map(sequenceMapFn);
+        return super.execute().map(sequenceMapFn);
       }
     }
   }

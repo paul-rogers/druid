@@ -20,9 +20,7 @@
 package org.apache.druid.sql.calcite.planner;
 
 import com.google.common.base.Supplier;
-
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.druid.server.QueryResponse;
@@ -70,12 +68,12 @@ public class PlannerResult
   {
     return rowType;
   }
-  
+
   public RelNode getPlan()
   {
     return root;
   }
-  
+
   public boolean isExplain()
   {
     return explain != null;

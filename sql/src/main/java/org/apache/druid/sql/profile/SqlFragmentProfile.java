@@ -19,13 +19,12 @@
 
 package org.apache.druid.sql.profile;
 
-import org.apache.curator.shaded.com.google.common.base.Objects;
-import org.apache.druid.query.profile.RootFragmentProfile;
-import org.apache.druid.sql.http.SqlQuery;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonRawValue;
+import org.apache.curator.shaded.com.google.common.base.Objects;
+import org.apache.druid.query.profile.RootFragmentProfile;
+import org.apache.druid.sql.http.SqlQuery;
 
 /**
  * Represents the profile information for a SQL query. Here,
@@ -38,29 +37,30 @@ import com.fasterxml.jackson.annotation.JsonRawValue;
  * are fragments, they do not get their own profiles.
  */
 @JsonPropertyOrder({"version", "type", "host", "service", "queryId",
-  "remoteAddress", "columns", "startTime", "timeNs", "cpuNs", "rows",
-  "query", "plan", "rootOperator"})
+    "remoteAddress", "columns", "startTime", "timeNs", "cpuNs", "rows",
+    "query", "plan", "rootOperator"})
 public class SqlFragmentProfile extends RootFragmentProfile
-{ 
+{
   public static final String QUERY_TYPE = "sql";
-  
+
   /**
    * Original SQL query received by the Broker.
    */
   @JsonProperty
   public SqlQuery query;
-  
+
   /**
    * Query plan from Calcite: same as EXPLAIN PLAN FOR with JSON format.
    */
   @JsonProperty
   @JsonRawValue
   public String plan;
-  
-  public SqlFragmentProfile() {
+
+  public SqlFragmentProfile()
+  {
     super(QUERY_TYPE);
   }
-  
+
   /**
    * Primarily for testing. Ensures that the scalar fields are equal,
    * does not do a deep compare of operators.
@@ -75,9 +75,10 @@ public class SqlFragmentProfile extends RootFragmentProfile
     return Objects.equal(query, other.query) &&
            Objects.equal(plan, other.plan);
   }
-  
+
   @Override
-  public String toString() {
+  public String toString()
+  {
     return toStringHelper()
         .add("query", query)
         .add("pan", plan)

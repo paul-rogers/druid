@@ -30,8 +30,8 @@ import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.emitter.service.ServiceEventBuilder;
 import org.apache.druid.query.QueryContexts;
-import org.apache.druid.server.QueryStackTests;
 import org.apache.druid.server.QueryResponse;
+import org.apache.druid.server.QueryStackTests;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthConfig;
@@ -49,6 +49,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import javax.servlet.http.HttpServletRequest;
+
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;

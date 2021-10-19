@@ -39,13 +39,13 @@ import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.ResourceLimitExceededException;
-import org.apache.druid.server.security.Access;
-import org.apache.druid.server.security.AuthorizationUtils;
-import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.profile.ProfileConsumer;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryResponse;
+import org.apache.druid.server.security.Access;
+import org.apache.druid.server.security.AuthorizationUtils;
+import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.sql.SqlLifecycle;
@@ -68,6 +68,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.StreamingOutput;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
@@ -126,7 +127,7 @@ public class SqlResource
       lifecycle.validateAndAuthorize(req);
       // must add after lifecycle is authorized
       sqlLifecycleManager.add(sqlQueryId, lifecycle);
-      
+
       lifecycle.plan();
 
       final SqlRowTransformer rowTransformer = lifecycle.createRowTransformer();
