@@ -19,10 +19,9 @@
 
 package org.apache.druid.query.profile;
 
-import java.util.Map;
-
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Map;
 
 /**
  * Operator profile node for a receiver: an operator which issues a
@@ -46,25 +45,25 @@ public class ReceiverProfile extends OperatorProfile
 {
   // Uses the Druid-style scatter/gather terminology.
   public static final String TYPE = "gather";
-  
+
   /**
    * The host to which the partial query was sent.
    */
   @JsonProperty
   public final String host;
-  
+
   /**
    * The URL used to send the partial query.
    */
   @JsonProperty
   public final String url;
-  
+
   /**
    * Whether the partial query succeeded or failed.
    */
   @JsonProperty
   public boolean succeeded;
-  
+
   /**
    * If the query failed, the error message provided for the
    * failure.
@@ -72,14 +71,14 @@ public class ReceiverProfile extends OperatorProfile
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public String error;
-  
+
   /**
    * The time, in ns., that the receiver waited until it received the first byte from
    * the data node. This is the same as the "ttbf" metric which Druid supports.
    */
   @JsonProperty
   public long firstByteNs;
-  
+
   /**
    * If back-pressure is enabled, and the receiver invoked back-pressure, the
    * time, in ns., that the sender was asked to wait for the receiver.
@@ -87,33 +86,33 @@ public class ReceiverProfile extends OperatorProfile
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public long backPressureNs;
-  
+
   /**
    * The number of rows received from the sender.
-   * 
+   *
    * @See the note in {@link ChildFragmentProfile#rows} for caveats.
    */
   @JsonProperty
   public long rows;
-  
+
   /**
    * The number of bytes received from the sender.
    */
   @JsonProperty
   public long bytes;
-  
+
   /**
    * The response context returned from the data node.
    */
   @JsonProperty
   public Map<String, Object> response;
-  
+
   /**
    * The fragment profile provided by the data node.
    */
   @JsonProperty
   public Map<String, Object> fragment;
-  
+
   public ReceiverProfile(String host, String url)
   {
     this.host = host;

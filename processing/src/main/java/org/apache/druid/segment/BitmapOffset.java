@@ -213,7 +213,8 @@ public class BitmapOffset extends Offset
   }
   
   @Override
-  public int getBaseCount() {
+  public int getBaseCount()
+  {
     return counter;
   }
 

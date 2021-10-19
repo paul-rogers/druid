@@ -146,7 +146,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
     QueryToolChest<T, Query<T>> toolChest = warehouse.getToolChest(query);
     boolean isBySegment = QueryContexts.isBySegment(query);
     final JavaType queryResultType = isBySegment ? toolChest.getBySegmentResultType() : toolChest.getBaseResultType();
-    
+
     final ListenableFuture<InputStream> future;
     final String url = scheme + "://" + host + "/druid/v2/";
     final String cancelUrl = url + query.getId();
@@ -542,12 +542,6 @@ public class DirectDruidClient<T> implements QueryRunner<T>
             }
 
             if (iterFromMake.isSuccess()) {
-//              Map<String, Object> childResponseContext = iterFromMake.responseContext();
-//              profile.response = childResponseContext;
-//              if (childResponseContext != null) {
-//                context.merge(objectMapper.convertValue(iterFromMake.responseContext(), ResponseContext.class));
-//              }
-
               final QueryMetrics<? super Query<T>> queryMetrics = toolChest.makeMetrics(query);
               queryMetrics.reportNodeRows(iterFromMake.getResultRows());
               queryMetrics.emit(emitter, context);

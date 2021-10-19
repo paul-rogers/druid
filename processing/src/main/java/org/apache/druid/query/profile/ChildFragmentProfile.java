@@ -19,22 +19,21 @@
 
 package org.apache.druid.query.profile;
 
-import java.util.List;
-import java.util.Map;
-
-import org.apache.druid.query.Query;
-import org.joda.time.Interval;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.google.common.base.Objects;
+import org.apache.druid.query.Query;
+import org.joda.time.Interval;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * Fragment that represents a sub-query: a query submitted by another
  * Druid node.
  */
 @JsonPropertyOrder({"host", "service",
-  "columns", "rows", "startTime", "timeNs", "cpuNs", "query", "rootOperator"})
+    "columns", "rows", "startTime", "timeNs", "cpuNs", "query", "rootOperator"})
 public class ChildFragmentProfile extends FragmentProfile
 {
   /**
@@ -48,29 +47,31 @@ public class ChildFragmentProfile extends FragmentProfile
     List<Interval> intervals;
     @JsonProperty
     Map<String, Object> context;
-    
-    public StubQuery(Query<?> query) {
+
+    public StubQuery(Query<?> query)
+    {
       this.intervals = query.getIntervals();
       this.context = query.getContext();
     }
-    
+
     @Override
-    public String toString() {
+    public String toString()
+    {
       return Objects.toStringHelper(this)
           .add("intervals", intervals)
           .add("context", context)
           .toString();
     }
   }
-  
+
   @JsonProperty
   public final StubQuery query;
-  
+
   public ChildFragmentProfile(Query<?> query)
   {
     this.query = new StubQuery(query);
   }
-  
+
   /**
    * Primarily for testing. Ensures that the scalar fields are equal,
    * does not do a deep compare of operators.
@@ -84,12 +85,12 @@ public class ChildFragmentProfile extends FragmentProfile
     if (!super.equals(o)) {
       return false;
     }
-    //FragmentProfile other = (FragmentProfile) o;
     return true;
   }
-  
+
   @Override
-  public String toString() {
+  public String toString()
+  {
     return Objects.toStringHelper(this)
         .add("query", query)
         .toString();

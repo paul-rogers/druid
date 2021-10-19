@@ -64,7 +64,8 @@ public abstract class Offset implements ReadableOffset, Cloneable
     return 0;
   }
   
-  public int getBaseCount() {
+  public int getBaseCount()
+  {
     return 0;
   }
 

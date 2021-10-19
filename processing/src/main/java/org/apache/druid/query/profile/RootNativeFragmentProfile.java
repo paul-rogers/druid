@@ -19,42 +19,43 @@
 
 package org.apache.druid.query.profile;
 
-import org.apache.druid.query.Query;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import org.apache.druid.query.Query;
 
 /**
  * Root fragment (top-level query) for a native query, whether received
  * by the Broker or a data node.
  */
 @JsonPropertyOrder({"version", "type", "host", "service", "queryId", "remoteAddress",
-  "columns", "startTime", "timeNs", "cpuNs", "rows", "query", "rootOperator"})
+    "columns", "startTime", "timeNs", "cpuNs", "rows", "query", "rootOperator"})
 public class RootNativeFragmentProfile extends RootFragmentProfile
 {
   public static final String QUERY_TYPE = "native";
-  
+
   /**
    * Original, unrewritten native query as received by the host,
    * typically without query ID or context.
    */
   @JsonProperty
   public Query<?> query;
-  
-  public RootNativeFragmentProfile() {
+
+  public RootNativeFragmentProfile()
+  {
     super(QUERY_TYPE);
   }
-  
-  public static boolean isSameQueryType(Query<?> query1, Query<?> query2) {
+
+  public static boolean isSameQueryType(Query<?> query1, Query<?> query2)
+  {
     if (query1 == null && query2 == null) {
       return true;
     }
     if (query1 == null || query2 == null) {
       return false;
     }
-    return query1.getClass() == query2.getClass() ;
+    return query1.getClass() == query2.getClass();
   }
-  
+
   /**
    * Primarily for testing. Ensures that the scalar fields are equal,
    * does not do a deep compare of operators.
@@ -69,9 +70,10 @@ public class RootNativeFragmentProfile extends RootFragmentProfile
     // Used only for testing: checking the type is sufficient
     return isSameQueryType(query, other.query);
   }
-  
+
   @Override
-  public String toString() {
+  public String toString()
+  {
     return toStringHelper()
         .add("query", query)
         .toString();

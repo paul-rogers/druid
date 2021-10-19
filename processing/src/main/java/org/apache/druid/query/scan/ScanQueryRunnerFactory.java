@@ -109,14 +109,14 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
 
       if (query.getOrder().equals(ScanQuery.Order.NONE)) {
         // Use normal strategy
-        
+
         // We need to gather the profiles from the child runners, which
         // we do by grabbing the list of child profiles from the response context
         // at the completion of the iteration over the sequence of query runners.
         // There is no real run time for this runner since all it does is set
         // up a sequence and return.
         profile.strategy = ScanQueryProfile.CONCAT_STRATEGY;
-        BaseSequence.IteratorMaker<QueryRunner<ScanResultValue>, Iterator<QueryRunner<ScanResultValue>>> runnerIter = 
+        BaseSequence.IteratorMaker<QueryRunner<ScanResultValue>, Iterator<QueryRunner<ScanResultValue>>> runnerIter =
             new BaseSequence.IteratorMaker<QueryRunner<ScanResultValue>, Iterator<QueryRunner<ScanResultValue>>>()
         {
           @Override
@@ -140,7 +140,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
         Sequence<ScanResultValue> returnedRows = Sequences.concat(
             Sequences.map(
                 new BaseSequence<>(runnerIter),
-                input ->input.run(queryPlus, responseContext)
+                input -> input.run(queryPlus, responseContext)
             )
         );
         if (query.getScanRowsLimit() <= Integer.MAX_VALUE) {

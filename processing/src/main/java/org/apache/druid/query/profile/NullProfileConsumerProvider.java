@@ -28,10 +28,10 @@ import org.apache.druid.query.profile.ProfileConsumer.ProfileConsumerStub;
 @JsonTypeName(NullProfileConsumerProvider.TYPE_NAME)
 public class NullProfileConsumerProvider implements ProfileConsumerProvider
 {
-  public  static final String TYPE_NAME = "null";
-  
+  public static final String TYPE_NAME = "null";
+
   private static final ProfileConsumer INSTANCE = new ProfileConsumerStub();
-  
+
   @Override
   public ProfileConsumer get()
   {

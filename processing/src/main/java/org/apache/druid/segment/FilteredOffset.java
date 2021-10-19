@@ -99,9 +99,10 @@ public final class FilteredOffset extends Offset
   {
     return counter;
   }
-  
+
   @Override
-  public int getBaseCount() {
+  public int getBaseCount()
+  {
     return baseOffset.getCount();
   }
 

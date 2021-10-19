@@ -89,7 +89,7 @@ import java.util.concurrent.TimeUnit;
 public class QueryLifecycle
 {
   private static final Logger log = new Logger(QueryLifecycle.class);
-  
+
   /**
    * Gathers query-level statistics then distributes them to the metrics system,
    * logs, response trailer and query profile.
@@ -105,7 +105,7 @@ public class QueryLifecycle
     ResponseContext responseContext;
     FragmentProfile fragmentProfile;
     Throwable e;
- 
+
     /**
      * Called by the query resource to provide the host on which this query is
      * running, and the remote address that sent the request.
@@ -116,7 +116,7 @@ public class QueryLifecycle
       this.remoteAddress = remoteAddress;
       this.receivedQuery = receivedQuery;
     }
-    
+
     /**
      * Partial completion: results written, about to emit the trailer.
      * Tally run time and bytes written up to now. Final result will
@@ -128,12 +128,12 @@ public class QueryLifecycle
       this.bytesWritten = bytesWritten;
       this.endTimeNs = System.nanoTime();
     }
-    
+
     public void setResponseContext(ResponseContext responseContext)
     {
       this.responseContext = responseContext;
     }
-    
+
     /**
      * Final completion: all results sent, including the possible
      * trailer.
@@ -144,30 +144,32 @@ public class QueryLifecycle
       this.bytesWritten = bytesWritten;
       this.endTimeNs = System.nanoTime();
     }
-    
-    public String queryId() {
+
+    public String queryId()
+    {
       return baseQuery.getId();
     }
-    
+
     public long runTimeNs()
     {
       return endTimeNs - startNs;
     }
-    
-    public long runTimeMs() {
+
+    public long runTimeMs()
+    {
       return TimeUnit.NANOSECONDS.toMillis(runTimeNs());
     }
-    
+
     public boolean succeeded()
     {
       return e == null;
     }
-    
+
     public String identity()
     {
       return authenticationResult == null ? null : authenticationResult.getIdentity();
     }
-    
+
     public boolean wasInterrupted()
     {
       if (e == null) {
@@ -175,7 +177,7 @@ public class QueryLifecycle
       }
       return (e instanceof QueryInterruptedException || e instanceof QueryTimeoutException);
     }
-    
+
     /**
      * Emit final metrics for the query.
      */
@@ -200,7 +202,7 @@ public class QueryLifecycle
         queryMetrics.identity(identify);
       }
     }
-    
+
     public QueryStats queryStats()
     {
       final Map<String, Object> statsMap = new LinkedHashMap<>();
@@ -228,12 +230,13 @@ public class QueryLifecycle
       }
       return new QueryStats(statsMap);
     }
-    
+
     /**
      * Create the response trailer, if requested. Includes the query profile as well
      * as various other trailer fields.
      */
-    public void trailer() {
+    public void trailer()
+    {
       responseContext.add(
           ResponseContext.Keys.METRICS,
           MultiQueryMetricsCollector.newCollector().add(
@@ -242,12 +245,12 @@ public class QueryLifecycle
                   .setQueryStart(getStartMs())
                   .setQueryMs(runTimeMs())
                   .setResultRows(rowCount)
-                  )
-          );
-      
+          )
+      );
+
       responseContext.add(ResponseContext.Keys.PROFILE, getProfile());
     }
-    
+
     /**
      * Infer if this received query came from a client or Druid. Only a client query
      * will have no context. Sometimes the client will set the query ID, (example, the
@@ -266,8 +269,8 @@ public class QueryLifecycle
       }
       return context.containsKey(BaseQuery.QUERY_ID);
     }
-    
-   public FragmentProfile getProfile()
+
+    public FragmentProfile getProfile()
     {
       if (fragmentProfile != null) {
         return fragmentProfile;
@@ -283,12 +286,13 @@ public class QueryLifecycle
       }
       return fragmentProfile;
     }
-    
+
     /**
      * Profile for a native query submitted by the client. Includes the remote
      * address and full query.
      */
-    private FragmentProfile makeRootFragmentProfile() {
+    private FragmentProfile makeRootFragmentProfile()
+    {
       ArrayList<String> cols = null;
       Set<String> reqCols = baseQuery.getRequiredColumns();
       if (reqCols != null) {
@@ -303,17 +307,18 @@ public class QueryLifecycle
       profile.columns = cols;
       return profile;
     }
-    
+
     /**
      * Child fragment profile for a query submitted by another Druid node. This
      * fragment will be combined into the parent's root node.
      */
-    private FragmentProfile makeChildFragmentProfile() {
+    private FragmentProfile makeChildFragmentProfile()
+    {
       ChildFragmentProfile profile = new ChildFragmentProfile(receivedQuery);
       fillFragmentProfile(profile);
       return profile;
     }
-    
+
     private void fillFragmentProfile(FragmentProfile profile)
     {
       profile.host = node.getHostAndPort();
@@ -378,8 +383,9 @@ public class QueryLifecycle
     this.startNs = startNs;
     this.stats = new LifecycleStats();
   }
-  
-  public LifecycleStats stats() {
+
+  public LifecycleStats stats()
+  {
     return stats;
   }
 

@@ -24,7 +24,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
-import org.apache.druid.java.util.common.NonnullPair;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext.CounterKey;
@@ -39,9 +38,7 @@ import org.junit.Test;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class ResponseContextTest
 {
@@ -58,7 +55,7 @@ public class ResponseContextTest
         EXTN_COUNTER_KEY
     });
   }
-  
+
   static final Key UNREGISTERED_KEY = new StringKey(
       "unregistered-key", Visibility.HEADER_AND_TRAILER, true);
 
@@ -89,11 +86,11 @@ public class ResponseContextTest
     ctx.putEntityTag("new-dummy-etag");
     Assert.assertEquals("new-dummy-etag", ctx.getEntityTag());
   }
-  
+
   private static final Interval INTERVAL_01 = Intervals.of("2019-01-01/P1D");
   private static final Interval INTERVAL_12 = Intervals.of("2019-01-02/P1D");
   private static final Interval INTERVAL_23 = Intervals.of("2019-01-03/P1D");
-  
+
   @Test
   public void mergeUncoveredIntervalsTest()
   {
@@ -109,7 +106,7 @@ public class ResponseContextTest
         ctx.getUncoveredIntervals().toArray()
     );
   }
-  
+
   @Test
   public void mergeRemainingResponseTest()
   {
@@ -126,7 +123,7 @@ public class ResponseContextTest
         ctx.get(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS)
     );
   }
-  
+
   @Test
   public void mergeMissingSegmentsTest()
   {
@@ -145,7 +142,7 @@ public class ResponseContextTest
         ctx.getMissingSegments().toArray()
     );
   }
-  
+
   @Test
   public void initScannedRowsTest()
   {
@@ -154,7 +151,7 @@ public class ResponseContextTest
     ctx.initializeRowScanCount();
     Assert.assertEquals((Long) 0L, ctx.getRowScanCount());
   }
-  
+
   @Test
   public void mergeScannedRowsTest()
   {
@@ -167,7 +164,7 @@ public class ResponseContextTest
     ctx.addRowScanCount(3L);
     Assert.assertEquals((Long) 4L, ctx.getRowScanCount());
   }
-  
+
   @Test
   public void mergeUncoveredIntervalsOverflowedTest()
   {
@@ -274,10 +271,10 @@ public class ResponseContextTest
   {
     return Intervals.of(StringUtils.format("2021-01-%02d/PT1M", n));
   }
-  
+
   // Length of above with quotes and comma.
-  private static final int INTERVAL_LEN = 52; 
-  
+  private static final int INTERVAL_LEN = 52;
+
   @Test
   public void serializeWithTruncateArrayTest() throws IOException
   {
@@ -360,9 +357,10 @@ public class ResponseContextTest
     Assert.assertEquals("string-value", ctxFinal.get(EXTN_STRING_KEY));
     Assert.assertEquals(1L + 2L, ctxFinal.get(EXTN_COUNTER_KEY));
   }
-  
+
   @Test
-  public void toMapTest() {
+  public void toMapTest()
+  {
     final ResponseContext ctx = ResponseContext.createEmpty();
     ctx.putEntityTag("etag");
     Map<String, Object> map = ctx.toMap();

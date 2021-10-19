@@ -476,7 +476,8 @@ public class QueryableIndexCursorSequenceBuilder
     }
     
     @Override
-    public void close() {
+    public void close()
+    {
       profile.preFilterRows = cursorOffset.getBaseCount();
       profile.postFilterRows = cursorOffset.getCount();
     }
@@ -534,7 +535,8 @@ public class QueryableIndexCursorSequenceBuilder
       return counter;
     }
     
-    public int getBaseCount() {
+    public int getBaseCount()
+    {
       return baseOffset.getCount();
     }
 

@@ -19,18 +19,18 @@
 
 package org.apache.druid.query.profile;
 
-import org.apache.druid.timeline.SegmentId;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.druid.timeline.SegmentId;
 
 public class SegmentMetadataScanProfile extends OperatorProfile
 {
   public static final String TYPE = "segment-metadata";
-  
+
   @JsonProperty
   public final SegmentId segment;
-  
-  public SegmentMetadataScanProfile(SegmentId segment) {
+
+  public SegmentMetadataScanProfile(SegmentId segment)
+  {
     this.segment = segment;
   }
 }

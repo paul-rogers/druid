@@ -62,7 +62,7 @@ import java.util.stream.Collectors;
  * the <code>Keys</code> registry. Keys are indexed by key instance, not by name. The
  * key defines the type of the associated value, including logic to merge values and
  * to deserialize JSON values for that key.
- * 
+ *
  * <h4>Structure</h4>
  * The context has evolved to perform multiple tasks. First, it holds three kinds
  * of information:
@@ -80,19 +80,19 @@ import java.util.stream.Collectors;
  * internal information, the internal information also needs keys, though these
  * are never serialized.</li>
  * <li>Gathers information for the query as a whole, or for each segment within
- * a query. That is, it gathers information at the lowest-level where that 
+ * a query. That is, it gathers information at the lowest-level where that
  * information is available.</li>
  * <li>Merges information back up the tree: from multiple segments, from multiple
  * servers, etc.</li>
  * <li>Manages headers size by dropping fields when the header would get too
  * large.</li>
  * </ul>
- * 
+ *
  * A result is that the information the context may be incomplete if some of it
  * was previously dropped.
- * 
+ *
  * <h4>API</h4>
- * 
+ *
  * The query profile needs to obtain the full, untruncated information. To do this
  * it piggy-backs on the set operations to obtain the full value. To ensure this
  * is possible, code that works with standard values should call the <code>set</code>
@@ -101,9 +101,9 @@ import java.util.stream.Collectors;
  * <p>
  * Extensions define additional keys. In this case, those marked as <code>TRAILER</code>
  * are added to the extensions area in the profile object.
- * 
+ *
  * <h4>Query Profile</h4>
- * 
+ *
  * This class holds a slice (sub-query) profile that contains fragments (a sub-query
  * which ran on a specific node) which contains operators. When merging fragment, each
  * becomes a separate entry within the slice, keyed by node. When running a sub-query,
@@ -145,7 +145,7 @@ public abstract class ResponseContext
      * This method may modify "oldValue" but must not modify "newValue".
      */
     Object mergeValues(Object oldValue, Object newValue);
-    
+
     /**
      * Returns true if this key can be removed to reduce header size when the
      * header would otherwise be too large.
@@ -153,7 +153,7 @@ public abstract class ResponseContext
     @JsonIgnore
     boolean canDrop();
   }
-  
+
   /**
    * Where the key is emitted, if at all. Values in the context can be for internal
    * use only: for return before the query results (header) or only after query
@@ -177,7 +177,7 @@ public abstract class ResponseContext
      */
     NONE
   }
-  
+
   /**
    * Abstract key class which provides most functionality except the
    * type-specific merge logic. Parsing is provided by an associated
@@ -231,7 +231,7 @@ public abstract class ResponseContext
     {
       return visibility;
     }
-    
+
     @Override
     public boolean canDrop()
     {
@@ -243,14 +243,14 @@ public abstract class ResponseContext
     {
       return parseFunction.apply(jp);
     }
-    
+
     @Override
     public String toString()
     {
       return name;
     }
   }
-  
+
   /**
    * String valued attribute that holds the latest value assigned.
    */
@@ -265,9 +265,9 @@ public abstract class ResponseContext
     public Object mergeValues(Object oldValue, Object newValue)
     {
       return newValue;
-    }    
+    }
   }
-  
+
   /**
    * Boolean valued attribute with the semantics that once the flag is
    * set true, it stays true.
@@ -283,9 +283,9 @@ public abstract class ResponseContext
     public Object mergeValues(Object oldValue, Object newValue)
     {
       return (boolean) oldValue || (boolean) newValue;
-    }    
+    }
   }
-  
+
   /**
    * Long valued attribute that holds the latest value assigned.
    */
@@ -300,9 +300,9 @@ public abstract class ResponseContext
     public Object mergeValues(Object oldValue, Object newValue)
     {
       return newValue;
-    }    
+    }
   }
-  
+
   /**
    * Long valued attribute that holds the accumulation of values assigned.
    */
@@ -323,7 +323,7 @@ public abstract class ResponseContext
         return oldValue;
       }
       return (Long) oldValue + (Long) newValue;
-    }    
+    }
   }
 
   /**
@@ -374,14 +374,14 @@ public abstract class ResponseContext
         return result;
       }
     };
-    
+
     /**
      * Indicates if the number of uncovered intervals exceeded the limit (true/false).
      */
     public static Key UNCOVERED_INTERVALS_OVERFLOWED = new BooleanKey(
         "uncoveredIntervalsOverflowed",
         Visibility.HEADER_AND_TRAILER);
-    
+
     /**
      * Map of most relevant query ID to remaining number of responses from query nodes.
      * The value is initialized in {@code CachingClusteredClient} when it initializes the connection to the query nodes,
@@ -411,7 +411,7 @@ public abstract class ResponseContext
         return map;
       }
     };
-    
+
     /**
      * Lists missing segments.
      */
@@ -429,13 +429,13 @@ public abstract class ResponseContext
         return result;
       }
     };
-    
+
     /**
      * Entity tag. A part of HTTP cache validation mechanism.
      * Is being removed from the context before sending and used as a separate HTTP header.
      */
     public static Key ETAG = new StringKey("ETag", Visibility.NONE, true);
-    
+
     /**
      * Query total bytes gathered.
      */
@@ -450,7 +450,7 @@ public abstract class ResponseContext
         return ((AtomicLong) newValue).addAndGet(((AtomicLong) newValue).get());
       }
     };
-    
+
     /**
      * This variable indicates when a running query should be expired,
      * and is effective only when 'timeout' of queryContext has a positive value.
@@ -460,7 +460,7 @@ public abstract class ResponseContext
     public static Key TIMEOUT_AT = new LongKey(
         "timeoutAt",
         Visibility.NONE);
-    
+
     /**
      * The number of rows scanned by {@link org.apache.druid.query.scan.ScanQueryEngine}.
      *
@@ -470,7 +470,7 @@ public abstract class ResponseContext
     public static Key NUM_SCANNED_ROWS = new CounterKey(
         "count",
         Visibility.NONE);
-    
+
     /**
      * The total CPU time for threads related to Sequence processing of the query.
      * Resulting value on a Broker is a sum of downstream values from historicals / realtime nodes.
@@ -479,14 +479,14 @@ public abstract class ResponseContext
     public static Key CPU_CONSUMED_NANOS = new CounterKey(
         "cpuConsumed",
         Visibility.TRAILER);
-    
+
     /**
      * Indicates if a {@link ResponseContext} was truncated during serialization.
      */
     public static Key TRUNCATED = new BooleanKey(
         "truncated",
         Visibility.HEADER_AND_TRAILER);
-    
+
     /**
      * TODO(gianm): Javadocs.
      */
@@ -502,7 +502,7 @@ public abstract class ResponseContext
         return currentCollector.addAll((MultiQueryMetricsCollector) newValue);
       }
     };
-    
+
     public static Key PROFILE = new AbstractKey(
         "profile",
         Visibility.TRAILER, false,
@@ -514,7 +514,7 @@ public abstract class ResponseContext
         return newValue;
       }
     };
-    
+
     /**
      * One and only global list of keys. This is a semi-constant: it is mutable
      * at start-up time, but then is not thread-safe, and must remain unchanged
@@ -546,7 +546,7 @@ public abstract class ResponseContext
           PROFILE,
       });
     }
-    
+
     /**
      * Returns the single, global key registry for this server.
      */
@@ -566,7 +566,7 @@ public abstract class ResponseContext
         throw new IAE("Key [%s] has already been registered as a context key", key.getName());
       }
     }
-    
+
     /**
      * Register a group of keys.
      */
@@ -599,17 +599,19 @@ public abstract class ResponseContext
       return Collections.unmodifiableCollection(registered_keys.values());
     }
   }
-  
+
   private final List<List<OperatorProfile>> profileStack;
-  
-  public ResponseContext() {
+
+  public ResponseContext()
+  {
     profileStack = new ArrayList<>();
     profileStack.add(new ArrayList<>());
   }
 
   protected abstract Map<Key, Object> getDelegate();
-  
-  public Map<String, Object> toMap() {
+
+  public Map<String, Object> toMap()
+  {
     return getDelegate().entrySet()
       .stream()
       .collect(
@@ -617,7 +619,7 @@ public abstract class ResponseContext
               e -> e.getKey().getName(),
               Map.Entry::getValue
           )
-      ); 
+      );
   }
 
   private static final Comparator<Map.Entry<String, JsonNode>> VALUE_LENGTH_REVERSED_COMPARATOR =
@@ -632,24 +634,28 @@ public abstract class ResponseContext
   {
     return DefaultResponseContext.createEmpty();
   }
-  
+
   /**
    * Initialize fields for a query context. Not needed when merging.
    */
-  public void initialize() {
+  public void initialize()
+  {
     putValue(Keys.QUERY_TOTAL_BYTES_GATHERED, new AtomicLong());
     initializeRemainingResponses();
   }
-  
-  public void initializeRemainingResponses() {
+
+  public void initializeRemainingResponses()
+  {
     putValue(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
   }
-  
-  public void initializeMissingSegments() {
+
+  public void initializeMissingSegments()
+  {
     putValue(Keys.MISSING_SEGMENTS, new ArrayList<>());
   }
-  
-  public void initializeRowScanCount() {
+
+  public void initializeRowScanCount()
+  {
     putValue(Keys.NUM_SCANNED_ROWS, 0L);
   }
 
@@ -674,20 +680,23 @@ public abstract class ResponseContext
     final Key registeredKey = Keys.instance().keyOf(key.getName());
     return putValue(registeredKey, value);
   }
-  
-  public void putUncoveredIntervals(List<Interval> intervals, boolean overflowed) {
+
+  public void putUncoveredIntervals(List<Interval> intervals, boolean overflowed)
+  {
     putValue(Keys.UNCOVERED_INTERVALS, intervals);
     putValue(Keys.UNCOVERED_INTERVALS_OVERFLOWED, overflowed);
   }
-  
-  public void putEntityTag(String eTag) {
+
+  public void putEntityTag(String eTag)
+  {
     putValue(Keys.ETAG, eTag);
   }
-  
-  public void putTimeoutTime(long time) {
+
+  public void putTimeoutTime(long time)
+  {
     putValue(Keys.TIMEOUT_AT, time);
   }
-  
+
   /**
    * Associates the specified object with the specified key. Assumes that
    * the key is validated.
@@ -701,44 +710,53 @@ public abstract class ResponseContext
   {
     return getDelegate().get(key);
   }
-  
+
   @SuppressWarnings("unchecked")
-  public ConcurrentHashMap<String, Integer> getRemainingResponses() {
+  public ConcurrentHashMap<String, Integer> getRemainingResponses()
+  {
     return (ConcurrentHashMap<String, Integer>) get(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS);
   }
-  
+
   @SuppressWarnings("unchecked")
-  public List<Interval> getUncoveredIntervals() {
+  public List<Interval> getUncoveredIntervals()
+  {
     return (List<Interval>) get(Keys.UNCOVERED_INTERVALS);
   }
-  
+
   @SuppressWarnings("unchecked")
-  public List<SegmentDescriptor> getMissingSegments() {
+  public List<SegmentDescriptor> getMissingSegments()
+  {
     return (List<SegmentDescriptor>) get(Keys.MISSING_SEGMENTS);
   }
-  
-  public boolean getTruncated() {
+
+  public boolean getTruncated()
+  {
     Boolean value = (Boolean) get(Keys.TRUNCATED);
     return value == null ? false : value;
   }
-  
-  public String getEntityTag() {
+
+  public String getEntityTag()
+  {
     return (String) get(Keys.ETAG);
   }
-  
-  public AtomicLong getTotalBytes() {
+
+  public AtomicLong getTotalBytes()
+  {
     return (AtomicLong) get(Keys.QUERY_TOTAL_BYTES_GATHERED);
   }
-  
-  public Long getTimeoutTime() {
+
+  public Long getTimeoutTime()
+  {
     return (Long) get(Keys.TIMEOUT_AT);
   }
-  
-  public Long getRowScanCount() {
+
+  public Long getRowScanCount()
+  {
     return (Long) get(Keys.NUM_SCANNED_ROWS);
   }
-  
-  public Long getCpuNanos() {
+
+  public Long getCpuNanos()
+  {
     return (Long) get(Keys.CPU_CONSUMED_NANOS);
   }
 
@@ -758,24 +776,28 @@ public abstract class ResponseContext
     final Key registeredKey = Keys.instance().keyOf(key.getName());
     return addValue(registeredKey, value);
   }
-  
-  public void addRemainingResponse(String id, int count) {
+
+  public void addRemainingResponse(String id, int count)
+  {
     addValue(Keys.REMAINING_RESPONSES_FROM_QUERY_SERVERS,
         new NonnullPair<>(id, count));
   }
-  
-  public void addMissingSegments(List<SegmentDescriptor> descriptors) {
+
+  public void addMissingSegments(List<SegmentDescriptor> descriptors)
+  {
     addValue(Keys.MISSING_SEGMENTS, descriptors);
   }
-  
-  public void addRowScanCount(long count) {
+
+  public void addRowScanCount(long count)
+  {
     addValue(Keys.NUM_SCANNED_ROWS, count);
   }
-  
-  public void addCpuNanos(long ns) {
+
+  public void addCpuNanos(long ns)
+  {
     addValue(Keys.CPU_CONSUMED_NANOS, ns);
   }
-  
+
   private Object addValue(Key key, Object value)
   {
     return getDelegate().merge(key, value, key::mergeValues);
@@ -951,28 +973,31 @@ public abstract class ResponseContext
       return truncatedResult != null;
     }
   }
-  
-  public void pushGroup() {
+
+  public void pushGroup()
+  {
     profileStack.add(new ArrayList<>());
   }
-  
+
   public List<OperatorProfile> popGroup()
   {
     if (profileStack.size() < 2) {
       throw new ISE("Profile group stack underflow");
     }
-    return profileStack.remove(profileStack.size()-1);
+    return profileStack.remove(profileStack.size() - 1);
   }
-  
-  public void pushProfile(OperatorProfile profile) {
-    profileStack.get(profileStack.size()-1).add(profile);
+
+  public void pushProfile(OperatorProfile profile)
+  {
+    profileStack.get(profileStack.size() - 1).add(profile);
   }
-  
-  public OperatorProfile popProfile() {
-    List<OperatorProfile> tail = profileStack.get(profileStack.size()-1);
+
+  public OperatorProfile popProfile()
+  {
+    List<OperatorProfile> tail = profileStack.get(profileStack.size() - 1);
     if (tail.isEmpty()) {
       return new OpaqueOperator();
     }
-    return tail.remove(tail.size()-1);
+    return tail.remove(tail.size() - 1);
   }
 }

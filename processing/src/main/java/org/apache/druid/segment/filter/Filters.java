@@ -24,11 +24,9 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
-
 import it.unimi.dsi.fastutil.ints.IntIterable;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntList;
-
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.java.util.common.IAE;
@@ -54,6 +52,7 @@ import org.apache.druid.segment.filter.cnf.HiveCnfHelper;
 import org.apache.druid.segment.join.filter.AllNullColumnSelectorFactory;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
@@ -250,7 +249,7 @@ public class Filters
     // Missing dimension -> match all rows if the predicate matches null; match no rows otherwise
     try (final CloseableIndexed<String> dimValues = selector.getDimensionValues(dimension)) {
       if (dimValues == null || dimValues.size() == 0) {
-        final boolean nullMatches = predicate.apply(null); 
+        final boolean nullMatches = predicate.apply(null);
         selector.getMetrics().shortCircuit(nullMatches);
         return ImmutableList.of(nullMatches ? allTrue(selector) : allFalse(selector));
       }
@@ -655,12 +654,13 @@ public class Filters
 
     return retVal;
   }
-  
+
   /**
    * Return the estimated filter count for use in metrics. Each AND is expanded,
    * all others are treated as a single filter.
    */
-  public static int count(final Collection<Filter> filters) {
+  public static int count(final Collection<Filter> filters)
+  {
     if (CollectionUtils.isEmpty(filters)) {
       return 0;
     }
@@ -670,12 +670,13 @@ public class Filters
     }
     return count;
   }
-  
+
   /**
    * Return the estimated filter count for use in metrics. Each AND is expanded,
    * all others are treated as a single filter.
    */
-  public static int count(Filter filter) {
+  public static int count(Filter filter)
+  {
     if (filter == null) {
       return 0;
     }
@@ -684,8 +685,9 @@ public class Filters
     }
     return 1;
   }
-  
-  public static Filter effectiveFilter(Filter filter) {
+
+  public static Filter effectiveFilter(Filter filter)
+  {
     if (filter == null) {
       return null;
     }
@@ -700,7 +702,7 @@ public class Filters
     }
     return filter;
   }
-  
+
   public static void sortFilters(Collection<Filter> filters, BitmapIndexSelector indexSelector, List<Filter> preFilters, List<Filter> postFilters)
   {
     if (CollectionUtils.isEmpty(filters)) {
@@ -710,8 +712,9 @@ public class Filters
       sortFilter(filter, indexSelector, preFilters, postFilters);
     }
   }
-  
-  public static void sortFilter(Filter filter, BitmapIndexSelector indexSelector, List<Filter> preFilters, List<Filter> postFilters) {
+
+  public static void sortFilter(Filter filter, BitmapIndexSelector indexSelector, List<Filter> preFilters, List<Filter> postFilters)
+  {
     if (filter instanceof AndFilter) {
       // If we get an AndFilter, we can split the subfilters across both filtering stages
       sortFilters(((AndFilter) filter).getFilters(), indexSelector, preFilters, postFilters);

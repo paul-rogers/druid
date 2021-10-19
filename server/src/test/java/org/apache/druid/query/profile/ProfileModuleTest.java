@@ -23,10 +23,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-
+import com.google.common.collect.ImmutableList;
+import com.google.inject.Binder;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.Module;
+import com.google.inject.name.Names;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.JsonConfigurator;
@@ -35,12 +37,9 @@ import org.apache.druid.initialization.Initialization;
 import org.apache.druid.query.profile.ProfileConsumer.ProfileConsumerStub;
 import org.junit.Test;
 
-import com.google.common.collect.ImmutableList;
-import com.google.inject.Binder;
-import com.google.inject.Injector;
-import com.google.inject.Key;
-import com.google.inject.Module;
-import com.google.inject.name.Names;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
 
 public class ProfileModuleTest
 {

@@ -19,6 +19,15 @@
 
 package org.apache.druid.query.profile;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
+import org.apache.druid.jackson.DefaultObjectMapper;
+import org.apache.druid.java.util.common.logger.Logger;
+import org.joda.time.DateTime;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -34,16 +43,6 @@ import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-
-import org.apache.druid.jackson.DefaultObjectMapper;
-import org.apache.druid.java.util.common.logger.Logger;
-import org.joda.time.DateTime;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 
 /**
  * Simple query profile consumer that writes each profile to the
@@ -63,23 +62,23 @@ import com.google.common.base.Strings;
 public class ProfileWriter implements ProfileConsumer, ProfileAccessor
 {
   private static final Logger logger = new Logger(ProfileWriter.class);
-  
+
   private static final String SUFFIX = ".json";
-  
+
   private final File profileDir;
   private final ObjectMapper mapper;
-  
+
   public ProfileWriter(File profileDir)
   {
     this.profileDir = profileDir;
     this.mapper = new DefaultObjectMapper();
   }
-  
+
   @Override
   public void emit(RootFragmentProfile profile)
   {
     String id = profile.queryId;
-    
+
     // Ignore anonymous profiles
     if (Strings.isNullOrEmpty(id)) {
       return;
@@ -87,23 +86,24 @@ public class ProfileWriter implements ProfileConsumer, ProfileAccessor
     // TODO: Sanitize name since users can provide the query ID
     String baseName = id + ".json";
     File file = new File(profileDir, baseName);
-    
+
     // Query IDs should be unique. If not, discard duplicates.
     if (file.exists()) {
       logger.info("Ignoring profile for duplicate query ID {}", id);
       return;
     }
-    
+
     // There can be a race condition here if two duplicates appear
     // at the same time. But, again, query IDs should not be duplicated.
     try (Writer out = new BufferedWriter(new FileWriter(file))) {
       mapper.writeValue(out, profile);
-    } catch (Exception e) {
+    }
+    catch (Exception e) {
       file.delete();
       logger.error(e, "Failed to write profile file {}", file.getAbsolutePath());
     }
   }
-  
+
   @VisibleForTesting
   public File getDir()
   {
@@ -123,11 +123,12 @@ public class ProfileWriter implements ProfileConsumer, ProfileAccessor
     File file = new File(profileDir, baseName);
     try {
       return new BufferedInputStream(new FileInputStream(file));
-    } catch (IOException e) {
+    }
+    catch (IOException e) {
       throw new ProfileNotFoundException(queryId);
     }
   }
-  
+
   /**
    * Profile description for this consumer: just the timestamp (taken from
    * the file timestamp, which is just after the query completion time)
@@ -141,8 +142,9 @@ public class ProfileWriter implements ProfileConsumer, ProfileAccessor
     public String timestamp;
     @JsonProperty
     public String queryId;
-    
-    public ProfileDescrip(File file) throws IOException {
+
+    public ProfileDescrip(File file) throws IOException
+    {
       String name = file.getName();
       this.queryId = name.substring(0, name.length() - SUFFIX.length());
       BasicFileAttributes attributes = Files.readAttributes(Paths.get(file.toURI()), BasicFileAttributes.class);
@@ -165,7 +167,8 @@ public class ProfileWriter implements ProfileConsumer, ProfileAccessor
       }
       try {
         files.add(new ProfileDescrip(file));
-      } catch (IOException e) {
+      }
+      catch (IOException e) {
         // Ignore this file
       }
     }

@@ -19,14 +19,13 @@
 
 package org.apache.druid.query.profile;
 
-import java.util.List;
-
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.druid.java.util.common.guava.ParallelMergeCombiningSequence.MergeCombineMetrics;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 
 /**
  * Holds statistics from the
@@ -41,7 +40,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class DistributorProfile extends OperatorProfile
 {
   public static final String TYPE = "scatter";
-  
+
   public class ParallelMergeProfile extends OperatorProfile
   {
     @JsonProperty
@@ -56,7 +55,7 @@ public class DistributorProfile extends OperatorProfile
     public final long tasks;
     @JsonProperty
     public final long cpuTime;
-    
+
     public ParallelMergeProfile(MergeCombineMetrics metrics)
     {
       this.parallelism = metrics.getParallelism();
@@ -67,7 +66,7 @@ public class DistributorProfile extends OperatorProfile
       this.cpuTime = metrics.getTotalCpuTime();
     }
   }
-  
+
   /**
    * Empty will be true if the datasource is unknown or is no data
    * for the given time range.
@@ -75,80 +74,82 @@ public class DistributorProfile extends OperatorProfile
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public boolean empty;
-  
+
   /**
    * Segment results retrieved from cache.
    */
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public int fromCache;
-  
+
   /**
    * Number of segment results added to the cache.
    */
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public int toCache;
-  
+
   /**
    * Count of segments mapped to servers. (Each server may be mapped
-   * from multiple segments.) 
+   * from multiple segments.)
    */
   @JsonProperty
   public int segments;
-  
+
   /**
    * Count of servers to that contain segments for the query. Will
    * be equal to or less than the segments value.
    */
   @JsonProperty
   public int servers;
-  
+
   /**
    * Number of unavailable servers. The query ignored segments
-   * from these servers and may be incomplete. 
+   * from these servers and may be incomplete.
    */
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public int missingServers;
-  
+
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public int uncoveredIntervals;
-  
+
   /**
    * Optional priority assigned to the query.
    */
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public Integer priority;
-  
+
   /**
    * Optional lane assigned to the query.
    */
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public String lane;
-  
+
   /**
    * Operators that implement the per-server queries.
    */
   @JsonProperty
   public List<OperatorProfile> children;
-  
+
   /**
    * Details of the parallel merge operation, if any.
    */
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public ParallelMergeProfile parallelMerge;
-  
-  public void setPriority(Query<?> query) {
+
+  public void setPriority(Query<?> query)
+  {
     priority = (Integer) query.getContext().get(QueryContexts.PRIORITY_KEY);
     lane = (String) query.getContext().get(QueryContexts.LANE_KEY);
   }
-  
-  public void parallelMerge(MergeCombineMetrics metrics) {
+
+  public void parallelMerge(MergeCombineMetrics metrics)
+  {
     parallelMerge = new ParallelMergeProfile(metrics);
   }
 }

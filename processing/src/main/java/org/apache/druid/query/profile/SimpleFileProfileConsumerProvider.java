@@ -19,21 +19,20 @@
 
 package org.apache.druid.query.profile;
 
-import java.io.File;
-
-import org.apache.druid.query.profile.ProfileConsumer.ProfileConsumerStub;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import org.apache.druid.query.profile.ProfileConsumer.ProfileConsumerStub;
+
+import java.io.File;
 
 @JsonTypeName(SimpleFileProfileConsumerProvider.TYPE_NAME)
 public class SimpleFileProfileConsumerProvider implements ProfileConsumerProvider
 {
   public static final String TYPE_NAME = "simple";
   public static final String DEFAULT_DIR = "/tmp/druid/profiles";
-  
+
   private ProfileConsumer instance;
-  
+
   /**
    * Location to put the profiles. The default is for tests, and
    * in case someone enables the property without proper config.

@@ -96,26 +96,26 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
                                                 .withLimit(newLimit);
 
       final Sequence<ScanResultValue> results;
-      final LimitProfile LimitProfile;
+      final LimitProfile limitProfile;
 
       if (!queryToRun.isLimited()) {
         responseContext.pushProfile(profile);
         responseContext.pushGroup();
         results = runner.run(queryPlus.withQuery(queryToRun), responseContext);
         profile.children = responseContext.popGroup();
-        LimitProfile = null;
+        limitProfile = null;
       } else {
-        LimitProfile = new LimitProfile();
-        LimitProfile.limit = newLimit;
-        LimitProfile.child = profile;
-        responseContext.pushProfile(LimitProfile);
+        limitProfile = new LimitProfile();
+        limitProfile.limit = newLimit;
+        limitProfile.child = profile;
+        responseContext.pushProfile(limitProfile);
         results = new BaseSequence<>(
             new BaseSequence.IteratorMaker<ScanResultValue, ScanQueryLimitRowIterator>()
             {
               @Override
               public ScanQueryLimitRowIterator make()
               {
-                return new ScanQueryLimitRowIterator(runner, queryPlus.withQuery(queryToRun), responseContext, LimitProfile);
+                return new ScanQueryLimitRowIterator(runner, queryPlus.withQuery(queryToRun), responseContext, limitProfile);
               }
 
               @Override
@@ -127,8 +127,8 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
       }
 
       if (originalQuery.getScanRowsOffset() > 0) {
-        if (LimitProfile != null) {
-          LimitProfile.offset = originalQuery.getScanRowsOffset();
+        if (limitProfile != null) {
+          limitProfile.offset = originalQuery.getScanRowsOffset();
         }
         return new ScanQueryOffsetSequence(results, originalQuery.getScanRowsOffset());
       } else {

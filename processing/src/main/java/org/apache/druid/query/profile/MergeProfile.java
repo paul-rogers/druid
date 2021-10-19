@@ -19,9 +19,8 @@
 
 package org.apache.druid.query.profile;
 
-import java.util.List;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 
 /**
  * Represents an n-way merge. Because of the functional style of programming,
@@ -33,7 +32,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class MergeProfile extends OperatorProfile
 {
   public static final String TYPE = "merge";
-  
+
   @JsonProperty
   public List<OperatorProfile> children;
 }

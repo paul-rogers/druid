@@ -19,12 +19,11 @@
 
 package org.apache.druid.query.profile;
 
-import java.util.List;
-
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.base.Objects.ToStringHelper;
+import java.util.List;
 
 /**
  * Base class for the profile of a root fragment: the one which
@@ -40,42 +39,43 @@ public class RootFragmentProfile extends FragmentProfile
    * should ignore unexpected fields.
    */
   public static final int PROFILE_VERSION = 1;
-  
+
   /**
    * Version of the profile format.
    */
   @JsonProperty
   public final int version = PROFILE_VERSION;
-  
+
   /**
    * Query type: native or sql.
    */
   @JsonProperty
   public final String type;
-  
+
   /**
    * Optional address of the client which sent the query.
    */
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public String remoteAddress;
-  
+
   /**
    * Query ID assigned to the query by the receiving host.
    */
   @JsonProperty
   public String queryId;
-  
+
   /**
    * Columns required to process the query.
    */
   @JsonProperty
   public List<String> columns;
-  
-  public RootFragmentProfile(String type) {
+
+  public RootFragmentProfile(String type)
+  {
     this.type = type;
   }
-  
+
   /**
    * Primarily for testing. Ensures that the scalar fields are equal,
    * does not do a deep compare of operators.
@@ -91,9 +91,10 @@ public class RootFragmentProfile extends FragmentProfile
         Objects.equal(queryId, other.queryId) &&
         Objects.equal(columns, other.columns);
   }
-  
+
   @Override
-  protected ToStringHelper toStringHelper() {
+  protected ToStringHelper toStringHelper()
+  {
     // Don't bother with type and version: they are not that interesting
     // when debugging.
     return super.toStringHelper()

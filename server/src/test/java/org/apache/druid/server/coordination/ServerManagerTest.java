@@ -63,7 +63,6 @@ import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
 import org.apache.druid.query.context.DefaultResponseContext;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.planning.DataSourceAnalysis;

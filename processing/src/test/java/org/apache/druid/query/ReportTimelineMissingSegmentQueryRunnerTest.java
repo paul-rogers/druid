@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.query.context.DefaultResponseContext;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.spec.MultipleSpecificSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;

@@ -210,7 +210,7 @@ public class QueryResource implements QueryCountStatsProvider
     try {
       // Read and preserve the query as received from the client.
       Query<?> receivedQuery = readQuery(req, in, ioReaderWriter);
-      
+
       // Rewrite the query with the etag, if available.
       Query<?> initQuery = receivedQuery;
       final String prevEtag = getPreviousEtag(req);
@@ -222,7 +222,7 @@ public class QueryResource implements QueryCountStatsProvider
 
       // Initialize the lifecycle, which rewrites the query with context.
       queryLifecycle.initialize(initQuery);
-      
+
       // Initialize the query stats using the original received query.
       LifecycleStats stats = queryLifecycle.stats();
       stats.onStart(selfNode, req.getRemoteAddr(), receivedQuery);
@@ -685,7 +685,7 @@ public class QueryResource implements QueryCountStatsProvider
       throw new BadHeaderException(header, "Must be 'Yes' or 'No'");
     }
   }
-  
+
   @GET
   @Path("profile/{id}")
   @Produces({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
@@ -710,19 +710,20 @@ public class QueryResource implements QueryCountStatsProvider
     if (!authResult.isAllowed()) {
       throw new ForbiddenException(authResult.toString());
     }
-    
+
     // The profile consumer must be able to also provide profiles.
     if (!(profileConsumer instanceof ProfileAccessor)) {
       return Response.status(Response.Status.NOT_FOUND).build();
     }
     ProfileAccessor accessor = (ProfileAccessor) profileConsumer;
-    
+
     // Get the profile, returning a 404 error if not found.
     try {
       InputStream input = accessor.getProfile(queryId);
       return new StreamingOutput() {
         @Override
-        public void write(OutputStream out) throws IOException {
+        public void write(OutputStream out) throws IOException
+        {
           byte buf[] = new byte[1024];
           try {
             while (true) {
@@ -733,16 +734,18 @@ public class QueryResource implements QueryCountStatsProvider
               out.write(buf, 0, n);
             }
             out.flush();
-          } finally {
+          }
+          finally {
             input.close();
           }
         }
       };
-    } catch (ProfileAccessor.ProfileNotFoundException e) {
+    }
+    catch (ProfileAccessor.ProfileNotFoundException e) {
       return Response.status(Response.Status.NOT_FOUND).build();
     }
   }
-  
+
   @GET
   @Path("profiles")
   @Produces({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
@@ -767,17 +770,18 @@ public class QueryResource implements QueryCountStatsProvider
     if (!authResult.isAllowed()) {
       throw new ForbiddenException(authResult.toString());
     }
-    
+
     // The profile consumer must be able to also provide profiles.
     if (!(profileConsumer instanceof ProfileAccessor)) {
       return Response.status(Response.Status.NOT_FOUND).build();
     }
     ProfileAccessor accessor = (ProfileAccessor) profileConsumer;
-    
+
     // Get the list of profiles, returning a 404 error if not supported.
     try {
-      return Response.ok(accessor.getProfiles(limit == null ? 100: limit)).build();
-    } catch (ProfileAccessor.ProfileNotFoundException e) {
+      return Response.ok(accessor.getProfiles(limit == null ? 100 : limit)).build();
+    }
+    catch (ProfileAccessor.ProfileNotFoundException e) {
       return Response.status(Response.Status.NOT_FOUND).build();
     }
   }

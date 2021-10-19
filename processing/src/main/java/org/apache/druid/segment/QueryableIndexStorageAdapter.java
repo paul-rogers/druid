@@ -21,7 +21,6 @@ package org.apache.druid.segment;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
-
 import org.apache.druid.collections.bitmap.BitmapFactory;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.java.util.common.DateTimes;
@@ -33,8 +32,8 @@ import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.BitmapResultFactory;
 import org.apache.druid.query.DefaultBitmapResultFactory;
 import org.apache.druid.query.QueryMetrics;
-import org.apache.druid.query.filter.BitmapIndexSelector.BitmapMetrics;
 import org.apache.druid.query.filter.BitmapIndexSelector;
+import org.apache.druid.query.filter.BitmapIndexSelector.BitmapMetrics;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.profile.IndexScanProfile;
 import org.apache.druid.query.profile.IndexScanProfile.CursorProfileMetrics;
@@ -69,20 +68,21 @@ import java.util.Objects;
 public class QueryableIndexStorageAdapter implements StorageAdapter
 {
   public static final int DEFAULT_VECTOR_SIZE = 512;
-  
+
   /**
    * Receiver for metrics generated in the cursor creation process.
    * The methods here mostly follow the those in {@link QueryMetrics}, with
    * some simplifications. Decouples the cursor creation code from the details of
    * QueryMetrics, and allows a variety of metrics gathering strategies.
    */
-  public interface CursorMetrics extends BitmapMetrics {
+  public interface CursorMetrics extends BitmapMetrics
+  {
     /**
      * Whether there is anybody listening for metrics. If not, expensive metrics-only
      * operations can be skipped.
      */
     boolean isLive();
-    
+
     void preFilters(List<Filter> preFilters);
 
     void postFilters(List<Filter> postFilters);
@@ -93,34 +93,34 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     void reportSegmentRows(long numRows);
 
     /**
-     * Reports the number of rows to scan in the segment after applying {@link #preFilters(List)}. If the are no
-     * preFilters, this metric is equal to {@link #reportSegmentRows(long)}.
+     * Reports the number of rows to scan in the segment after applying {@link #preFilters(List)}.
+     * If the are no preFilters, this metric is equal to {@link #reportSegmentRows(long)}.
      */
     void reportPreFilteredRows(long numRows);
 
     /**
-     * Creates a {@link BitmapResultFactory} which may record some information along bitmap construction from {@link
-     * #preFilters(List)}. The returned BitmapResultFactory may add some dimensions to this QueryMetrics from it's {@link
-     * BitmapResultFactory#toImmutableBitmap(Object)} method. See {@link BitmapResultFactory} Javadoc for more
-     * information.
+     * Creates a {@link BitmapResultFactory} which may record some information along bitmap
+     * construction from {@link #preFilters(List)}. The returned BitmapResultFactory may add some dimensions
+     * to this QueryMetrics from it's {@link BitmapResultFactory#toImmutableBitmap(Object)} method. See
+     * {@link BitmapResultFactory} Javadoc for more information.
      */
     BitmapResultFactory<?> makeBitmapResultFactory(BitmapFactory factory);
-    
+
     /**
-     * Reports the time spent constructing bitmap from {@link #preFilters(List)} of the query. Not reported, if there are
-     * no preFilters.
+     * Reports the time spent constructing bitmap from {@link #preFilters(List)} of the query.
+     * Not reported, if there are no preFilters.
      */
     void reportBitmapConstructionTime(long timeNs);
-    
+
     /**
      * Create a cursor metrics based on whether the QueryMetrics is provided or not.
      */
-    public static CursorMetrics of(@Nullable QueryMetrics<?> queryMetrics)
+    static CursorMetrics of(@Nullable QueryMetrics<?> queryMetrics)
     {
       return queryMetrics == null ? new CursorMetricsStub() : new CursorMetricsShim(queryMetrics);
     }
   }
-  
+
   /**
    * "Do nothing" version of the cursor metrics used when no metrics are wanted.
    * Avoids having to enclose each metrics call in "if (metrics != null)".
@@ -132,7 +132,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     {
       return false;
     }
-    
+
     @Override
     public void preFilters(List<Filter> preFilters)
     {
@@ -179,7 +179,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     {
     }
   }
-  
+
   /**
    * Converts the cursor metrics to the form needed by QueryMetrics. Should
    * be used only when a QueryMetrics is provided.
@@ -187,8 +187,9 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
   public static class CursorMetricsShim extends CursorMetricsStub
   {
     private final QueryMetrics<?> queryMetrics;
-    
-    public CursorMetricsShim(QueryMetrics<?> queryMetrics) {
+
+    public CursorMetricsShim(QueryMetrics<?> queryMetrics)
+    {
       this.queryMetrics = queryMetrics;
     }
 
@@ -197,7 +198,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     {
       return true;
     }
-    
+
     @Override
     public void preFilters(List<Filter> preFilters)
     {
@@ -529,7 +530,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
 
   @VisibleForTesting
   public ColumnSelectorBitmapIndexSelector makeBitmapIndexSelector(
-      final VirtualColumns virtualColumns, 
+      final VirtualColumns virtualColumns,
       BitmapMetrics bitmapMetrics)
   {
     return new ColumnSelectorBitmapIndexSelector(
@@ -549,7 +550,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
   {
     return analyzeFilter(filter, indexSelector, CursorMetrics.of(queryMetrics));
   }
-  
+
   public FilterAnalysis analyzeFilter(
       @Nullable final Filter filter,
       ColumnSelectorBitmapIndexSelector indexSelector,

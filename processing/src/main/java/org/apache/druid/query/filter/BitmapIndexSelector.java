@@ -40,16 +40,17 @@ public interface BitmapIndexSelector
     void shortCircuit(boolean value);
     void predicateFilter(String dimension, BitmapIndexSelector selector, DimensionPredicateFilter filter, Object bitmap);
   }
-  
+
   public static class BitmapMetricsStub implements BitmapMetrics
   {
     @Override
     public void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap)
     {
     }
-    
+
     @Override
-    public void shortCircuit(boolean value) {
+    public void shortCircuit(boolean value)
+    {
     }
 
     @Override
@@ -57,9 +58,9 @@ public interface BitmapIndexSelector
     {
     }
   }
-  
+
   BitmapMetrics METRICS_STUB = new BitmapMetricsStub();
- 
+
   @MustBeClosed
   @Nullable
   CloseableIndexed<String> getDimensionValues(String dimension);

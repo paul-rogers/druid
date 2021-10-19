@@ -68,8 +68,9 @@ import java.util.Set;
 public class ScanQueryEngine
 {
   static final String LEGACY_TIMESTAMP_KEY = "timestamp";
-  
-  public interface CloseableIterator<T> extends Iterator<T> {
+
+  public interface CloseableIterator<T> extends Iterator<T>
+  {
     void close();
   }
 
@@ -143,7 +144,8 @@ public class ScanQueryEngine
     final List<Interval> intervals = query.getQuerySegmentSpec().getIntervals();
     try {
       Preconditions.checkArgument(intervals.size() == 1, "Can only handle a single interval, got[%s]", intervals);
-    } catch(IllegalArgumentException e) {
+    }
+    catch (IllegalArgumentException e) {
       profile.error = e.getMessage();
       throw e;
     }
@@ -280,8 +282,10 @@ public class ScanQueryEngine
 
                             return value;
                           }
-                          
-                          public void close() {
+
+                          @Override
+                          public void close()
+                          {
                             cursor.close();
                           }
                         };

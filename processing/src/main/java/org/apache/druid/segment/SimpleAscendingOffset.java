@@ -72,7 +72,8 @@ public class SimpleAscendingOffset extends SimpleSettableOffset
   }
   
   @Override
-  public int getBaseCount() {
+  public int getBaseCount()
+  {
     return getCount();
   }
 

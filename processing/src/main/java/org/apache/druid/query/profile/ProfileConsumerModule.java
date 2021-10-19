@@ -19,10 +19,9 @@
 
 package org.apache.druid.query.profile;
 
-import org.apache.druid.guice.JsonConfigProvider;
-
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import org.apache.druid.guice.JsonConfigProvider;
 
 public class ProfileConsumerModule implements Module
 {

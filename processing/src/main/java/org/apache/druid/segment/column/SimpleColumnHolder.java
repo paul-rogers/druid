@@ -83,7 +83,8 @@ class SimpleColumnHolder implements ColumnHolder
   }
   
   @Override
-  public int getCardinality() {
+  public int getCardinality()
+  {
     BaseColumn col = getColumn();
     if (col == null) {
       return -1;

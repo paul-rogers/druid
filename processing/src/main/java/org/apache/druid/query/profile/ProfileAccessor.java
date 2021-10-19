@@ -34,30 +34,31 @@ public interface ProfileAccessor
   @SuppressWarnings("serial")
   public static class ProfileNotFoundException extends Exception
   {
-    public ProfileNotFoundException(String queryId) {
+    public ProfileNotFoundException(String queryId)
+    {
       super("Profile not found for query ID: " + queryId);
     }
   }
-  
+
   /**
    * Retrieves the profile given the query ID. Returns the profile as an
    * <code>InputStream</code> to be returned to the HTTP client requesting
    * the profile. Avoids the need to deserialize the JSON, which is important
    * since the profile could be written by an earlier version of the software.
-   * 
+   *
    * @param queryId query ID of the profile to return
    * @return an input stream to read the profile as JSON text
    * @throws ProfileNotFoundException if no profile is available for the
    * query
    */
   InputStream getProfile(String queryId) throws ProfileNotFoundException;
-  
+
   /**
-   * Returns a list of query profiles as a set of JSON serializable 
+   * Returns a list of query profiles as a set of JSON serializable
    * objects. The objects should at least include the query ID, but could
    * include other information depending on the capabilities of the
    * consumer.
-   * 
+   *
    * @param limit maximum number of profiles to return
    * @return a list of profile descriptions
    * @throws ProfileNotFoundException if this consumer can't return a

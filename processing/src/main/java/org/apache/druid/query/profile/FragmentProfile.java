@@ -1,3 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.druid.query.profile;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -30,20 +49,20 @@ public class FragmentProfile
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public String host;
-  
+
   /**
    * Druid service running on the host.
    */
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public String service;
-  
+
   /**
    * Unix timestamp of the query start time.
    */
   @JsonProperty
   public long startTime;
-  
+
   /**
    * Query run time, in ns, on this host. Since the response includes
    * this object, the run time excludes the last bit of time required to
@@ -51,14 +70,14 @@ public class FragmentProfile
    */
   @JsonProperty
   public long timeNs;
-  
+
   /**
    * CPU time to run the query, excluding top-level network deserialization
    * and serialization.
    */
   @JsonProperty
   public long cpuNs;
-  
+
   /**
    * Number of rows returned by the query. The concept of "rows" is somewhat
    * ill-defined in Druid: this is the number that most closely responds to what
@@ -66,7 +85,7 @@ public class FragmentProfile
    */
   @JsonProperty
   public long rows;
-  
+
   /**
    * The top-most "operator" (function, transform) for this fragment.
    */
@@ -76,7 +95,7 @@ public class FragmentProfile
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public String error;
-  
+
   /**
    * Primarily for testing. Ensures that the scalar fields are equal,
    * does not do a deep compare of operators.
@@ -96,8 +115,9 @@ public class FragmentProfile
            rows == other.rows &&
            rootOperator.getClass() == other.rootOperator.getClass();
   }
-  
-  protected ToStringHelper toStringHelper() {
+
+  protected ToStringHelper toStringHelper()
+  {
     return Objects.toStringHelper(this)
         .add("host", host)
         .add("service", service)
