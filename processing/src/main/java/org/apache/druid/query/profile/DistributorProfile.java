@@ -21,9 +21,9 @@ package org.apache.druid.query.profile;
 
 import java.util.List;
 
+import org.apache.druid.java.util.common.guava.ParallelMergeCombiningSequence.MergeCombineMetrics;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
-import org.joda.time.Interval;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -41,6 +41,32 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class DistributorProfile extends OperatorProfile
 {
   public static final String TYPE = "scatter";
+  
+  public class ParallelMergeProfile extends OperatorProfile
+  {
+    @JsonProperty
+    public final int parallelism;
+    @JsonProperty
+    public final long inputSequences;
+    @JsonProperty
+    public final long inputRows;
+    @JsonProperty
+    public final long outputRows;
+    @JsonProperty
+    public final long tasks;
+    @JsonProperty
+    public final long cpuTime;
+    
+    public ParallelMergeProfile(MergeCombineMetrics metrics)
+    {
+      this.parallelism = metrics.getParallelism();
+      this.inputSequences = metrics.getInputSequences();
+      this.inputRows = metrics.getInputRows();
+      this.outputRows = metrics.getOutputRows();
+      this.tasks = metrics.getTaskCount();
+      this.cpuTime = metrics.getTotalCpuTime();
+    }
+  }
   
   /**
    * Empty will be true if the datasource is unknown or is no data
@@ -110,8 +136,19 @@ public class DistributorProfile extends OperatorProfile
   @JsonProperty
   public List<OperatorProfile> children;
   
+  /**
+   * Details of the parallel merge operation, if any.
+   */
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public ParallelMergeProfile parallelMerge;
+  
   public void setPriority(Query<?> query) {
     priority = (Integer) query.getContext().get(QueryContexts.PRIORITY_KEY);
     lane = (String) query.getContext().get(QueryContexts.LANE_KEY);
+  }
+  
+  public void parallelMerge(MergeCombineMetrics metrics) {
+    parallelMerge = new ParallelMergeProfile(metrics);
   }
 }

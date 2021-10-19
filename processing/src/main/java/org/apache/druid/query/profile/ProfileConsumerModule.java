@@ -20,7 +20,6 @@
 package org.apache.druid.query.profile;
 
 import org.apache.druid.guice.JsonConfigProvider;
-import org.apache.druid.guice.ManageLifecycle;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;

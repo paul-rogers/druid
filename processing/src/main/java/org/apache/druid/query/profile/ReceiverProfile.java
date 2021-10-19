@@ -29,6 +29,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * partial query over the wire, then receives the results. Implemented by
  * the {@link org.apache.druid.client.DirectDruidClient} class.
  * <p>
+ * Each client is managed by a dedicated thread. So, the reader of this
+ * profile can assume one thread exists as the parent, and we fork a
+ * separate thread for each receiver.
+ * <p>
  * The query is "partial" because it is rewritten from the original query
  * to cover only the interval(s) available on the target data node.
  * <p>
@@ -37,8 +41,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * the fragment is received as a generic map, <i>not</i> as a deserialized
  * fragment object. That is, this is a "one way" serializable object: it is
  * to be serialized to JSON.
- * However, the receiver of the JSON may be in a server of a different version,
- * and that node should deserialize this object as a generic map.
  */
 public class ReceiverProfile extends OperatorProfile
 {
@@ -50,16 +52,19 @@ public class ReceiverProfile extends OperatorProfile
    */
   @JsonProperty
   public final String host;
+  
   /**
    * The URL used to send the partial query.
    */
   @JsonProperty
   public final String url;
+  
   /**
    * Whether the partial query succeeded or failed.
    */
   @JsonProperty
   public boolean succeeded;
+  
   /**
    * If the query failed, the error message provided for the
    * failure.
@@ -67,12 +72,14 @@ public class ReceiverProfile extends OperatorProfile
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public String error;
+  
   /**
    * The time, in ns., that the receiver waited until it received the first byte from
    * the data node. This is the same as the "ttbf" metric which Druid supports.
    */
   @JsonProperty
   public long firstByteNs;
+  
   /**
    * If back-pressure is enabled, and the receiver invoked back-pressure, the
    * time, in ns., that the sender was asked to wait for the receiver.
@@ -80,6 +87,7 @@ public class ReceiverProfile extends OperatorProfile
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public long backPressureNs;
+  
   /**
    * The number of rows received from the sender.
    * 
@@ -87,16 +95,19 @@ public class ReceiverProfile extends OperatorProfile
    */
   @JsonProperty
   public long rows;
+  
   /**
    * The number of bytes received from the sender.
    */
   @JsonProperty
   public long bytes;
+  
   /**
    * The response context returned from the data node.
    */
   @JsonProperty
   public Map<String, Object> response;
+  
   /**
    * The fragment profile provided by the data node.
    */
