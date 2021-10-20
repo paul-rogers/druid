@@ -39,7 +39,7 @@ import java.util.Collections;
 
 /**
  * TimewarpOperator is an example post-processing operator that maps current time
- * to the latest period ending withing the specified data interval and truncates
+ * to the latest period ending within the specified data interval and truncates
  * the query interval to discard data that would be mapped to the future.
  */
 public class TimewarpOperator<T> implements PostProcessingOperator<T>

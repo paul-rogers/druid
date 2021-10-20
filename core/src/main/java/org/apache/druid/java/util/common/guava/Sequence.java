@@ -39,7 +39,7 @@ import java.util.function.Function;
  * it is very easy to unintentionally leak resources when iterating over something that is backed by a resource.
  * <p>
  * Sequences also expose {#see org.apache.druid.java.util.common.guava.Yielder} Yielder objects which allow you to implement a
- * continuation over the Sequence. Yielder do not offer the same guarantees of automatic resource management
+ * continuation over the Sequence. Yielder does not offer the same guarantees of automatic resource management
  * as the accumulate method, but they are Closeable and will do the proper cleanup when close() is called on them.
  */
 public interface Sequence<T>

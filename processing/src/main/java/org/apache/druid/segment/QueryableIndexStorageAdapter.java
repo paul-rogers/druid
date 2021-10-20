@@ -156,7 +156,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     @Override
     public BitmapResultFactory<?> makeBitmapResultFactory(BitmapFactory factory)
     {
-      throw new ISE("Should not call this for a non-live cursor metrics");
+      return new DefaultBitmapResultFactory(factory);
     }
 
     @Override

@@ -275,7 +275,7 @@ public class ScanQueryEngine
                             final Object value;
 
                             if (legacy && allColumns.get(i).equals(LEGACY_TIMESTAMP_KEY)) {
-                              value = DateTimes.utc((long) selector.getObject());
+                              value = DateTimes.utc((Long) selector.getObject());
                             } else {
                               value = selector == null ? null : selector.getObject();
                             }

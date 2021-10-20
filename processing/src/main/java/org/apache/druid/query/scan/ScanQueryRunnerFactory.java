@@ -96,7 +96,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
       final Iterable<QueryRunner<ScanResultValue>> queryRunners
   )
   {
-    // in single thread and in jetty thread instead of processing thread
+    // in single thread and in Jetty thread instead of processing thread
     return (queryPlus, responseContext) -> {
       ScanQuery query = (ScanQuery) queryPlus.getQuery();
       ScanQueryProfile profile = new ScanQueryProfile();
@@ -144,7 +144,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
             )
         );
         if (query.getScanRowsLimit() <= Integer.MAX_VALUE) {
-          int limit = Math.toIntExact(query.getScanRowsLimit());
+          final int limit = Math.toIntExact(query.getScanRowsLimit());
           profile.limit = limit;
           return returnedRows.limit(limit);
         } else {
@@ -432,7 +432,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
 
       // it happens in unit tests
       final Long timeoutAt = responseContext.getTimeoutTime();
-      if (timeoutAt == null || timeoutAt.longValue() == 0L) {
+      if (timeoutAt == null || timeoutAt == 0L) {
         responseContext.putTimeoutTime(JodaUtils.MAX_INSTANT);
       }
       //noinspection unchecked

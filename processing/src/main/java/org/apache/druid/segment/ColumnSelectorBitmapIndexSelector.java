@@ -55,7 +55,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
   {
     this(bitmapFactory, virtualColumns, index, null);
   }
-  
+
   public ColumnSelectorBitmapIndexSelector(
       final BitmapFactory bitmapFactory,
       final VirtualColumns virtualColumns,
@@ -296,7 +296,11 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
       } else {
         bitmap = bitmapFactory.makeEmptyImmutableBitmap();
       }
-      metrics.bitmapIndex(dimension, columnHolder.getCardinality(), null, bitmap);
+      metrics.bitmapIndex(
+          dimension,
+          columnHolder == null ? 0 : columnHolder.getCardinality(),
+          null,
+          bitmap);
       return bitmap;
     }
 
@@ -329,13 +333,13 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
   {
     return virtualColumns.getVirtualColumn(columnName) != null;
   }
-  
+
   @Override
   public BitmapMetrics getMetrics()
   {
     return metrics;
   }
-  
+
   @Override
   public int getCardinality(final String columnName)
   {
@@ -344,6 +348,6 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
       return 0;
     }
     return columnHolder.getCardinality();
-    
+
   }
 }

@@ -715,10 +715,12 @@ public class Filters
 
   public static void sortFilter(Filter filter, BitmapIndexSelector indexSelector, List<Filter> preFilters, List<Filter> postFilters)
   {
-    if (filter instanceof AndFilter) {
+    if (filter == null) {
+      // Nothing to sort.
+    } else if (filter instanceof AndFilter) {
       // If we get an AndFilter, we can split the subfilters across both filtering stages
       sortFilters(((AndFilter) filter).getFilters(), indexSelector, preFilters, postFilters);
-    // If we get an OrFilter or a single filter, handle the filter in one stage
+      // If we get an OrFilter or a single filter, handle the filter in one stage
     } else if (filter.supportsBitmapIndex(indexSelector) && filter.shouldUseBitmapIndex(indexSelector)) {
       preFilters.add(filter);
     } else {

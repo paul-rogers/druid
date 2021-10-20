@@ -29,7 +29,7 @@ package org.apache.druid.java.util.common.guava;
  */
 public abstract class YieldingAccumulator<AccumulatedType, InType>
 {
-  private boolean yielded = false;
+  private boolean yielded;
 
   public void yield()
   {

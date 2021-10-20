@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import org.apache.druid.jackson.DefaultObjectMapper;
+import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.joda.time.DateTime;
 
@@ -32,10 +33,12 @@ import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -95,7 +98,8 @@ public class ProfileWriter implements ProfileConsumer, ProfileAccessor
 
     // There can be a race condition here if two duplicates appear
     // at the same time. But, again, query IDs should not be duplicated.
-    try (Writer out = new BufferedWriter(new FileWriter(file))) {
+    try (Writer out = new BufferedWriter(
+        new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8))) {
       mapper.writeValue(out, profile);
     }
     catch (Exception e) {
@@ -149,7 +153,7 @@ public class ProfileWriter implements ProfileConsumer, ProfileAccessor
       this.queryId = name.substring(0, name.length() - SUFFIX.length());
       BasicFileAttributes attributes = Files.readAttributes(Paths.get(file.toURI()), BasicFileAttributes.class);
       FileTime fileTime = attributes.creationTime();
-      DateTime date = new DateTime(fileTime.toMillis());
+      DateTime date = DateTimes.utc(fileTime.toMillis());
       this.timestamp = date.toString();
     }
   }

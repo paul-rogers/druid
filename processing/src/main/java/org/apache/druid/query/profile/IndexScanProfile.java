@@ -98,13 +98,7 @@ public class IndexScanProfile extends OperatorProfile
     @Override
     public BitmapResultFactory<?> makeBitmapResultFactory(BitmapFactory factory)
     {
-      final BitmapResultFactory<?> resultFactory;
-      if (base.isLive()) {
-        resultFactory = base.makeBitmapResultFactory(factory);
-      } else {
-        resultFactory = new DefaultBitmapResultFactory(factory);
-      }
-      return resultFactory;
+      return base.makeBitmapResultFactory(factory);
     }
 
     @Override

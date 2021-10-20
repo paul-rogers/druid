@@ -168,10 +168,15 @@ public class MultiSegmentScanQueryTest extends NullHandlingTest
   @Parameterized.Parameters(name = "limit={0},offset={1},batchSize={2}")
   public static Iterable<Object[]> constructorFeeder()
   {
+//    return QueryRunnerTestHelper.cartesian(
+//        Arrays.asList(0, 1, 3, 7, 10, 20, 1000),
+//        Arrays.asList(0, 1, 3, 5, 7, 10, 20, 200, 1000),
+//        Arrays.asList(0, 1, 3, 6, 7, 10, 123, 2000)
+//    );
     return QueryRunnerTestHelper.cartesian(
-        Arrays.asList(0, 1, 3, 7, 10, 20, 1000),
-        Arrays.asList(0, 1, 3, 5, 7, 10, 20, 200, 1000),
-        Arrays.asList(0, 1, 3, 6, 7, 10, 123, 2000)
+        Arrays.asList(20),
+        Arrays.asList(0),
+        Arrays.asList(3)
     );
   }
 
@@ -211,8 +216,8 @@ public class MultiSegmentScanQueryTest extends NullHandlingTest
         .toList();
     int totalCount = 0;
     for (ScanResultValue result : results) {
-      System.out.println(((List) result.getEvents()).size());
-      totalCount += ((List) result.getEvents()).size();
+      // System.out.println(((List) result.getEvents()).size());
+      totalCount += ((List<?>) result.getEvents()).size();
     }
     Assert.assertEquals(
         totalCount,
@@ -239,7 +244,7 @@ public class MultiSegmentScanQueryTest extends NullHandlingTest
     List<ScanResultValue> results = runner.run(QueryPlus.wrap(query)).toList();
     int totalCount = 0;
     for (ScanResultValue result : results) {
-      totalCount += ((List) result.getEvents()).size();
+      totalCount += ((List<?>) result.getEvents()).size();
     }
     Assert.assertEquals(
         totalCount,

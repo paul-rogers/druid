@@ -108,12 +108,11 @@ final class LimitedSequence<T> extends YieldingSequenceBase<T>
   private class LimitedYieldingAccumulator<OutType> extends DelegatingYieldingAccumulator<OutType, T>
   {
     long count;
-    boolean interruptYield = false;
+    boolean interruptYield;
 
     LimitedYieldingAccumulator(YieldingAccumulator<OutType, T> accumulator)
     {
       super(accumulator);
-      count = 0;
     }
 
     @Override
