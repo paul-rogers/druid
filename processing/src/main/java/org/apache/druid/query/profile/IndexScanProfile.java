@@ -25,7 +25,6 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import org.apache.druid.collections.bitmap.BitmapFactory;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.query.BitmapResultFactory;
-import org.apache.druid.query.DefaultBitmapResultFactory;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.filter.BitmapIndexSelector;
 import org.apache.druid.query.filter.Filter;
