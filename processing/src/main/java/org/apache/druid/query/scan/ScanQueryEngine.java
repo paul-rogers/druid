@@ -156,7 +156,8 @@ public class ScanQueryEngine
 
     final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
 
-    responseContext.initializeRowScanCount();
+    // If the row count is not set, set it to 0, else do nothing.
+    responseContext.addRowScanCount(0);
     final long limit = calculateRemainingScanRowsLimit(query, responseContext);
     responseContext.pushGroup();
     Sequence<ScanResultValue> cursors = Sequences.concat(

@@ -168,15 +168,10 @@ public class MultiSegmentScanQueryTest extends NullHandlingTest
   @Parameterized.Parameters(name = "limit={0},offset={1},batchSize={2}")
   public static Iterable<Object[]> constructorFeeder()
   {
-//    return QueryRunnerTestHelper.cartesian(
-//        Arrays.asList(0, 1, 3, 7, 10, 20, 1000),
-//        Arrays.asList(0, 1, 3, 5, 7, 10, 20, 200, 1000),
-//        Arrays.asList(0, 1, 3, 6, 7, 10, 123, 2000)
-//    );
     return QueryRunnerTestHelper.cartesian(
-        Arrays.asList(20),
-        Arrays.asList(0),
-        Arrays.asList(3)
+        Arrays.asList(0, 1, 3, 7, 10, 20, 1000),
+        Arrays.asList(0, 1, 3, 5, 7, 10, 20, 200, 1000),
+        Arrays.asList(0, 1, 3, 6, 7, 10, 123, 2000)
     );
   }
 
@@ -221,7 +216,9 @@ public class MultiSegmentScanQueryTest extends NullHandlingTest
     }
     Assert.assertEquals(
         totalCount,
-        limit != 0 ? Math.min(limit, V_0112.length + V_0113.length) : V_0112.length + V_0113.length
+        limit == 0
+        ? V_0112.length + V_0113.length
+        : Math.min(limit, V_0112.length + V_0113.length)
     );
   }
 
@@ -250,9 +247,9 @@ public class MultiSegmentScanQueryTest extends NullHandlingTest
         totalCount,
         Math.max(
             0,
-            limit != 0
-            ? Math.min(limit, V_0112.length + V_0113.length - offset)
-            : V_0112.length + V_0113.length - offset
+            limit == 0
+            ? V_0112.length + V_0113.length - offset
+            : Math.min(limit, V_0112.length + V_0113.length - offset)
         )
     );
   }

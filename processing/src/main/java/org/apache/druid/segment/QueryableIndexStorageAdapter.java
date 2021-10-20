@@ -226,7 +226,11 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     @Override
     public BitmapResultFactory<?> makeBitmapResultFactory(BitmapFactory factory)
     {
-      return queryMetrics.makeBitmapResultFactory(factory);
+      BitmapResultFactory<?> resultFactory = queryMetrics.makeBitmapResultFactory(factory);
+      if (resultFactory == null) {
+        return new DefaultBitmapResultFactory(factory);
+      }
+      return new DefaultBitmapResultFactory(factory);
     }
 
     @Override
