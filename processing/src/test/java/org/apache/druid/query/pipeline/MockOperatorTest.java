@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -104,6 +105,32 @@ public class MockOperatorTest
      assertTrue(mockOp.closed);
    }
 
+   /**
+    * Example of a fragment in action, except the part of getting the
+    * root operator: done here for testing, normally not needed in real
+    * code.
+    */
+   @Test
+   public void testFullRun()
+   {
+     OperatorRegistry reg = new OperatorRegistry();
+     reg.register(MockOperatorDef.class, new MockOperatorFactory());
+     FragmentRunner runner = new FragmentRunner(reg);
+     MockOperatorDef defn = new MockOperatorDef(2, MockOperatorDef.Type.STRING);
+     Operator<?> op = runner.build(defn);
+     MockOperator mockOp = (MockOperator) op;
+     AtomicInteger count = new AtomicInteger();
+     runner.fullRun(row -> {
+       assertEquals("Mock row " + count.getAndAdd(1), row);
+       return true;
+     });
+     assertTrue(mockOp.started);
+     assertTrue(mockOp.closed);
+   }
+
+   /**
+    * Getting weird: an operator that wraps a sequence that wraps an operator.
+    */
    @Test
    public void testSequenceOperator()
    {
@@ -119,5 +146,4 @@ public class MockOperatorTest
      assertFalse(outer.next());
      outer.close();
    }
-
 }

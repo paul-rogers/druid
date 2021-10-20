@@ -7,6 +7,17 @@ import org.apache.druid.java.util.common.guava.YieldingAccumulator;
 
 import java.io.IOException;
 
+/**
+ * The <code>SequenceOperator</code> wraps a {@link Sequence} in the
+ * operator protocol. The operator will make (at most) one pass through
+ * the sequence. The sequence's yielder will be defined in <code>start()</code>,
+ * which may cause the sequence to start doing work and obtaining resources.
+ * Each call to <code>next()</code>/<code>get()</code> will yield one result
+ * from the sequence. The <code>close()</code> call will close the yielder
+ * for the sequence, which should release any resources held by the sequence.
+ *
+ * @param <T>
+ */
 public class SequenceOperator<T> implements Operator<T>
 {
   private enum State
