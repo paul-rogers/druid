@@ -45,6 +45,7 @@ public class SequenceTestHelper
     testYield(prefix, 1, seq, nums);
   }
 
+  @SuppressWarnings("resource")
   public static void testYield(
       final String prefix,
       final int numToTake,
@@ -94,7 +95,6 @@ public class SequenceTestHelper
     Assert.assertTrue(prefix, yielder.isDone());
     yielder.close();
   }
-
 
   public static void testAccumulation(final String prefix, Sequence<Integer> seq, final List<Integer> nums)
   {
