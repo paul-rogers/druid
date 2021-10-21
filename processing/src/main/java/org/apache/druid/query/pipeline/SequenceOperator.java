@@ -18,19 +18,20 @@ import java.io.IOException;
  *
  * @param <T>
  */
-public class SequenceOperator<T> implements Operator<T>
+public class SequenceOperator implements Operator
 {
   private enum State
   {
     NEW, START, ACTIVE, DONE, CLOSED
   }
-  private final Sequence<T> sequence;
-  private Yielder<T> yielder;
+  private final Sequence<Object> sequence;
+  private Yielder<Object> yielder;
   private State state = State.NEW;
 
-  public SequenceOperator(Sequence<T> sequence)
+  @SuppressWarnings("unchecked")
+  public SequenceOperator(Sequence<?> sequence)
   {
-    this.sequence = sequence;
+    this.sequence = (Sequence<Object>) sequence;
   }
 
   @Override
@@ -39,10 +40,10 @@ public class SequenceOperator<T> implements Operator<T>
     Preconditions.checkState(state == State.NEW);
     yielder = sequence.toYielder(
         null,
-        new YieldingAccumulator<T, T>()
+        new YieldingAccumulator<Object, Object>()
         {
            @Override
-          public T accumulate(T accumulated, T in)
+          public Object accumulate(Object accumulated, Object in)
           {
             yield();
             return in;
@@ -73,7 +74,7 @@ public class SequenceOperator<T> implements Operator<T>
   }
 
   @Override
-  public T get()
+  public Object get()
   {
     Preconditions.checkState(yielder != null);
     Preconditions.checkState(state == State.ACTIVE);

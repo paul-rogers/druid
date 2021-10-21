@@ -58,7 +58,7 @@ import java.util.List;
  *          typically some batch of rows rather than individual rows, but the
  *          operator protocol is agnostic.
  */
-public interface Operator<T>
+public interface Operator
 {
   /**
    * Operator definition: provides everything that the operator needs to do
@@ -86,13 +86,13 @@ public interface Operator<T>
    * Class which takes an operator definition and produces an operator for
    * that definition.
    */
-  interface OperatorFactory<T>
+  interface OperatorFactory
   {
-    Operator<T> build(OperatorDefn defn, List<Operator<?>> children);
+    Operator build(OperatorDefn defn, List<Operator> children);
   }
 
   void start();
   boolean next();
-  T get();
+  Object get();
   void close();
 }

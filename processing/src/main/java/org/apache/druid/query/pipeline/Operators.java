@@ -8,8 +8,8 @@ import java.util.Iterator;
 public class Operators
 {
 
-  public static <T> Iterator<T> toIterator(Operator<T> op) {
-    return new Iterator<T>() {
+  public static Iterator<Object> toIterator(Operator op) {
+    return new Iterator<Object>() {
 
       @Override
       public boolean hasNext()
@@ -18,35 +18,35 @@ public class Operators
       }
 
       @Override
-      public T next()
+      public Object next()
       {
         return op.get();
       }
     };
   }
 
-  public static <T> Iterable<T> toIterable(Operator<T> op) {
-    return new Iterable<T>() {
+  public static Iterable<Object> toIterable(Operator op) {
+    return new Iterable<Object>() {
       @Override
-      public Iterator<T> iterator()
+      public Iterator<Object> iterator()
       {
         return toIterator(op);
       }
     };
   }
 
-  public static <T> Sequence<T> toSequence(Operator<T> op) {
+  public static Sequence<Object> toSequence(Operator op) {
     return new BaseSequence<>(
-        new BaseSequence.IteratorMaker<T, Iterator<T>>()
+        new BaseSequence.IteratorMaker<Object, Iterator<Object>>()
         {
           @Override
-          public Iterator<T> make()
+          public Iterator<Object> make()
           {
             return toIterator(op);
           }
 
           @Override
-          public void cleanup(Iterator<T> iterFromMake)
+          public void cleanup(Iterator<Object> iterFromMake)
           {
             // No cleanup: fragment runner will close operators
           }
@@ -54,8 +54,8 @@ public class Operators
     );
   }
 
-  public static <T> Operator<T> toOperator(Sequence<T> sequence)
+  public static Operator toOperator(Sequence<?> sequence)
   {
-    return new SequenceOperator<T>(sequence);
+    return new SequenceOperator(sequence);
   }
 }

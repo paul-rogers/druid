@@ -6,7 +6,7 @@ import org.apache.druid.java.util.common.ISE;
 import java.util.List;
 import java.util.function.Function;
 
-public class MockOperator implements Operator<Object>
+public class MockOperator implements Operator
 {
   public static class MockOperatorDef extends AbstractOperatorDefn
   {
@@ -24,11 +24,11 @@ public class MockOperator implements Operator<Object>
     }
   }
 
-  public static class MockOperatorFactory implements OperatorFactory<Object>
+  public static class MockOperatorFactory implements OperatorFactory
   {
 
     @Override
-    public Operator<Object> build(OperatorDefn defn, List<Operator<?>> children)
+    public Operator build(OperatorDefn defn, List<Operator> children)
     {
       Preconditions.checkArgument(children.isEmpty());
       MockOperatorDef mockDefn = (MockOperatorDef) defn;

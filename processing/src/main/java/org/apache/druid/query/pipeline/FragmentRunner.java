@@ -35,15 +35,15 @@ public class FragmentRunner
    */
   public static class OperatorRegistry
   {
-    private Map<Class<? extends OperatorDefn>, OperatorFactory<?>> factories = new IdentityHashMap<>();
+    private final Map<Class<? extends OperatorDefn>, OperatorFactory> factories = new IdentityHashMap<>();
 
-    public void register(Class<? extends OperatorDefn> defClass, OperatorFactory<?> factory)
+    public void register(Class<? extends OperatorDefn> defClass, OperatorFactory factory)
     {
       Preconditions.checkState(!factories.containsKey(defClass));
       factories.put(defClass, factory);
     }
 
-    public OperatorFactory<?> factory(OperatorDefn defn)
+    public OperatorFactory factory(OperatorDefn defn)
     {
       return Preconditions.checkNotNull(factories.get(defn.getClass()));
     }
@@ -63,29 +63,29 @@ public class FragmentRunner
   }
 
   private final OperatorRegistry registry;
-  private final List<Operator<?>> operators = new ArrayList<>();
+  private final List<Operator> operators = new ArrayList<>();
 
   public FragmentRunner(OperatorRegistry registry)
   {
     this.registry = registry;
   }
 
-  public Operator<?> build(OperatorDefn rootDefn)
+  public Operator build(OperatorDefn rootDefn)
   {
-    List<Operator<?>> children = new ArrayList<>();
+    List<Operator> children = new ArrayList<>();
     for (OperatorDefn child : rootDefn.children()) {
       children.add(build(child));
     }
-    OperatorFactory<?> factory = registry.factory(rootDefn);
-    Operator<?> rootOp = factory.build(rootDefn, children);
+    OperatorFactory factory = registry.factory(rootDefn);
+    Operator rootOp = factory.build(rootDefn, children);
     operators.add(rootOp);
     return rootOp;
   }
 
   public void start()
   {
-    List<Operator<?>> opened = new ArrayList<>();
-    for (Operator<?> op : operators) {
+    List<Operator> opened = new ArrayList<>();
+    for (Operator op : operators) {
       try {
         op.start();
         opened.add(op);
@@ -98,8 +98,7 @@ public class FragmentRunner
   }
 
   public void run(Consumer consumer) {
-    @SuppressWarnings("unchecked")
-    Operator<Object> root = (Operator<Object>) operators.get(operators.size() - 1);
+   Operator root = operators.get(operators.size() - 1);
     while (root.next()) {
       if (!consumer.accept(root.get())) {
         break;
@@ -119,10 +118,10 @@ public class FragmentRunner
     close();
   }
 
-  private void close(List<Operator<?>> ops)
+  private void close(List<Operator> ops)
   {
     List<Exception> exceptions = new ArrayList<>();
-    for (Operator<?> op : ops) {
+    for (Operator op : ops) {
       try {
         op.close();
       }
