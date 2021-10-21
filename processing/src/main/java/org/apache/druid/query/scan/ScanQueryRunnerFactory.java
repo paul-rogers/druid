@@ -60,13 +60,13 @@ import java.util.stream.Collectors;
 public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValue, ScanQuery>
 {
   private final ScanQueryQueryToolChest toolChest;
-  private final ScanQueryEngine engine;
+  private final ScanQueryEngine2 engine;
   private final ScanQueryConfig scanQueryConfig;
 
   @Inject
   public ScanQueryRunnerFactory(
       ScanQueryQueryToolChest toolChest,
-      ScanQueryEngine engine,
+      ScanQueryEngine2 engine,
       ScanQueryConfig scanQueryConfig
   )
   {
@@ -348,10 +348,10 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
 
   private static class ScanQueryRunner implements QueryRunner<ScanResultValue>
   {
-    private final ScanQueryEngine engine;
+    private final ScanQueryEngine2 engine;
     private final Segment segment;
 
-    public ScanQueryRunner(ScanQueryEngine engine, Segment segment)
+    public ScanQueryRunner(ScanQueryEngine2 engine, Segment segment)
     {
       this.engine = engine;
       this.segment = segment;

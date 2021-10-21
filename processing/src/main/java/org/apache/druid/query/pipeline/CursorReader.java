@@ -1,3 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.druid.query.pipeline;
 
 import java.util.ArrayList;
@@ -13,12 +32,14 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.java.util.common.granularity.Granularities;
+import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.scan.ScanQuery;
+import org.apache.druid.query.scan.ScanQueryEngine2;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.segment.BaseObjectColumnValueSelector;
 import org.apache.druid.segment.Cursor;
@@ -31,7 +52,6 @@ import org.joda.time.Interval;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 /**
@@ -79,6 +99,9 @@ public class CursorReader implements Operator
       this.batchSize = query.getBatchSize();
     }
 
+    /**
+     * Define the query columns when the list is given by the query.
+     */
     private List<String> defineColumns(ScanQuery query) {
       List<String> queryCols = query.getColumns();
 
@@ -91,7 +114,7 @@ public class CursorReader implements Operator
         planCols.add(LEGACY_TIMESTAMP_KEY);
       }
 
-      // Unless we're in legacy mode, allColumns equals query.getColumns() exactly. This is nice since it makes
+      // Unless we're in legacy mode, planCols equals query.getColumns() exactly. This is nice since it makes
       // the compactedList form easier to use.
       planCols.addAll(queryCols);
       return planCols;
@@ -166,8 +189,8 @@ public class CursorReader implements Operator
       final List<Map<String, Object>> events = new ArrayList<>(defn.batchSize);
       while (hasNextRow()) {
         final Map<String, Object> theEvent = new LinkedHashMap<>();
-        for (int j = 0; j < allColumns.size(); j++) {
-          theEvent.put(allColumns.get(j), getColumnValue(j));
+        for (int j = 0; j < selectedColumns.size(); j++) {
+          theEvent.put(selectedColumns.get(j), getColumnValue(j));
         }
         events.add(theEvent);
         advance();
@@ -182,8 +205,8 @@ public class CursorReader implements Operator
     public Object read() {
       final List<List<Object>> events = new ArrayList<>(defn.batchSize);
       while (hasNextRow()) {
-        final List<Object> theEvent = new ArrayList<>(allColumns.size());
-        for (int j = 0; j < allColumns.size(); j++) {
+        final List<Object> theEvent = new ArrayList<>(selectedColumns.size());
+        for (int j = 0; j < selectedColumns.size(); j++) {
           theEvent.add(getColumnValue(j));
         }
         events.add(theEvent);
@@ -193,15 +216,40 @@ public class CursorReader implements Operator
     }
   }
 
+  public interface ColumnAccessor
+  {
+    Object get();
+  }
+
+  public static class CursorReaderWrapper implements ScanQueryEngine2 {
+    @Override
+    public Sequence<ScanResultValue> process(
+        final ScanQuery query,
+        final Segment segment,
+        final ResponseContext responseContext
+    )
+    {
+      CursorReaderDefn defn = new CursorReaderDefn(query, segment);
+      CursorReader reader = new CursorReader(defn, new FragmentContext()
+          {
+            @Override
+            public ResponseContext responseContext() {
+              return responseContext;
+            }
+          });
+      return Operators.toLoneSequence(reader);
+    }
+  }
+
   protected final CursorReaderDefn defn;
   protected final ResponseContext responseContext;
   private SequenceIterator<Cursor> iter;
   private BatchReader batchReader;
   private long timeoutAt;
   private long startTime;
-  protected List<String> allColumns;
+  protected List<String> selectedColumns;
   private long limit;
-  private List<BaseObjectColumnValueSelector<?>> columnSelectors;
+  private List<ColumnAccessor> columnAccessors;
   protected long rowCount;
   private Cursor cursor;
   private long targetCount;
@@ -238,9 +286,9 @@ public class CursorReader implements Operator
       );
     }
     if (defn.isWildcard()) {
-      allColumns = inferColumns(adapter);
+      selectedColumns = inferColumns(adapter);
     } else {
-      allColumns = defn.columns;
+      selectedColumns = defn.columns;
     }
     iter = SequenceIterator.of(adapter.makeCursors(
             defn.filter,
@@ -308,16 +356,38 @@ public class CursorReader implements Operator
 
   private void createColumnMap()
   {
-    columnSelectors = new ArrayList<>(allColumns.size());
-    for (String column : allColumns) {
+    columnAccessors = new ArrayList<>(selectedColumns.size());
+    for (String column : selectedColumns) {
+      final ColumnAccessor accessor;
       final BaseObjectColumnValueSelector<?> selector;
       if (defn.isLegacy && LEGACY_TIMESTAMP_KEY.equals(column)) {
         selector = cursor.getColumnSelectorFactory()
                          .makeColumnValueSelector(ColumnHolder.TIME_COLUMN_NAME);
+        accessor = new ColumnAccessor() {
+          @Override
+          public Object get() {
+            return DateTimes.utc((long) selector.getObject());
+          }
+        };
       } else {
         selector = cursor.getColumnSelectorFactory().makeColumnValueSelector(column);
+        if (selector == null) {
+          accessor = new ColumnAccessor() {
+            @Override
+            public Object get() {
+              return null;
+            }
+          };
+        } else {
+          accessor = new ColumnAccessor() {
+            @Override
+            public Object get() {
+              return selector.getObject();
+            }
+          };
+        }
       }
-      columnSelectors.add(selector);
+      columnAccessors.add(accessor);
     }
   }
 
@@ -343,7 +413,7 @@ public class CursorReader implements Operator
     targetCount = Math.min(limit - rowCount, rowCount + defn.batchSize);
     return new ScanResultValue(
         defn.segmentId,
-        allColumns,
+        selectedColumns,
         batchReader.read());
   }
 
@@ -360,17 +430,7 @@ public class CursorReader implements Operator
 
   private Object getColumnValue(int i)
   {
-    final BaseObjectColumnValueSelector<?> selector = columnSelectors.get(i);
-    final Object value;
-
-    // TODO: optimize this to avoid compare on each get
-    if (defn.isLegacy && allColumns.get(i).equals(LEGACY_TIMESTAMP_KEY)) {
-      value = DateTimes.utc((long) selector.getObject());
-    } else {
-      value = selector == null ? null : selector.getObject();
-    }
-
-    return value;
+    return columnAccessors.get(i).get();
   }
 
   @Override

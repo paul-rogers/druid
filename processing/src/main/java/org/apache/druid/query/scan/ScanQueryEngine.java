@@ -54,7 +54,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
-public class ScanQueryEngine
+public class ScanQueryEngine implements ScanQueryEngine2
 {
   static final String LEGACY_TIMESTAMP_KEY = "timestamp";
 
@@ -188,6 +188,7 @@ public class ScanQueryEngine
                             }
                             responseContext.add(ResponseContext.Key.NUM_SCANNED_ROWS, offset - lastOffset);
                             if (hasTimeout) {
+                              // This is very likely wrong
                               responseContext.put(
                                   ResponseContext.Key.TIMEOUT_AT,
                                   timeoutAt - (System.currentTimeMillis() - start)
