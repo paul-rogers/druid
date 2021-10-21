@@ -20,13 +20,8 @@ import java.io.IOException;
  */
 public class SequenceOperator implements Operator
 {
-  private enum State
-  {
-    NEW, START, ACTIVE, DONE, CLOSED
-  }
   private final Sequence<Object> sequence;
   private Yielder<Object> yielder;
-  private State state = State.NEW;
 
   @SuppressWarnings("unchecked")
   public SequenceOperator(Sequence<?> sequence)
@@ -37,7 +32,7 @@ public class SequenceOperator implements Operator
   @Override
   public void start()
   {
-    Preconditions.checkState(state == State.NEW);
+    Preconditions.checkState(yielder == null);
     yielder = sequence.toYielder(
         null,
         new YieldingAccumulator<Object, Object>()
@@ -50,41 +45,26 @@ public class SequenceOperator implements Operator
           }
         }
     );
-    state = yielder == null ? State.DONE : State.START;
   }
 
   @Override
-  public boolean next()
+  public boolean hasNext()
   {
-    switch (state) {
-    case START:
-      state = State.ACTIVE;
-      return true;
-    case ACTIVE:
-      break;
-    default:
-       return false;
-    }
-    yielder = yielder.next(null);
-    if (yielder.isDone()) {
-      state = State.DONE;
-      return false;
-    }
-    return true;
+    return yielder != null && !yielder.isDone();
   }
 
   @Override
-  public Object get()
+  public Object next()
   {
     Preconditions.checkState(yielder != null);
-    Preconditions.checkState(state == State.ACTIVE);
-    return yielder.get();
+    Object value = yielder.get();
+    yielder = yielder.next(null);
+    return value;
   }
 
   @Override
   public void close()
   {
-    state = State.CLOSED;
     if (yielder == null) {
       return;
     }

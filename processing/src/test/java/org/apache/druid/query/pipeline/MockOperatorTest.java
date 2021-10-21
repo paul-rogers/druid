@@ -19,17 +19,21 @@ import static org.junit.Assert.assertTrue;
 
 public class MockOperatorTest
 {
+   private Operator build(MockOperatorDef defn) {
+     return new MockOperatorFactory().build(defn, Collections.emptyList(), FragmentRunner.defaultContext());
+
+   }
    @Test
    public void testMockStringOperator()
    {
      MockOperatorDef defn = new MockOperatorDef(2, MockOperatorDef.Type.STRING);
-     Operator<Object> op = new MockOperatorFactory().build(defn, Collections.emptyList());
+     Operator op = build(defn);
      op.start();
-     assertTrue(op.next());
-     assertEquals("Mock row 0", op.get());
-     assertTrue(op.next());
-     assertEquals("Mock row 1", op.get());
-     assertFalse(op.next());
+     assertTrue(op.hasNext());
+     assertEquals("Mock row 0", op.next());
+     assertTrue(op.hasNext());
+     assertEquals("Mock row 1", op.next());
+     assertFalse(op.hasNext());
      op.close();
    }
 
@@ -37,13 +41,13 @@ public class MockOperatorTest
    public void testMockIntOperator()
    {
      MockOperatorDef defn = new MockOperatorDef(2, MockOperatorDef.Type.INT);
-     Operator<Object> op = new MockOperatorFactory().build(defn, Collections.emptyList());
+     Operator op = build(defn);
      op.start();
-     assertTrue(op.next());
-     assertEquals(0, op.get());
-     assertTrue(op.next());
-     assertEquals(1, op.get());
-     assertFalse(op.next());
+     assertTrue(op.hasNext());
+     assertEquals(0, op.next());
+     assertTrue(op.hasNext());
+     assertEquals(1, op.next());
+     assertFalse(op.hasNext());
      op.close();
    }
 
@@ -51,7 +55,7 @@ public class MockOperatorTest
    public void testIterator()
    {
      MockOperatorDef defn = new MockOperatorDef(2, MockOperatorDef.Type.INT);
-     Operator<Object> op = new MockOperatorFactory().build(defn, Collections.emptyList());
+     Operator op = build(defn);
      int rid = 0;
      for (Object row : Operators.toIterable(op)) {
        assertEquals(rid++, row);
@@ -65,8 +69,7 @@ public class MockOperatorTest
    public void testSequenceYielder() throws IOException
    {
      MockOperatorDef defn = new MockOperatorDef(5, MockOperatorDef.Type.INT);
-     @SuppressWarnings("unchecked")
-     Operator<Integer> op = (Operator<Integer>) (Operator<?>) new MockOperatorFactory().build(defn, Collections.emptyList());
+     Operator op = build(defn);
      final List<Integer> vals = Arrays.asList(0, 1, 2, 3, 4);
      Sequence<Integer> seq = Operators.toSequence(op);
      SequenceTestHelper.testYield("op", 5, seq, vals);
@@ -77,8 +80,7 @@ public class MockOperatorTest
    public void testSequenceAccum() throws IOException
    {
      MockOperatorDef defn = new MockOperatorDef(4, MockOperatorDef.Type.INT);
-     @SuppressWarnings("unchecked")
-     Operator<Integer> op = (Operator<Integer>) (Operator<?>) new MockOperatorFactory().build(defn, Collections.emptyList());
+     Operator op = build(defn);
      final List<Integer> vals = Arrays.asList(0, 1, 2, 3);
      Sequence<Integer> seq = Operators.toSequence(op);
      SequenceTestHelper.testAccumulation("op", seq, vals);
@@ -90,17 +92,17 @@ public class MockOperatorTest
    {
      OperatorRegistry reg = new OperatorRegistry();
      reg.register(MockOperatorDef.class, new MockOperatorFactory());
-     FragmentRunner runner = new FragmentRunner(reg);
+     FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
      MockOperatorDef defn = new MockOperatorDef(2, MockOperatorDef.Type.STRING);
-     Operator<?> op = runner.build(defn);
+     Operator op = runner.build(defn);
      MockOperator mockOp = (MockOperator) op;
      runner.start();
      assertTrue(mockOp.started);
-     assertTrue(op.next());
-     assertEquals("Mock row 0", op.get());
-     assertTrue(op.next());
-     assertEquals("Mock row 1", op.get());
-     assertFalse(op.next());
+     assertTrue(op.hasNext());
+     assertEquals("Mock row 0", op.next());
+     assertTrue(op.hasNext());
+     assertEquals("Mock row 1", op.next());
+     assertFalse(op.hasNext());
      runner.close();
      assertTrue(mockOp.closed);
    }
@@ -115,9 +117,9 @@ public class MockOperatorTest
    {
      OperatorRegistry reg = new OperatorRegistry();
      reg.register(MockOperatorDef.class, new MockOperatorFactory());
-     FragmentRunner runner = new FragmentRunner(reg);
+     FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
      MockOperatorDef defn = new MockOperatorDef(2, MockOperatorDef.Type.STRING);
-     Operator<?> op = runner.build(defn);
+     Operator op = runner.build(defn);
      MockOperator mockOp = (MockOperator) op;
      AtomicInteger count = new AtomicInteger();
      runner.fullRun(row -> {
@@ -135,15 +137,15 @@ public class MockOperatorTest
    public void testSequenceOperator()
    {
      MockOperatorDef defn = new MockOperatorDef(2, MockOperatorDef.Type.STRING);
-     Operator<Object> op = new MockOperatorFactory().build(defn, Collections.emptyList());
+     Operator op = build(defn);
      Sequence<Object> seq = Operators.toSequence(op);
-     Operator<Object> outer = Operators.toOperator(seq);
+     Operator outer = Operators.toOperator(seq);
      outer.start();
-     assertTrue(outer.next());
-     assertEquals("Mock row 0", outer.get());
-     assertTrue(outer.next());
-     assertEquals("Mock row 1", outer.get());
-     assertFalse(outer.next());
+     assertTrue(outer.hasNext());
+     assertEquals("Mock row 0", outer.next());
+     assertTrue(outer.hasNext());
+     assertEquals("Mock row 1", outer.next());
+     assertFalse(outer.hasNext());
      outer.close();
    }
 }

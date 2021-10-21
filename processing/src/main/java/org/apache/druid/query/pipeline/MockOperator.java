@@ -2,6 +2,7 @@ package org.apache.druid.query.pipeline;
 
 import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 
 import java.util.List;
 import java.util.function.Function;
@@ -28,7 +29,7 @@ public class MockOperator implements Operator
   {
 
     @Override
-    public Operator build(OperatorDefn defn, List<Operator> children)
+    public Operator build(OperatorDefn defn, List<Operator> children, FragmentContext context)
     {
       Preconditions.checkArgument(children.isEmpty());
       MockOperatorDef mockDefn = (MockOperatorDef) defn;
@@ -46,7 +47,7 @@ public class MockOperator implements Operator
 
   private final MockOperatorDef defn;
   private final Function<Integer,Object> generator;
-  private int rowPosn = -1;
+  private int rowPosn = 0;
   public boolean started;
   public boolean closed;
 
@@ -63,15 +64,15 @@ public class MockOperator implements Operator
   }
 
   @Override
-  public boolean next()
+  public boolean hasNext()
   {
-    return ++rowPosn < defn.rowCount;
+    return rowPosn < defn.rowCount;
   }
 
   @Override
-  public Object get()
+  public Object next()
   {
-    return generator.apply(rowPosn);
+    return generator.apply(rowPosn++);
   }
 
   @Override

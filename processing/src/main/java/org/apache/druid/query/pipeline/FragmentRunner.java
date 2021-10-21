@@ -1,6 +1,8 @@
 package org.apache.druid.query.pipeline;
 
 import com.google.common.base.Preconditions;
+
+import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.pipeline.Operator.OperatorDefn;
 import org.apache.druid.query.pipeline.Operator.OperatorFactory;
 
@@ -62,12 +64,29 @@ public class FragmentRunner
     boolean accept(Object row);
   }
 
+  public interface FragmentContext
+  {
+    ResponseContext responseContext();
+  }
+
+  public static FragmentContext defaultContext() {
+    ResponseContext context = ResponseContext.createEmpty();
+    return new FragmentContext() {
+      @Override
+      public ResponseContext responseContext() {
+        return context;
+      }
+    };
+  }
+
   private final OperatorRegistry registry;
+  private final FragmentContext context;
   private final List<Operator> operators = new ArrayList<>();
 
-  public FragmentRunner(OperatorRegistry registry)
+  public FragmentRunner(OperatorRegistry registry, FragmentContext context)
   {
     this.registry = registry;
+    this.context = context;
   }
 
   public Operator build(OperatorDefn rootDefn)
@@ -77,7 +96,7 @@ public class FragmentRunner
       children.add(build(child));
     }
     OperatorFactory factory = registry.factory(rootDefn);
-    Operator rootOp = factory.build(rootDefn, children);
+    Operator rootOp = factory.build(rootDefn, children, context);
     operators.add(rootOp);
     return rootOp;
   }
@@ -99,8 +118,8 @@ public class FragmentRunner
 
   public void run(Consumer consumer) {
    Operator root = operators.get(operators.size() - 1);
-    while (root.next()) {
-      if (!consumer.accept(root.get())) {
+    for (Object row : Operators.toIterable(root)) {
+      if (!consumer.accept(row)) {
         break;
       }
     }

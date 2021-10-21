@@ -8,45 +8,29 @@ import java.util.Iterator;
 public class Operators
 {
 
-  public static Iterator<Object> toIterator(Operator op) {
-    return new Iterator<Object>() {
-
-      @Override
-      public boolean hasNext()
-      {
-        return op.next();
-      }
-
-      @Override
-      public Object next()
-      {
-        return op.get();
-      }
-    };
-  }
-
   public static Iterable<Object> toIterable(Operator op) {
     return new Iterable<Object>() {
       @Override
       public Iterator<Object> iterator()
       {
-        return toIterator(op);
+        return op;
       }
     };
   }
 
-  public static Sequence<Object> toSequence(Operator op) {
+  public static <T> Sequence<T> toSequence(Operator op) {
     return new BaseSequence<>(
-        new BaseSequence.IteratorMaker<Object, Iterator<Object>>()
+        new BaseSequence.IteratorMaker<T, Iterator<T>>()
         {
+          @SuppressWarnings("unchecked")
           @Override
-          public Iterator<Object> make()
+          public Iterator<T> make()
           {
-            return toIterator(op);
+            return (Iterator<T>) op;
           }
 
           @Override
-          public void cleanup(Iterator<Object> iterFromMake)
+          public void cleanup(Iterator<T> iterFromMake)
           {
             // No cleanup: fragment runner will close operators
           }

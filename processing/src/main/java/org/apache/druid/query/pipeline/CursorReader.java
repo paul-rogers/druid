@@ -3,7 +3,6 @@ package org.apache.druid.query.pipeline;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,13 +11,10 @@ import java.util.Set;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.granularity.Granularities;
-import org.apache.druid.java.util.common.guava.BaseSequence;
-import org.apache.druid.java.util.common.guava.Sequence;
-import org.apache.druid.java.util.common.guava.Yielder;
-import org.apache.druid.java.util.common.guava.YieldingAccumulator;
+import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
-import org.apache.druid.query.pipeline.Operator.AbstractOperatorDefn;
-import org.apache.druid.query.pipeline.Operator.OperatorDefn;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.segment.BaseObjectColumnValueSelector;
@@ -47,8 +43,21 @@ public class CursorReader implements Operator
 {
   static final String LEGACY_TIMESTAMP_KEY = "timestamp";
 
+  /**
+   * Static definition of a segment scan.
+   */
   public static class CursorReaderDefn extends AbstractOperatorDefn
   {
+    public static enum Limit
+    {
+      NONE,
+      /**
+       * If we're performing time-ordering, we want to scan through the first `limit` rows in each
+       * segment ignoring the number of rows already counted on other segments.
+       */
+      LOCAL,
+      GLOBAL
+    }
     public Segment segment;
     public ScanQuery.ResultFormat resultFormat;
     public List<String> columns;
@@ -56,9 +65,11 @@ public class CursorReader implements Operator
     public Interval interval;
     public Filter filter;
     public int batchSize;
-    public int limit;
+    public Limit limitType;
+    public long limit;
     public boolean descendingOrder;
     public boolean legacy;
+    public boolean hasTimeout;
 
     public boolean isWildcard()
     {
@@ -66,6 +77,9 @@ public class CursorReader implements Operator
     }
   }
 
+  /**
+   * Create a segment scan definition from a scan query.
+   */
   public static class CursorReaderPlanner
   {
     public CursorReaderDefn plan(final ScanQuery query, final Segment segment)
@@ -81,6 +95,15 @@ public class CursorReader implements Operator
       defn.filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
       defn.descendingOrder = query.getOrder().equals(ScanQuery.Order.DESCENDING) ||
           (query.getOrder().equals(ScanQuery.Order.NONE) && query.isDescending());
+      defn.hasTimeout = QueryContexts.hasTimeout(query);
+      defn.limit = query.getScanRowsLimit();
+      if (!query.isLimited()) {
+        defn.limitType = CursorReaderDefn.Limit.NONE;
+      } else if (query.getOrder().equals(ScanQuery.Order.NONE)) {
+        defn.limitType = CursorReaderDefn.Limit.LOCAL;
+      } else {
+        defn.limitType = CursorReaderDefn.Limit.GLOBAL;
+      }
       return defn;
     }
 
@@ -107,96 +130,84 @@ public class CursorReader implements Operator
     }
   }
 
+  /**
+   * Create a cursor reader from a definition.
+   */
   public static class CursorReaderFactory implements OperatorFactory
   {
     @Override
-    public Operator build(OperatorDefn opDefn, List<Operator> children) {
+    public Operator build(OperatorDefn opDefn, List<Operator> children, FragmentContext context) {
       Preconditions.checkArgument(children.isEmpty());
       CursorReaderDefn defn = (CursorReaderDefn) opDefn;
-      return new CursorReader(defn);
+      return new CursorReader(defn, context);
     }
   }
 
-  public static class CursorIterator
-  {
-    public enum State
-    {
-      START, RUN, DONE
-    }
-    private Yielder<Cursor> yielder;
-    private State state = State.START;
-
-    public CursorIterator(Sequence<Cursor> cursors) {
-       this.yielder = cursors.toYielder(null,
-           new YieldingAccumulator<Cursor, Cursor>()
-           {
-              @Override
-              public Cursor accumulate(Cursor accumulated, Cursor in) {
-                yield();
-                return in;
-              }
-           }
-      );
-    }
-
-    public boolean next()
-    {
-      switch (state) {
-      case START:
-        state = State.RUN;
-        break;
-      case RUN:
-        yielder = yielder.next(null);
-        break;
-      case DONE:
-        return false;
-      }
-      if (yielder.isDone()) {
-        state = State.DONE;
-        return false;
-      }
-      return true;
-    }
-
-    public Cursor get() {
-      return yielder.get();
-    }
-  }
-
+  /**
+   * Read events from a cursor into one of several row formats.
+   */
   public static abstract class BatchReader
   {
     protected final CursorReaderDefn defn;
     protected final List<String> allColumns;
-    protected List<BaseObjectColumnValueSelector<?>> columnSelectors;
-    protected long offset;
+    private final long limit;
+    private List<BaseObjectColumnValueSelector<?>> columnSelectors;
+    protected long rowCount;
+    private Cursor cursor;
+    private long targetCount;
 
     public BatchReader(
         CursorReaderDefn defn,
-        List<String> allColumns
+        List<String> allColumns,
+        long limit
         )
     {
       this.defn = defn;
       this.allColumns = allColumns;
+      this.limit = limit;
     }
 
     public void startCursor(Cursor cursor) {
+      this.cursor = cursor;
       columnSelectors = new ArrayList<>(allColumns.size());
-
       for (String column : allColumns) {
         final BaseObjectColumnValueSelector<?> selector;
-
         if (defn.legacy && LEGACY_TIMESTAMP_KEY.equals(column)) {
           selector = cursor.getColumnSelectorFactory()
                            .makeColumnValueSelector(ColumnHolder.TIME_COLUMN_NAME);
         } else {
           selector = cursor.getColumnSelectorFactory().makeColumnValueSelector(column);
         }
-
         columnSelectors.add(selector);
       }
     }
 
-    public abstract Object read(Cursor cursor);
+    public abstract Object read();
+
+    protected void startBatch() {
+      targetCount = Math.min(limit - rowCount, rowCount + defn.batchSize);
+    }
+
+    protected boolean atLimit()
+    {
+      return rowCount >= limit;
+    }
+
+    protected boolean hasNextBatch()
+    {
+      return !cursor.isDone() && !atLimit();
+    }
+
+    protected boolean hasNextRow()
+    {
+      return !cursor.isDone() && rowCount < targetCount;
+    }
+
+    protected void advance()
+    {
+      cursor.advance();
+      rowCount++;
+     }
 
     protected Object getColumnValue(int i)
     {
@@ -214,81 +225,59 @@ public class CursorReader implements Operator
     }
   }
 
-  public static class ListBatchReader extends BatchReader
+  /**
+   * Convert a cursor row into a simple list of maps, where each map
+   * represents a single event, and each map entry represents a column.
+   */
+  public static class ListOfMapBatchReader extends BatchReader
   {
-    public ListBatchReader(
+    public ListOfMapBatchReader(
         CursorReaderDefn defn,
-        List<String> allColumns
+        List<String> allColumns,
+        long limit
         )
     {
-      super(defn, allColumns);
+      super(defn, allColumns, limit);
     }
 
     @Override
-    public Object read(Cursor cursor) {
+    public Object read() {
+      startBatch();
       List<Map<String, Object>> events = Lists.newArrayListWithCapacity(defn.batchSize);
-      final long iterLimit = Math.min(defn.limit, offset + defn.batchSize);
-      for (; !cursor.isDone() && offset < iterLimit; cursor.advance(), offset++) {
+      while (hasNextRow()) {
         final Map<String, Object> theEvent = new LinkedHashMap<>();
         for (int j = 0; j < allColumns.size(); j++) {
           theEvent.put(allColumns.get(j), getColumnValue(j));
         }
         events.add(theEvent);
+        advance();
       }
       return events;
     }
   }
 
-  public static class BatchIterator
+  private enum State
   {
-    public enum State
-    {
-      CURSOR, BATCH, DONE
-    }
-    private final CursorIterator iter;
-    private final BatchReader batchReader;
-    private State state = State.CURSOR;
-
-    public BatchIterator(CursorIterator iter, BatchReader batchReader)
-    {
-      this.iter = iter;
-      this.batchReader = batchReader;
-    }
-
-    public boolean next() {
-      if (state == State.BATCH && iter.get().isDone()) {
-        batchReader.startCursor(iter.get());
-        state = State.CURSOR;
-      }
-      switch (state) {
-      case CURSOR:
-        if (!iter.next()) {
-          state = State.DONE;
-          return false;
-        }
-        return true;
-      case BATCH:
-        return true;
-      default:
-        return false;
-      }
-    }
-
-    public Object get() {
-      return batchReader.read(iter.get());
-    }
+    CURSOR, BATCH, DONE
   }
-
   protected final CursorReaderDefn defn;
-  protected BatchIterator batchIter;
+  protected final ResponseContext responseContext;
+  private SequenceIterator<Cursor> iter;
+  private BatchReader batchReader;
+  private State state = null;
+  private long timeoutAt;
+  private long startTime;
 
-  public CursorReader(CursorReaderDefn defn)
+  public CursorReader(CursorReaderDefn defn, FragmentContext context)
   {
     this.defn = defn;
+    this.responseContext = context.responseContext();
   }
 
   @Override
   public void start() {
+    timeoutAt = (long) responseContext.get(ResponseContext.Key.TIMEOUT_AT);
+    startTime = System.currentTimeMillis();
     final StorageAdapter adapter = defn.segment.asStorageAdapter();
     if (adapter == null) {
       throw new ISE(
@@ -301,26 +290,27 @@ public class CursorReader implements Operator
     } else {
       cols = defn.columns;
     }
-    final BatchReader batchReader;
+    responseContext.add(ResponseContext.Key.NUM_SCANNED_ROWS, 0L);
+    long limit = defn.limit;
+    if (defn.limitType == CursorReaderDefn.Limit.GLOBAL) {
+      limit -= (Long) responseContext.get(ResponseContext.Key.NUM_SCANNED_ROWS);
+    }
     switch (defn.resultFormat) {
     case RESULT_FORMAT_LIST:
-      batchReader = new ListBatchReader(defn, cols);
+      batchReader = new ListOfMapBatchReader(defn, cols, limit);
       break;
     default:
       throw new ISE("Unknown type");
     }
-    Sequence<Cursor> cursors = adapter.makeCursors(
+    iter = SequenceIterator.of(adapter.makeCursors(
             defn.filter,
             defn.interval,
             defn.virtualColumns,
             Granularities.ALL,
             defn.descendingOrder,
             null
-        );
-    batchIter = new BatchIterator(
-        new CursorIterator(cursors),
-        batchReader
-        );
+        ));
+    state = State.CURSOR;
   }
 
   protected List<String> inferColumns(StorageAdapter adapter)
@@ -347,19 +337,61 @@ public class CursorReader implements Operator
   }
 
   @Override
-  public boolean next()
+  public boolean hasNext()
   {
-    return batchIter.next();
+    Preconditions.checkState(state != null, "start() not called");
+    while (true) {
+      switch (state) {
+      case CURSOR:
+        if (!iter.hasNext()) {
+          finish();
+          return false;
+        }
+        batchReader.startCursor(iter.next());
+        state = State.BATCH;
+        break;
+      case BATCH:
+        if (batchReader.hasNextBatch()) {
+          return true;
+        }
+        if (batchReader.atLimit()) {
+          finish();
+          return false;
+        }
+        state = State.CURSOR;
+        break;
+      default:
+        return false;
+      }
+    }
+  }
+
+  private void finish()
+  {
+    state = State.DONE;
+    responseContext.add(ResponseContext.Key.NUM_SCANNED_ROWS, batchReader.rowCount);
+    if (defn.hasTimeout) {
+      // This is very likely wrong
+      responseContext.put(
+          ResponseContext.Key.TIMEOUT_AT,
+          timeoutAt - (System.currentTimeMillis() - startTime)
+      );
+    }
   }
 
   @Override
-  public Object get()
+  public Object next()
   {
-    return batchIter.get();
+    Preconditions.checkState(state == State.BATCH);
+    return new ScanResultValue(
+        defn.segment.getId().toString(),
+        batchReader.allColumns,
+        batchReader.read());
   }
 
   @Override
   public void close()
   {
+    state = State.DONE;
   }
 }
