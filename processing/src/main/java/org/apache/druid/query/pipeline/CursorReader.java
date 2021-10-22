@@ -51,6 +51,7 @@ import org.apache.druid.segment.filter.Filters;
 import org.joda.time.Interval;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
@@ -171,21 +172,13 @@ public class CursorReader implements Operator
   }
 
   /**
-   * Read events from a cursor into one of several row formats.
-   */
-  public interface BatchReader
-  {
-    Object read();
-  }
-
-  /**
    * Convert a cursor row into a simple list of maps, where each map
    * represents a single event, and each map entry represents a column.
    */
-  public class ListOfMapBatchReader implements BatchReader
+  public class ListOfMapBatchReader implements Supplier<Object>
   {
     @Override
-    public Object read() {
+    public Object get() {
       final List<Map<String, Object>> events = new ArrayList<>(defn.batchSize);
       while (hasNextRow()) {
         final Map<String, Object> theEvent = new LinkedHashMap<>();
@@ -199,10 +192,10 @@ public class CursorReader implements Operator
     }
   }
 
-  public class CompactListBatchReader implements BatchReader
+  public class CompactListBatchReader implements Supplier<Object>
   {
     @Override
-    public Object read() {
+    public Object get() {
       final List<List<Object>> events = new ArrayList<>(defn.batchSize);
       while (hasNextRow()) {
         final List<Object> theEvent = new ArrayList<>(selectedColumns.size());
@@ -244,7 +237,7 @@ public class CursorReader implements Operator
   protected final CursorReaderDefn defn;
   protected final ResponseContext responseContext;
   private SequenceIterator<Cursor> iter;
-  private BatchReader batchReader;
+  private Supplier<Object> batchReader;
   private long timeoutAt;
   private long startTime;
   protected List<String> selectedColumns;
@@ -414,7 +407,7 @@ public class CursorReader implements Operator
     return new ScanResultValue(
         defn.segmentId,
         selectedColumns,
-        batchReader.read());
+        batchReader.get());
   }
 
   private void advance()
