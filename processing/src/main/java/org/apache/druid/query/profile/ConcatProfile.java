@@ -19,9 +19,7 @@
 
 package org.apache.druid.query.profile;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.List;
+import org.apache.druid.query.profile.OperatorProfile.BranchingOperatorProfile;
 
 /**
  * Represents the concatenation of n separate sequences (streams) of rows.
@@ -31,20 +29,7 @@ import java.util.List;
  * counts, and as the time for this operator minus the sum of the times of
  * incoming operators.
  */
-public class ConcatProfile extends OperatorProfile
+public class ConcatProfile extends BranchingOperatorProfile
 {
   public static final String TYPE = "concat";
-
-  @JsonProperty
-  public List<OperatorProfile> children;
-
-  @JsonCreator
-  public ConcatProfile()
-  {
-  }
-
-  public ConcatProfile(List<OperatorProfile> children)
-  {
-    this.children = children;
-  }
 }

@@ -21,20 +21,17 @@ package org.apache.druid.query.profile;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.profile.OperatorProfile.SimpleOperatorProfile;
 
-public class NativeQueryProfile extends OperatorProfile
+public class NativeQueryProfile extends SimpleOperatorProfile
 {
   public static final String TYPE = "native";
 
   @JsonProperty
   public Query<?> query;
 
-  @JsonProperty
-  public OperatorProfile child;
-
-  public NativeQueryProfile(Query<?> query, OperatorProfile child)
+  public NativeQueryProfile(Query<?> query)
   {
     this.query = query;
-    this.child = child;
   }
 }

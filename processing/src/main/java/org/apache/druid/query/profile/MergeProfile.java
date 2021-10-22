@@ -19,8 +19,7 @@
 
 package org.apache.druid.query.profile;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.List;
+import org.apache.druid.query.profile.OperatorProfile.BranchingOperatorProfile;
 
 /**
  * Represents an n-way merge. Because of the functional style of programming,
@@ -29,10 +28,7 @@ import java.util.List;
  * counts, and as the time for this operator minus the sum of the times of
  * incoming operators.
  */
-public class MergeProfile extends OperatorProfile
+public class MergeProfile extends BranchingOperatorProfile
 {
   public static final String TYPE = "merge";
-
-  @JsonProperty
-  public List<OperatorProfile> children;
 }

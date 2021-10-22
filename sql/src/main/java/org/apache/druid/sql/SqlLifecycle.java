@@ -45,9 +45,7 @@ import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.SingleQueryMetricsCollector;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.profile.NativeQueryProfile;
-import org.apache.druid.query.profile.OperatorProfile.OpaqueOperator;
 import org.apache.druid.query.profile.ProfileConsumer;
-import org.apache.druid.query.profile.RootFragmentProfile;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryResponse;
 import org.apache.druid.server.QueryScheduler;
@@ -110,13 +108,12 @@ public class SqlLifecycle
   {
     DruidNode node;
     String remoteAddress;
-    SqlQuery receivedQuery;
-    String queryId;
     long endTimeNs;
     long bytesWritten;
     long rowCount;
     ResponseContext responseContext;
-    RootFragmentProfile fragmentProfile;
+    SqlFragmentProfile profile;
+    boolean profileFinished;
     Throwable e;
 
     /**
@@ -127,8 +124,12 @@ public class SqlLifecycle
     {
       this.node = node;
       this.remoteAddress = remoteAddress;
-      this.queryId = sqlQueryId;
-      this.receivedQuery = query;
+      profile = new SqlFragmentProfile();
+      profile.host = node.getHostAndPort();
+      profile.service = node.getServiceName();
+      profile.remoteAddress = remoteAddress;
+      profile.query = query;
+      profile.queryId = sqlQueryId;
     }
 
     public void setResponseContext(ResponseContext responseContext)
@@ -201,7 +202,8 @@ public class SqlLifecycle
       );
 
       if (!plannerResult.isExplain()) {
-        responseContext.add(ResponseContext.Keys.PROFILE, getProfile());
+        finishProfile();
+        responseContext.add(ResponseContext.Keys.PROFILE, profile);
       }
     }
 
@@ -251,24 +253,18 @@ public class SqlLifecycle
       return new QueryStats(statsMap);
     }
 
-    private RootFragmentProfile getProfile()
+    private void finishProfile()
     {
-      if (fragmentProfile != null) {
-        return fragmentProfile;
+      if (profileFinished) {
+        return;
       }
-      SqlFragmentProfile profile = new SqlFragmentProfile();
-      profile.host = node.getHostAndPort();
-      profile.service = node.getServiceName();
-      profile.remoteAddress = remoteAddress;
-      profile.query = receivedQuery;
-      profile.queryId = queryId;
+      profileFinished = true;
       profile.plan = RelOptUtil.dumpPlan("", plannerResult.getPlan(), SqlExplainFormat.JSON, SqlExplainLevel.EXPPLAN_ATTRIBUTES);
       profile.startTime = getStartMs();
       profile.timeNs = runTimeNs();
       profile.rows = rowCount;
       Long cpuNs = responseContext.getCpuNanos();
       profile.cpuNs = cpuNs == null ? 0 : cpuNs;
-      profile.rootOperator = responseContext.popProfile();
       if (wasInterrupted()) {
         profile.error = "Interrupted";
       } else if (!succeeded()) {
@@ -278,7 +274,7 @@ public class SqlLifecycle
       // Capture the referenced columns to the top level fragment.
       // The root operator really should be a native query profile, but we're
       // playing it safe for the moment.
-      if (profile.rootOperator instanceof NativeQueryProfile) {
+      if (profile.rootOperator != null && profile.rootOperator instanceof NativeQueryProfile) {
         Query<?> nativeQuery = ((NativeQueryProfile) profile.rootOperator).query;
         Set<String> reqCols = nativeQuery.getRequiredColumns();
         if (reqCols != null) {
@@ -286,14 +282,13 @@ public class SqlLifecycle
           profile.columns.addAll(reqCols);
         }
       }
-      fragmentProfile = profile;
-      return fragmentProfile;
     }
 
     public void writeProfile(ProfileConsumer profileConsumer)
     {
       if (!plannerResult.isExplain()) {
-        profileConsumer.emit(getProfile());
+        finishProfile();
+        profileConsumer.emit(profile);
       }
     }
   }

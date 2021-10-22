@@ -26,7 +26,7 @@ import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.query.Druids.SegmentMetadataQueryBuilder;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.profile.OperatorProfile.OpaqueOperator;
+import org.apache.druid.query.profile.OperatorProfile.OpaqueOperatorProfile;
 import org.apache.druid.timeline.SegmentId;
 import org.junit.Test;
 
@@ -62,7 +62,6 @@ public class ProfileTest
     fragment.timeNs = 789 + base;
     fragment.cpuNs = 123 + base;
     fragment.rows = 456 + base;
-    fragment.rootOperator = new OpaqueOperator();
     return fragment;
   }
 
@@ -111,43 +110,79 @@ public class ProfileTest
   @Test
   public void testOperatorStack()
   {
-    ResponseContext ctx = ResponseContext.createEmpty();
-    OperatorProfile op = ctx.popProfile();
-    assertNotNull(op);
-    assertTrue(op instanceof OpaqueOperator);
+    ProfileStack stack = new ProfileStackImpl();
 
     SortProfile sort1 = new SortProfile();
     sort1.timeNs = 1;
-    ctx.pushProfile(sort1);
+    stack.push(sort1);
     SortProfile sort2 = new SortProfile();
     sort2.timeNs = 2;
-    ctx.pushProfile(sort2);
-    assertSame(sort2, ctx.popProfile());
-    assertSame(sort1, ctx.popProfile());
-    assertTrue(ctx.popProfile() instanceof OpaqueOperator);
+    stack.push(sort2);
+    assertSame(sort1.child, sort2);
+    stack.pop(sort2);
+    stack.pop(sort1);
+    assertSame(sort1, stack.root());
+  }
 
-    ctx.pushGroup();
-    ctx.pushProfile(sort1);
-    ctx.pushProfile(sort2);
-    assertEquals(2, ctx.popGroup().size());
-    assertTrue(ctx.popProfile() instanceof OpaqueOperator);
+  public void testMissingRoot()
+  {
+    ProfileStack stack = new ProfileStackImpl();
+    OperatorProfile root = stack.root();
+    assertNotNull(root);
+    assertTrue(root instanceof OpaqueOperatorProfile);
   }
 
   @Test(expected = IllegalStateException.class)
-  public void testGroupUnderflow()
+  public void testUnderflow()
   {
-    ResponseContext ctx = ResponseContext.createEmpty();
-    ctx.popGroup();
+    ProfileStack stack = new ProfileStackImpl();
+    SortProfile sort1 = new SortProfile();
+    stack.push(sort1);
+    stack.pop(sort1);
+    stack.pop(sort1);
   }
 
+  @Test(expected = IllegalStateException.class)
+  public void testEmpty()
+  {
+    ProfileStack stack = new ProfileStackImpl();
+    SortProfile sort1 = new SortProfile();
+    stack.pop(sort1);
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testMismatch()
+  {
+    ProfileStack stack = new ProfileStackImpl();
+    SortProfile sort1 = new SortProfile();
+    stack.push(sort1);
+    SortProfile sort2 = new SortProfile();
+    stack.pop(sort2);
+  }
+
+  /**
+   * Verify that the response context has a "live" profile stack
+   * by default.
+   */
+  @Test
+  public void testResponseContextStack() throws IOException
+  {
+    ResponseContext ctx = ResponseContext.createEmpty();
+    SortProfile sort1 = new SortProfile();
+    ctx.getProfileStack().push(sort1);
+    SortProfile sort2 = new SortProfile();
+    ctx.getProfileStack().push(sort2);
+    assertSame(sort2, sort1.child);
+  }
+
+  // TODO: This test is pretty lame...
   @Test
   public void testSerializeOperators() throws JsonProcessingException
   {
+    ProfileStack stack = new ProfileStackImpl();
     ConcatProfile concat = new ConcatProfile();
     concat.timeNs = 1;
-
-    OpaqueOperator opaque = new OpaqueOperator();
-    opaque.timeNs = 2;
+    stack.push(concat);
 
     ReceiverProfile receiver = new ReceiverProfile(
         "foo:123",
@@ -163,18 +198,22 @@ public class ProfileTest
     receiver.response.put("foo", "bar");
     receiver.fragment = new HashMap<>();
     receiver.fragment.put("fred", "wilma");
+    stack.push(receiver);
+    stack.pop(receiver);
 
     SegmentMetadataScanProfile segmentMD = new SegmentMetadataScanProfile(
         SegmentId.dummy("data-source", 3));
     segmentMD.timeNs = 4;
+    stack.push(segmentMD);
+    stack.pop(segmentMD);
 
     MergeProfile merge = new MergeProfile();
     merge.timeNs = 5;
-    merge.children = Lists.newArrayList(new OpaqueOperator());
+    stack.push(merge);
 
     SortProfile sort = new SortProfile();
     sort.timeNs = 6;
-    sort.child = new OpaqueOperator();
+    stack.push(sort);
 
     SegmentScanProfile segScan = new SegmentScanProfile(
         SegmentId.dummy("data-source", 3));
@@ -184,18 +223,18 @@ public class ProfileTest
     segScan.columnCount = 101;
     segScan.batchSize = 102;
     segScan.error = "An error";
+    stack.push(segScan);
+    stack.pop(segScan);
 
-    ConcatProfile container = new ConcatProfile();
-    container.children = Lists.newArrayList(
-        opaque,
-        concat,
-        receiver,
-        segmentMD,
-        merge,
-        sort,
-        segScan);
+    stack.pop(sort);
+    stack.pop(merge);
+    stack.pop(concat);
+
+    FragmentProfile root = mockRootProfile(0);
+    root.rootOperator = stack.root();
+
     final DefaultObjectMapper mapper = new DefaultObjectMapper();
-    String json = mapper.writeValueAsString(container);
+    String json = mapper.writeValueAsString(root);
     System.out.println(json);
   }
 }

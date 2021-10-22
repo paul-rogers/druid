@@ -23,6 +23,11 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.google.common.base.Preconditions;
+import org.apache.druid.java.util.common.ISE;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Profile of an "operator" in Druid. A typical query is composed of a series
@@ -39,7 +44,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "kind")
 @JsonSubTypes(value = {
-    @JsonSubTypes.Type(name = OperatorProfile.OpaqueOperator.TYPE, value = OperatorProfile.OpaqueOperator.class),
+    @JsonSubTypes.Type(name = OperatorProfile.OpaqueOperatorProfile.TYPE, value = OperatorProfile.OpaqueOperatorProfile.class),
     @JsonSubTypes.Type(name = ReceiverProfile.TYPE, value = ReceiverProfile.class),
     @JsonSubTypes.Type(name = SegmentMetadataScanProfile.TYPE, value = SegmentMetadataScanProfile.class),
     @JsonSubTypes.Type(name = MergeProfile.TYPE, value = MergeProfile.class),
@@ -53,8 +58,46 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
     @JsonSubTypes.Type(name = DistributorProfile.TYPE, value = DistributorProfile.class),
     @JsonSubTypes.Type(name = NativeQueryProfile.TYPE, value = NativeQueryProfile.class),
 })
-public abstract class OperatorProfile
+public abstract class OperatorProfile implements OperatorProfileParent
 {
+  /**
+   * A temporary placeholder for places that don't yet report
+   * an operator profile.
+   */
+  public static class OpaqueOperatorProfile extends OperatorProfile
+  {
+    public static final String TYPE = "unknown";
+  }
+
+  public abstract static class SimpleOperatorProfile extends OperatorProfile
+  {
+    /**
+     * The upstream operator which produces the rows/batches
+     * to this operator.
+     */
+    @JsonProperty
+    public OperatorProfile child;
+
+    @Override
+    public void addChild(OperatorProfile profile)
+    {
+      Preconditions.checkState(child == null, "Profile already has a child");
+      child = profile;
+    }
+  }
+
+  public abstract static class BranchingOperatorProfile extends OperatorProfile
+  {
+    @JsonProperty
+    public final List<OperatorProfile> children = new ArrayList<>();
+
+    @Override
+    public void addChild(OperatorProfile profile)
+    {
+      children.add(profile);
+    }
+  }
+
   /**
    * The total wall clock time, in ns, taken by this operator.
    * Includes the time of all child operators. The time for just
@@ -64,13 +107,10 @@ public abstract class OperatorProfile
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public long timeNs;
-  
-  /**
-   * A temporary placeholder for places that don't yet report
-   * an operator profile.
-   */
-  public static class OpaqueOperator extends OperatorProfile
+
+  @Override
+  public void addChild(OperatorProfile profile)
   {
-    public static final String TYPE = "unknown";
+    throw new ISE(this.getClass().getSimpleName() + " does not support children.");
   }
 }

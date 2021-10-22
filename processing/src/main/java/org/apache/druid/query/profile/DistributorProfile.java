@@ -24,8 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.druid.java.util.common.guava.ParallelMergeCombiningSequence.MergeCombineMetrics;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
-
-import java.util.List;
+import org.apache.druid.query.profile.OperatorProfile.BranchingOperatorProfile;
 
 /**
  * Holds statistics from the
@@ -37,7 +36,7 @@ import java.util.List;
  * is done in a single thread. If multiple nodes, then the requests run
  * in parallel.
  */
-public class DistributorProfile extends OperatorProfile
+public class DistributorProfile extends BranchingOperatorProfile
 {
   public static final String TYPE = "scatter";
 
@@ -128,12 +127,6 @@ public class DistributorProfile extends OperatorProfile
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public String lane;
-
-  /**
-   * Operators that implement the per-server queries.
-   */
-  @JsonProperty
-  public List<OperatorProfile> children;
 
   /**
    * Details of the parallel merge operation, if any.

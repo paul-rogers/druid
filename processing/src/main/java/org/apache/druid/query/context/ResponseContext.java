@@ -35,8 +35,8 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.NonnullPair;
 import org.apache.druid.query.MultiQueryMetricsCollector;
 import org.apache.druid.query.SegmentDescriptor;
-import org.apache.druid.query.profile.OperatorProfile;
-import org.apache.druid.query.profile.OperatorProfile.OpaqueOperator;
+import org.apache.druid.query.profile.ProfileStack;
+import org.apache.druid.query.profile.ProfileStackImpl;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
@@ -600,13 +600,7 @@ public abstract class ResponseContext
     }
   }
 
-  private final List<List<OperatorProfile>> profileStack;
-
-  public ResponseContext()
-  {
-    profileStack = new ArrayList<>();
-    profileStack.add(new ArrayList<>());
-  }
+  private final ProfileStack profileStack = new ProfileStackImpl();
 
   protected abstract Map<Key, Object> getDelegate();
 
@@ -974,30 +968,7 @@ public abstract class ResponseContext
     }
   }
 
-  public void pushGroup()
-  {
-    profileStack.add(new ArrayList<>());
-  }
-
-  public List<OperatorProfile> popGroup()
-  {
-    if (profileStack.size() < 2) {
-      throw new ISE("Profile group stack underflow");
-    }
-    return profileStack.remove(profileStack.size() - 1);
-  }
-
-  public void pushProfile(OperatorProfile profile)
-  {
-    profileStack.get(profileStack.size() - 1).add(profile);
-  }
-
-  public OperatorProfile popProfile()
-  {
-    List<OperatorProfile> tail = profileStack.get(profileStack.size() - 1);
-    if (tail.isEmpty()) {
-      return new OpaqueOperator();
-    }
-    return tail.remove(tail.size() - 1);
+  public ProfileStack getProfileStack() {
+    return profileStack;
   }
 }
