@@ -45,6 +45,7 @@ import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.SingleQueryMetricsCollector;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.profile.NativeQueryProfile;
+import org.apache.druid.query.profile.OperatorProfile.OpaqueOperator;
 import org.apache.druid.query.profile.ProfileConsumer;
 import org.apache.druid.query.profile.RootFragmentProfile;
 import org.apache.druid.server.DruidNode;
@@ -264,8 +265,9 @@ public class SqlLifecycle
       profile.plan = RelOptUtil.dumpPlan("", plannerResult.getPlan(), SqlExplainFormat.JSON, SqlExplainLevel.EXPPLAN_ATTRIBUTES);
       profile.startTime = getStartMs();
       profile.timeNs = runTimeNs();
-      profile.cpuNs = responseContext.getCpuNanos();
       profile.rows = rowCount;
+      Long cpuNs = responseContext.getCpuNanos();
+      profile.cpuNs = cpuNs == null ? 0 : cpuNs;
       profile.rootOperator = responseContext.popProfile();
       if (wasInterrupted()) {
         profile.error = "Interrupted";
