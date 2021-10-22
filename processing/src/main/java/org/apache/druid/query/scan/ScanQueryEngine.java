@@ -86,14 +86,14 @@ public class ScanQueryEngine
     SegmentScanProfile profile = new SegmentScanProfile(segment.getId());
     profile.batchSize = query.getBatchSize();
     responseContext.pushProfile(profile);
-    Timer runTimer = Timer.createStarted();
+    Timer timer = Timer.createStarted();
 
     // If the query has a row limit, and the query execution has already
     // returned at least that number of rows, then just return an empty sequence.
     final Long numScannedRows = responseContext.getRowScanCount();
     if (numScannedRows != null && numScannedRows >= query.getScanRowsLimit() && query.getOrder().equals(ScanQuery.Order.NONE)) {
       profile.limited = true;
-      profile.timeNs = runTimer.get();
+      profile.timeNs = timer.get();
       return Sequences.empty();
     }
     final boolean hasTimeout = QueryContexts.hasTimeout(query);
@@ -206,6 +206,7 @@ public class ScanQueryEngine
                           @Override
                           public ScanResultValue next()
                           {
+                            timer.start();
                             if (!hasNext()) {
                               throw new NoSuchElementException();
                             }
@@ -233,6 +234,7 @@ public class ScanQueryEngine
                                   timeoutAt - (System.currentTimeMillis() - start)
                               );
                             }
+                            timer.stop();
                             return new ScanResultValue(segmentId.toString(), allColumns, events);
                           }
 
@@ -295,13 +297,14 @@ public class ScanQueryEngine
                       @Override
                       public void cleanup(Iterator<ScanResultValue> iterFromMake)
                       {
-                        profile.timeNs = runTimer.get();
+                        profile.timeNs = timer.get();
                         ((CloseableIterator<ScanResultValue>) iterFromMake).close();
                       }
                     }
             ))
     );
     profile.cursors = responseContext.popGroup();
+    timer.stop();
     return cursors;
   }
 
