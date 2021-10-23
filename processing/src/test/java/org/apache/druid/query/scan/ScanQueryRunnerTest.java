@@ -51,7 +51,7 @@ import org.apache.druid.query.extraction.MapLookupExtractor;
 import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.lookup.LookupExtractionFn;
-import org.apache.druid.query.pipeline.CursorReader.CursorReaderWrapper;
+import org.apache.druid.query.pipeline.ScanQueryOperator.CursorReaderWrapper;
 import org.apache.druid.query.spec.LegacySegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.segment.TestIndex;
