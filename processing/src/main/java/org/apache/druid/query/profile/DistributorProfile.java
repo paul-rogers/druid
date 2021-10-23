@@ -21,6 +21,7 @@ package org.apache.druid.query.profile;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import org.apache.druid.java.util.common.guava.ParallelMergeCombiningSequence.MergeCombineMetrics;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
@@ -36,6 +37,12 @@ import org.apache.druid.query.profile.OperatorProfile.BranchingOperatorProfile;
  * is done in a single thread. If multiple nodes, then the requests run
  * in parallel.
  */
+@JsonPropertyOrder({"empty", "priority", "lane",
+    "segments", "servers",
+    "fromCache", "toCache",
+    "timeNs", "rows", "batches",
+    "missingServers", "uncoveredIntervals",
+    "children", "parallelMerge"})
 public class DistributorProfile extends BranchingOperatorProfile
 {
   public static final String TYPE = "scatter";

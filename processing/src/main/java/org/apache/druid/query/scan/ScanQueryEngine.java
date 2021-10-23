@@ -36,6 +36,7 @@ import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
+import org.apache.druid.query.profile.InnerProfileStack;
 import org.apache.druid.query.profile.QueryMetricsAdapter;
 import org.apache.druid.query.profile.SegmentScanProfile;
 import org.apache.druid.query.profile.Timer;
@@ -85,7 +86,7 @@ public class ScanQueryEngine
     final boolean legacy = Preconditions.checkNotNull(query.isLegacy(), "Expected non-null 'legacy' parameter");
     SegmentScanProfile profile = new SegmentScanProfile(segment.getId());
     profile.batchSize = query.getBatchSize();
-    responseContext.pushProfile(profile);
+    responseContext.getProfileStack().leaf(profile);
     Timer timer = Timer.createStarted();
 
     // If the query has a row limit, and the query execution has already
@@ -159,8 +160,7 @@ public class ScanQueryEngine
     // If the row count is not set, set it to 0, else do nothing.
     responseContext.addRowScanCount(0);
     final long limit = calculateRemainingScanRowsLimit(query, responseContext);
-    responseContext.pushGroup();
-    Sequence<ScanResultValue> cursors = Sequences.concat(
+    return Sequences.concat(
             adapter
                 .makeCursors(
                     filter,
@@ -169,7 +169,7 @@ public class ScanQueryEngine
                     Granularities.ALL,
                     query.getOrder().equals(ScanQuery.Order.DESCENDING) ||
                     (query.getOrder().equals(ScanQuery.Order.NONE) && query.isDescending()),
-                    QueryMetricsAdapter.wrap(queryMetrics, responseContext)
+                    QueryMetricsAdapter.wrap(queryMetrics, new InnerProfileStack(profile))
                 )
                 .map(cursor -> new BaseSequence<>(
                     new BaseSequence.IteratorMaker<ScanResultValue, Iterator<ScanResultValue>>()
@@ -303,9 +303,6 @@ public class ScanQueryEngine
                     }
             ))
     );
-    profile.cursors = responseContext.popGroup();
-    timer.stop();
-    return cursors;
   }
 
   /**

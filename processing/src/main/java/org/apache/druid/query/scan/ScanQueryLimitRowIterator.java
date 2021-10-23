@@ -30,8 +30,7 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.profile.LimitProfile;
-import org.apache.druid.query.profile.MergeProfile;
+import org.apache.druid.query.profile.OperatorProfile;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -58,25 +57,22 @@ public class ScanQueryLimitRowIterator implements CloseableIterator<ScanResultVa
   private long limit;
   private long count;
   private ScanQuery query;
-  private LimitProfile profile;
+  private OperatorProfile profile;
 
   public ScanQueryLimitRowIterator(
       QueryRunner<ScanResultValue> baseRunner,
       QueryPlus<ScanResultValue> queryPlus,
       ResponseContext responseContext,
-      LimitProfile profile
+      OperatorProfile profile
   )
   {
     this.query = (ScanQuery) queryPlus.getQuery();
     this.resultFormat = query.getResultFormat();
     this.limit = query.getScanRowsLimit();
     this.profile = profile;
-    responseContext.pushGroup();
     Query<ScanResultValue> historicalQuery =
         queryPlus.getQuery().withOverriddenContext(ImmutableMap.of(ScanQuery.CTX_KEY_OUTERMOST, false));
     Sequence<ScanResultValue> baseSequence = baseRunner.run(QueryPlus.wrap(historicalQuery), responseContext);
-    MergeProfile mergeProfile = (MergeProfile) profile.child;
-    mergeProfile.children = responseContext.popGroup();
     this.yielder = baseSequence.toYielder(
         null,
         new YieldingAccumulator<ScanResultValue, ScanResultValue>()

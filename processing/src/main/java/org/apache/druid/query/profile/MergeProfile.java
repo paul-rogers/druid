@@ -19,16 +19,40 @@
 
 package org.apache.druid.query.profile;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import org.apache.druid.query.profile.OperatorProfile.BranchingOperatorProfile;
 
 /**
- * Represents an n-way merge. Because of the functional style of programming,
- * it is not possible to obtain things like the detailed merge time or the
- * row count. These can be inferred, however, as the sum of any incoming row
- * counts, and as the time for this operator minus the sum of the times of
- * incoming operators.
+ * Represents a merge using one of three strategies.
  */
+@JsonPropertyOrder({"strategy", "limit", "offset", "timeNs", "rows",
+    "batches", "children"})
 public class MergeProfile extends BranchingOperatorProfile
 {
   public static final String TYPE = "merge";
+
+  /**
+   * No ordering, just concatenate the results.
+   */
+  public static final String CONCAT_STRATEGY = "concat";
+
+  /**
+   * The result size is limited, a priority queue is used.
+   */
+  public static final String PQUEUE_STRATEGY = "priority-queue";
+
+  /**
+   * Results are already ordered, and are just merged.
+   */
+  public static final String MERGE_STRATEGY = "merge";
+
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public String strategy;
+  @JsonProperty
+  public long offset;
+  @JsonProperty
+  public long limit;
 }

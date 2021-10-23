@@ -22,7 +22,6 @@ package org.apache.druid.query.profile;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Objects.ToStringHelper;
 
 /**
@@ -42,7 +41,7 @@ import com.google.common.base.Objects.ToStringHelper;
  * Instances are compared only in tests. Instances are not used as
  * hash keys.
  */
-public class FragmentProfile implements OperatorProfileParent
+public class FragmentProfile
 {
   /**
    * Name of the host + port number that processed this fragment.
@@ -96,13 +95,6 @@ public class FragmentProfile implements OperatorProfileParent
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public String error;
-
-  @Override
-  public void addChild(OperatorProfile profile)
-  {
-    Preconditions.checkState(rootOperator == null, "Fragment root operator already set.");
-    rootOperator = profile;
-  }
 
   /**
    * Primarily for testing. Ensures that the scalar fields are equal,

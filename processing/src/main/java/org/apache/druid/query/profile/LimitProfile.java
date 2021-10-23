@@ -45,17 +45,4 @@ public class LimitProfile extends SimpleOperatorProfile
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public long offset;
-
-  /**
-   * Number of rows produced by this operator: less than or equal
-   * to the limit.
-   */
-  @JsonProperty
-  public long rows;
-
-  /**
-   * Number of batches received by this operator.
-   */
-  @JsonProperty
-  public long batches;
 }

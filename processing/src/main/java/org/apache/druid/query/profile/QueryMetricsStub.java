@@ -31,11 +31,11 @@ import java.util.List;
 
 public class QueryMetricsStub<QueryType extends Query<?>> implements QueryMetricsAdapter<QueryType>
 {
-  private final ResponseContext responseContext;
+  private final ProfileStack profileStack;
 
-  public QueryMetricsStub(ResponseContext context)
+  public QueryMetricsStub(ProfileStack profileStack)
   {
-    this.responseContext = context;
+    this.profileStack = profileStack;
   }
 
   @Override
@@ -276,8 +276,8 @@ public class QueryMetricsStub<QueryType extends Query<?>> implements QueryMetric
   }
 
   @Override
-  public void pushProfile(OperatorProfile profile)
+  public ProfileStack getProfileStack()
   {
-    responseContext.pushProfile(profile);
+    return profileStack;
   }
 }

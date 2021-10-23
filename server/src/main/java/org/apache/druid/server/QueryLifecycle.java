@@ -327,7 +327,7 @@ public class QueryLifecycle
       profile.timeNs = runTimeNs();
       profile.cpuNs = responseContext.getCpuNanos();
       profile.rows = rowCount;
-      profile.rootOperator = responseContext.popProfile();
+      profile.rootOperator = responseContext.getProfileStack().root();
       if (wasInterrupted()) {
         profile.error = "Interrupted";
       } else if (!succeeded()) {

@@ -152,7 +152,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
     final String cancelUrl = url + query.getId();
 
     final ReceiverProfile profile = new ReceiverProfile(host, url);
-    context.pushProfile(profile);
+    context.getProfileStack().leaf(profile);
 
     try {
       log.debug("Querying queryId[%s] url[%s]", query.getId(), url);

@@ -36,7 +36,7 @@ import org.apache.druid.java.util.common.NonnullPair;
 import org.apache.druid.query.MultiQueryMetricsCollector;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.profile.ProfileStack;
-import org.apache.druid.query.profile.ProfileStackImpl;
+import org.apache.druid.query.profile.RootProfileStack;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
@@ -600,7 +600,7 @@ public abstract class ResponseContext
     }
   }
 
-  private final ProfileStack profileStack = new ProfileStackImpl();
+  private final ProfileStack profileStack = new RootProfileStack();
 
   protected abstract Map<Key, Object> getDelegate();
 
@@ -968,7 +968,11 @@ public abstract class ResponseContext
     }
   }
 
-  public ProfileStack getProfileStack() {
+  /**
+   * Returns the stack used to assemble the "operator" profile tree.
+   */
+  public ProfileStack getProfileStack()
+  {
     return profileStack;
   }
 }

@@ -74,6 +74,7 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.DimFilterUtils;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.profile.DistributorProfile;
+import org.apache.druid.query.profile.ProfileStack;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.segment.join.JoinableFactory;
 import org.apache.druid.segment.join.JoinableFactoryWrapper;
@@ -302,7 +303,7 @@ public class CachingClusteredClient implements QuerySegmentWalker
           joinableFactoryWrapper
       );
       this.profile = new DistributorProfile();
-      responseContext.pushProfile(profile);
+      responseContext.getProfileStack().leaf(profile);
     }
 
     private ImmutableMap<String, Object> makeDownstreamQueryContext()
@@ -657,7 +658,8 @@ public class CachingClusteredClient implements QuerySegmentWalker
         final SortedMap<DruidServer, List<SegmentDescriptor>> segmentsByServer
     )
     {
-      responseContext.pushGroup();
+      ProfileStack profileStack = responseContext.getProfileStack();
+      profileStack.restore(profile);
       segmentsByServer.forEach((server, segmentsOfServer) -> {
         final QueryRunner<?> serverRunner = serverView.getQueryRunner(server);
 
@@ -681,7 +683,7 @@ public class CachingClusteredClient implements QuerySegmentWalker
         }
         listOfSequences.add(serverResults);
       });
-      profile.children = responseContext.popGroup();
+      profileStack.pop(profile);
     }
 
     @SuppressWarnings("unchecked")

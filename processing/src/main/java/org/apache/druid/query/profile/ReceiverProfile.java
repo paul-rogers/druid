@@ -21,6 +21,8 @@ package org.apache.druid.query.profile;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+
 import java.util.Map;
 
 /**
@@ -41,6 +43,9 @@ import java.util.Map;
  * fragment object. That is, this is a "one way" serializable object: it is
  * to be serialized to JSON.
  */
+@JsonPropertyOrder({"host", "url",
+    "succeeded", "error", "timeNs", "firstByteNs", "backPressureNs",
+    "rows", "batches", "fragment", "response"})
 public class ReceiverProfile extends OperatorProfile
 {
   // Uses the Druid-style scatter/gather terminology.
@@ -86,14 +91,6 @@ public class ReceiverProfile extends OperatorProfile
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public long backPressureNs;
-
-  /**
-   * The number of rows received from the sender.
-   *
-   * @See the note in {@link ChildFragmentProfile#rows} for caveats.
-   */
-  @JsonProperty
-  public long rows;
 
   /**
    * The number of bytes received from the sender.

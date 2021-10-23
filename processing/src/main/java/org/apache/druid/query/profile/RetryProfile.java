@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.profile.OperatorProfile.BranchingOperatorProfile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +33,7 @@ import java.util.List;
  * {@link org.apache.druid.query.RetryQueryRunner RetryQueryRunner}
  * operation.
  */
-public class RetryProfile extends OperatorProfile
+public class RetryProfile extends BranchingOperatorProfile
 {
   public static final String TYPE = "retry";
 
@@ -49,13 +50,6 @@ public class RetryProfile extends OperatorProfile
       missingSegments = context.getMissingSegments();
     }
   }
-
-  /**
-   * Child operations. Will be one if no retries occurred.
-   * If retries, will include one for each retry.
-   */
-  @JsonProperty
-  public List<OperatorProfile> children = new ArrayList<>();
 
   /**
    * Results from a retry: the list of missing segments and whether

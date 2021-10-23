@@ -39,7 +39,7 @@ import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.profile.NativeQueryProfile;
-import org.apache.druid.query.profile.OperatorProfile;
+import org.apache.druid.query.profile.ProfileStack;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.segment.DimensionHandlerUtils;
@@ -163,10 +163,10 @@ public class QueryMaker
 
     // Insert an operator profile to capture the native query
     ResponseContext responseContext = queryResponse.getResponseContextEarly();
-    OperatorProfile root = responseContext.popProfile();
-    NativeQueryProfile profile = new NativeQueryProfile(query, root);
-    responseContext.pushProfile(profile);
-    
+    ProfileStack profileStack = responseContext.getProfileStack();
+    NativeQueryProfile profile = new NativeQueryProfile(query);
+    profileStack.wrapRoot(profile);
+
     //noinspection unchecked
     final QueryToolChest<T, Query<T>> toolChest = queryLifecycle.getToolChest();
     final List<String> resultArrayFields = toolChest.resultArraySignature(query).getColumnNames();

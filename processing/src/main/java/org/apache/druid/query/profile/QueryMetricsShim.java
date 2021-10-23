@@ -32,12 +32,12 @@ import java.util.List;
 public class QueryMetricsShim<QueryType extends Query<?>> implements QueryMetricsAdapter<QueryType>
 {
   private final QueryMetrics<QueryType> base;
-  private final ResponseContext responseContext;
+  private final ProfileStack profileStack;
 
-  public QueryMetricsShim(QueryMetrics<QueryType> base, ResponseContext context)
+  public QueryMetricsShim(QueryMetrics<QueryType> base, ProfileStack profileStack)
   {
     this.base = base;
-    this.responseContext = context;
+    this.profileStack = profileStack;
   }
 
   // Note: due to the awkward structure of the QueryMetrics interface,
@@ -305,8 +305,8 @@ public class QueryMetricsShim<QueryType extends Query<?>> implements QueryMetric
   }
 
   @Override
-  public void pushProfile(OperatorProfile profile)
+  public ProfileStack getProfileStack()
   {
-    responseContext.pushProfile(profile);
+    return profileStack;
   }
 }

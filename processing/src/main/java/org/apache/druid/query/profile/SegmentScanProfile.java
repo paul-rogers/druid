@@ -22,13 +22,12 @@ package org.apache.druid.query.profile;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import org.apache.druid.query.profile.OperatorProfile.BranchingOperatorProfile;
 import org.apache.druid.timeline.SegmentId;
-
-import java.util.List;
 
 @JsonPropertyOrder({"segment", "interval", "columnCount", "isWildcard",
     "batchSize", "limited", "cursors", "rows", "error"})
-public class SegmentScanProfile extends OperatorProfile
+public class SegmentScanProfile extends BranchingOperatorProfile
 {
   public static final String TYPE = "segment-scan";
 
@@ -73,17 +72,9 @@ public class SegmentScanProfile extends OperatorProfile
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public boolean limited;
 
-  /**
-   * The number of rows returned from this scan.
-   */
-  @JsonProperty
-  public long rows;
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public String error;
-  @JsonProperty
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  public List<OperatorProfile> cursors;
 
   public SegmentScanProfile(SegmentId segment)
   {

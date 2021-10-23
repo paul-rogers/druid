@@ -19,6 +19,10 @@
 
 package org.apache.druid.query.profile;
 
+import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.java.util.common.guava.SequenceWrapper;
+import org.apache.druid.java.util.common.guava.Sequences;
+
 public class ProfileUtils
 {
   private ProfileUtils()
@@ -39,5 +43,25 @@ public class ProfileUtils
       return false;
     }
     return obj1.getClass() == obj2.getClass();
+  }
+
+  public static <T> Sequence<T> wrap(Sequence<T> sequence, ProfileStack profileStack, OperatorProfile profile)
+  {
+    return Sequences.wrap(
+        sequence,
+        new SequenceWrapper()
+        {
+          @Override
+          public void before()
+          {
+            profileStack.restore(profile);
+          }
+
+          @Override
+          public void after(boolean isDone, Throwable thrown)
+          {
+            profileStack.pop(profile);
+          }
+        });
   }
 }

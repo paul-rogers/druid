@@ -19,16 +19,24 @@
 
 package org.apache.druid.query.profile;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.profile.OperatorProfile.SimpleOperatorProfile;
 
+@JsonPropertyOrder({"query", "timeNs", "rows", "batches", "child"})
 public class NativeQueryProfile extends SimpleOperatorProfile
 {
   public static final String TYPE = "native";
 
   @JsonProperty
   public Query<?> query;
+
+  @JsonCreator
+  public NativeQueryProfile()
+  {
+  }
 
   public NativeQueryProfile(Query<?> query)
   {

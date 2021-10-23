@@ -21,18 +21,17 @@ package org.apache.druid.query.profile;
 
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryMetrics;
-import org.apache.druid.query.context.ResponseContext;
 
 public interface QueryMetricsAdapter<QueryType extends Query<?>> extends QueryMetrics<QueryType>
 {
-  void pushProfile(OperatorProfile profile);
+  ProfileStack getProfileStack();
 
-  static <QueryType extends Query<?>> QueryMetricsAdapter<QueryType> wrap(QueryMetrics<QueryType> in, ResponseContext context)
+  static <QueryType extends Query<?>> QueryMetricsAdapter<QueryType> wrap(QueryMetrics<QueryType> in, ProfileStack profileStack)
   {
     if (in == null) {
-      return new QueryMetricsStub<QueryType>(context);
+      return new QueryMetricsStub<QueryType>(profileStack);
     } else {
-      return new QueryMetricsShim<QueryType>(in, context);
+      return new QueryMetricsShim<QueryType>(in, profileStack);
     }
   }
 
@@ -44,6 +43,7 @@ public interface QueryMetricsAdapter<QueryType extends Query<?>> extends QueryMe
     if (!(metrics instanceof QueryMetricsAdapter)) {
       return;
     }
-    ((QueryMetricsAdapter<?>) metrics).pushProfile(profile);
+    ProfileStack profileStack = ((QueryMetricsAdapter<?>) metrics).getProfileStack();
+    profileStack.leaf(profile);
   }
 }

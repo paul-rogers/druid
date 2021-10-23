@@ -50,7 +50,6 @@ import java.util.List;
     @JsonSubTypes.Type(name = MergeProfile.TYPE, value = MergeProfile.class),
     @JsonSubTypes.Type(name = ScanQueryProfile.TYPE, value = ScanQueryProfile.class),
     @JsonSubTypes.Type(name = SortProfile.TYPE, value = SortProfile.class),
-    @JsonSubTypes.Type(name = ConcatProfile.TYPE, value = ConcatProfile.class),
     @JsonSubTypes.Type(name = SegmentScanProfile.TYPE, value = SegmentScanProfile.class),
     @JsonSubTypes.Type(name = IndexScanProfile.TYPE, value = IndexScanProfile.class),
     @JsonSubTypes.Type(name = RetryProfile.TYPE, value = RetryProfile.class),
@@ -58,7 +57,7 @@ import java.util.List;
     @JsonSubTypes.Type(name = DistributorProfile.TYPE, value = DistributorProfile.class),
     @JsonSubTypes.Type(name = NativeQueryProfile.TYPE, value = NativeQueryProfile.class),
 })
-public abstract class OperatorProfile implements OperatorProfileParent
+public abstract class OperatorProfile
 {
   /**
    * A temporary placeholder for places that don't yet report
@@ -89,11 +88,18 @@ public abstract class OperatorProfile implements OperatorProfileParent
   public abstract static class BranchingOperatorProfile extends OperatorProfile
   {
     @JsonProperty
-    public final List<OperatorProfile> children = new ArrayList<>();
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public List<OperatorProfile> children;
 
     @Override
     public void addChild(OperatorProfile profile)
     {
+      // Create children on demand so that operators without children
+      // (because, say, we've reached our limit and don't need more rows)
+      // will simply omit the child field if no children appear.
+      if (children == null) {
+        children = new ArrayList<>();
+      }
       children.add(profile);
     }
   }
@@ -108,7 +114,20 @@ public abstract class OperatorProfile implements OperatorProfileParent
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public long timeNs;
 
-  @Override
+  /**
+   * Number of rows produced by this operator:.
+   */
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+  public long rows;
+
+  /**
+   * Number of batches received by this operator.
+   */
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+  public long batches;
+
   public void addChild(OperatorProfile profile)
   {
     throw new ISE(this.getClass().getSimpleName() + " does not support children.");

@@ -115,7 +115,7 @@ public class ScanQueryLimitRowIteratorTest
                             .build();
     QueryPlus<ScanResultValue> queryPlus = QueryPlus.wrap(query);
     LimitProfile limitProfile = new LimitProfile();
-    limitProfile.child = new MergeProfile();
+    limitProfile.addChild(new MergeProfile());
     ScanQueryLimitRowIterator itr = new ScanQueryLimitRowIterator(
         ((queryInput, responseContext) -> Sequences.simple(multiEventScanResultValues)),
         queryPlus,

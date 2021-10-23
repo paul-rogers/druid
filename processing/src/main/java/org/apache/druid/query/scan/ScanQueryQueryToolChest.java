@@ -36,8 +36,9 @@ import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
-import org.apache.druid.query.profile.LimitProfile;
 import org.apache.druid.query.profile.MergeProfile;
+import org.apache.druid.query.profile.ProfileStack;
+import org.apache.druid.query.profile.ProfileUtils;
 import org.apache.druid.segment.VirtualColumn;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.column.ValueType;
@@ -68,8 +69,7 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
   public QueryRunner<ScanResultValue> mergeResults(final QueryRunner<ScanResultValue> runner)
   {
     return (queryPlus, responseContext) -> {
-      final MergeProfile profile = new MergeProfile();
-      
+
       // Ensure "legacy" is a non-null value, such that all other nodes this query is forwarded to will treat it
       // the same way, even if they have different default legacy values.
       //
@@ -96,26 +96,29 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
                                                 .withLimit(newLimit);
 
       final Sequence<ScanResultValue> results;
-      final LimitProfile limitProfile;
+      ProfileStack profileStack = responseContext.getProfileStack();
+      final MergeProfile profile = new MergeProfile();
+      profile.strategy = MergeProfile.CONCAT_STRATEGY;
 
       if (!queryToRun.isLimited()) {
-        responseContext.pushProfile(profile);
-        responseContext.pushGroup();
+        profileStack.push(profile);
         results = runner.run(queryPlus.withQuery(queryToRun), responseContext);
-        profile.children = responseContext.popGroup();
-        limitProfile = null;
+        profileStack.pop(profile);
       } else {
-        limitProfile = new LimitProfile();
-        limitProfile.limit = newLimit;
-        limitProfile.child = profile;
-        responseContext.pushProfile(limitProfile);
-        results = new BaseSequence<>(
+        profile.limit = newLimit;
+        profileStack.leaf(profile);
+        final Sequence<ScanResultValue> baseResults = new BaseSequence<>(
             new BaseSequence.IteratorMaker<ScanResultValue, ScanQueryLimitRowIterator>()
             {
               @Override
               public ScanQueryLimitRowIterator make()
               {
-                return new ScanQueryLimitRowIterator(runner, queryPlus.withQuery(queryToRun), responseContext, limitProfile);
+                return new ScanQueryLimitRowIterator(
+                    runner,
+                    queryPlus.withQuery(queryToRun),
+                    responseContext,
+                    profile
+                );
               }
 
               @Override
@@ -124,12 +127,11 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
                 CloseQuietly.close(iterFromMake);
               }
             });
+        results = ProfileUtils.wrap(baseResults, profileStack, profile);
       }
 
       if (originalQuery.getScanRowsOffset() > 0) {
-        if (limitProfile != null) {
-          limitProfile.offset = originalQuery.getScanRowsOffset();
-        }
+        profile.offset = originalQuery.getScanRowsOffset();
         return new ScanQueryOffsetSequence(results, originalQuery.getScanRowsOffset());
       } else {
         return results;

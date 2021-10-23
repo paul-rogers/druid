@@ -263,8 +263,11 @@ public class SqlLifecycle
       profile.startTime = getStartMs();
       profile.timeNs = runTimeNs();
       profile.rows = rowCount;
-      Long cpuNs = responseContext.getCpuNanos();
-      profile.cpuNs = cpuNs == null ? 0 : cpuNs;
+      if (responseContext != null) {
+        Long cpuNs = responseContext.getCpuNanos();
+        profile.cpuNs = cpuNs == null ? 0 : cpuNs;
+        profile.rootOperator = responseContext.getProfileStack().root();
+      }
       if (wasInterrupted()) {
         profile.error = "Interrupted";
       } else if (!succeeded()) {

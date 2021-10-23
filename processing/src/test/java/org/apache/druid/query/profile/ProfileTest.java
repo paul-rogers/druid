@@ -110,7 +110,7 @@ public class ProfileTest
   @Test
   public void testOperatorStack()
   {
-    ProfileStack stack = new ProfileStackImpl();
+    ProfileStack stack = new RootProfileStack();
 
     SortProfile sort1 = new SortProfile();
     sort1.timeNs = 1;
@@ -119,14 +119,22 @@ public class ProfileTest
     sort2.timeNs = 2;
     stack.push(sort2);
     assertSame(sort1.child, sort2);
+    SegmentScanProfile segScan = new SegmentScanProfile(
+        SegmentId.dummy("data-source", 3));
+    stack.leaf(segScan);
+    assertSame(segScan, sort2.child);
     stack.pop(sort2);
     stack.pop(sort1);
     assertSame(sort1, stack.root());
+    NativeQueryProfile nativeOp = new NativeQueryProfile(null);
+    stack.wrapRoot(nativeOp);
+    assertSame(sort1, nativeOp.child);
+    assertSame(nativeOp, stack.root());
   }
 
   public void testMissingRoot()
   {
-    ProfileStack stack = new ProfileStackImpl();
+    ProfileStack stack = new RootProfileStack();
     OperatorProfile root = stack.root();
     assertNotNull(root);
     assertTrue(root instanceof OpaqueOperatorProfile);
@@ -135,7 +143,7 @@ public class ProfileTest
   @Test(expected = IllegalStateException.class)
   public void testUnderflow()
   {
-    ProfileStack stack = new ProfileStackImpl();
+    ProfileStack stack = new RootProfileStack();
     SortProfile sort1 = new SortProfile();
     stack.push(sort1);
     stack.pop(sort1);
@@ -145,7 +153,7 @@ public class ProfileTest
   @Test(expected = IllegalStateException.class)
   public void testEmpty()
   {
-    ProfileStack stack = new ProfileStackImpl();
+    ProfileStack stack = new RootProfileStack();
     SortProfile sort1 = new SortProfile();
     stack.pop(sort1);
   }
@@ -153,7 +161,7 @@ public class ProfileTest
   @Test(expected = IllegalStateException.class)
   public void testMismatch()
   {
-    ProfileStack stack = new ProfileStackImpl();
+    ProfileStack stack = new RootProfileStack();
     SortProfile sort1 = new SortProfile();
     stack.push(sort1);
     SortProfile sort2 = new SortProfile();
@@ -179,10 +187,10 @@ public class ProfileTest
   @Test
   public void testSerializeOperators() throws JsonProcessingException
   {
-    ProfileStack stack = new ProfileStackImpl();
-    ConcatProfile concat = new ConcatProfile();
-    concat.timeNs = 1;
-    stack.push(concat);
+    ProfileStack stack = new RootProfileStack();
+    MergeProfile merge = new MergeProfile();
+    merge.timeNs = 5;
+    stack.push(merge);
 
     ReceiverProfile receiver = new ReceiverProfile(
         "foo:123",
@@ -198,18 +206,12 @@ public class ProfileTest
     receiver.response.put("foo", "bar");
     receiver.fragment = new HashMap<>();
     receiver.fragment.put("fred", "wilma");
-    stack.push(receiver);
-    stack.pop(receiver);
+    stack.leaf(receiver);
 
     SegmentMetadataScanProfile segmentMD = new SegmentMetadataScanProfile(
         SegmentId.dummy("data-source", 3));
     segmentMD.timeNs = 4;
-    stack.push(segmentMD);
-    stack.pop(segmentMD);
-
-    MergeProfile merge = new MergeProfile();
-    merge.timeNs = 5;
-    stack.push(merge);
+    stack.leaf(segmentMD);
 
     SortProfile sort = new SortProfile();
     sort.timeNs = 6;
@@ -223,12 +225,10 @@ public class ProfileTest
     segScan.columnCount = 101;
     segScan.batchSize = 102;
     segScan.error = "An error";
-    stack.push(segScan);
-    stack.pop(segScan);
+    stack.leaf(segScan);
 
     stack.pop(sort);
     stack.pop(merge);
-    stack.pop(concat);
 
     FragmentProfile root = mockRootProfile(0);
     root.rootOperator = stack.root();

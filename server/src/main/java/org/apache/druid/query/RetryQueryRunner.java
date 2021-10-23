@@ -100,7 +100,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
   public Sequence<T> run(final QueryPlus<T> queryPlus, final ResponseContext context)
   {
     RetryProfile profile = new RetryProfile();
-    context.pushProfile(profile);
+    context.getProfileStack().push(profile);
     // Calling baseRunner.run() (which is SpecificQueryRunnable.run()) in the RetryingSequenceIterator
     // could be better because we can minimize the chance that data servers report missing segments as
     // we construct the query distribution tree when the query processing is actually started.
@@ -108,7 +108,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
     // This is because ResultLevelCachingQueryRunner requires to compute the cache key based on
     // the segments to query which is computed in SpecificQueryRunnable.run().
     final Sequence<T> baseSequence = baseRunner.run(queryPlus, context);
-    profile.children.add(context.popProfile());
+    context.getProfileStack().pop(profile);
     // runnableAfterFirstAttempt is only for testing, it must be no-op for production code.
     runnableAfterFirstAttempt.run();
 
@@ -245,8 +245,9 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
       final QueryPlus<T> retryQueryPlus = queryPlus.withQuery(
           Queries.withSpecificSegments(queryPlus.getQuery(), missingSegments)
       );
+      context.getProfileStack().push(profile);
       sequence = retryRunnerCreateFn.apply(retryQueryPlus.getQuery(), missingSegments).run(retryQueryPlus, context);
-      profile.children.add(context.popProfile());
+      context.getProfileStack().pop(profile);
       return true;
     }
 

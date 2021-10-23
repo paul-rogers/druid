@@ -22,6 +22,7 @@ package org.apache.druid.query.profile;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import org.apache.druid.query.profile.OperatorProfile.SimpleOperatorProfile;
 
 /**
  * Represents the execution of a ScanQuery. This operator can not track
@@ -33,28 +34,11 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
  * kind of ordering requested.
  */
 @JsonPropertyOrder({"strategy", "limit", "child", })
-public class ScanQueryProfile extends OperatorProfile
+public class ScanQueryProfile extends SimpleOperatorProfile
 {
   public static final String TYPE = "scan-query";
-  
-  /**
-   * No ordering, just concatenate the results.
-   */
-  public static final String CONCAT_STRATEGY = "concat";
-  /**
-   * The result size is limited, a priority queue is used.
-   */
-  public static final String PQUEUE_STRATEGY = "priority-queue";
-  /**
-   * Results are already ordered, and are just merged.
-   */
-  public static final String MERGE_STRATEGY = "merge";
-  
-  @JsonProperty
-  public String strategy;
+
   @JsonProperty
   @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public long limit;
-  @JsonProperty
-  public OperatorProfile child;
 }
