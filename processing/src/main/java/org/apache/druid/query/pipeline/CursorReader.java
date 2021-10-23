@@ -209,11 +209,6 @@ public class CursorReader implements Operator
     }
   }
 
-  public interface ColumnAccessor
-  {
-    Object get();
-  }
-
   public static class CursorReaderWrapper implements ScanQueryEngine2 {
     @Override
     public Sequence<ScanResultValue> process(
@@ -242,7 +237,7 @@ public class CursorReader implements Operator
   private long startTime;
   protected List<String> selectedColumns;
   private long limit;
-  private List<ColumnAccessor> columnAccessors;
+  private List<Supplier<Object>> columnAccessors;
   protected long rowCount;
   private Cursor cursor;
   private long targetCount;
@@ -351,12 +346,12 @@ public class CursorReader implements Operator
   {
     columnAccessors = new ArrayList<>(selectedColumns.size());
     for (String column : selectedColumns) {
-      final ColumnAccessor accessor;
+      final Supplier<Object> accessor;
       final BaseObjectColumnValueSelector<?> selector;
       if (defn.isLegacy && LEGACY_TIMESTAMP_KEY.equals(column)) {
         selector = cursor.getColumnSelectorFactory()
                          .makeColumnValueSelector(ColumnHolder.TIME_COLUMN_NAME);
-        accessor = new ColumnAccessor() {
+        accessor = new Supplier<Object>() {
           @Override
           public Object get() {
             return DateTimes.utc((long) selector.getObject());
@@ -365,14 +360,14 @@ public class CursorReader implements Operator
       } else {
         selector = cursor.getColumnSelectorFactory().makeColumnValueSelector(column);
         if (selector == null) {
-          accessor = new ColumnAccessor() {
+          accessor = new Supplier<Object>() {
             @Override
             public Object get() {
               return null;
             }
           };
         } else {
-          accessor = new ColumnAccessor() {
+          accessor = new Supplier<Object>() {
             @Override
             public Object get() {
               return selector.getObject();
