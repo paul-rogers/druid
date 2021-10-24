@@ -51,7 +51,7 @@ import org.apache.druid.query.extraction.MapLookupExtractor;
 import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.lookup.LookupExtractionFn;
-import org.apache.druid.query.pipeline.ScanQueryOperator.CursorReaderWrapper;
+import org.apache.druid.query.pipeline.ScanQueryOperator;
 import org.apache.druid.query.spec.LegacySegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.segment.TestIndex;
@@ -128,7 +128,6 @@ public class ScanQueryRunnerTest extends InitializedNullHandlingTest
     return lines;
   }
 
-
   public static final QuerySegmentSpec I_0112_0114 = new LegacySegmentSpec(
       Intervals.of("2011-01-12T00:00:00.000Z/2011-01-14T00:00:00.000Z")
   );
@@ -147,7 +146,7 @@ public class ScanQueryRunnerTest extends InitializedNullHandlingTest
         QueryRunnerTestHelper.makeQueryRunners(
             new ScanQueryRunnerFactory(
                 TOOL_CHEST,
-                orig ? new ScanQueryEngine() : new CursorReaderWrapper(),
+                orig ? new ScanQueryEngine() : ScanQueryOperator.asEngine(),
                 new ScanQueryConfig()
             )
         ),

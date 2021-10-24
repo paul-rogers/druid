@@ -43,6 +43,8 @@ import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.SinkQueryRunners;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.pipeline.Operators;
+import org.apache.druid.query.pipeline.ScanQueryOperator;
 import org.apache.druid.query.spec.MultipleSpecificSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
@@ -370,7 +372,14 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
       if (timeoutAt == null || timeoutAt.longValue() == 0L) {
         responseContext.put(ResponseContext.Key.TIMEOUT_AT, JodaUtils.MAX_INSTANT);
       }
-      return engine.process((ScanQuery) query, segment, responseContext);
+      ScanQuery scanQuery = (ScanQuery) query;
+      final ScanQueryEngine2 targetEngine;
+      if (Operators.isEnabled(scanQuery, Operators.ENABLE_SCAN_OPERATOR)) {
+        targetEngine = ScanQueryOperator.asEngine();
+      } else {
+        targetEngine = engine;
+      }
+      return targetEngine.process(scanQuery, segment, responseContext);
     }
   }
 }

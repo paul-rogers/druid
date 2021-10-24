@@ -21,11 +21,17 @@ package org.apache.druid.query.pipeline;
 
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.query.Query;
 
 import java.util.Iterator;
 
 public class Operators
 {
+  public static final String ENABLE_SCAN_OPERATOR = "useScanV2";
+
+  public static boolean isEnabled(Query<?> query, String flag) {
+    return query.getContextBoolean(flag, false);
+  }
 
   public static Iterable<Object> toIterable(Operator op) {
     return new Iterable<Object>() {

@@ -153,7 +153,7 @@ public class ScanQueryOperator implements Operator
   }
 
   /**
-   * Create a cursor reader from a definition.
+   * Create a scan query operator from a definition.
    */
   public static class ScanQueryOperatorFactory implements OperatorFactory
   {
@@ -165,24 +165,32 @@ public class ScanQueryOperator implements Operator
     }
   }
 
-  public static class CursorReaderWrapper implements ScanQueryEngine2 {
-    @Override
-    public Sequence<ScanResultValue> process(
-        final ScanQuery query,
-        final Segment segment,
-        final ResponseContext responseContext
-    )
-    {
-      ScanQueryDefn defn = new ScanQueryDefn(query, segment);
-      ScanQueryOperator reader = new ScanQueryOperator(defn, new FragmentContext()
-          {
-            @Override
-            public ResponseContext responseContext() {
-              return responseContext;
-            }
-          });
-      return Operators.toLoneSequence(reader);
-    }
+  /**
+   * Return an instance of the scan query operator in a form that mimics the
+   * "classic" ScanQuery Engine so that the operator version can be "slotted into"
+   * existing code.
+   */
+  public static ScanQueryEngine2 asEngine()
+  {
+    return new ScanQueryEngine2() {
+      @Override
+      public Sequence<ScanResultValue> process(
+          final ScanQuery query,
+          final Segment segment,
+          final ResponseContext responseContext
+      )
+      {
+        ScanQueryDefn defn = new ScanQueryDefn(query, segment);
+        ScanQueryOperator reader = new ScanQueryOperator(defn, new FragmentContext()
+            {
+              @Override
+              public ResponseContext responseContext() {
+                return responseContext;
+              }
+            });
+        return Operators.toLoneSequence(reader);
+      }
+    };
   }
 
   protected final ScanQueryDefn defn;
@@ -255,6 +263,11 @@ public class ScanQueryOperator implements Operator
     return cols;
   }
 
+  /**
+   * Check if another batch of events is available. They are available if
+   * we have (or can get) a cursor which has rows, and we are not at the
+   * limit set for this operator.
+   */
   @Override
   public boolean hasNext()
   {
