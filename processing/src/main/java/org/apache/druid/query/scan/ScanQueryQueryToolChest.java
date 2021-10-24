@@ -230,4 +230,9 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
         }
     );
   }
+
+  public ScanQueryConfig getConfig()
+  {
+    return scanQueryConfig;
+  }
 }

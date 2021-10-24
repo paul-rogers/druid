@@ -28,6 +28,8 @@ import com.google.common.collect.Iterables;
  *    that contain only one event each for the CachingClusteredClient n-way merge.  This operator will perform
  *    batching according to query batch size until the limit is reached.</li>
  * </ol>
+ *
+ * @see {@link org.apache.druid.query.scan.ScanQueryLimitRowIterator}
  */
 public class ScanResultLimitOperator extends LimitOperator
 {
@@ -55,7 +57,8 @@ public class ScanResultLimitOperator extends LimitOperator
     {
     }
 
-    public Defn(ScanQuery query) {
+    public Defn(ScanQuery query, OperatorDefn child) {
+      this.child = child;
       ScanQuery.ResultFormat resultFormat = query.getResultFormat();
       if (ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR.equals(resultFormat)) {
         throw new UOE(ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR + " is not supported yet");

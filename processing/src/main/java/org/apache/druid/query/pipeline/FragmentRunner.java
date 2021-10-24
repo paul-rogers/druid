@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.pipeline;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
 import org.apache.druid.query.context.ResponseContext;
@@ -138,6 +139,12 @@ public class FragmentRunner
         break;
       }
     }
+  }
+
+  @VisibleForTesting
+  public Operator operator(int i)
+  {
+    return operators.get(i);
   }
 
   public void close()

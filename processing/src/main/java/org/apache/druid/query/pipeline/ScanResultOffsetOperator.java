@@ -15,6 +15,8 @@ import com.google.common.base.Preconditions;
 /**
  * Offset that skips a given number of rows on top of a skips ScanQuery. It is used to implement
  * the "offset" feature.
+ *
+ * @see {@link org.apache.druid.query.scan.ScanQueryOffsetSequence}
  */
 public class ScanResultOffsetOperator implements Operator
 {

@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequence;
@@ -35,7 +36,6 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
-import org.apache.druid.query.pipeline.MockOperator.Defn;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryEngine2;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -55,6 +55,8 @@ import com.google.common.collect.Sets;
  * Implements a scan query against a fragment using a storage adapter which may
  * return one or more cursors for the segment. Each cursor is processed using
  * a {@link CursorReader}. The set of cursors is known only at run time.
+ *
+ * @see {@link org.apache.druid.query.scan.ScanQueryEngine}
  */
 public class ScanQueryOperator implements Operator
 {
@@ -64,7 +66,7 @@ public class ScanQueryOperator implements Operator
     @Override
     public Operator build(OperatorDefn opDefn, List<Operator> children, FragmentContext context) {
       Preconditions.checkArgument(children.isEmpty());
-      ScanQueryDefn defn = (ScanQueryDefn) opDefn;
+      Defn defn = (Defn) opDefn;
       return new ScanQueryOperator(defn, context);
     }
   };
@@ -76,7 +78,7 @@ public class ScanQueryOperator implements Operator
   /**
    * Static definition of a segment scan.
    */
-  public static class ScanQueryDefn extends LeafDefn
+  public static class Defn extends LeafDefn
   {
     public static enum Limit
     {
@@ -96,7 +98,7 @@ public class ScanQueryOperator implements Operator
     public final boolean isLegacy;
     public final int batchSize;
 
-    public ScanQueryDefn(final ScanQuery query, final Segment segment)
+    public Defn(final ScanQuery query, final Segment segment)
     {
       this.query = query;
       this.segment = segment;
@@ -153,11 +155,11 @@ public class ScanQueryOperator implements Operator
     public Limit limitType()
     {
       if (!query.isLimited()) {
-        return ScanQueryDefn.Limit.NONE;
+        return Defn.Limit.NONE;
       } else if (query.getOrder().equals(ScanQuery.Order.NONE)) {
-        return ScanQueryDefn.Limit.LOCAL;
+        return Defn.Limit.LOCAL;
       } else {
-        return ScanQueryDefn.Limit.GLOBAL;
+        return Defn.Limit.GLOBAL;
       }
     }
 
@@ -182,7 +184,7 @@ public class ScanQueryOperator implements Operator
           final ResponseContext responseContext
       )
       {
-        ScanQueryDefn defn = new ScanQueryDefn(query, segment);
+        Defn defn = new Defn(query, segment);
         ScanQueryOperator reader = new ScanQueryOperator(defn, new FragmentContext()
             {
               @Override
@@ -195,7 +197,7 @@ public class ScanQueryOperator implements Operator
     };
   }
 
-  protected final ScanQueryDefn defn;
+  protected final Defn defn;
   protected final ResponseContext responseContext;
   private SequenceIterator<Cursor> iter;
   private long timeoutAt;
@@ -206,7 +208,7 @@ public class ScanQueryOperator implements Operator
   protected long rowCount;
   protected int batchCount;
 
-  public ScanQueryOperator(ScanQueryDefn defn, FragmentContext context)
+  public ScanQueryOperator(Defn defn, FragmentContext context)
   {
     this.defn = defn;
     this.responseContext = context.responseContext();
@@ -214,11 +216,18 @@ public class ScanQueryOperator implements Operator
 
   @Override
   public void start() {
+
+    // TODO: Move higher
+    // it happens in unit tests
+    final Number timeoutValue = (Number) responseContext.get(ResponseContext.Key.TIMEOUT_AT);
+    if (timeoutValue == null || timeoutValue.longValue() == 0L) {
+      responseContext.put(ResponseContext.Key.TIMEOUT_AT, JodaUtils.MAX_INSTANT);
+    }
     timeoutAt = (long) responseContext.get(ResponseContext.Key.TIMEOUT_AT);
     startTime = System.currentTimeMillis();
     responseContext.add(ResponseContext.Key.NUM_SCANNED_ROWS, 0L);
     limit = defn.query.getScanRowsLimit();
-    if (defn.limitType() == ScanQueryDefn.Limit.GLOBAL) {
+    if (defn.limitType() == Defn.Limit.GLOBAL) {
       limit -= (Long) responseContext.get(ResponseContext.Key.NUM_SCANNED_ROWS);
     }
     final StorageAdapter adapter = defn.segment.asStorageAdapter();

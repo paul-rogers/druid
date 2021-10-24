@@ -99,7 +99,7 @@ public interface Operator extends Iterator<Object>
   }
 
   /**
-   * Abstract base class that assumes the operator is a leaf.
+   * Abstract base class for operators with one child.
    */
   public abstract class SingleChildDefn implements OperatorDefn
   {
@@ -108,6 +108,19 @@ public interface Operator extends Iterator<Object>
     @Override
     public List<OperatorDefn> children() {
       return Collections.singletonList(child);
+    }
+  }
+
+  /**
+   * Abstract base class for operators with multiple children.
+   */
+  public abstract class MultiChildDefn implements OperatorDefn
+  {
+    public List<OperatorDefn> children;
+
+    @Override
+    public List<OperatorDefn> children() {
+      return children;
     }
   }
 

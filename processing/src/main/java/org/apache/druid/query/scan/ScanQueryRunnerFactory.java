@@ -277,7 +277,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
   }
 
   @VisibleForTesting
-  List<Interval> getIntervalsFromSpecificQuerySpec(QuerySegmentSpec spec)
+  public static List<Interval> getIntervalsFromSpecificQuerySpec(QuerySegmentSpec spec)
   {
     // Query segment spec must be an instance of MultipleSpecificSegmentSpec or SpecificSegmentSpec because
     // segment descriptors need to be present for a 1:1 matching of intervals with query runners.
