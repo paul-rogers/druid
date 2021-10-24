@@ -63,7 +63,7 @@ public class SequenceOperator implements Operator
   }
 
   @Override
-  public void close()
+  public void close(boolean cascade)
   {
     if (yielder == null) {
       return;

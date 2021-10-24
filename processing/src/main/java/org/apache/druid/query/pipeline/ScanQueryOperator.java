@@ -34,6 +34,8 @@ import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
+import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
+import org.apache.druid.query.pipeline.MockOperator.Defn;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryEngine2;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -57,11 +59,24 @@ import com.google.common.collect.Sets;
 public class ScanQueryOperator implements Operator
 {
   static final String LEGACY_TIMESTAMP_KEY = "timestamp";
+  public static final OperatorFactory FACTORY = new OperatorFactory()
+  {
+    @Override
+    public Operator build(OperatorDefn opDefn, List<Operator> children, FragmentContext context) {
+      Preconditions.checkArgument(children.isEmpty());
+      ScanQueryDefn defn = (ScanQueryDefn) opDefn;
+      return new ScanQueryOperator(defn, context);
+    }
+  };
+
+  public static void register(OperatorRegistry reg) {
+    reg.register(Defn.class, FACTORY);
+  }
 
   /**
    * Static definition of a segment scan.
    */
-  public static class ScanQueryDefn extends AbstractOperatorDefn
+  public static class ScanQueryDefn extends LeafDefn
   {
     public static enum Limit
     {
@@ -149,19 +164,6 @@ public class ScanQueryOperator implements Operator
     public Interval interval()
     {
       return query.getQuerySegmentSpec().getIntervals().get(0);
-    }
-  }
-
-  /**
-   * Create a scan query operator from a definition.
-   */
-  public static class ScanQueryOperatorFactory implements OperatorFactory
-  {
-    @Override
-    public Operator build(OperatorDefn opDefn, List<Operator> children, FragmentContext context) {
-      Preconditions.checkArgument(children.isEmpty());
-      ScanQueryDefn defn = (ScanQueryDefn) opDefn;
-      return new ScanQueryOperator(defn, context);
     }
   }
 
@@ -307,7 +309,7 @@ public class ScanQueryOperator implements Operator
 
   private void closeCursorReader() {
     if (cursorReader != null) {
-      cursorReader.close();
+      cursorReader.close(false);
       cursorReader = null;
     }
   }
@@ -326,6 +328,10 @@ public class ScanQueryOperator implements Operator
     }
   }
 
+  /**
+   * Return the next batch of events from a cursor. Enforce the
+   * timeout limit.
+   */
   @Override
   public Object next()
   {
@@ -343,7 +349,7 @@ public class ScanQueryOperator implements Operator
   }
 
   @Override
-  public void close()
+  public void close(boolean cascade)
   {
     closeCursorReader();
     iter = null;

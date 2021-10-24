@@ -1,6 +1,5 @@
 package org.apache.druid.query.pipeline;
 
-import java.io.Closeable;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -16,15 +15,15 @@ import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
  * <li>Created (from a definition via a factory).</li>
  * <li>Opened (once, bottom up in the operator DAG).</li>
  * <li>A set of hasNext(), next() pairs until hasNext() returns false.</li>
- * <li>Closed (once, bottom up in the operator DAG).</li>
+ * <li>Closed.</li>
  * </ul>
  * <p>
  * Leaf operators produce results, internal operators transform them, and root
- * operators do something with the results. Operators no nothing about their
+ * operators do something with the results. Operators know nothing about their
  * children other than that they follow the operator protocol and will produce a
  * result when asked. Operators must agree on the type of the shared results.
  * <p>
- * Unlike traditional <code>QueryRunner</code>s, a operator does not create its
+ * Unlike traditional <code>QueryRunner</code>s, an operator does not create its
  * children: that is the job of the planner that created a tree of operator
  * definitions. The operator simply accepts the previously-created children and
  * does its thing.
@@ -39,10 +38,23 @@ import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
  * in the first call to {@code hasNext()}. In either case, resources should be
  * released in {@code close()}.
  * <p>
- * Operators <i>do not</i> cascade <code>start()</code> and <code>close()</code>
- * operations to their children: that is the job of the {@link FragmentRunner}
- * which manages the operators. This way, operators don't have to contain
- * redundant code to manage errors and the like during these operations.
+ * Operators may appear in a branch of the query DAG that can be deferred or
+ * closed early. Typical example: a UNION operator that starts its first child,
+ * runs it, closes it, then moves to the next child. This form of operation ensures
+ * resources are held for the briefest possible period of time.
+ * <p>
+ * To make this work, operators should cascade <code>start()</code> and
+ * <code>close()</code> operations to their children. The query runner will
+ * start the root operator: the root must start is children, and so on. Closing is
+ * a bit more complex. Operators should close their children by cascading the
+ * close operation: but only if that call came from a parent operator (as
+ * indicated by the {@code cascade} parameter set to {@code true}.)
+ * <p>
+ * The {@link FragmentRunner} will ensure all operators are closed by calling:
+ * close, from the bottom up, at the completion (successful or otherwise) of the
+ * query. In this case, the  {@code cascade} parameter set to {@code false},
+ * and each operator <i>should not</i> cascade this call to its children: the
+ * fragment runner will do so.
  * <p>
  * Implementations can assume that calls to <code>next()</code> and
  * <code>get()</code> occur within a single thread, so state can be maintained
@@ -78,11 +90,24 @@ public interface Operator extends Iterator<Object>
   /**
    * Abstract base class that assumes the operator is a leaf.
    */
-  public abstract class AbstractOperatorDefn implements OperatorDefn
+  public abstract class LeafDefn implements OperatorDefn
   {
     @Override
     public List<OperatorDefn> children() {
       return Collections.emptyList();
+    }
+  }
+
+  /**
+   * Abstract base class that assumes the operator is a leaf.
+   */
+  public abstract class SingleChildDefn implements OperatorDefn
+  {
+    public OperatorDefn child;
+
+    @Override
+    public List<OperatorDefn> children() {
+      return Collections.singletonList(child);
     }
   }
 
@@ -95,6 +120,30 @@ public interface Operator extends Iterator<Object>
     Operator build(OperatorDefn defn, List<Operator> children, FragmentContext context);
   }
 
+  /**
+   * Called to prepare for processing. Allows the operator to be created early in
+   * the run, but resources to be obtained as late as possible in the run. Each
+   * operator should call {@code start()} on its children, unless that operator
+   * wants to defer start to later (such as in a union, or a hash join probe
+   * side.)
+   */
   void start();
-  void close();
+
+  /**
+   * Called at two distinct times. An operator may choose to close a child
+   * when it is clear that the child will no longer be needed. For example,
+   * a union might close its first child when it moves onto the second.
+   * <p>
+   * Operators should handle at least two calls to @{code close()}: an optional
+   * early close, and a definite final close when the fragment runner shuts
+   * down.
+   * <p>
+   * Because the fragment runner will ensure a final close, operators are
+   * not required to ensure {@code close()} is called on children for odd
+   * paths, such as errors.
+   *
+   * @param cascade {@code false} if this is the final call from the fragment
+   * runner, {@code true} if it is an "early close" from a parent.
+   */
+  void close(boolean cascade);
 }

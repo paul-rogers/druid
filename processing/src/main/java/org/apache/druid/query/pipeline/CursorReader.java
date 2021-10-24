@@ -129,7 +129,7 @@ public class CursorReader implements Operator
   }
 
   @Override
-  public void close() {
+  public void close(boolean cascade) {
     // Cursors don't have a close()
   }
 

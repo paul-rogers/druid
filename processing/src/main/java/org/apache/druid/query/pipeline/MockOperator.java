@@ -22,36 +22,20 @@ package org.apache.druid.query.pipeline;
 import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
+import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
 
 import java.util.List;
 import java.util.function.Function;
 
 public class MockOperator implements Operator
 {
-  public static class MockOperatorDef extends AbstractOperatorDefn
+  public static final OperatorFactory FACTORY = new OperatorFactory()
   {
-    public enum Type
-    {
-      STRING, INT
-    }
-    public final Type type;
-    public final int rowCount;
-
-    public MockOperatorDef(int rowCount, Type type)
-    {
-      this.type = type;
-      this.rowCount = rowCount;
-    }
-  }
-
-  public static class MockOperatorFactory implements OperatorFactory
-  {
-
     @Override
     public Operator build(OperatorDefn defn, List<Operator> children, FragmentContext context)
     {
       Preconditions.checkArgument(children.isEmpty());
-      MockOperatorDef mockDefn = (MockOperatorDef) defn;
+      Defn mockDefn = (Defn) defn;
       switch(mockDefn.type)
       {
       case STRING:
@@ -62,16 +46,36 @@ public class MockOperator implements Operator
         throw new ISE("Unknown type");
       }
     }
+  };
+
+  public static void register(OperatorRegistry reg) {
+    reg.register(Defn.class, FACTORY);
   }
 
-  private final MockOperatorDef defn;
+  public static class Defn extends LeafDefn
+  {
+    public enum Type
+    {
+      STRING, INT
+    }
+    public final Type type;
+    public final int rowCount;
+
+    public Defn(int rowCount, Type type)
+    {
+      this.type = type;
+      this.rowCount = rowCount;
+    }
+  }
+
+  private final Defn defn;
   private final Function<Integer,Object> generator;
   private int rowPosn = 0;
   public boolean started;
   public boolean closed;
 
 
-  public MockOperator(MockOperatorDef defn, Function<Integer,Object> gen) {
+  public MockOperator(Defn defn, Function<Integer,Object> gen) {
     this.defn = defn;
     this.generator = gen;
   }
@@ -95,7 +99,7 @@ public class MockOperator implements Operator
   }
 
   @Override
-  public void close()
+  public void close(boolean cascade)
   {
     closed = true;
   }

@@ -41,9 +41,12 @@ import java.util.Map;
  * metadata, but know nothing about the actual rows. The definitions give rise (via
  * operator factories) to the actual stateful operator DAG which runs the pipeline.
  * <p>
- * The fragment runner provides a uniform bottom-to-top protocol to start and stop the
- * pipeline, allowing operators to worry only about their own needs, but not the needs
- * of their parents or children.
+ * The fragment runner starts the root operator, which cascades the start operation down
+ * to its children in a manner appropriate to each operator. (An operator that defers a
+ * call to its children must ensure start is eventually called before reading data.)
+ * <p>
+ * The fragment runner provides closes all children from the bottom up on shut down.
+ * Children that have previously been closed by their parents can ignore this call.
  * <p>
  * When building the operator DAG, the runner creates the leaves first, then passes
  * these as children to the next layer, and so on up to the root.
@@ -120,24 +123,17 @@ public class FragmentRunner
     return rootOp;
   }
 
-  public void start()
-  {
-    List<Operator> opened = new ArrayList<>();
-    for (Operator op : operators) {
-      try {
-        op.start();
-        opened.add(op);
-      }
-      catch (Exception e) {
-        close(opened);
-        throw e;
-      }
+  public Operator root() {
+    if (operators.isEmpty()) {
+      return null;
     }
+    return operators.get(operators.size() - 1);
   }
 
   public void run(Consumer consumer) {
-   Operator root = operators.get(operators.size() - 1);
-    for (Object row : Operators.toIterable(root)) {
+   Operator root = root();
+   root.start();
+   for (Object row : Operators.toIterable(root)) {
       if (!consumer.accept(row)) {
         break;
       }
@@ -151,7 +147,6 @@ public class FragmentRunner
 
   public void fullRun(Consumer consumer)
   {
-    start();
     run(consumer);
     close();
   }
@@ -161,7 +156,7 @@ public class FragmentRunner
     List<Exception> exceptions = new ArrayList<>();
     for (Operator op : ops) {
       try {
-        op.close();
+        op.close(false);
       }
       catch (Exception e) {
         exceptions.add(e);

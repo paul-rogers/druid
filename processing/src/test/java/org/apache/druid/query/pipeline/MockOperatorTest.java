@@ -22,8 +22,6 @@ package org.apache.druid.query.pipeline;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.SequenceTestHelper;
 import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
-import org.apache.druid.query.pipeline.MockOperator.MockOperatorDef;
-import org.apache.druid.query.pipeline.MockOperator.MockOperatorFactory;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -38,14 +36,14 @@ import static org.junit.Assert.assertTrue;
 
 public class MockOperatorTest
 {
-   private Operator build(MockOperatorDef defn) {
-     return new MockOperatorFactory().build(defn, Collections.emptyList(), FragmentRunner.defaultContext());
+   private Operator build(MockOperator.Defn defn) {
+     return MockOperator.FACTORY.build(defn, Collections.emptyList(), FragmentRunner.defaultContext());
 
    }
    @Test
    public void testMockStringOperator()
    {
-     MockOperatorDef defn = new MockOperatorDef(2, MockOperatorDef.Type.STRING);
+     MockOperator.Defn defn = new MockOperator.Defn(2, MockOperator.Defn.Type.STRING);
      Operator op = build(defn);
      op.start();
      assertTrue(op.hasNext());
@@ -53,13 +51,13 @@ public class MockOperatorTest
      assertTrue(op.hasNext());
      assertEquals("Mock row 1", op.next());
      assertFalse(op.hasNext());
-     op.close();
+     op.close(false);
    }
 
    @Test
    public void testMockIntOperator()
    {
-     MockOperatorDef defn = new MockOperatorDef(2, MockOperatorDef.Type.INT);
+     MockOperator.Defn defn = new MockOperator.Defn(2, MockOperator.Defn.Type.INT);
      Operator op = build(defn);
      op.start();
      assertTrue(op.hasNext());
@@ -67,19 +65,19 @@ public class MockOperatorTest
      assertTrue(op.hasNext());
      assertEquals(1, op.next());
      assertFalse(op.hasNext());
-     op.close();
+     op.close(false);
    }
 
    @Test
    public void testIterator()
    {
-     MockOperatorDef defn = new MockOperatorDef(2, MockOperatorDef.Type.INT);
+     MockOperator.Defn defn = new MockOperator.Defn(2, MockOperator.Defn.Type.INT);
      Operator op = build(defn);
      int rid = 0;
      for (Object row : Operators.toIterable(op)) {
        assertEquals(rid++, row);
      }
-     op.close();
+     op.close(false);
    }
 
    // An operator is a one-pass object, don't try sequence tests that assume
@@ -87,35 +85,35 @@ public class MockOperatorTest
    @Test
    public void testSequenceYielder() throws IOException
    {
-     MockOperatorDef defn = new MockOperatorDef(5, MockOperatorDef.Type.INT);
+     MockOperator.Defn defn = new MockOperator.Defn(5, MockOperator.Defn.Type.INT);
      Operator op = build(defn);
      final List<Integer> vals = Arrays.asList(0, 1, 2, 3, 4);
      Sequence<Integer> seq = Operators.toSequence(op);
      SequenceTestHelper.testYield("op", 5, seq, vals);
-     op.close();
+     op.close(false);
    }
 
    @Test
    public void testSequenceAccum() throws IOException
    {
-     MockOperatorDef defn = new MockOperatorDef(4, MockOperatorDef.Type.INT);
+     MockOperator.Defn defn = new MockOperator.Defn(4, MockOperator.Defn.Type.INT);
      Operator op = build(defn);
      final List<Integer> vals = Arrays.asList(0, 1, 2, 3);
      Sequence<Integer> seq = Operators.toSequence(op);
      SequenceTestHelper.testAccumulation("op", seq, vals);
-     op.close();
+     op.close(false);
    }
 
    @Test
    public void testFragmentRunner()
    {
      OperatorRegistry reg = new OperatorRegistry();
-     reg.register(MockOperatorDef.class, new MockOperatorFactory());
+     MockOperator.register(reg);
      FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
-     MockOperatorDef defn = new MockOperatorDef(2, MockOperatorDef.Type.STRING);
+     MockOperator.Defn defn = new MockOperator.Defn(2, MockOperator.Defn.Type.STRING);
      Operator op = runner.build(defn);
      MockOperator mockOp = (MockOperator) op;
-     runner.start();
+     runner.root().start();
      assertTrue(mockOp.started);
      assertTrue(op.hasNext());
      assertEquals("Mock row 0", op.next());
@@ -135,9 +133,9 @@ public class MockOperatorTest
    public void testFullRun()
    {
      OperatorRegistry reg = new OperatorRegistry();
-     reg.register(MockOperatorDef.class, new MockOperatorFactory());
+     MockOperator.register(reg);
      FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
-     MockOperatorDef defn = new MockOperatorDef(2, MockOperatorDef.Type.STRING);
+     MockOperator.Defn defn = new MockOperator.Defn(2, MockOperator.Defn.Type.STRING);
      Operator op = runner.build(defn);
      MockOperator mockOp = (MockOperator) op;
      AtomicInteger count = new AtomicInteger();
@@ -155,7 +153,7 @@ public class MockOperatorTest
    @Test
    public void testSequenceOperator()
    {
-     MockOperatorDef defn = new MockOperatorDef(2, MockOperatorDef.Type.STRING);
+     MockOperator.Defn defn = new MockOperator.Defn(2, MockOperator.Defn.Type.STRING);
      Operator op = build(defn);
      Sequence<Object> seq = Operators.toSequence(op);
      Operator outer = Operators.toOperator(seq);
@@ -165,6 +163,6 @@ public class MockOperatorTest
      assertTrue(outer.hasNext());
      assertEquals("Mock row 1", outer.next());
      assertFalse(outer.hasNext());
-     outer.close();
+     outer.close(false);
    }
 }
