@@ -253,6 +253,53 @@ public class ScanQueryOperatorsTest
       "version",
       0
   );
+
+  final int ROWS_PER_STEP = 10;
+
+  private FragmentRunner setupSort(int segCount, ScanQuery.Order order)
+  {
+    OperatorRegistry reg = new OperatorRegistry();
+    MockScanResultReader.register(reg);
+    NullOperator.register(reg);
+    ConcatOperator.register(reg);
+    ScanResultSortOperator.register(reg);
+    ScanQuery query = new ScanQueryBuilder()
+        .dataSource("dummy")
+        .intervals(new SpecificSegmentSpec(DUMMY_DESCRIPTOR))
+        .order(order)
+        .resultFormat(ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+        .build();
+
+    // Create segments in unsorted order
+    final int segs[] = new int[]{1, 0, 4, 2, 3};
+    final int expectedRows = ROWS_PER_STEP * segCount;
+    final OperatorDefn input;
+    switch (segCount) {
+    case 0:
+      input = NullOperator.DEFN;
+      break;
+    case 1: {
+      MockScanResultReader.Defn leafDefn = scanDefn(3, expectedRows);
+      leafDefn.batchSize = 4;
+      input = leafDefn;
+      break;
+    }
+    default: {
+      List<OperatorDefn> leaves = new ArrayList<>();
+      for (int j = 0; j < segCount; j++) {
+        MockScanResultReader.Defn leafDefn = new MockScanResultReader.Defn(3, ROWS_PER_STEP, interval(segs[j]));
+        leafDefn.batchSize = 4;
+        leaves.add(leafDefn);
+      }
+      input = new ConcatOperator.Defn(leaves);
+    }
+    }
+    OperatorDefn sortDefn = new ScanResultSortOperator.Defn(query, input);
+    FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
+    runner.build(sortDefn);
+    return runner;
+  }
+
   /**
    * Test an ascending sort with various numbers of rows.
    * Note that, as currently implemented, the sort converts a batch of
@@ -263,23 +310,8 @@ public class ScanQueryOperatorsTest
   @Test
   public void testSortAsc()
   {
-    OperatorRegistry reg = new OperatorRegistry();
-    MockScanResultReader.register(reg);
-    ScanResultSortOperator.register(reg);
-    final int rowsPerStep = 10;
-    ScanQuery query = new ScanQueryBuilder()
-        .dataSource("dummy")
-        .intervals(new SpecificSegmentSpec(DUMMY_DESCRIPTOR))
-        .order(ScanQuery.Order.ASCENDING)
-        .resultFormat(ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
-        .build();
     for (int i = 0; i < 5; i++) {
-      FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
-      final int expectedRows = rowsPerStep * i;
-      MockScanResultReader.Defn leafDefn = scanDefn(3, expectedRows);
-      leafDefn.batchSize = 4;
-      ScanResultSortOperator.Defn sortDefn = new ScanResultSortOperator.Defn(query, leafDefn);
-      runner.build(sortDefn);
+      FragmentRunner runner = setupSort(i, ScanQuery.Order.ASCENDING);
       AtomicInteger rowCount = new AtomicInteger();
       AtomicLong lastTs = new AtomicLong();
       runner.fullRun(row -> {
@@ -292,30 +324,15 @@ public class ScanQueryOperatorsTest
         lastTs.set(endTs);
         return true;
       });
-      assertEquals(expectedRows, rowCount.get());
+      assertEquals(ROWS_PER_STEP * i, rowCount.get());
     }
   }
 
   @Test
   public void testSortDesc()
   {
-    OperatorRegistry reg = new OperatorRegistry();
-    MockScanResultReader.register(reg);
-    ScanResultSortOperator.register(reg);
-    final int rowsPerStep = 10;
-    ScanQuery query = new ScanQueryBuilder()
-        .dataSource("dummy")
-        .intervals(new SpecificSegmentSpec(DUMMY_DESCRIPTOR))
-        .order(ScanQuery.Order.DESCENDING)
-        .resultFormat(ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
-        .build();
     for (int i = 0; i < 5; i++) {
-      FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
-      final int expectedRows = rowsPerStep * i;
-      MockScanResultReader.Defn leafDefn = scanDefn(3, expectedRows);
-      leafDefn.batchSize = 4;
-      ScanResultSortOperator.Defn sortDefn = new ScanResultSortOperator.Defn(query, leafDefn);
-      runner.build(sortDefn);
+      FragmentRunner runner = setupSort(i, ScanQuery.Order.DESCENDING);
       AtomicInteger rowCount = new AtomicInteger();
       AtomicLong lastTs = new AtomicLong(Long.MAX_VALUE);
       runner.fullRun(row -> {
@@ -328,7 +345,7 @@ public class ScanQueryOperatorsTest
         lastTs.set(endTs);
         return true;
       });
-      assertEquals(expectedRows, rowCount.get());
+      assertEquals(ROWS_PER_STEP * i, rowCount.get());
     }
   }
 }

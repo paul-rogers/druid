@@ -51,7 +51,7 @@ public class ScanResultSortOperator implements Operator
     public ResultFormat resultFormat;
 
     // See ScanQueryRunnerFactory.stableLimitingSort
-    public Defn(ScanQuery query,OperatorDefn child)
+    public Defn(ScanQuery query, OperatorDefn child)
     {
       this.child = child;
       this.comparator = query.getResultOrdering();
