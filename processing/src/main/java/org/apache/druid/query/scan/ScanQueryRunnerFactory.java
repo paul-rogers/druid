@@ -124,6 +124,8 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
                                         : query.getMaxRowsQueuedForOrdering());
         if (query.getScanRowsLimit() <= maxRowsQueuedForOrdering) {
           // Use priority queue strategy
+          // TODO: this doesn't actually use a priority queue: it uses a sort
+          // The priority queue is in the n-way merge
           try {
             return stableLimitingSort(
                 Sequences.concat(Sequences.map(

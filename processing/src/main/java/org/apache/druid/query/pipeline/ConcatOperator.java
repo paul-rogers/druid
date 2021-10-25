@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
+import org.apache.druid.query.pipeline.Operator.OperatorDefn;
 
 import com.google.common.base.Preconditions;
 
@@ -29,6 +30,13 @@ public class ConcatOperator implements Operator
 
   public static void register(OperatorRegistry reg) {
     reg.register(Defn.class, FACTORY);
+  }
+
+  public static OperatorDefn concatOrNot(List<OperatorDefn> children) {
+    if (children.size() > 1) {
+      return new ConcatOperator.Defn(children);
+    }
+    return children.get(0);
   }
 
   public static class Defn extends MultiChildDefn

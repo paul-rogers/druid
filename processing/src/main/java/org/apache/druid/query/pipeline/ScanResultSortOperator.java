@@ -18,11 +18,23 @@ import org.joda.time.Interval;
 import com.google.common.base.Preconditions;
 
 /**
+ * Returns a sorted and limited transformation of the input. Materializes the full sequence
+ * in memory before returning it. The amount of memory use is limited by the limit of the scan query.
+ * <p>
  * Simultaneously sorts and limits its input.
- *
+ * <p>
  * The sort is stable, meaning that equal elements (as determined by the comparator) will not be reordered.
- *
- * Not thread-safe. In-memory sort.
+ * <p>
+ * Not thread-safe.
+ * <p>
+ * The output is a set of batches each containing a single row.
+ * <p>
+ * Questions:<ul>
+ * <li>Are the segments sorted by date? If so, why another sort? Why not a merge?</li>
+ * <li>Segments are ordered by date. Segments within a data source do not overlay.
+ * So, we can sort all the partitions for one segment and return them before reading
+ * any of the partitions of the next segment. Doing so will reduce the memory footprint.</li>
+ * </ul>
  *
  * @see {@link ScanQueryRunnerFactory#stableLimitingSort}
  * @see {@link org.apache.druid.collections.StableLimitingSorter}

@@ -302,10 +302,6 @@ public class ScanQueryOperatorsTest
 
   /**
    * Test an ascending sort with various numbers of rows.
-   * Note that, as currently implemented, the sort converts a batch of
-   * compact lists into an inefficient set of batches with single values.
-   * So, the start and end times of each "batch" (single row) will be
-   * the same.
    */
   @Test
   public void testSortAsc()
@@ -318,10 +314,8 @@ public class ScanQueryOperatorsTest
         ScanResultValue value = (ScanResultValue) row;
         rowCount.getAndAdd(value.rowCount());
         long startTs = MockScanResultReader.getFirstTime(row);
-        long endTs = MockScanResultReader.getLastTime(row);
-        assertTrue(startTs <= endTs);
         assertTrue(lastTs.get() < startTs);
-        lastTs.set(endTs);
+        lastTs.set(startTs);
         return true;
       });
       assertEquals(ROWS_PER_STEP * i, rowCount.get());
@@ -339,13 +333,74 @@ public class ScanQueryOperatorsTest
         ScanResultValue value = (ScanResultValue) row;
         rowCount.getAndAdd(value.rowCount());
         long startTs = MockScanResultReader.getFirstTime(row);
-        long endTs = MockScanResultReader.getLastTime(row);
-        assertTrue(startTs >= endTs);
         assertTrue(lastTs.get() > startTs);
-        lastTs.set(endTs);
+        lastTs.set(startTs);
         return true;
       });
       assertEquals(ROWS_PER_STEP * i, rowCount.get());
     }
+  }
+
+  // TODO: Scan with limit. Requires greater attention to intervals.
+
+  @Test
+  public void testDeaggregate()
+  {
+    OperatorRegistry reg = new OperatorRegistry();
+    MockScanResultReader.register(reg);
+    DisaggregateScanResultOperator.register(reg);
+    final int totalRows = 10;
+    MockScanResultReader.Defn leafDefn = scanDefn(3, totalRows);
+    leafDefn.batchSize = 4;
+    FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
+    OperatorDefn root = new DisaggregateScanResultOperator.Defn(leafDefn);
+    runner.build(root);
+    AtomicInteger rowCount = new AtomicInteger();
+    runner.fullRun(row -> {
+      ScanResultValue value = (ScanResultValue) row;
+      assertEquals(1, value.rowCount());
+      rowCount.getAndAdd(1);
+      return true;
+    });
+    assertEquals(totalRows, rowCount.get());
+  }
+
+  @Test
+  public void testMerge()
+  {
+    OperatorRegistry reg = new OperatorRegistry();
+    MockScanResultReader.register(reg);
+    DisaggregateScanResultOperator.register(reg);
+    ScanResultMergeOperator.register(reg);
+    ScanQuery query = new ScanQueryBuilder()
+        .dataSource("dummy")
+        .intervals(new SpecificSegmentSpec(DUMMY_DESCRIPTOR))
+        .order(ScanQuery.Order.ASCENDING)
+        .resultFormat(ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+        .build();
+    final int rowsPerReader = 10;
+    final int readerCount = 5;
+    List<OperatorDefn> inputs = new ArrayList<>();
+    for (int i = 0; i < readerCount; i++) {
+      MockScanResultReader.Defn leafDefn = scanDefn(3, rowsPerReader);
+      leafDefn.batchSize = 4;
+      OperatorDefn disagg = new DisaggregateScanResultOperator.Defn(leafDefn);
+      inputs.add(disagg);
+    }
+    OperatorDefn root = new ScanResultMergeOperator.Defn(query, inputs);
+    FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
+    runner.build(root);
+    AtomicInteger rowCount = new AtomicInteger();
+    AtomicLong lastTs = new AtomicLong();
+    runner.fullRun(row -> {
+      ScanResultValue value = (ScanResultValue) row;
+      assertEquals(1, value.rowCount());
+      rowCount.getAndAdd(1);
+      long startTs = MockScanResultReader.getFirstTime(row);
+      assertTrue(lastTs.get() <= startTs);
+      lastTs.set(startTs);
+      return true;
+    });
+    assertEquals(rowsPerReader * readerCount, rowCount.get());
   }
 }
