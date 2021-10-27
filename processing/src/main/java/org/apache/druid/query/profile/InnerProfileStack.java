@@ -60,6 +60,18 @@ public class InnerProfileStack implements ProfileStack
   }
 
   @Override
+  public void popSafely(OperatorProfile profile, boolean failed)
+  {
+    if (!failed) {
+      pop(profile);
+      return;
+    }
+    while (stack.size() > 1 && stack.remove(stack.size() - 1) != profile) {
+      // Empty
+    }
+  }
+
+  @Override
   public OperatorProfile root()
   {
     throw new ISE("Not supported in a subtree");

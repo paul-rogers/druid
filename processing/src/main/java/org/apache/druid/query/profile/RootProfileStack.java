@@ -50,6 +50,18 @@ public class RootProfileStack implements ProfileStack
   }
 
   @Override
+  public void popSafely(OperatorProfile profile, boolean failed)
+  {
+    if (!failed) {
+      pop(profile);
+      return;
+    }
+    while (!stack.isEmpty() && stack.remove(stack.size() - 1) != profile) {
+      // Empty
+    }
+  }
+
+  @Override
   public OperatorProfile root()
   {
     Preconditions.checkState(stack.isEmpty());

@@ -95,17 +95,17 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
   {
     // in single thread and in Jetty thread instead of processing thread
     return (queryPlus, responseContext) -> {
-      ScanQuery query = (ScanQuery) queryPlus.getQuery();
       ScanQueryProfile profile = new ScanQueryProfile();
       ProfileStack profileStack = responseContext.getProfileStack();
       profileStack.push(profile);
       MergeProfile mergeProfile = new MergeProfile();
       profileStack.leaf(mergeProfile);
       profileStack.pop(profile);
+      ScanQuery query = (ScanQuery) queryPlus.getQuery();
 
       // Note: this variable is effective only when queryContext has a timeout.
       // See the comment of ResponseContext.Key.TIMEOUT_AT.
-      final long timeoutAt = System.currentTimeMillis() + QueryContexts.getTimeout(queryPlus.getQuery());
+      final long timeoutAt = System.currentTimeMillis() + QueryContexts.getTimeout(query);
       responseContext.putTimeoutTime(timeoutAt);
 
       if (query.getOrder().equals(ScanQuery.Order.NONE)) {

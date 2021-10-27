@@ -38,6 +38,15 @@ public interface ProfileStack
   void pop(OperatorProfile profile);
 
   /**
+   * Like {@link #pop}, but for failure conditions. The state of the
+   * stack is unknown: there may be additional operators still on the
+   * stack if {@code failed} is {@code true}. These are quietly removed.
+   * However if {@code failed} is {@code false}, then the state should
+   * be normal and the normal rules are enforced.
+   */
+  void popSafely(OperatorProfile profile, boolean failed);
+
+  /**
    * Marks a profile as a leaf: it is added to the current leaf,
    * but not pushed onto the stack since the given profile does
    * not have children.

@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import org.apache.druid.collections.bitmap.BitmapFactory;
 import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
+import org.apache.druid.segment.IndexIO.IndexMetrics;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.data.Indexed;
@@ -159,8 +160,15 @@ public class SimpleQueryableIndex extends AbstractIndex implements QueryableInde
   @Override
   public ColumnHolder getColumnHolder(String columnName)
   {
+    return getColumnHolder(columnName, IndexMetrics.STUB);
+  }
+
+  @Nullable
+  @Override
+  public ColumnHolder getColumnHolder(String columnName, IndexMetrics metrics)
+  {
     Supplier<ColumnHolder> columnHolderSupplier = columns.get(columnName);
-    return columnHolderSupplier == null ? null : columnHolderSupplier.get();
+    return columnHolderSupplier == null ? null : columnHolderSupplier.get(metrics);
   }
 
   @VisibleForTesting

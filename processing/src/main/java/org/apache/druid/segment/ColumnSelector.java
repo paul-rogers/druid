@@ -19,6 +19,7 @@
 
 package org.apache.druid.segment;
 
+import org.apache.druid.segment.IndexIO.IndexMetrics;
 import org.apache.druid.segment.column.ColumnHolder;
 
 import javax.annotation.Nullable;
@@ -32,4 +33,9 @@ public interface ColumnSelector
 
   @Nullable
   ColumnHolder getColumnHolder(String columnName);
+
+  @Nullable
+  default ColumnHolder getColumnHolder(String columnName, IndexMetrics metrics) {
+    return getColumnHolder(columnName);
+  }
 }

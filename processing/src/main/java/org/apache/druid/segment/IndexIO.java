@@ -47,6 +47,7 @@ import org.apache.druid.java.util.common.io.smoosh.Smoosh;
 import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.EmittingLogger;
+import org.apache.druid.query.profile.Timer;
 import org.apache.druid.segment.column.ColumnBuilder;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnConfig;
@@ -415,9 +416,37 @@ public class IndexIO
     }
   }
 
+  public interface IndexMetrics
+  {
+    public static final IndexMetrics STUB = new IndexMetrics()
+    {
+      @Override
+      public void uninstrumented()
+      {
+      }
+
+      @Override
+      public void addColumnLoadTime(long ns)
+      {
+      }
+    };
+
+    void uninstrumented();
+    void addColumnLoadTime(long ns);
+  }
+
+
   interface IndexLoader
   {
-    QueryableIndex load(File inDir, ObjectMapper mapper, boolean lazy, SegmentLazyLoadFailCallback loadFailed) throws IOException;
+    default QueryableIndex load(File inDir, ObjectMapper mapper, boolean lazy, SegmentLazyLoadFailCallback loadFailed, IndexMetrics metrics) throws IOException
+    {
+      metrics.uninstrumented();
+      return load(inDir, mapper, lazy, loadFailed);
+    }
+
+    default QueryableIndex load(File inDir, ObjectMapper mapper, boolean lazy, SegmentLazyLoadFailCallback loadFailed) throws IOException {
+      return load(inDir, mapper, lazy, loadFailed, IndexMetrics.STUB);
+    }
   }
 
   static class LegacyIndexLoader implements IndexLoader
@@ -432,8 +461,15 @@ public class IndexIO
     }
 
     @Override
-    public QueryableIndex load(File inDir, ObjectMapper mapper, boolean lazy, SegmentLazyLoadFailCallback loadFailed) throws IOException
+    public QueryableIndex load(
+        File inDir,
+        ObjectMapper mapper,
+        boolean lazy,
+        SegmentLazyLoadFailCallback loadFailed,
+        IndexMetrics metrics
+    ) throws IOException
     {
+      metrics.uninstrumented();
       MMappedIndex index = legacyHandler.mapDir(inDir);
 
       Map<String, Supplier<ColumnHolder>> columns = new HashMap<>();
@@ -528,7 +564,13 @@ public class IndexIO
     }
 
     @Override
-    public QueryableIndex load(File inDir, ObjectMapper mapper, boolean lazy, SegmentLazyLoadFailCallback loadFailed) throws IOException
+    public QueryableIndex load(
+        File inDir,
+        ObjectMapper mapper,
+        boolean lazy,
+        SegmentLazyLoadFailCallback loadFailed,
+        IndexMetrics metrics
+    ) throws IOException
     {
       log.debug("Mapping v9 index[%s]", inDir);
       long startTime = System.currentTimeMillis();
@@ -602,7 +644,7 @@ public class IndexIO
           columns.put(columnName, Suppliers.memoize(
               () -> {
                 try {
-                  return deserializeColumn(mapper, colBuffer, smooshedFiles);
+                  return deserializeColumn(mapper, colBuffer, smooshedFiles, metrics);
                 }
                 catch (IOException | RuntimeException e) {
                   log.warn(e, "Throw exceptions when deserialize column [%s].", columnName);
@@ -612,7 +654,7 @@ public class IndexIO
               }
           ));
         } else {
-          ColumnHolder columnHolder = deserializeColumn(mapper, colBuffer, smooshedFiles);
+          ColumnHolder columnHolder = deserializeColumn(mapper, colBuffer, smooshedFiles, metrics);
           columns.put(columnName, () -> columnHolder);
         }
 
@@ -624,7 +666,7 @@ public class IndexIO
         columns.put(ColumnHolder.TIME_COLUMN_NAME, Suppliers.memoize(
             () -> {
               try {
-                return deserializeColumn(mapper, timeBuffer, smooshedFiles);
+                return deserializeColumn(mapper, timeBuffer, smooshedFiles, metrics);
               }
               catch (IOException | RuntimeException e) {
                 log.warn(e, "Throw exceptions when deserialize column [%s]", ColumnHolder.TIME_COLUMN_NAME);
@@ -634,7 +676,7 @@ public class IndexIO
             }
         ));
       } else {
-        ColumnHolder columnHolder = deserializeColumn(mapper, timeBuffer, smooshedFiles);
+        ColumnHolder columnHolder = deserializeColumn(mapper, timeBuffer, smooshedFiles, metrics);
         columns.put(ColumnHolder.TIME_COLUMN_NAME, () -> columnHolder);
       }
 
@@ -653,13 +695,20 @@ public class IndexIO
       return index;
     }
 
-    private ColumnHolder deserializeColumn(ObjectMapper mapper, ByteBuffer byteBuffer, SmooshedFileMapper smooshedFiles)
-        throws IOException
+    private ColumnHolder deserializeColumn(
+        ObjectMapper mapper,
+        ByteBuffer byteBuffer,
+        SmooshedFileMapper smooshedFiles,
+        IndexMetrics metrics
+    ) throws IOException
     {
+      Timer timer = Timer.createStarted();
       ColumnDescriptor serde = mapper.readValue(
           SERIALIZER_UTILS.readString(byteBuffer), ColumnDescriptor.class
       );
-      return serde.read(byteBuffer, columnConfig, smooshedFiles);
+      ColumnHolder result = serde.read(byteBuffer, columnConfig, smooshedFiles);
+      metrics.addColumnLoadTime(timer.get());
+      return result;
     }
   }
 

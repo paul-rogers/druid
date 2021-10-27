@@ -60,7 +60,7 @@ public class ProfileUtils
           @Override
           public void after(boolean isDone, Throwable thrown)
           {
-            profileStack.pop(profile);
+            profileStack.popSafely(profile, thrown != null);
           }
         });
   }
