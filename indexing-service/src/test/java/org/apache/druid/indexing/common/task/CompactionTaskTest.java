@@ -28,7 +28,6 @@ import com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair;
 import com.fasterxml.jackson.databind.jsontype.NamedType;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -89,6 +88,7 @@ import org.apache.druid.query.aggregation.LongMaxAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.aggregation.first.FloatFirstAggregatorFactory;
 import org.apache.druid.query.aggregation.last.DoubleLastAggregatorFactory;
+import org.apache.druid.query.profile.InstrumentedSupplier;
 import org.apache.druid.segment.IndexIO;
 import org.apache.druid.segment.IndexMergerV9;
 import org.apache.druid.segment.IndexSpec;
@@ -135,6 +135,7 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -1852,23 +1853,23 @@ public class CompactionTaskTest
         columnNames.add(ColumnHolder.TIME_COLUMN_NAME);
         columnNames.addAll(segment.getDimensions());
         columnNames.addAll(segment.getMetrics());
-        final Map<String, Supplier<ColumnHolder>> columnMap = Maps.newHashMapWithExpectedSize(columnNames.size());
+        final Map<String, InstrumentedSupplier<ColumnHolder, IndexMetrics>> columnMap = Maps.newHashMapWithExpectedSize(columnNames.size());
         final List<AggregatorFactory> aggregatorFactories = new ArrayList<>(segment.getMetrics().size());
 
         for (String columnName : columnNames) {
           if (MIXED_TYPE_COLUMN.equals(columnName)) {
             ColumnHolder columnHolder = createColumn(MIXED_TYPE_COLUMN_MAP.get(segment.getInterval()));
-            columnMap.put(columnName, () -> columnHolder);
+            columnMap.put(columnName, m -> columnHolder);
           } else if (DIMENSIONS.containsKey(columnName)) {
             ColumnHolder columnHolder = createColumn(DIMENSIONS.get(columnName));
-            columnMap.put(columnName, () -> columnHolder);
+            columnMap.put(columnName, m -> columnHolder);
           } else {
             final Optional<AggregatorFactory> maybeMetric = AGGREGATORS.stream()
                                                                        .filter(agg -> agg.getName().equals(columnName))
                                                                        .findAny();
             if (maybeMetric.isPresent()) {
               ColumnHolder columnHolder = createColumn(maybeMetric.get());
-              columnMap.put(columnName, () -> columnHolder);
+              columnMap.put(columnName, m -> columnHolder);
               aggregatorFactories.add(maybeMetric.get());
             }
           }

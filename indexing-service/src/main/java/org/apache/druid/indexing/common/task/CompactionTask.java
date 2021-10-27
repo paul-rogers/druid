@@ -850,7 +850,7 @@ public class CompactionTask extends AbstractBatchIndexTask
     int index = 0;
     for (NonnullPair<QueryableIndex, DataSegment> pair : Lists.reverse(queryableIndices)) {
       final QueryableIndex queryableIndex = pair.lhs;
-      final Map<String, DimensionHandler> dimensionHandlerMap = queryableIndex.getDimensionHandlers();
+      final Map<String, DimensionHandler<?, ?, ?>> dimensionHandlerMap = queryableIndex.getDimensionHandlers();
 
       for (String dimension : queryableIndex.getAvailableDimensions()) {
         final ColumnHolder columnHolder = Preconditions.checkNotNull(
@@ -860,7 +860,7 @@ public class CompactionTask extends AbstractBatchIndexTask
         );
 
         if (!uniqueDims.containsKey(dimension)) {
-          final DimensionHandler dimensionHandler = Preconditions.checkNotNull(
+          final DimensionHandler<?, ?, ?> dimensionHandler = Preconditions.checkNotNull(
               dimensionHandlerMap.get(dimension),
               "Cannot find dimensionHandler for dimension[%s]",
               dimension

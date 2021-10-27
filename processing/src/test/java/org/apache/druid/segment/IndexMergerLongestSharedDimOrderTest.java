@@ -19,13 +19,14 @@
 
 package org.apache.druid.segment;
 
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.collections.bitmap.BitmapFactory;
 import org.apache.druid.data.input.impl.DimensionsSpec;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
+import org.apache.druid.query.profile.InstrumentedSupplier;
+import org.apache.druid.segment.IndexIO.IndexMetrics;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.data.ListIndexed;
 import org.joda.time.Interval;
@@ -44,8 +45,16 @@ import static org.mockito.Mockito.when;
 @RunWith(MockitoJUnitRunner.class)
 public class IndexMergerLongestSharedDimOrderTest
 {
-  @Mock
-  Supplier<ColumnHolder> mockSupplier;
+  final InstrumentedSupplier<ColumnHolder, IndexMetrics> mockSupplier =
+      new InstrumentedSupplier<ColumnHolder, IndexMetrics>()
+  {
+    @Override
+    public ColumnHolder get(IndexMetrics metrics)
+    {
+      return mockColumnHolder;
+    }
+
+  };
 
   @Mock
   ColumnHolder mockColumnHolder;
@@ -59,7 +68,6 @@ public class IndexMergerLongestSharedDimOrderTest
   @Before
   public void setUp()
   {
-    when(mockSupplier.get()).thenReturn(mockColumnHolder);
     // This value does not matter
     when(mockColumnHolder.getLength()).thenReturn(1);
   }

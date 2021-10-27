@@ -24,7 +24,6 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -47,6 +46,7 @@ import org.apache.druid.java.util.common.io.smoosh.Smoosh;
 import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.EmittingLogger;
+import org.apache.druid.query.profile.InstrumentedSupplier;
 import org.apache.druid.query.profile.Timer;
 import org.apache.druid.segment.column.ColumnBuilder;
 import org.apache.druid.segment.column.ColumnCapabilities;
@@ -70,6 +70,7 @@ import org.apache.druid.segment.serde.SpatialIndexColumnPartSupplier;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -207,6 +208,21 @@ public class IndexIO
     }
   }
 
+  public interface IndexMetrics extends InstrumentedSupplier.Metrics
+  {
+    public static final IndexMetrics STUB = new IndexMetricsStub();
+
+    void addColumnLoadTime(long ns);
+  }
+
+  public static class IndexMetricsStub extends InstrumentedSupplier.MetricsStub implements IndexMetrics
+  {
+    @Override
+    public void addColumnLoadTime(long ns)
+    {
+    }
+  }
+
   interface IndexIOHandler
   {
     MMappedIndex mapDir(File inDir) throws IOException;
@@ -260,11 +276,11 @@ public class IndexIO
       boolean vals2IsList = vals2 instanceof List;
       if (vals1IsList ^ vals2IsList) {
         if (vals1IsList) {
-          if (((List) vals1).size() != 1 || !Objects.equals(((List) vals1).get(0), vals2)) {
+          if (((List<?>) vals1).size() != 1 || !Objects.equals(((List<?>) vals1).get(0), vals2)) {
             throw notEqualValidationException(dim1Name, vals1, vals2);
           }
         } else {
-          if (((List) vals2).size() != 1 || !Objects.equals(((List) vals2).get(0), vals1)) {
+          if (((List<?>) vals2).size() != 1 || !Objects.equals(((List<?>) vals2).get(0), vals1)) {
             throw notEqualValidationException(dim1Name, vals1, vals2);
           }
         }
@@ -416,33 +432,9 @@ public class IndexIO
     }
   }
 
-  public interface IndexMetrics
-  {
-    public static final IndexMetrics STUB = new IndexMetrics()
-    {
-      @Override
-      public void uninstrumented()
-      {
-      }
-
-      @Override
-      public void addColumnLoadTime(long ns)
-      {
-      }
-    };
-
-    void uninstrumented();
-    void addColumnLoadTime(long ns);
-  }
-
-
   interface IndexLoader
   {
-    default QueryableIndex load(File inDir, ObjectMapper mapper, boolean lazy, SegmentLazyLoadFailCallback loadFailed, IndexMetrics metrics) throws IOException
-    {
-      metrics.uninstrumented();
-      return load(inDir, mapper, lazy, loadFailed);
-    }
+    QueryableIndex load(File inDir, ObjectMapper mapper, boolean lazy, SegmentLazyLoadFailCallback loadFailed, IndexMetrics metrics) throws IOException;
 
     default QueryableIndex load(File inDir, ObjectMapper mapper, boolean lazy, SegmentLazyLoadFailCallback loadFailed) throws IOException {
       return load(inDir, mapper, lazy, loadFailed, IndexMetrics.STUB);
@@ -466,13 +458,12 @@ public class IndexIO
         ObjectMapper mapper,
         boolean lazy,
         SegmentLazyLoadFailCallback loadFailed,
-        IndexMetrics metrics
+        IndexMetrics loadMetrics
     ) throws IOException
     {
-      metrics.uninstrumented();
       MMappedIndex index = legacyHandler.mapDir(inDir);
 
-      Map<String, Supplier<ColumnHolder>> columns = new HashMap<>();
+      Map<String, InstrumentedSupplier<ColumnHolder, IndexMetrics>> columns = new HashMap<>();
 
       for (String dimension : index.getAvailableDimensions()) {
         ColumnBuilder builder = new ColumnBuilder()
@@ -543,13 +534,13 @@ public class IndexIO
       );
     }
 
-    private Supplier<ColumnHolder> getColumnHolderSupplier(ColumnBuilder builder, boolean lazy)
+    private InstrumentedSupplier<ColumnHolder, IndexMetrics> getColumnHolderSupplier(ColumnBuilder builder, boolean lazy)
     {
       if (lazy) {
-        return Suppliers.memoize(() -> builder.build());
+        return InstrumentedSupplier.memoize(m -> builder.build());
       } else {
         ColumnHolder columnHolder = builder.build();
-        return () -> columnHolder;
+        return InstrumentedSupplier.cached(m -> columnHolder);
       }
     }
   }
@@ -569,7 +560,7 @@ public class IndexIO
         ObjectMapper mapper,
         boolean lazy,
         SegmentLazyLoadFailCallback loadFailed,
-        IndexMetrics metrics
+        IndexMetrics loadMetrics
     ) throws IOException
     {
       log.debug("Mapping v9 index[%s]", inDir);
@@ -630,7 +621,7 @@ public class IndexIO
         }
       }
 
-      Map<String, Supplier<ColumnHolder>> columns = new HashMap<>();
+      Map<String, InstrumentedSupplier<ColumnHolder, IndexMetrics>> columns = new HashMap<>();
 
       for (String columnName : cols) {
         if (Strings.isNullOrEmpty(columnName)) {
@@ -641,8 +632,8 @@ public class IndexIO
         ByteBuffer colBuffer = smooshedFiles.mapFile(columnName);
 
         if (lazy) {
-          columns.put(columnName, Suppliers.memoize(
-              () -> {
+          columns.put(columnName, InstrumentedSupplier.memoize(
+              metrics -> {
                 try {
                   return deserializeColumn(mapper, colBuffer, smooshedFiles, metrics);
                 }
@@ -654,17 +645,16 @@ public class IndexIO
               }
           ));
         } else {
-          ColumnHolder columnHolder = deserializeColumn(mapper, colBuffer, smooshedFiles, metrics);
-          columns.put(columnName, () -> columnHolder);
+          ColumnHolder columnHolder = deserializeColumn(mapper, colBuffer, smooshedFiles, loadMetrics);
+          columns.put(columnName, InstrumentedSupplier.cached(m -> columnHolder));
         }
-
       }
 
       ByteBuffer timeBuffer = smooshedFiles.mapFile("__time");
 
       if (lazy) {
-        columns.put(ColumnHolder.TIME_COLUMN_NAME, Suppliers.memoize(
-            () -> {
+        columns.put(ColumnHolder.TIME_COLUMN_NAME, InstrumentedSupplier.memoize(
+            metrics -> {
               try {
                 return deserializeColumn(mapper, timeBuffer, smooshedFiles, metrics);
               }
@@ -676,8 +666,8 @@ public class IndexIO
             }
         ));
       } else {
-        ColumnHolder columnHolder = deserializeColumn(mapper, timeBuffer, smooshedFiles, metrics);
-        columns.put(ColumnHolder.TIME_COLUMN_NAME, () -> columnHolder);
+        ColumnHolder columnHolder = deserializeColumn(mapper, timeBuffer, smooshedFiles, loadMetrics);
+        columns.put(ColumnHolder.TIME_COLUMN_NAME, InstrumentedSupplier.cached(m -> columnHolder));
       }
 
       final QueryableIndex index = new SimpleQueryableIndex(

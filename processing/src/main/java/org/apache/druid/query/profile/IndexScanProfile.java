@@ -159,6 +159,22 @@ public class IndexScanProfile extends OperatorProfile
         profile.unknownIndexCount--;
       }
     }
+
+    @Override
+    public void addColumnLoadTime(long ns)
+    {
+      profile.loadTimeNs += ns;
+    }
+
+    @Override
+    public void gotten(boolean cacheHit)
+    {
+      if (cacheHit) {
+        profile.cacheHits++;
+      } else {
+        profile.cacheMisses++;
+      }
+    }
   }
 
   @JsonPropertyOrder({"type", "offsetType", "preFilterRows", "postFilterRows"})
@@ -301,6 +317,34 @@ public class IndexScanProfile extends OperatorProfile
    */
   @JsonProperty
   public long preFilteredRows;
+
+  /**
+   * Amount of time, in ns, spent loading data when that time is directly
+   * attributable to this cursor. It could be that two cursors ask for data
+   * at the same time: only one will record the load cost. The other will report
+   * zero cost, but the time will still appear in the overall bitmap time.
+   */
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+  public long loadTimeNs;
+
+  /**
+   * Columns can be cached in memory. Records the number of times that the
+   * target column was found in the column cache. Each of such hit means that
+   * the query did not have to wait for the column to load, and so no time is
+   * accounted in {@code loadTmeNs}.
+   */
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+  public int cacheHits;
+
+  /**
+   * Records the number of times that a column was not in the cache and had
+   * to be fetched from local storage.
+   */
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+  public int cacheMisses;
 
   /**
    * The amount of time, in ns, taken to compute the intersection of all the

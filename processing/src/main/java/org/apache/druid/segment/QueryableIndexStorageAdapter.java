@@ -34,6 +34,7 @@ import org.apache.druid.query.DefaultBitmapResultFactory;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.filter.BitmapIndexSelector;
 import org.apache.druid.query.filter.BitmapIndexSelector.BitmapMetrics;
+import org.apache.druid.query.filter.BitmapIndexSelector.BitmapMetricsStub;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.profile.IndexScanProfile;
 import org.apache.druid.query.profile.IndexScanProfile.CursorProfileMetrics;
@@ -125,7 +126,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
    * "Do nothing" version of the cursor metrics used when no metrics are wanted.
    * Avoids having to enclose each metrics call in "if (metrics != null)".
    */
-  public static class CursorMetricsStub implements CursorMetrics
+  public static class CursorMetricsStub extends BitmapMetricsStub implements CursorMetrics
   {
     @Override
     public boolean isLive()
@@ -161,21 +162,6 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
 
     @Override
     public void reportBitmapConstructionTime(long timeNs)
-    {
-    }
-
-    @Override
-    public void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap)
-    {
-    }
-
-    @Override
-    public void shortCircuit(boolean value)
-    {
-    }
-
-    @Override
-    public void predicateFilter(String dimension, BitmapIndexSelector selector, DimensionPredicateFilter filter, Object bitmap)
     {
     }
   }
@@ -468,8 +454,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
 
     final ColumnSelectorBitmapIndexSelector bitmapIndexSelector = makeBitmapIndexSelector(virtualColumns, cursorMetrics);
 
-    final FilterAnalysis filterAnalysis = analyzeFilter(filter, bitmapIndexSelector,
-        cursorMetrics);
+    final FilterAnalysis filterAnalysis = analyzeFilter(filter, bitmapIndexSelector, cursorMetrics);
 
     return Sequences.filter(
         new QueryableIndexCursorSequenceBuilder(
@@ -535,7 +520,8 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
   @VisibleForTesting
   public ColumnSelectorBitmapIndexSelector makeBitmapIndexSelector(
       final VirtualColumns virtualColumns,
-      BitmapMetrics bitmapMetrics)
+      BitmapMetrics bitmapMetrics
+  )
   {
     return new ColumnSelectorBitmapIndexSelector(
         index.getBitmapFactoryForDimensions(),
@@ -561,7 +547,9 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       CursorMetrics cursorMetrics
   )
   {
-    final int totalRows = index.getNumRows();
+    // Obtaining the row count entails loading the __time column. Gather
+    // that load time.
+    final int totalRows = index.getNumRows(cursorMetrics);
 
     /*
      * Filters can be applied in two stages:

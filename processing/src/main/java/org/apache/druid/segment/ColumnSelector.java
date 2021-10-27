@@ -32,10 +32,10 @@ public interface ColumnSelector
   List<String> getColumnNames();
 
   @Nullable
-  ColumnHolder getColumnHolder(String columnName);
+  default ColumnHolder getColumnHolder(String columnName) {
+    return getColumnHolder(columnName, IndexMetrics.STUB);
+  }
 
   @Nullable
-  default ColumnHolder getColumnHolder(String columnName, IndexMetrics metrics) {
-    return getColumnHolder(columnName);
-  }
+  ColumnHolder getColumnHolder(String columnName, IndexMetrics metrics);
 }

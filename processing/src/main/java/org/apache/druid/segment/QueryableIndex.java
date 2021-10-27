@@ -20,6 +20,7 @@
 package org.apache.druid.segment;
 
 import org.apache.druid.collections.bitmap.BitmapFactory;
+import org.apache.druid.segment.IndexIO.IndexMetrics;
 import org.apache.druid.segment.data.Indexed;
 import org.joda.time.Interval;
 
@@ -38,11 +39,15 @@ import java.util.Map;
 public interface QueryableIndex extends ColumnSelector, Closeable
 {
   Interval getDataInterval();
-  int getNumRows();
+  int getNumRows(IndexMetrics metrics);
+  default int getNumRows()
+  {
+    return getNumRows(IndexMetrics.STUB);
+  }
   Indexed<String> getAvailableDimensions();
   BitmapFactory getBitmapFactoryForDimensions();
   @Nullable Metadata getMetadata();
-  Map<String, DimensionHandler> getDimensionHandlers();
+  Map<String, DimensionHandler<?, ?, ?>> getDimensionHandlers();
 
   /**
    * The close method shouldn't actually be here as this is nasty. We will adjust it in the future.

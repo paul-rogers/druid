@@ -215,7 +215,7 @@ public class ScanQueryEngine
                               profile.error = msg;
                               throw new QueryTimeoutException(msg);
                             }
-                            final long lastOffset = offset;
+                            final long prevOffset = offset;
                             final Object events;
                             final ScanQuery.ResultFormat resultFormat = query.getResultFormat();
                             if (ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST.equals(resultFormat)) {
@@ -227,8 +227,8 @@ public class ScanQueryEngine
                               profile.error = e.getMessage();
                               throw e;
                             }
-                            responseContext.addRowScanCount(offset - lastOffset);
-                            profile.rows += offset - lastOffset;
+                            responseContext.addRowScanCount(offset - prevOffset);
+                            profile.rows += offset - prevOffset;
                             if (hasTimeout) {
                               responseContext.putTimeoutTime(
                                   timeoutAt - (System.currentTimeMillis() - start)
