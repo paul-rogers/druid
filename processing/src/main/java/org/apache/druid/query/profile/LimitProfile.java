@@ -36,7 +36,7 @@ public class LimitProfile extends SimpleOperatorProfile
    * in the query if prior operations already produced some rows.
    */
   @JsonProperty
-  public long limit;
+  public Long limit;
 
   /**
    * If a prior operation produced some rows, this is the

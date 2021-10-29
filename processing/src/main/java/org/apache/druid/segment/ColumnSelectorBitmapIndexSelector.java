@@ -118,7 +118,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
       };
     }
 
-    final ColumnHolder columnHolder = index.getColumnHolder(dimension, metrics);
+    final ColumnHolder columnHolder = index.getColumnHolder(dimension);
     if (columnHolder == null) {
       return null;
     }
@@ -184,7 +184,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
       return virtualCapabilities != null ? virtualCapabilities.hasMultipleValues() : ColumnCapabilities.Capable.FALSE;
     }
 
-    final ColumnHolder columnHolder = index.getColumnHolder(dimension, metrics);
+    final ColumnHolder columnHolder = index.getColumnHolder(dimension);
     // if ColumnHolder is null, the column doesn't exist, but report as not having multiple values so that
     // the empty bitmap will be used
     return columnHolder != null
@@ -195,7 +195,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
   @Override
   public int getNumRows()
   {
-    try (final NumericColumn column = (NumericColumn) index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME, metrics).getColumn()) {
+    try (final NumericColumn column = (NumericColumn) index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getColumn()) {
       return column.length();
     }
   }
@@ -288,7 +288,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
       return idx.getBitmap(idx.getIndex(value));
     }
 
-    final ColumnHolder columnHolder = index.getColumnHolder(dimension, metrics);
+    final ColumnHolder columnHolder = index.getColumnHolder(dimension);
     if (columnHolder == null || !columnHolder.getCapabilities().isFilterable()) {
       final ImmutableBitmap bitmap;
       if (NullHandling.isNullOrEquivalent(value)) {
@@ -321,7 +321,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
       return ImmutableRTree.empty();
     }
 
-    final ColumnHolder columnHolder = index.getColumnHolder(dimension, metrics);
+    final ColumnHolder columnHolder = index.getColumnHolder(dimension);
     if (columnHolder == null || !columnHolder.getCapabilities().hasSpatialIndexes()) {
       return ImmutableRTree.empty();
     }
@@ -343,7 +343,7 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
   @Override
   public int getCardinality(final String columnName)
   {
-    final ColumnHolder columnHolder = index.getColumnHolder(columnName, metrics);
+    final ColumnHolder columnHolder = index.getColumnHolder(columnName);
     if (columnHolder == null) {
       return 0;
     }

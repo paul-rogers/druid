@@ -52,7 +52,16 @@ public class MergeProfile extends BranchingOperatorProfile
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public String strategy;
   @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public long offset;
+
+  /**
+   * Optional limit enforced by the merge. Will be null if no limit
+   * is specified. (That is, if the limit in the query is
+   * {@code Long.MAX_VALUE}, then this field is null so that clients
+   * don't have to know the Druid convention for unlimited.)
+   */
   @JsonProperty
-  public long limit;
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public Long limit;
 }

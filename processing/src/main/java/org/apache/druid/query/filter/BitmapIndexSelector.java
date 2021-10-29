@@ -23,8 +23,6 @@ import com.google.errorprone.annotations.MustBeClosed;
 import org.apache.druid.collections.bitmap.BitmapFactory;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.collections.spatial.ImmutableRTree;
-import org.apache.druid.segment.IndexIO.IndexMetrics;
-import org.apache.druid.segment.IndexIO.IndexMetricsStub;
 import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.data.CloseableIndexed;
@@ -36,14 +34,14 @@ import javax.annotation.Nullable;
  */
 public interface BitmapIndexSelector
 {
-  public interface BitmapMetrics extends IndexMetrics
+  public interface BitmapMetrics
   {
     void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap);
     void shortCircuit(boolean value);
     void predicateFilter(String dimension, BitmapIndexSelector selector, DimensionPredicateFilter filter, Object bitmap);
   }
 
-  public static class BitmapMetricsStub extends IndexMetricsStub implements BitmapMetrics
+  public static class BitmapMetricsStub implements BitmapMetrics
   {
     @Override
     public void bitmapIndex(String dimension, int cardinality, String value, ImmutableBitmap bitmap)

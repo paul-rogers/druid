@@ -547,9 +547,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       CursorMetrics cursorMetrics
   )
   {
-    // Obtaining the row count entails loading the __time column. Gather
-    // that load time.
-    final int totalRows = index.getNumRows(cursorMetrics);
+    final int totalRows = index.getNumRows();
 
     /*
      * Filters can be applied in two stages:
