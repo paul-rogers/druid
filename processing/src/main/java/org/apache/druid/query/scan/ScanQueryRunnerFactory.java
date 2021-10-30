@@ -374,14 +374,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
       if (timeoutAt == null || timeoutAt.longValue() == 0L) {
         responseContext.put(ResponseContext.Key.TIMEOUT_AT, JodaUtils.MAX_INSTANT);
       }
-      ScanQuery scanQuery = (ScanQuery) query;
-      final ScanQueryEngine2 targetEngine;
-      if (Operators.isEnabled(scanQuery, Operators.ENABLE_SCAN_OPERATOR)) {
-        targetEngine = ScanQueryOperator.asEngine();
-      } else {
-        targetEngine = engine;
-      }
-      return targetEngine.process(scanQuery, segment, responseContext);
+      return engine.process((ScanQuery) query, segment, responseContext);
     }
   }
 }

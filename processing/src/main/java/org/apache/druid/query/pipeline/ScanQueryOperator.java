@@ -169,7 +169,6 @@ public class ScanQueryOperator implements Operator
       return query.getQuerySegmentSpec().getIntervals().get(0);
     }
   }
-
   /**
    * Return an instance of the scan query operator in a form that mimics the
    * "classic" ScanQuery Engine so that the operator version can be "slotted into"
@@ -177,21 +176,7 @@ public class ScanQueryOperator implements Operator
    */
   public static ScanQueryEngine2 asEngine()
   {
-    return new ScanQueryEngine2() {
-      @Override
-      public Sequence<ScanResultValue> process(
-          final ScanQuery query,
-          final Segment segment,
-          final ResponseContext responseContext
-      )
-      {
-        Defn defn = new Defn(query, segment);
-        ScanQueryOperator reader = new ScanQueryOperator(defn,
-            new FragmentContextImpl(query.getId(), responseContext)
-            );
-        return Operators.toLoneSequence(reader);
-      }
-    };
+    return new ScanQueryOperatorEngine();
   }
 
   protected final Defn defn;
