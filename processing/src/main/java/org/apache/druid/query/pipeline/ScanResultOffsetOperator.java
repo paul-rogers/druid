@@ -1,11 +1,13 @@
 package org.apache.druid.query.pipeline;
 
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
+import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
 
@@ -18,7 +20,7 @@ import com.google.common.base.Preconditions;
  *
  * @see {@link org.apache.druid.query.scan.ScanQueryOffsetSequence}
  */
-public class ScanResultOffsetOperator implements Operator
+public class ScanResultOffsetOperator implements IterableOperator
 {
   public static final OperatorFactory FACTORY = new OperatorFactory()
   {
@@ -57,6 +59,7 @@ public class ScanResultOffsetOperator implements Operator
 
   private final Operator input;
   private final Defn defn;
+  private Iterator<Object> inputIter;
   private long rowCount;
   @SuppressWarnings("unused")
   private int batchCount;
@@ -70,9 +73,10 @@ public class ScanResultOffsetOperator implements Operator
   }
 
   @Override
-  public void start()
+  public Iterator<Object> open()
   {
-    input.start();
+    inputIter = input.open();
+    return this;
   }
 
   @Override
@@ -84,7 +88,7 @@ public class ScanResultOffsetOperator implements Operator
     if (rowCount == 0) {
       return skip();
     }
-    done = !input.hasNext();
+    done = !inputIter.hasNext();
     return !done;
   }
 
@@ -96,17 +100,17 @@ public class ScanResultOffsetOperator implements Operator
       lookAhead = null;
       return result;
     }
-    return input.next();
+    return inputIter.next();
   }
 
   private boolean skip()
   {
     while (true) {
-      if (!input.hasNext()) {
+      if (!inputIter.hasNext()) {
         done = true;
         return false;
       }
-      ScanResultValue batch = (ScanResultValue) input.next();
+      ScanResultValue batch = (ScanResultValue) inputIter.next();
       final List<?> rows = (List<?>) batch.getEvents();
       final int eventCount = rows.size();
       final long toSkip = defn.offset - rowCount;

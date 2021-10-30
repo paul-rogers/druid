@@ -23,11 +23,13 @@ import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
+import org.apache.druid.query.pipeline.Operator.IterableOperator;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 
-public class MockOperator implements Operator
+public class MockOperator implements IterableOperator
 {
   public static final OperatorFactory FACTORY = new OperatorFactory()
   {
@@ -71,8 +73,7 @@ public class MockOperator implements Operator
   private final Defn defn;
   private final Function<Integer,Object> generator;
   private int rowPosn = 0;
-  public boolean started;
-  public boolean closed;
+  public State state = State.START;
 
 
   public MockOperator(Defn defn, Function<Integer,Object> gen) {
@@ -81,9 +82,11 @@ public class MockOperator implements Operator
   }
 
   @Override
-  public void start()
+  public Iterator<Object> open()
   {
-    started = true;
+    Preconditions.checkState(state == State.START);
+    state = State.RUN;
+    return this;
   }
 
   @Override
@@ -101,6 +104,6 @@ public class MockOperator implements Operator
   @Override
   public void close(boolean cascade)
   {
-    closed = true;
+    state = State.CLOSED;
   }
 }

@@ -22,6 +22,7 @@ package org.apache.druid.query.pipeline;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -29,14 +30,13 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
-import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
-import org.apache.druid.query.pipeline.FragmentRunner.FragmentContextImpl;
 import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
+import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryEngine2;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -59,7 +59,7 @@ import com.google.common.collect.Sets;
  *
  * @see {@link org.apache.druid.query.scan.ScanQueryEngine}
  */
-public class ScanQueryOperator implements Operator
+public class ScanQueryOperator implements IterableOperator
 {
   static final String LEGACY_TIMESTAMP_KEY = "timestamp";
   public static final OperatorFactory FACTORY = new OperatorFactory()
@@ -197,7 +197,7 @@ public class ScanQueryOperator implements Operator
   }
 
   @Override
-  public void start() {
+  public Iterator<Object> open() {
 
     // TODO: Move higher
     // it happens in unit tests
@@ -231,6 +231,7 @@ public class ScanQueryOperator implements Operator
             defn.isDescendingOrder(),
             null
         ));
+    return this;
   }
 
   protected List<String> inferColumns(StorageAdapter adapter)
@@ -294,7 +295,7 @@ public class ScanQueryOperator implements Operator
           defn.batchSize,
           defn.query.getResultFormat(),
           defn.isLegacy);
-      cursorReader.start();
+      cursorReader.open();
     }
   }
 

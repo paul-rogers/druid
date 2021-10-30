@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
+import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanResultValue;
 
 import com.google.common.base.Preconditions;
@@ -15,7 +16,7 @@ import com.google.common.base.Preconditions;
  * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory#stableLimitingSort}
  * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory#nWayMergeAndLimit}
  */
-public class DisaggregateScanResultOperator implements Operator
+public class DisaggregateScanResultOperator implements IterableOperator
 {
   public static final OperatorFactory FACTORY = new OperatorFactory()
   {
@@ -39,6 +40,7 @@ public class DisaggregateScanResultOperator implements Operator
   }
 
   private final Operator child;
+  private Iterator<Object> childIter;
   private Iterator<ScanResultValue> valueIter;
 
   public DisaggregateScanResultOperator(Operator child)
@@ -47,19 +49,20 @@ public class DisaggregateScanResultOperator implements Operator
   }
 
   @Override
-  public void start()
+  public Iterator<Object> open()
   {
-    child.start();
+    childIter = child.open();
+    return this;
   }
 
   @Override
   public boolean hasNext() {
     while (true) {
       if (valueIter == null) {
-        if (!child.hasNext()) {
+        if (!childIter.hasNext()) {
           return false;
         }
-        ScanResultValue value = (ScanResultValue) child.next();
+        ScanResultValue value = (ScanResultValue) childIter.next();
         valueIter = value.toSingleEventScanResultValues().iterator();
       }
       if (valueIter.hasNext()) {
@@ -79,5 +82,6 @@ public class DisaggregateScanResultOperator implements Operator
     if (cascade) {
       child.close(cascade);
     }
+    childIter = null;
   }
 }

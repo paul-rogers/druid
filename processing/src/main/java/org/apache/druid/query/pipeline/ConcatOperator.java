@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
+import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.pipeline.Operator.OperatorDefn;
 
 import com.google.common.base.Preconditions;
@@ -16,7 +17,7 @@ import com.google.common.base.Preconditions;
  *
  * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory#mergeRunners}
  */
-public class ConcatOperator implements Operator
+public class ConcatOperator implements IterableOperator
 {
   public static final OperatorFactory FACTORY = new OperatorFactory()
   {
@@ -49,6 +50,7 @@ public class ConcatOperator implements Operator
 
   private final Iterator<Operator> childIter;
   private Operator current;
+  private Iterator<Object> currentIter;
 
   public ConcatOperator(Defn defn, List<Operator> children,
       FragmentContext context) {
@@ -56,40 +58,42 @@ public class ConcatOperator implements Operator
   }
 
   @Override
-  public void start()
+  public Iterator<Object> open()
   {
+    return this;
   }
 
   @Override
   public boolean hasNext() {
     while (true) {
       if (current != null) {
-        if (current.hasNext()) {
+        if (currentIter.hasNext()) {
           return true;
         }
         current.close(true);
         current = null;
+        currentIter = null;
       }
       if (!childIter.hasNext()) {
         return false;
       }
       current = childIter.next();
-      current.start();
+      currentIter = current.open();
     }
   }
 
   @Override
   public Object next() {
-    Preconditions.checkState(current != null, "Missing call to hasNext()?");
-    return current.next();
+    Preconditions.checkState(currentIter != null, "Missing call to hasNext()?");
+    return currentIter.next();
   }
 
   @Override
   public void close(boolean cascade) {
-    // If cascade = false, fragment runner will close child
     if (cascade && current != null) {
       current.close(cascade);
-      current = null;
     }
+    current = null;
+    currentIter = null;
   }
 }

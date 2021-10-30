@@ -1,5 +1,7 @@
 package org.apache.druid.query.pipeline;
 
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
@@ -36,22 +38,11 @@ public class NullOperator implements Operator
   public State state = State.START;
 
   @Override
-  public void start()
+  public Iterator<Object> open()
   {
     Preconditions.checkState(state == State.START);
     state = State.RUN;
-  }
-
-  @Override
-  public boolean hasNext() {
-    Preconditions.checkState(state == State.RUN);
-    return false;
-  }
-
-  @Override
-  public Object next() {
-    Preconditions.checkState(false);
-    return null;
+    return Collections.emptyIterator();
   }
 
   @Override

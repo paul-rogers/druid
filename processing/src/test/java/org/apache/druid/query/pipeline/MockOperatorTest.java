@@ -27,6 +27,7 @@ import org.junit.Test;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -45,12 +46,12 @@ public class MockOperatorTest
    {
      MockOperator.Defn defn = new MockOperator.Defn(2, MockOperator.Defn.Type.STRING);
      Operator op = build(defn);
-     op.start();
-     assertTrue(op.hasNext());
-     assertEquals("Mock row 0", op.next());
-     assertTrue(op.hasNext());
-     assertEquals("Mock row 1", op.next());
-     assertFalse(op.hasNext());
+     Iterator<Object> iter = op.open();
+     assertTrue(iter.hasNext());
+     assertEquals("Mock row 0", iter.next());
+     assertTrue(iter.hasNext());
+     assertEquals("Mock row 1", iter.next());
+     assertFalse(iter.hasNext());
      op.close(false);
    }
 
@@ -59,12 +60,12 @@ public class MockOperatorTest
    {
      MockOperator.Defn defn = new MockOperator.Defn(2, MockOperator.Defn.Type.INT);
      Operator op = build(defn);
-     op.start();
-     assertTrue(op.hasNext());
-     assertEquals(0, op.next());
-     assertTrue(op.hasNext());
-     assertEquals(1, op.next());
-     assertFalse(op.hasNext());
+     Iterator<Object> iter = op.open();
+     assertTrue(iter.hasNext());
+     assertEquals(0, iter.next());
+     assertTrue(iter.hasNext());
+     assertEquals(1, iter.next());
+     assertFalse(iter.hasNext());
      op.close(false);
    }
 
@@ -113,15 +114,15 @@ public class MockOperatorTest
      MockOperator.Defn defn = new MockOperator.Defn(2, MockOperator.Defn.Type.STRING);
      Operator op = runner.build(defn);
      MockOperator mockOp = (MockOperator) op;
-     runner.root().start();
-     assertTrue(mockOp.started);
-     assertTrue(op.hasNext());
-     assertEquals("Mock row 0", op.next());
-     assertTrue(op.hasNext());
-     assertEquals("Mock row 1", op.next());
-     assertFalse(op.hasNext());
+     Iterator<Object> iter = runner.root().open();
+     assertEquals(Operator.State.RUN, mockOp.state);
+     assertTrue(iter.hasNext());
+     assertEquals("Mock row 0", iter.next());
+     assertTrue(iter.hasNext());
+     assertEquals("Mock row 1", iter.next());
+     assertFalse(iter.hasNext());
      runner.close();
-     assertTrue(mockOp.closed);
+     assertEquals(Operator.State.CLOSED, mockOp.state);
    }
 
    /**
@@ -143,8 +144,7 @@ public class MockOperatorTest
        assertEquals("Mock row " + count.getAndAdd(1), row);
        return true;
      });
-     assertTrue(mockOp.started);
-     assertTrue(mockOp.closed);
+     assertEquals(Operator.State.CLOSED, mockOp.state);
    }
 
    /**
@@ -157,12 +157,12 @@ public class MockOperatorTest
      Operator op = build(defn);
      Sequence<Object> seq = Operators.toSequence(op);
      Operator outer = Operators.toOperator(seq);
-     outer.start();
-     assertTrue(outer.hasNext());
-     assertEquals("Mock row 0", outer.next());
-     assertTrue(outer.hasNext());
-     assertEquals("Mock row 1", outer.next());
-     assertFalse(outer.hasNext());
+     Iterator<Object> iter = outer.open();
+     assertTrue(iter.hasNext());
+     assertEquals("Mock row 0", iter.next());
+     assertTrue(iter.hasNext());
+     assertEquals("Mock row 1", iter.next());
+     assertFalse(iter.hasNext());
      outer.close(false);
    }
 }

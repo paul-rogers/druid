@@ -33,12 +33,16 @@ public class Operators
     return query.getContextBoolean(flag, false);
   }
 
+  /**
+   * Convenience function to open the operator and return its
+   * iterator as an {@code Iterable}.
+   */
   public static Iterable<Object> toIterable(Operator op) {
     return new Iterable<Object>() {
       @Override
       public Iterator<Object> iterator()
       {
-        return op;
+        return op.open();
       }
     };
   }
@@ -79,7 +83,7 @@ public class Operators
           @Override
           public Iterator<T> make()
           {
-            op.start();
+            op.open();
             return (Iterator<T>) op;
           }
 

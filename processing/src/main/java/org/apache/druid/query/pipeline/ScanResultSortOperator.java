@@ -96,9 +96,9 @@ public class ScanResultSortOperator implements Operator
   }
 
   // See ScanQueryRunnerFactory.stableLimitingSort
+  @SuppressWarnings("unchecked")
   @Override
-  public void start() {
-    child.start();
+  public Iterator<Object> open() {
     StableLimitingSorter<ScanResultValue> sorter = new StableLimitingSorter<>(defn.comparator, defn.limit);
     // We need to scan limit elements and anything else in the last segment
     int numRowsScanned = 0;
@@ -132,20 +132,22 @@ public class ScanResultSortOperator implements Operator
     }
     resultIter = sorter.drain();
     child.close(true);
+    return (Iterator<Object>) (Iterator<?>) resultIter;
   }
 
-  @Override
-  public boolean hasNext() {
-    return resultIter.hasNext();
-  }
-
-  @Override
-  public Object next() {
-    return resultIter.next();
-  }
+//  @Override
+//  public boolean hasNext() {
+//    return resultIter.hasNext();
+//  }
+//
+//  @Override
+//  public Object next() {
+//    return resultIter.next();
+//  }
 
   @Override
   public void close(boolean cascade)
   {
+    resultIter = null;
   }
 }

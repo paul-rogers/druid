@@ -89,7 +89,7 @@ public class ScanResultLimitOperator extends LimitOperator
   }
 
   private ScanResultValue groupedNext() {
-    ScanResultValue batch = (ScanResultValue) input.next();
+    ScanResultValue batch = (ScanResultValue) inputIter.next();
     List<?> events = (List<?>) batch.getEvents();
     if (events.size() <= limit - rowCount) {
       rowCount += events.size();
@@ -108,8 +108,8 @@ public class ScanResultLimitOperator extends LimitOperator
     // in this case will only have one event so there's no need to iterate through events.
     List<Object> eventsToAdd = new ArrayList<>(defn.batchSize);
     List<String> columns = new ArrayList<>();
-    while (eventsToAdd.size() < defn.batchSize && input.hasNext() && rowCount < limit) {
-      ScanResultValue srv = (ScanResultValue) input.next();
+    while (eventsToAdd.size() < defn.batchSize && inputIter.hasNext() && rowCount < limit) {
+      ScanResultValue srv = (ScanResultValue) inputIter.next();
       // Only replace once using the columns from the first event
       columns = columns.isEmpty() ? srv.getColumns() : columns;
       eventsToAdd.add(Iterables.getOnlyElement((List<?>) srv.getEvents()));

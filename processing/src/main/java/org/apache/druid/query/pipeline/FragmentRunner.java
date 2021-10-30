@@ -148,7 +148,6 @@ public class FragmentRunner
 
   public void run(Consumer consumer) {
    Operator root = root();
-   root.start();
    for (Object row : Operators.toIterable(root)) {
       if (!consumer.accept(row)) {
         break;

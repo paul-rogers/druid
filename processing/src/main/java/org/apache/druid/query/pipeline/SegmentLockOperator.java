@@ -2,6 +2,8 @@ package org.apache.druid.query.pipeline;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
@@ -65,26 +67,27 @@ public class SegmentLockOperator implements Operator
   }
 
   @Override
-  public void start() {
+  public Iterator<Object> open() {
     Optional<Closeable> maybeLock = defn.segment.acquireReferences();
     if (maybeLock.isPresent()) {
       lock = maybeLock.get();
-      child.start();
+      return child.open();
     } else {
       LOG.debug("Reporting a missing segment[%s] for query[%s]", defn.descriptor, context.queryId());
       context.responseContext().add(ResponseContext.Key.MISSING_SEGMENTS, defn.descriptor);
+      return Collections.emptyIterator();
     }
   }
 
-  @Override
-  public boolean hasNext() {
-    return lock != null && child.hasNext();
-  }
-
-  @Override
-  public Object next() {
-    return child.next();
-  }
+//  @Override
+//  public boolean hasNext() {
+//    return lock != null && child.hasNext();
+//  }
+//
+//  @Override
+//  public Object next() {
+//    return child.next();
+//  }
 
   @Override
   public void close(boolean cascade) {

@@ -1,5 +1,7 @@
 package org.apache.druid.query.pipeline;
 
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.ObjLongConsumer;
@@ -72,24 +74,12 @@ public class MetricsOperator implements Operator
   }
 
   @Override
-  public void start() {
-    if (state != State.START) {
-      return;
-    }
+  public Iterator<Object> open() {
+    Preconditions.checkState(state == State.START);
     state = State.RUN;
     runTimer.start();
     defn.queryMetrics.segment(defn.segmentIdString);
-    child.start();
-  }
-
-  @Override
-  public boolean hasNext() {
-    return child.hasNext();
-  }
-
-  @Override
-  public Object next() {
-    return child.next();
+    return child.open();
   }
 
   @Override

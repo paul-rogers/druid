@@ -1,11 +1,13 @@
 package org.apache.druid.query.pipeline;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
+import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.segment.column.ColumnHolder;
@@ -14,7 +16,7 @@ import org.joda.time.Interval;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
-public class MockScanResultReader implements Operator {
+public class MockScanResultReader implements IterableOperator {
   public static final OperatorFactory FACTORY = new OperatorFactory()
   {
     @Override
@@ -76,9 +78,10 @@ public class MockScanResultReader implements Operator {
   }
 
   @Override
-  public void start()
+  public Iterator<Object> open()
   {
     state = State.RUN;
+    return this;
   }
 
   @Override

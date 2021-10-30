@@ -8,13 +8,12 @@ import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 
 /**
  * An operator is a data pipeline transform: something that changes a stream of
- * results in some way. An operator is an extended iterator and has a very simple
- * lifecycle:
+ * results in some way. An operator has a very simple lifecycle:
  * <p>
  * <ul>
  * <li>Created (from a definition via a factory).</li>
- * <li>Opened (once, bottom up in the operator DAG).</li>
- * <li>A set of hasNext(), next() pairs until hasNext() returns false.</li>
+ * <li>Opened (once, bottom up in the operator DAG), which provides an
+ * iterator over the results fo this operator.</li>
  * <li>Closed.</li>
  * </ul>
  * <p>
@@ -73,23 +72,31 @@ import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
  * dynamically: that code is far simpler without having to deal with unknown
  * types. Even test code will often call {@code assertEquals()} and the like
  * which don't need the type.
+ * <p>
+ * Having {@code open()} return the iterator for results accomplishes two goals.
+ * First is the minor benefit of ensuring that an operator is opened before
+ * fetching results. More substantially, this approach allows "wrapper" operators
+ * which only perform work in the open or close method. For those, the open
+ * method returns the iterator of the child, avoiding the overhead of pass-through
+ * calls for each data batch. The wrapper operator will not sit on the data
+ * path, only on the control (open/close) path.
  */
-public interface Operator extends Iterator<Object>
+public interface Operator
 {
 
-  /**
-   * Add-on functionality for an operator. We assume the add-on only needs to
-   * run at the start and end: if it wanted to do something on every row, it
-   * would be an operator. Allows capturing information about an operation
-   * without the per-batch overhead of doing so in an actual operator.
-   *
-   * @see {@link org.apache.druid.java.util.common.guava.SequenceWrapper}
-   */
-  public interface Decorator
-  {
-    void before();
-    void after();
-  }
+//  /**
+//   * Add-on functionality for an operator. We assume the add-on only needs to
+//   * run at the start and end: if it wanted to do something on every row, it
+//   * would be an operator. Allows capturing information about an operation
+//   * without the per-batch overhead of doing so in an actual operator.
+//   *
+//   * @see {@link org.apache.druid.java.util.common.guava.SequenceWrapper}
+//   */
+//  public interface Decorator
+//  {
+//    void before();
+//    void after();
+//  }
 
   /**
    * Operator definition: provides everything that the operator needs to do
@@ -153,17 +160,24 @@ public interface Operator extends Iterator<Object>
    * Class which takes an operator definition and produces an operator for
    * that definition.
    */
-  interface OperatorFactory
+  public interface OperatorFactory
   {
     Operator build(OperatorDefn defn, List<Operator> children, FragmentContext context);
   }
 
+//  /**
+//   * Identifies an operator that accepts a decorator.
+//   */
+//  public interface Decoratable
+//  {
+//    void decorate(Decorator listener);
+//  }
+
   /**
-   * Identifies an operator that accepts a decorator.
+   * Convenience interface for an operator which is its own iterator.
    */
-  public interface Decoratable
+  public interface IterableOperator extends Operator, Iterator<Object>
   {
-    void decorate(Decorator listener);
   }
 
   /**
@@ -177,12 +191,12 @@ public interface Operator extends Iterator<Object>
 
   /**
    * Called to prepare for processing. Allows the operator to be created early in
-   * the run, but resources to be obtained as late as possible in the run. Each
-   * operator should call {@code start()} on its children, unless that operator
-   * wants to defer start to later (such as in a union, or a hash join probe
-   * side.)
+   * the run, but resources to be obtained as late as possible in the run. An operator
+   * calls{@code open()} on its children when it is ready to read its input: either
+   * in the {@code open()} call for simple operators,or later, on demand, for more
+   * complex operators such as in a merge or union.
    */
-  void start();
+  Iterator<Object> open();
 
   /**
    * Called at two distinct times. An operator may choose to close a child

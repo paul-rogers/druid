@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -54,8 +55,8 @@ public class ScanQueryOperatorsTest
   public void testMockReaderNull() {
     MockScanResultReader.Defn defn = scanDefn(0, 0);
     Operator op = MockScanResultReader.FACTORY.build(defn, null, null);
-    op.start();
-    assertFalse(op.hasNext());
+    Iterator<Object> iter = op.open();
+    assertFalse(iter.hasNext());
     op.close(false);
   }
 
@@ -64,14 +65,14 @@ public class ScanQueryOperatorsTest
     MockScanResultReader.Defn defn = scanDefn(0, 1);
     assertFalse(Strings.isNullOrEmpty(defn.segmentId));
     Operator op = MockScanResultReader.FACTORY.build(defn, null, null);
-    op.start();
-    assertTrue(op.hasNext());
-    ScanResultValue value = (ScanResultValue) op.next();
+    Iterator<Object> iter = op.open();
+    assertTrue(iter.hasNext());
+    ScanResultValue value = (ScanResultValue) iter.next();
     assertTrue(value.getColumns().isEmpty());
     List<List<String>> events = value.getRows();
     assertEquals(1, events.size());
     assertTrue(events.get(0).isEmpty());
-    assertFalse(op.hasNext());
+    assertFalse(iter.hasNext());
     op.close(false);
   }
 
@@ -80,10 +81,10 @@ public class ScanQueryOperatorsTest
     MockScanResultReader.Defn defn = scanDefn(3, 10);
     defn.batchSize = 4;
     Operator op = MockScanResultReader.FACTORY.build(defn, null, null);
-    op.start();
+    Iterator<Object> iter = op.open();
     int rowCount = 0;
-    while (op.hasNext()) {
-      ScanResultValue value = (ScanResultValue) op.next();
+    while (iter.hasNext()) {
+      ScanResultValue value = (ScanResultValue) iter.next();
       assertEquals(3, value.getColumns().size());
       assertEquals(ColumnHolder.TIME_COLUMN_NAME, value.getColumns().get(0));
       assertEquals("Column1", value.getColumns().get(1));
@@ -225,25 +226,25 @@ public class ScanQueryOperatorsTest
     MockScanResultReader firstLeaf = (MockScanResultReader) runner.operator(0);
     MockScanResultReader secondLeaf = (MockScanResultReader) runner.operator(1);
 
-    assertEquals(MockScanResultReader.State.NEW, firstLeaf.state);
-    assertEquals(MockScanResultReader.State.NEW, secondLeaf.state);
+    assertEquals(Operator.State.START, firstLeaf.state);
+    assertEquals(Operator.State.START, secondLeaf.state);
     assertTrue(concat.hasNext());
-    assertEquals(MockScanResultReader.State.RUN, firstLeaf.state);
-    assertEquals(MockScanResultReader.State.NEW, secondLeaf.state);
+    assertEquals(Operator.State.RUN, firstLeaf.state);
+    assertEquals(Operator.State.START, secondLeaf.state);
     concat.next();
     assertTrue(concat.hasNext());
-    assertEquals(MockScanResultReader.State.RUN, firstLeaf.state);
-    assertEquals(MockScanResultReader.State.NEW, secondLeaf.state);
+    assertEquals(Operator.State.RUN, firstLeaf.state);
+    assertEquals(Operator.State.START, secondLeaf.state);
     concat.next();
     assertTrue(concat.hasNext());
-    assertEquals(MockScanResultReader.State.CLOSED, firstLeaf.state);
-    assertEquals(MockScanResultReader.State.RUN, secondLeaf.state);
+    assertEquals(Operator.State.CLOSED, firstLeaf.state);
+    assertEquals(Operator.State.RUN, secondLeaf.state);
     concat.next();
     assertTrue(concat.hasNext());
-    assertEquals(MockScanResultReader.State.RUN, secondLeaf.state);
+    assertEquals(Operator.State.RUN, secondLeaf.state);
     concat.next();
     assertFalse(concat.hasNext());
-    assertEquals(MockScanResultReader.State.CLOSED, secondLeaf.state);
+    assertEquals(Operator.State.CLOSED, secondLeaf.state);
   }
 
   // Value of descriptor not used in test, just keeps the query builder

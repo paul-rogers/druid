@@ -1,5 +1,7 @@
 package org.apache.druid.query.pipeline;
 
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.druid.java.util.common.logger.Logger;
@@ -16,7 +18,7 @@ import com.google.common.base.Preconditions;
  *
  * @see {@link org.apache.druid.query.ReportTimelineMissingSegmentQueryRunner}
  */
-public class MissingSegmentsOperator extends NullOperator
+public class MissingSegmentsOperator implements Operator
 {
   private static final Logger LOG = new Logger(MissingSegmentsOperator.class);
 
@@ -54,9 +56,14 @@ public class MissingSegmentsOperator extends NullOperator
   }
 
   @Override
-  public void start() {
+  public Iterator<Object> open() {
     LOG.debug("Reporting a missing segments[%s] for query[%s]", defn.descriptors, context.queryId());
     context.responseContext().add(ResponseContext.Key.MISSING_SEGMENTS, defn.descriptors);
-    super.start();
+    return Collections.emptyIterator();
+  }
+
+  @Override
+  public void close(boolean cascade)
+  {
   }
 }

@@ -4,8 +4,10 @@ import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Yielder;
 import org.apache.druid.java.util.common.guava.YieldingAccumulator;
+import org.apache.druid.query.pipeline.Operator.IterableOperator;
 
 import java.io.IOException;
+import java.util.Iterator;
 
 /**
  * The <code>SequenceOperator</code> wraps a {@link Sequence} in the
@@ -18,7 +20,7 @@ import java.io.IOException;
  *
  * @param <T>
  */
-public class SequenceOperator implements Operator
+public class SequenceOperator implements IterableOperator
 {
   private final Sequence<Object> sequence;
   private Yielder<Object> yielder;
@@ -30,7 +32,7 @@ public class SequenceOperator implements Operator
   }
 
   @Override
-  public void start()
+  public Iterator<Object> open()
   {
     Preconditions.checkState(yielder == null);
     yielder = sequence.toYielder(
@@ -45,6 +47,7 @@ public class SequenceOperator implements Operator
           }
         }
     );
+    return this;
   }
 
   @Override

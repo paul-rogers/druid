@@ -1,11 +1,13 @@
 package org.apache.druid.query.pipeline;
 
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
 
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
+import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
 
@@ -24,7 +26,7 @@ import com.google.common.collect.Ordering;
  * @see {@link org.apache.druid.java.util.common.guava.MergeSequence}
  * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory#nWayMergeAndLimit}
 */
-public class ScanResultMergeOperator implements Operator
+public class ScanResultMergeOperator implements IterableOperator
 {
   public static final OperatorFactory FACTORY = new OperatorFactory()
   {
@@ -54,10 +56,12 @@ public class ScanResultMergeOperator implements Operator
   private static class Entry
   {
     final Operator child;
+    final Iterator<Object> childIter;
     ScanResultValue row;
 
-    public Entry(Operator child, ScanResultValue row) {
+    public Entry(Operator child, Iterator<Object> childIter, ScanResultValue row) {
       this.child = child;
+      this.childIter = childIter;
       this.row = row;
     }
   }
@@ -77,14 +81,17 @@ public class ScanResultMergeOperator implements Operator
   }
 
   @Override
-  public void start() {
-    for (int i = 0; i < children.size(); i++) {
-      Operator input = children.get(i);
-      input.start();
-      if (input.hasNext()) {
-        pQueue.add(new Entry(input, (ScanResultValue) input.next()));
+  public Iterator<Object> open() {
+    for (Operator child : children) {
+      Iterator<Object> childIter = child.open();
+      if (childIter.hasNext()) {
+        pQueue.add(new Entry(child, childIter, (ScanResultValue) childIter.next()));
+      }
+      else {
+        child.close(true);
       }
     }
+    return this;
   }
 
   @Override
@@ -96,8 +103,8 @@ public class ScanResultMergeOperator implements Operator
   public Object next() {
     Entry entry = pQueue.remove();
     Object row = entry.row;
-    if (entry.child.hasNext()) {
-      entry.row = (ScanResultValue) entry.child.next();
+    if (entry.childIter.hasNext()) {
+      entry.row = (ScanResultValue) entry.childIter.next();
       pQueue.add(entry);
     } else {
       entry.child.close(true);

@@ -20,12 +20,14 @@
 package org.apache.druid.query.pipeline;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.UOE;
+import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.segment.BaseObjectColumnValueSelector;
 import org.apache.druid.segment.Cursor;
@@ -43,7 +45,7 @@ import com.google.common.base.Supplier;
  * choose to create one or more queries: each is handled by an instance of this
  * class.
  */
-public class CursorReader implements Operator
+public class CursorReader implements IterableOperator
 {
   private final Cursor cursor;
   private final List<String> selectedColumns;
@@ -73,7 +75,7 @@ public class CursorReader implements Operator
   }
 
   @Override
-  public void start()
+  public Iterator<Object> open()
   {
     columnAccessors = new ArrayList<>(selectedColumns.size());
     for (String column : selectedColumns) {
@@ -108,6 +110,7 @@ public class CursorReader implements Operator
       }
       columnAccessors.add(accessor);
     }
+    return this;
   }
 
   @Override
@@ -129,7 +132,8 @@ public class CursorReader implements Operator
   }
 
   @Override
-  public void close(boolean cascade) {
+  public void close(boolean cascade)
+  {
     // Cursors don't have a close()
   }
 
