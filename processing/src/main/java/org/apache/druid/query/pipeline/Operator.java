@@ -76,6 +76,21 @@ import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
  */
 public interface Operator extends Iterator<Object>
 {
+
+  /**
+   * Add-on functionality for an operator. We assume the add-on only needs to
+   * run at the start and end: if it wanted to do something on every row, it
+   * would be an operator. Allows capturing information about an operation
+   * without the per-batch overhead of doing so in an actual operator.
+   *
+   * @see {@link org.apache.druid.java.util.common.guava.SequenceWrapper}
+   */
+  public interface Decorator
+  {
+    void before();
+    void after();
+  }
+
   /**
    * Operator definition: provides everything that the operator needs to do
    * its job, or that the factory needs to choose among a set of closely-related
@@ -85,12 +100,22 @@ public interface Operator extends Iterator<Object>
   interface OperatorDefn
   {
     List<OperatorDefn> children();
+    Operator decorate(Operator op);
+  }
+
+  public abstract class BaseDefn implements OperatorDefn
+  {
+    @Override
+    public Operator decorate(Operator op)
+    {
+      return op;
+    }
   }
 
   /**
    * Abstract base class that assumes the operator is a leaf.
    */
-  public abstract class LeafDefn implements OperatorDefn
+  public abstract class LeafDefn extends BaseDefn
   {
     @Override
     public List<OperatorDefn> children() {
@@ -101,7 +126,7 @@ public interface Operator extends Iterator<Object>
   /**
    * Abstract base class for operators with one child.
    */
-  public abstract class SingleChildDefn implements OperatorDefn
+  public abstract class SingleChildDefn extends BaseDefn
   {
     public OperatorDefn child;
 
@@ -114,7 +139,7 @@ public interface Operator extends Iterator<Object>
   /**
    * Abstract base class for operators with multiple children.
    */
-  public abstract class MultiChildDefn implements OperatorDefn
+  public abstract class MultiChildDefn extends BaseDefn
   {
     public List<OperatorDefn> children;
 
@@ -131,6 +156,23 @@ public interface Operator extends Iterator<Object>
   interface OperatorFactory
   {
     Operator build(OperatorDefn defn, List<Operator> children, FragmentContext context);
+  }
+
+  /**
+   * Identifies an operator that accepts a decorator.
+   */
+  public interface Decoratable
+  {
+    void decorate(Decorator listener);
+  }
+
+  /**
+   * State used to track the lifecycle of an operator when we
+   * need to know.
+   */
+  public enum State
+  {
+    START, RUN, CLOSED
   }
 
   /**

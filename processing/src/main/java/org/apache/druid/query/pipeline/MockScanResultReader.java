@@ -51,22 +51,18 @@ public class MockScanResultReader implements Operator {
     }
   }
 
-  /**
-   * State allows tests to verify that the operator protocol
-   * was followed. Not really necessary here functionally, so this
-   * is just a test tool.
-   */
-  public enum State
-  {
-    NEW, RUN, CLOSED
-  }
   private final Defn defn;
   private final long msPerRow;
   private long nextTs;
   private int rowCount;
   @SuppressWarnings("unused")
   private int batchCount;
-  public State state = State.NEW;
+  /**
+   * State allows tests to verify that the operator protocol
+   * was followed. Not really necessary here functionally, so this
+   * is just a test tool.
+   */
+  public State state = State.START;
 
   public MockScanResultReader(Defn defn)
   {

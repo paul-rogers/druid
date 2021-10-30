@@ -1,27 +1,10 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+package org.apache.druid.server.pipeline;
 
-package org.apache.druid.server.coordination;
+import java.util.Collections;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Lists;
-import com.google.inject.Inject;
 import org.apache.druid.client.CachingQueryRunner;
 import org.apache.druid.client.cache.Cache;
 import org.apache.druid.client.cache.CacheConfig;
@@ -47,14 +30,12 @@ import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
-import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.ReferenceCountingSegmentQueryRunner;
 import org.apache.druid.query.ReportTimelineMissingSegmentQueryRunner;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.planning.DataSourceAnalysis;
-import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
 import org.apache.druid.segment.ReferenceCountingSegment;
@@ -65,24 +46,22 @@ import org.apache.druid.segment.join.JoinableFactory;
 import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.server.SegmentManager;
 import org.apache.druid.server.SetAndVerifyContextQueryRunner;
+import org.apache.druid.server.coordination.ServerManager;
 import org.apache.druid.server.initialization.ServerConfig;
-import org.apache.druid.server.pipeline.HistoricalQueryPlannerShim;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.VersionedIntervalTimeline;
 import org.apache.druid.timeline.partition.PartitionChunk;
 import org.joda.time.Interval;
 
-import java.util.Collections;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Lists;
+import com.google.inject.Inject;
 
 /**
- * Query handler for Historical processes (see CliHistorical).
- * <p>
- * In tests, this class's behavior is partially mimicked by TestClusterQuerySegmentWalker.
+ * Temporary query planner that combines QueryRunners for the "top" part
+ * of the query, with operators for the "bottom" part.
  */
-public class ServerManager implements QuerySegmentWalker
+public class HistoricalQueryPlannerShim
 {
   private static final EmittingLogger log = new EmittingLogger(ServerManager.class);
   private final QueryRunnerFactoryConglomerate conglomerate;
@@ -96,17 +75,16 @@ public class ServerManager implements QuerySegmentWalker
   private final JoinableFactoryWrapper joinableFactoryWrapper;
   private final ServerConfig serverConfig;
 
-  @Inject
-  public ServerManager(
+  public HistoricalQueryPlannerShim(
       QueryRunnerFactoryConglomerate conglomerate,
       ServiceEmitter emitter,
       QueryProcessingPool queryProcessingPool,
       CachePopulator cachePopulator,
-      @Smile ObjectMapper objectMapper,
+      ObjectMapper objectMapper,
       Cache cache,
       CacheConfig cacheConfig,
       SegmentManager segmentManager,
-      JoinableFactory joinableFactory,
+      JoinableFactoryWrapper joinableFactoryWrapper,
       ServerConfig serverConfig
   )
   {
@@ -120,70 +98,12 @@ public class ServerManager implements QuerySegmentWalker
 
     this.cacheConfig = cacheConfig;
     this.segmentManager = segmentManager;
-    this.joinableFactoryWrapper = new JoinableFactoryWrapper(joinableFactory);
+    this.joinableFactoryWrapper = joinableFactoryWrapper;
     this.serverConfig = serverConfig;
   }
 
-  @Override
-  public <T> QueryRunner<T> getQueryRunnerForIntervals(Query<T> query, Iterable<Interval> intervals)
+  public <T> QueryRunner<T> plan(Query<T> query, Iterable<SegmentDescriptor> specs)
   {
-    final DataSourceAnalysis analysis = DataSourceAnalysis.forDataSource(query.getDataSource());
-    final VersionedIntervalTimeline<String, ReferenceCountingSegment> timeline;
-    final Optional<VersionedIntervalTimeline<String, ReferenceCountingSegment>> maybeTimeline =
-        segmentManager.getTimeline(analysis);
-
-    if (maybeTimeline.isPresent()) {
-      timeline = maybeTimeline.get();
-    } else {
-      // Even though we didn't find a timeline for the query datasource, we simply return a noopQueryRunner
-      // instead of reporting missing intervals because the query intervals are a filter rather than something
-      // we must find.
-      return new NoopQueryRunner<>();
-    }
-
-    FunctionalIterable<SegmentDescriptor> segmentDescriptors = FunctionalIterable
-        .create(intervals)
-        .transformCat(timeline::lookup)
-        .transformCat(
-            holder -> {
-              if (holder == null) {
-                return null;
-              }
-
-              return FunctionalIterable
-                  .create(holder.getObject())
-                  .transform(
-                      partitionChunk ->
-                          new SegmentDescriptor(
-                              holder.getInterval(),
-                              holder.getVersion(),
-                              partitionChunk.getChunkNumber()
-                          )
-                  );
-            }
-        );
-
-    return getQueryRunnerForSegments(query, segmentDescriptors);
-  }
-
-  @Override
-  public <T> QueryRunner<T> getQueryRunnerForSegments(Query<T> query, Iterable<SegmentDescriptor> specs)
-  {
-    if (query instanceof ScanQuery) {
-      HistoricalQueryPlannerShim planner = new HistoricalQueryPlannerShim(
-          conglomerate,
-          emitter,
-          queryProcessingPool,
-          cachePopulator,
-          objectMapper,
-          cache,
-          cacheConfig,
-          segmentManager,
-          joinableFactoryWrapper,
-          serverConfig
-          );
-      return planner.plan(query, specs);
-    }
     final QueryRunnerFactory<T, Query<T>> factory = conglomerate.findFactory(query);
     if (factory == null) {
       final QueryUnsupportedException e = new QueryUnsupportedException(

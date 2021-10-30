@@ -35,6 +35,7 @@ import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContextImpl;
 import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryEngine2;
@@ -185,13 +186,9 @@ public class ScanQueryOperator implements Operator
       )
       {
         Defn defn = new Defn(query, segment);
-        ScanQueryOperator reader = new ScanQueryOperator(defn, new FragmentContext()
-            {
-              @Override
-              public ResponseContext responseContext() {
-                return responseContext;
-              }
-            });
+        ScanQueryOperator reader = new ScanQueryOperator(defn,
+            new FragmentContextImpl(query.getId(), responseContext)
+            );
         return Operators.toLoneSequence(reader);
       }
     };

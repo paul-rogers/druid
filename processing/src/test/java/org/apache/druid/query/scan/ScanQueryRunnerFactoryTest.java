@@ -87,9 +87,9 @@ public class ScanQueryRunnerFactoryTest
   @RunWith(Parameterized.class)
   public static class ScanQueryRunnerFactoryParameterizedTest
   {
-    private int numElements;
-    private ScanQuery query;
-    private ScanQuery.ResultFormat resultFormat;
+    private final int numElements;
+    private final ScanQuery query;
+    private final ScanQuery.ResultFormat resultFormat;
 
     public ScanQueryRunnerFactoryParameterizedTest(
         final int numElements,
@@ -291,7 +291,7 @@ public class ScanQueryRunnerFactoryTest
 
   public static class ScanQueryRunnerFactoryNonParameterizedTest
   {
-    private SegmentDescriptor descriptor = new SegmentDescriptor(new Interval(
+    private final SegmentDescriptor descriptor = new SegmentDescriptor(new Interval(
         DateTimes.of("2010-01-01"),
         DateTimes.of("2019-01-01").plusHours(1)
     ), "1", 0);
@@ -343,7 +343,6 @@ public class ScanQueryRunnerFactoryTest
       );
       FACTORY.getIntervalsFromSpecificQuerySpec(legacySpec);
     }
-
 
     @Test
     public void testMergeRunnersGuardrailsExceeded()

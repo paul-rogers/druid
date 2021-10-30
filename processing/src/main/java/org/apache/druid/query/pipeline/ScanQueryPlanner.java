@@ -7,21 +7,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.Pair;
-import org.apache.druid.query.GenericQueryMetricsFactory;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
-import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.ResourceLimitExceededException;
-import org.apache.druid.query.SinkQueryRunners;
-import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.pipeline.ConcatOperator.Defn;
 import org.apache.druid.query.pipeline.Operator.OperatorDefn;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryConfig;
-import org.apache.druid.query.scan.ScanQueryEngine2;
-import org.apache.druid.query.scan.ScanQueryOffsetSequence;
 import org.apache.druid.query.scan.ScanQueryQueryToolChest;
 import org.apache.druid.query.scan.ScanQueryRunnerFactory;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -209,6 +201,7 @@ public class ScanQueryPlanner
             .map(input -> new DisaggregateScanResultOperator.Defn(input))
             .collect(Collectors.toList())))
       .collect(Collectors.toList()));
+
     if (query.isLimited()) {
       return new ScanResultLimitOperator.Defn(query, result);
     }

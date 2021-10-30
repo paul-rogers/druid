@@ -79,8 +79,6 @@ public class FragmentRunner
    * and does something with it. The consumer returns <code>true</code> if
    * it wants more rows, </code>false</code> if it wants to terminate
    * results early.
-   *
-   * @param <T>
    */
   public interface Consumer
   {
@@ -89,17 +87,34 @@ public class FragmentRunner
 
   public interface FragmentContext
   {
+    String queryId();
     ResponseContext responseContext();
   }
 
+  public static class FragmentContextImpl implements FragmentContext
+  {
+    private final ResponseContext responseContext;
+    private final String queryId;
+
+    public FragmentContextImpl(String queryId, ResponseContext responseContext)
+    {
+      this.queryId = queryId;
+      this.responseContext = responseContext;
+    }
+
+    @Override
+    public String queryId() {
+      return queryId;
+    }
+
+    @Override
+    public ResponseContext responseContext() {
+      return responseContext;
+    }
+  }
+
   public static FragmentContext defaultContext() {
-    ResponseContext context = ResponseContext.createEmpty();
-    return new FragmentContext() {
-      @Override
-      public ResponseContext responseContext() {
-        return context;
-      }
-    };
+    return new FragmentContextImpl("unknown", ResponseContext.createEmpty());
   }
 
   private final OperatorRegistry registry;
@@ -120,7 +135,7 @@ public class FragmentRunner
     }
     OperatorFactory factory = registry.factory(rootDefn);
     Operator rootOp = factory.build(rootDefn, children, context);
-    operators.add(rootOp);
+    operators.add(rootDefn.decorate(rootOp));
     return rootOp;
   }
 

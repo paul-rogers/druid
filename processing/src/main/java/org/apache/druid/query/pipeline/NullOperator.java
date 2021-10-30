@@ -33,11 +33,6 @@ public class NullOperator implements Operator
   {
   }
 
-  public enum State
-  {
-    START, RUN, CLOSED
-  }
-
   public State state = State.START;
 
   @Override
