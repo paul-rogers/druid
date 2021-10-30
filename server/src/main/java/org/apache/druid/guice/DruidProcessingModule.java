@@ -19,12 +19,11 @@
 
 package org.apache.druid.guice;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Provides;
-import com.google.inject.ProvisionException;
+import java.nio.ByteBuffer;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
+
 import org.apache.druid.client.cache.BackgroundCachePopulator;
 import org.apache.druid.client.cache.CacheConfig;
 import org.apache.druid.client.cache.CachePopulator;
@@ -48,15 +47,16 @@ import org.apache.druid.query.MetricsEmittingQueryProcessingPool;
 import org.apache.druid.query.PrioritizedExecutorService;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.pipeline.ScanQueryOperatorEngine;
-import org.apache.druid.query.scan.ScanQueryEngine;
 import org.apache.druid.query.scan.ScanQueryEngine2;
 import org.apache.druid.server.metrics.MetricsModule;
 import org.apache.druid.utils.JvmUtils;
 
-import java.nio.ByteBuffer;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ForkJoinPool;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Provides;
+import com.google.inject.ProvisionException;
 
 /**
  */
