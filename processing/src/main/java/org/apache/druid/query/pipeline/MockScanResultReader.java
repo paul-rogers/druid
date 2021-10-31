@@ -5,8 +5,6 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
-import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
 import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -17,48 +15,18 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
 public class MockScanResultReader implements IterableOperator {
-  public static final OperatorFactory FACTORY = new OperatorFactory()
-  {
-    @Override
-    public Operator build(OperatorDefn defn, List<Operator> children,
-        FragmentContext context) {
-      return new MockScanResultReader((Defn) defn);
-    }
-  };
 
-  public static void register(OperatorRegistry reg) {
-    reg.register(Defn.class, FACTORY);
-  }
-
-  public static class Defn extends LeafDefn
-  {
-    public String segmentId = "mock-segment";
-    public List<String> columns;
-    public ResultFormat resultFormat;
-    public int rowCount;
-    public int batchSize = 3;
-    public Interval interval;
-
-    public Defn(int columnCount, int rowCount, Interval interval) {
-      this.interval = interval;
-      this.columns = new ArrayList<>(columnCount);
-      if (columnCount > 0) {
-        columns.add(ColumnHolder.TIME_COLUMN_NAME);
-      }
-      for (int i = 1; i < columnCount;  i++) {
-        columns.add("Column" + Integer.toString(i));
-      }
-      this.rowCount = rowCount;
-      this.resultFormat = ResultFormat.RESULT_FORMAT_COMPACTED_LIST;
-    }
-  }
-
-  private final Defn defn;
+  public String segmentId = "mock-segment";
+  private final List<String> columns;
+  public ResultFormat resultFormat;
+  private final int targetCount;
+  private final int batchSize;
   private final long msPerRow;
   private long nextTs;
   private int rowCount;
   @SuppressWarnings("unused")
   private int batchCount;
+
   /**
    * State allows tests to verify that the operator protocol
    * was followed. Not really necessary here functionally, so this
@@ -66,19 +34,27 @@ public class MockScanResultReader implements IterableOperator {
    */
   public State state = State.START;
 
-  public MockScanResultReader(Defn defn)
-  {
-    this.defn = defn;
-    if (defn.rowCount == 0) {
+  public MockScanResultReader(int columnCount, int targetCount, int batchSize, Interval interval) {
+    this.columns = new ArrayList<>(columnCount);
+    if (columnCount > 0) {
+      columns.add(ColumnHolder.TIME_COLUMN_NAME);
+    }
+    for (int i = 1; i < columnCount;  i++) {
+      columns.add("Column" + Integer.toString(i));
+    }
+    this.targetCount = targetCount;
+    this.batchSize = batchSize;
+    this.resultFormat = ResultFormat.RESULT_FORMAT_COMPACTED_LIST;
+    if (targetCount == 0) {
       this.msPerRow = 0;
     } else {
-      this.msPerRow = Math.toIntExact(defn.interval.toDurationMillis() / defn.rowCount);
+      this.msPerRow = Math.toIntExact(interval.toDurationMillis() / targetCount);
     }
-    this.nextTs = defn.interval.getStartMillis();
+    this.nextTs = interval.getStartMillis();
   }
 
   @Override
-  public Iterator<Object> open()
+  public Iterator<Object> open(FragmentContext context)
   {
     state = State.RUN;
     return this;
@@ -87,19 +63,19 @@ public class MockScanResultReader implements IterableOperator {
   @Override
   public boolean hasNext() {
     Preconditions.checkState(state == State.RUN);
-    return rowCount < defn.rowCount;
+    return rowCount < targetCount;
   }
 
   @Override
   public Object next() {
-    int n = Math.min(defn.rowCount - rowCount, defn.batchSize);
+    int n = Math.min(targetCount - rowCount, batchSize);
     List<List<Object>> batch = new ArrayList<>(n);
     for (int i = 0; i < n; i++) {
-      List<Object> values = new ArrayList<>(defn.columns.size());
-      if (!defn.columns.isEmpty()) {
+      List<Object> values = new ArrayList<>(columns.size());
+      if (!columns.isEmpty()) {
         values.add(nextTs);
       }
-      for (int j = 1; j < defn.columns.size(); j++) {
+      for (int j = 1; j < columns.size(); j++) {
         values.add(StringUtils.format("Value %d.%d", rowCount, j));
       }
       batch.add(values);
@@ -107,7 +83,7 @@ public class MockScanResultReader implements IterableOperator {
       nextTs += msPerRow;
     }
     batchCount++;
-    return new ScanResultValue(defn.segmentId, defn.columns, batch);
+    return new ScanResultValue(segmentId, columns, batch);
   }
 
   @Override

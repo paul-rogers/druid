@@ -32,7 +32,7 @@ public class SequenceOperator implements IterableOperator
   }
 
   @Override
-  public Iterator<Object> open()
+  public Iterator<Object> open(FragmentContext context)
   {
     Preconditions.checkState(yielder == null);
     yielder = sequence.toYielder(

@@ -34,11 +34,7 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
-import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
-import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
-import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanQuery;
-import org.apache.druid.query.scan.ScanQueryEngine2;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.Segment;
@@ -59,291 +55,270 @@ import com.google.common.collect.Sets;
  *
  * @see {@link org.apache.druid.query.scan.ScanQueryEngine}
  */
-public class ScanQueryOperator implements IterableOperator
+public class ScanQueryOperator implements Operator
 {
   static final String LEGACY_TIMESTAMP_KEY = "timestamp";
-  public static final OperatorFactory FACTORY = new OperatorFactory()
-  {
-    @Override
-    public Operator build(OperatorDefn opDefn, List<Operator> children, FragmentContext context) {
-      Preconditions.checkArgument(children.isEmpty());
-      Defn defn = (Defn) opDefn;
-      return new ScanQueryOperator(defn, context);
-    }
-  };
-
-  public static void register(OperatorRegistry reg) {
-    reg.register(Defn.class, FACTORY);
-  }
 
   /**
-   * Static definition of a segment scan.
+   * Manages the run state for this operator.
    */
-  public static class Defn extends LeafDefn
+  private class Impl implements Iterator<Object>
   {
-    public static enum Limit
-    {
-      NONE,
-      /**
-       * If we're performing time-ordering, we want to scan through the first `limit` rows in each
-       * segment ignoring the number of rows already counted on other segments.
-       */
-      LOCAL,
-      GLOBAL
-    }
-    public final ScanQuery query;
-    public final Segment segment;
-    public final String segmentId;
-    public final List<String> columns;
-    public final Filter filter;
-    public final boolean isLegacy;
-    public final int batchSize;
+    private final ResponseContext responseContext;
+    private final SequenceIterator<Cursor> iter;
+    private final long timeoutAt;
+    private final long startTime;
+    private final List<String> selectedColumns;
+    private final long limit;
+    private CursorReader cursorReader;
+    private long rowCount;
+    @SuppressWarnings("unused")
+    private int batchCount;
 
-    public Defn(final ScanQuery query, final Segment segment)
+    private Impl(FragmentContext context)
     {
-      this.query = query;
-      this.segment = segment;
-      this.segmentId = segment.getId().toString();
-      this.columns = defineColumns(query);
-      List<Interval> intervals = query.getQuerySegmentSpec().getIntervals();
-      Preconditions.checkArgument(intervals.size() == 1, "Can only handle a single interval, got[%s]", intervals);
-      this.filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
-      this.isLegacy = Preconditions.checkNotNull(query.isLegacy(), "Expected non-null 'legacy' parameter");
-      this.batchSize = query.getBatchSize();
+      this.responseContext = context.responseContext();
+      // TODO: Move higher
+      // it happens in unit tests
+      final Number timeoutValue = (Number) responseContext.get(ResponseContext.Key.TIMEOUT_AT);
+      if (timeoutValue == null || timeoutValue.longValue() == 0L) {
+        responseContext.put(ResponseContext.Key.TIMEOUT_AT, JodaUtils.MAX_INSTANT);
+      }
+      timeoutAt = (long) responseContext.get(ResponseContext.Key.TIMEOUT_AT);
+      startTime = System.currentTimeMillis();
+      responseContext.add(ResponseContext.Key.NUM_SCANNED_ROWS, 0L);
+      long baseLimit = query.getScanRowsLimit();
+      if (limitType() == Limit.GLOBAL) {
+        limit = baseLimit - (Long) responseContext.get(ResponseContext.Key.NUM_SCANNED_ROWS);
+      } else {
+        limit = baseLimit;
+      }
+      final StorageAdapter adapter = segment.asStorageAdapter();
+      if (adapter == null) {
+        throw new ISE(
+            "Null storage adapter found. Probably trying to issue a query against a segment being memory unmapped."
+        );
+      }
+      if (isWildcard()) {
+        selectedColumns = inferColumns(adapter, isLegacy);
+      } else {
+        selectedColumns = columns;
+      }
+      iter = SequenceIterator.of(adapter.makeCursors(
+              filter,
+              interval(),
+              query.getVirtualColumns(),
+              Granularities.ALL,
+              isDescendingOrder(),
+              null
+          ));
+    }
+
+    protected List<String> inferColumns(StorageAdapter adapter, boolean isLegacy)
+    {
+      List<String> cols = new ArrayList<>();
+      final Set<String> availableColumns = Sets.newLinkedHashSet(
+          Iterables.concat(
+              Collections.singleton(isLegacy ? LEGACY_TIMESTAMP_KEY : ColumnHolder.TIME_COLUMN_NAME),
+              Iterables.transform(
+                  Arrays.asList(query.getVirtualColumns().getVirtualColumns()),
+                  VirtualColumn::getOutputName
+              ),
+              adapter.getAvailableDimensions(),
+              adapter.getAvailableMetrics()
+          )
+      );
+
+      cols.addAll(availableColumns);
+
+      if (isLegacy) {
+        cols.remove(ColumnHolder.TIME_COLUMN_NAME);
+      }
+      return cols;
     }
 
     /**
-     * Define the query columns when the list is given by the query.
+     * Check if another batch of events is available. They are available if
+     * we have (or can get) a cursor which has rows, and we are not at the
+     * limit set for this operator.
      */
-    private List<String> defineColumns(ScanQuery query) {
-      List<String> queryCols = query.getColumns();
-
-      // Missing or empty list means wildcard
-      if (queryCols == null || queryCols.isEmpty()) {
-        return null;
-      }
-      final List<String> planCols = new ArrayList<>();
-      if (query.isLegacy() && !queryCols.contains(LEGACY_TIMESTAMP_KEY)) {
-        planCols.add(LEGACY_TIMESTAMP_KEY);
-      }
-
-      // Unless we're in legacy mode, planCols equals query.getColumns() exactly. This is nice since it makes
-      // the compactedList form easier to use.
-      planCols.addAll(queryCols);
-      return planCols;
-    }
-
-    public boolean isWildcard(ScanQuery query) {
-      return (query.getColumns() == null || query.getColumns().isEmpty());
-    }
-
-    public boolean isDescendingOrder()
+    @Override
+    public boolean hasNext()
     {
-      return query.getOrder().equals(ScanQuery.Order.DESCENDING) ||
-          (query.getOrder().equals(ScanQuery.Order.NONE) && query.isDescending());
-    }
-
-    public boolean hasTimeout()
-    {
-      return QueryContexts.hasTimeout(query);
-    }
-
-    public boolean isWildcard()
-    {
-      return columns == null;
-    }
-
-    public Limit limitType()
-    {
-      if (!query.isLimited()) {
-        return Defn.Limit.NONE;
-      } else if (query.getOrder().equals(ScanQuery.Order.NONE)) {
-        return Defn.Limit.LOCAL;
-      } else {
-        return Defn.Limit.GLOBAL;
-      }
-    }
-
-    public Interval interval()
-    {
-      return query.getQuerySegmentSpec().getIntervals().get(0);
-    }
-  }
-  /**
-   * Return an instance of the scan query operator in a form that mimics the
-   * "classic" ScanQuery Engine so that the operator version can be "slotted into"
-   * existing code.
-   */
-  public static ScanQueryEngine2 asEngine()
-  {
-    return new ScanQueryOperatorEngine();
-  }
-
-  protected final Defn defn;
-  protected final ResponseContext responseContext;
-  private SequenceIterator<Cursor> iter;
-  private long timeoutAt;
-  private long startTime;
-  protected List<String> selectedColumns;
-  private long limit;
-  private CursorReader cursorReader;
-  protected long rowCount;
-  protected int batchCount;
-
-  public ScanQueryOperator(Defn defn, FragmentContext context)
-  {
-    this.defn = defn;
-    this.responseContext = context.responseContext();
-  }
-
-  @Override
-  public Iterator<Object> open() {
-
-    // TODO: Move higher
-    // it happens in unit tests
-    final Number timeoutValue = (Number) responseContext.get(ResponseContext.Key.TIMEOUT_AT);
-    if (timeoutValue == null || timeoutValue.longValue() == 0L) {
-      responseContext.put(ResponseContext.Key.TIMEOUT_AT, JodaUtils.MAX_INSTANT);
-    }
-    timeoutAt = (long) responseContext.get(ResponseContext.Key.TIMEOUT_AT);
-    startTime = System.currentTimeMillis();
-    responseContext.add(ResponseContext.Key.NUM_SCANNED_ROWS, 0L);
-    limit = defn.query.getScanRowsLimit();
-    if (defn.limitType() == Defn.Limit.GLOBAL) {
-      limit -= (Long) responseContext.get(ResponseContext.Key.NUM_SCANNED_ROWS);
-    }
-    final StorageAdapter adapter = defn.segment.asStorageAdapter();
-    if (adapter == null) {
-      throw new ISE(
-          "Null storage adapter found. Probably trying to issue a query against a segment being memory unmapped."
-      );
-    }
-    if (defn.isWildcard()) {
-      selectedColumns = inferColumns(adapter);
-    } else {
-      selectedColumns = defn.columns;
-    }
-    iter = SequenceIterator.of(adapter.makeCursors(
-            defn.filter,
-            defn.interval(),
-            defn.query.getVirtualColumns(),
-            Granularities.ALL,
-            defn.isDescendingOrder(),
-            null
-        ));
-    return this;
-  }
-
-  protected List<String> inferColumns(StorageAdapter adapter)
-  {
-    List<String> cols = new ArrayList<>();
-    final Set<String> availableColumns = Sets.newLinkedHashSet(
-        Iterables.concat(
-            Collections.singleton(defn.isLegacy ? LEGACY_TIMESTAMP_KEY : ColumnHolder.TIME_COLUMN_NAME),
-            Iterables.transform(
-                Arrays.asList(defn.query.getVirtualColumns().getVirtualColumns()),
-                VirtualColumn::getOutputName
-            ),
-            adapter.getAvailableDimensions(),
-            adapter.getAvailableMetrics()
-        )
-    );
-
-    cols.addAll(availableColumns);
-
-    if (defn.isLegacy) {
-      cols.remove(ColumnHolder.TIME_COLUMN_NAME);
-    }
-    return cols;
-  }
-
-  /**
-   * Check if another batch of events is available. They are available if
-   * we have (or can get) a cursor which has rows, and we are not at the
-   * limit set for this operator.
-   */
-  @Override
-  public boolean hasNext()
-  {
-    while (true) {
-      if (cursorReader != null) {
-        if (cursorReader.hasNext()) {
-          return true; // Happy path
+      while (true) {
+        if (cursorReader != null) {
+          if (cursorReader.hasNext()) {
+            return true; // Happy path
+          }
+          // Cursor is done or was empty.
+          closeCursorReader();
         }
-        // Cursor is done or was empty.
-        closeCursorReader();
+        if (iter == null) {
+          // Done previously
+          return false;
+        }
+        if (rowCount > limit) {
+          // Reached row limit
+          finish();
+          return false;
+        }
+        if (!iter.hasNext()) {
+          // No more cursors
+          finish();
+          return false;
+        }
+        // Read from the next cursor.
+        cursorReader = new CursorReader(
+            iter.next(),
+            selectedColumns,
+            limit - rowCount,
+            batchSize,
+            query.getResultFormat(),
+            isLegacy);
       }
-      if (iter == null) {
-        // Done previously
-        return false;
+    }
+
+    private void closeCursorReader() {
+      if (cursorReader != null) {
+        cursorReader = null;
       }
-      if (rowCount > limit) {
-        // Reached row limit
-        finish();
-        return false;
+    }
+
+    private void finish()
+    {
+      closeCursorReader();
+      responseContext.add(ResponseContext.Key.NUM_SCANNED_ROWS, rowCount);
+      if (hasTimeout()) {
+        // This is very likely wrong
+        responseContext.put(
+            ResponseContext.Key.TIMEOUT_AT,
+            timeoutAt - (System.currentTimeMillis() - startTime)
+        );
       }
-      if (!iter.hasNext()) {
-        // No more cursors
-        finish();
-        return false;
+    }
+
+    /**
+     * Return the next batch of events from a cursor. Enforce the
+     * timeout limit.
+     */
+    @Override
+    public Object next()
+    {
+      if (hasTimeout() && System.currentTimeMillis() >= timeoutAt) {
+        throw new QueryTimeoutException(StringUtils.nonStrictFormat("Query [%s] timed out", query.getId()));
       }
-      // Read from the next cursor.
-      cursorReader = new CursorReader(
-          iter.next(),
+      List<?> result = (List<?>) cursorReader.next();
+      batchCount++;
+      rowCount += result.size();
+      return new ScanResultValue(
+          segmentId,
           selectedColumns,
-          limit - rowCount,
-          defn.batchSize,
-          defn.query.getResultFormat(),
-          defn.isLegacy);
-      cursorReader.open();
+          result
+          );
     }
   }
 
-  private void closeCursorReader() {
-    if (cursorReader != null) {
-      cursorReader.close(false);
-      cursorReader = null;
-    }
-  }
-
-  private void finish()
+  public static enum Limit
   {
-    closeCursorReader();
-    iter = null;
-    responseContext.add(ResponseContext.Key.NUM_SCANNED_ROWS, rowCount);
-    if (defn.hasTimeout()) {
-      // This is very likely wrong
-      responseContext.put(
-          ResponseContext.Key.TIMEOUT_AT,
-          timeoutAt - (System.currentTimeMillis() - startTime)
-      );
-    }
+    NONE,
+    /**
+     * If we're performing time-ordering, we want to scan through the first `limit` rows in each
+     * segment ignoring the number of rows already counted on other segments.
+     */
+    LOCAL,
+    GLOBAL
+  }
+
+  private final ScanQuery query;
+  private final Segment segment;
+  private final String segmentId;
+  private final List<String> columns;
+  private final Filter filter;
+  private final boolean isLegacy;
+  private final int batchSize;
+  private Impl impl;
+
+  public ScanQueryOperator(final ScanQuery query, final Segment segment)
+  {
+    this.query = query;
+    this.segment = segment;
+    this.segmentId = segment.getId().toString();
+    this.columns = defineColumns(query);
+    List<Interval> intervals = query.getQuerySegmentSpec().getIntervals();
+    Preconditions.checkArgument(intervals.size() == 1, "Can only handle a single interval, got[%s]", intervals);
+    this.filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
+    this.isLegacy = Preconditions.checkNotNull(query.isLegacy(), "Expected non-null 'legacy' parameter");
+    this.batchSize = query.getBatchSize();
   }
 
   /**
-   * Return the next batch of events from a cursor. Enforce the
-   * timeout limit.
+   * Define the query columns when the list is given by the query.
    */
-  @Override
-  public Object next()
-  {
-    if (defn.hasTimeout() && System.currentTimeMillis() >= timeoutAt) {
-      throw new QueryTimeoutException(StringUtils.nonStrictFormat("Query [%s] timed out", defn.query.getId()));
+  private List<String> defineColumns(ScanQuery query) {
+    List<String> queryCols = query.getColumns();
+
+    // Missing or empty list means wildcard
+    if (queryCols == null || queryCols.isEmpty()) {
+      return null;
     }
-    List<?> result = (List<?>) cursorReader.next();
-    batchCount++;
-    rowCount += result.size();
-    return new ScanResultValue(
-        defn.segmentId,
-        selectedColumns,
-        result
-        );
+    final List<String> planCols = new ArrayList<>();
+    if (query.isLegacy() && !queryCols.contains(LEGACY_TIMESTAMP_KEY)) {
+      planCols.add(LEGACY_TIMESTAMP_KEY);
+    }
+
+    // Unless we're in legacy mode, planCols equals query.getColumns() exactly. This is nice since it makes
+    // the compactedList form easier to use.
+    planCols.addAll(queryCols);
+    return planCols;
+  }
+
+  public boolean isWildcard(ScanQuery query) {
+    return (query.getColumns() == null || query.getColumns().isEmpty());
+  }
+
+  public boolean isDescendingOrder()
+  {
+    return query.getOrder().equals(ScanQuery.Order.DESCENDING) ||
+        (query.getOrder().equals(ScanQuery.Order.NONE) && query.isDescending());
+  }
+
+  public boolean hasTimeout()
+  {
+    return QueryContexts.hasTimeout(query);
+  }
+
+  public boolean isWildcard()
+  {
+    return columns == null;
+  }
+
+  public Limit limitType()
+  {
+    if (!query.isLimited()) {
+      return Limit.NONE;
+    } else if (query.getOrder().equals(ScanQuery.Order.NONE)) {
+      return Limit.LOCAL;
+    } else {
+      return Limit.GLOBAL;
+    }
+  }
+
+  public Interval interval()
+  {
+    return query.getQuerySegmentSpec().getIntervals().get(0);
+  }
+
+  @Override
+  public Iterator<Object> open(FragmentContext context)
+  {
+    impl = new Impl(context);
+    return impl;
   }
 
   @Override
   public void close(boolean cascade)
   {
-    closeCursorReader();
-    iter = null;
+    impl.closeCursorReader();
+    impl = null;
   }
 }

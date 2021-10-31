@@ -2,35 +2,28 @@ package org.apache.druid.query.pipeline;
 
 import java.util.Iterator;
 
-import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.Operator.IterableOperator;
 
-public abstract class LimitOperator implements IterableOperator {
-
-  public static class LimitDefn extends SingleChildDefn
-  {
-    public long limit = Long.MAX_VALUE;
-  }
+public abstract class LimitOperator implements IterableOperator
+{
+  public static final long UNLIMITED = Long.MAX_VALUE;
 
   protected final long limit;
   protected final Operator input;
-  protected final ResponseContext responseContext;
   protected Iterator<Object> inputIter;
   protected long rowCount;
   protected int batchCount;
 
-  public LimitOperator(LimitDefn defn, Operator input, FragmentContext context)
+  public LimitOperator(long limit, Operator input)
   {
-    this.limit = defn.limit;
+    this.limit = limit;
     this.input = input;
-    this.responseContext = context.responseContext();
   }
 
   @Override
-  public Iterator<Object> open()
+  public Iterator<Object> open(FragmentContext context)
   {
-    inputIter = input.open();
+    inputIter = input.open(context);
     return this;
   }
 

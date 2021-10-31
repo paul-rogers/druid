@@ -4,17 +4,12 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Optional;
 
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
-import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
 import org.apache.druid.segment.SegmentReference;
-
-import com.google.common.base.Preconditions;
 
 /**
  * @{see {@link org.apache.druid.query.ReferenceCountingSegmentQueryRunner}
@@ -23,58 +18,31 @@ public class SegmentLockOperator implements Operator
 {
   private static final Logger LOG = new Logger(SegmentLockOperator.class);
 
-  public static final OperatorFactory FACTORY = new OperatorFactory()
-  {
-    @Override
-    public Operator build(OperatorDefn defn, List<Operator> children,
-        FragmentContext context) {
-      Preconditions.checkArgument(children.size() == 1);
-      return new SegmentLockOperator((Defn) defn, context, children.get(0));
-    }
-  };
-
-  public static void register(OperatorRegistry reg) {
-    reg.register(Defn.class, FACTORY);
-  }
-
-  public static class Defn extends SingleChildDefn
-  {
-    private final SegmentReference segment;
-    private final SegmentDescriptor descriptor;
-
-    public Defn(
-        SegmentReference segment,
-        SegmentDescriptor descriptor,
-        OperatorDefn child
-    )
-    {
-      this.segment = segment;
-      this.descriptor = descriptor;
-      this.child = child;
-    }
-  }
-
-  private final Defn defn;
-  private final FragmentContext context;
+  private final SegmentReference segment;
+  private final SegmentDescriptor descriptor;
   private final Operator child;
   private Closeable lock;
 
-  public SegmentLockOperator(Defn defn, FragmentContext context, Operator child)
+  public SegmentLockOperator(
+      SegmentReference segment,
+      SegmentDescriptor descriptor,
+      Operator child
+  )
   {
-    this.defn = defn;
-    this.context = context;
+    this.segment = segment;
+    this.descriptor = descriptor;
     this.child = child;
   }
 
   @Override
-  public Iterator<Object> open() {
-    Optional<Closeable> maybeLock = defn.segment.acquireReferences();
+  public Iterator<Object> open(FragmentContext context) {
+    Optional<Closeable> maybeLock = segment.acquireReferences();
     if (maybeLock.isPresent()) {
       lock = maybeLock.get();
-      return child.open();
+      return child.open(context);
     } else {
-      LOG.debug("Reporting a missing segment[%s] for query[%s]", defn.descriptor, context.queryId());
-      context.responseContext().add(ResponseContext.Key.MISSING_SEGMENTS, defn.descriptor);
+      LOG.debug("Reporting a missing segment[%s] for query[%s]", descriptor, context.queryId());
+      context.responseContext().add(ResponseContext.Key.MISSING_SEGMENTS, descriptor);
       return Collections.emptyIterator();
     }
   }
@@ -95,7 +63,7 @@ public class SegmentLockOperator implements Operator
       try {
         lock.close();
       } catch (IOException e) {
-        throw new RuntimeException("Failed to close segment " + defn.descriptor.toString(), e);
+        throw new RuntimeException("Failed to close segment " + descriptor.toString(), e);
       }
       lock = null;
     }

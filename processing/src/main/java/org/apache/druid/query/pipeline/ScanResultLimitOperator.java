@@ -4,13 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.druid.java.util.common.UOE;
-import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
-import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 
 /**
@@ -33,55 +30,33 @@ import com.google.common.collect.Iterables;
  */
 public class ScanResultLimitOperator extends LimitOperator
 {
-  public static final OperatorFactory FACTORY = new OperatorFactory()
-  {
-    @Override
-    public Operator build(OperatorDefn defn, List<Operator> children,
-        FragmentContext context) {
-      Preconditions.checkArgument(children.size() == 1);
-      return new ScanResultLimitOperator((Defn) defn, children.get(0), context);
-    }
-  };
+  private final boolean grouped;
+  private final int batchSize;
 
-  public static void register(OperatorRegistry reg) {
-    reg.register(Defn.class, FACTORY);
+  @VisibleForTesting
+  public ScanResultLimitOperator(long limit, boolean grouped, int batchSize, Operator child)
+  {
+    super(limit, child);
+    this.grouped = grouped;
+    this.batchSize = batchSize;
   }
 
-  public static class Defn extends LimitOperator.LimitDefn
+  public ScanResultLimitOperator(ScanQuery query, Operator child)
   {
-    public boolean grouped;
-    public int batchSize;
-
-    @VisibleForTesting
-    public Defn()
-    {
+    super(query.getScanRowsLimit(), child);
+    ScanQuery.ResultFormat resultFormat = query.getResultFormat();
+    if (ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR.equals(resultFormat)) {
+      throw new UOE(ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR + " is not supported yet");
     }
-
-    public Defn(ScanQuery query, OperatorDefn child) {
-      this.child = child;
-      ScanQuery.ResultFormat resultFormat = query.getResultFormat();
-      if (ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR.equals(resultFormat)) {
-        throw new UOE(ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR + " is not supported yet");
-      }
-      this.limit = query.getScanRowsLimit();
-      this.grouped = query.getOrder() == ScanQuery.Order.NONE ||
-          !query.getContextBoolean(ScanQuery.CTX_KEY_OUTERMOST, true);
-      this.batchSize = query.getBatchSize();
-    }
-  }
-
-  private final Defn defn;
-
-  public ScanResultLimitOperator(Defn defn, Operator input, FragmentContext context)
-  {
-    super(defn, input, context);
-    this.defn = defn;
+    this.grouped = query.getOrder() == ScanQuery.Order.NONE ||
+        !query.getContextBoolean(ScanQuery.CTX_KEY_OUTERMOST, true);
+    this.batchSize = query.getBatchSize();
   }
 
   @Override
   public Object next() {
     batchCount++;
-    if (defn.grouped) {
+    if (grouped) {
       return groupedNext();
     } else {
       return ungroupedNext();
@@ -106,9 +81,9 @@ public class ScanResultLimitOperator extends LimitOperator
   private Object ungroupedNext() {
     // Perform single-event ScanResultValue batching at the outer level.  Each scan result value from the yielder
     // in this case will only have one event so there's no need to iterate through events.
-    List<Object> eventsToAdd = new ArrayList<>(defn.batchSize);
+    List<Object> eventsToAdd = new ArrayList<>(batchSize);
     List<String> columns = new ArrayList<>();
-    while (eventsToAdd.size() < defn.batchSize && inputIter.hasNext() && rowCount < limit) {
+    while (eventsToAdd.size() < batchSize && inputIter.hasNext() && rowCount < limit) {
       ScanResultValue srv = (ScanResultValue) inputIter.next();
       // Only replace once using the columns from the first event
       columns = columns.isEmpty() ? srv.getColumns() : columns;

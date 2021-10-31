@@ -5,14 +5,9 @@ import java.util.List;
 
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.UOE;
-import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
-import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
 import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 
 /**
  * Offset that skips a given number of rows on top of a skips ScanQuery. It is used to implement
@@ -22,43 +17,20 @@ import com.google.common.base.Preconditions;
  */
 public class ScanResultOffsetOperator implements IterableOperator
 {
-  public static final OperatorFactory FACTORY = new OperatorFactory()
-  {
-    @Override
-    public Operator build(OperatorDefn defn, List<Operator> children,
-        FragmentContext context) {
-      Preconditions.checkArgument(children.size() == 1);
-      return new ScanResultOffsetOperator((Defn) defn, children.get(0), context);
+  public static ScanResultOffsetOperator forQuery(ScanQuery query, Operator child) {
+    ScanQuery.ResultFormat resultFormat = query.getResultFormat();
+    if (ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR.equals(resultFormat)) {
+      throw new UOE(ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR + " is not supported yet");
     }
-  };
-
-  public static void register(OperatorRegistry reg) {
-    reg.register(Defn.class, FACTORY);
-  }
-
-  public static class Defn extends SingleChildDefn
-  {
-    public long offset;
-
-    @VisibleForTesting
-    public Defn()
-    {
+    long offset = query.getScanRowsOffset();
+    if (offset < 1) {
+      throw new IAE("'offset' must be greater than zero");
     }
-
-    public Defn(ScanQuery query) {
-      ScanQuery.ResultFormat resultFormat = query.getResultFormat();
-      if (ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR.equals(resultFormat)) {
-        throw new UOE(ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR + " is not supported yet");
-      }
-      this.offset = query.getScanRowsOffset();
-      if (offset < 1) {
-        throw new IAE("'offset' must be greater than zero");
-      }
-    }
+    return new ScanResultOffsetOperator(offset, child);
   }
 
   private final Operator input;
-  private final Defn defn;
+  private final long offset;
   private Iterator<Object> inputIter;
   private long rowCount;
   @SuppressWarnings("unused")
@@ -66,16 +38,16 @@ public class ScanResultOffsetOperator implements IterableOperator
   private ScanResultValue lookAhead;
   private boolean done;
 
-  private ScanResultOffsetOperator(Defn defn, Operator input, FragmentContext context)
+  public ScanResultOffsetOperator(long offset, Operator input)
   {
-    this.defn = defn;
+    this.offset = offset;
     this.input = input;
   }
 
   @Override
-  public Iterator<Object> open()
+  public Iterator<Object> open(FragmentContext context)
   {
-    inputIter = input.open();
+    inputIter = input.open(context);
     return this;
   }
 
@@ -113,7 +85,7 @@ public class ScanResultOffsetOperator implements IterableOperator
       ScanResultValue batch = (ScanResultValue) inputIter.next();
       final List<?> rows = (List<?>) batch.getEvents();
       final int eventCount = rows.size();
-      final long toSkip = defn.offset - rowCount;
+      final long toSkip = offset - rowCount;
       if (toSkip >= eventCount) {
         rowCount += eventCount;
         continue;

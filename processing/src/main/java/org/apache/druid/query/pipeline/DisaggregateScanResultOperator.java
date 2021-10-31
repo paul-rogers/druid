@@ -1,14 +1,9 @@
 package org.apache.druid.query.pipeline;
 
 import java.util.Iterator;
-import java.util.List;
 
-import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
-import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
 import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanResultValue;
-
-import com.google.common.base.Preconditions;
 
 /**
  * Convert a batched set of scan result values to one-row "batches"
@@ -18,27 +13,6 @@ import com.google.common.base.Preconditions;
  */
 public class DisaggregateScanResultOperator implements IterableOperator
 {
-  public static final OperatorFactory FACTORY = new OperatorFactory()
-  {
-    @Override
-    public Operator build(OperatorDefn defn, List<Operator> children,
-        FragmentContext context) {
-      Preconditions.checkArgument(children.size() == 1);
-      return new DisaggregateScanResultOperator(children.get(0));
-    }
-  };
-
-  public static void register(OperatorRegistry reg) {
-    reg.register(Defn.class, FACTORY);
-  }
-
-  public static class Defn extends SingleChildDefn
-  {
-    public Defn(OperatorDefn child) {
-      this.child = child;
-    }
-  }
-
   private final Operator child;
   private Iterator<Object> childIter;
   private Iterator<ScanResultValue> valueIter;
@@ -49,9 +23,9 @@ public class DisaggregateScanResultOperator implements IterableOperator
   }
 
   @Override
-  public Iterator<Object> open()
+  public Iterator<Object> open(FragmentContext context)
   {
-    childIter = child.open();
+    childIter = child.open(context);
     return this;
   }
 

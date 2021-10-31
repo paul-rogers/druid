@@ -1,18 +1,14 @@
 package org.apache.druid.query.pipeline;
 
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
 
-import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
-import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
 import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
 
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 
 /**
@@ -28,29 +24,8 @@ import com.google.common.collect.Ordering;
 */
 public class ScanResultMergeOperator implements IterableOperator
 {
-  public static final OperatorFactory FACTORY = new OperatorFactory()
-  {
-    @Override
-    public Operator build(OperatorDefn defn, List<Operator> children,
-        FragmentContext context) {
-      Preconditions.checkArgument(!children.isEmpty());
-      return new ScanResultMergeOperator((Defn) defn, children, context);
-    }
-  };
-
-  public static void register(OperatorRegistry reg) {
-    reg.register(Defn.class, FACTORY);
-  }
-
-  public static class Defn extends MultiChildDefn
-  {
-    public Ordering<ScanResultValue> ordering;
-
-    public Defn(ScanQuery query, List<OperatorDefn> children)
-    {
-      this.children = children;
-      this.ordering = query.getResultOrdering();
-    }
+  public static ScanResultMergeOperator forQuery(ScanQuery query, List<Operator> children) {
+    return new ScanResultMergeOperator(query.getResultOrdering(), children);
   }
 
   private static class Entry
@@ -69,25 +44,23 @@ public class ScanResultMergeOperator implements IterableOperator
   private final List<Operator> children;
   private final PriorityQueue<Entry> pQueue;
 
-  public ScanResultMergeOperator(Defn defn, List<Operator> children,
-      FragmentContext context) {
+  public ScanResultMergeOperator(Ordering<ScanResultValue> ordering, List<Operator> children) {
     this.children = children;
     this.pQueue = new PriorityQueue<>(
         32,
-        defn.ordering.onResultOf(
+        ordering.onResultOf(
             (Function<Entry, ScanResultValue>) input -> input.row
         )
     );
   }
 
   @Override
-  public Iterator<Object> open() {
+  public Iterator<Object> open(FragmentContext context) {
     for (Operator child : children) {
-      Iterator<Object> childIter = child.open();
+      Iterator<Object> childIter = child.open(context);
       if (childIter.hasNext()) {
         pQueue.add(new Entry(child, childIter, (ScanResultValue) childIter.next()));
-      }
-      else {
+      } else {
         child.close(true);
       }
     }

@@ -3,10 +3,7 @@ package org.apache.druid.query.pipeline;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
-import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
 import org.apache.druid.query.pipeline.Operator.IterableOperator;
-import org.apache.druid.query.pipeline.Operator.OperatorDefn;
 
 import com.google.common.base.Preconditions;
 
@@ -19,47 +16,26 @@ import com.google.common.base.Preconditions;
  */
 public class ConcatOperator implements IterableOperator
 {
-  public static final OperatorFactory FACTORY = new OperatorFactory()
-  {
-    @Override
-    public Operator build(OperatorDefn defn, List<Operator> children,
-        FragmentContext context) {
-      Preconditions.checkArgument(!children.isEmpty());
-      return new ConcatOperator((Defn) defn, children, context);
-    }
-  };
-
-  public static void register(OperatorRegistry reg) {
-    reg.register(Defn.class, FACTORY);
-  }
-
-  public static OperatorDefn concatOrNot(List<OperatorDefn> children) {
+  public static Operator concatOrNot(List<Operator> children) {
     if (children.size() > 1) {
-      return new ConcatOperator.Defn(children);
+      return new ConcatOperator(children);
     }
     return children.get(0);
   }
 
-  public static class Defn extends MultiChildDefn
-  {
-    public Defn(List<OperatorDefn> children)
-    {
-      this.children = children;
-    }
-  }
-
   private final Iterator<Operator> childIter;
+  private FragmentContext context;
   private Operator current;
   private Iterator<Object> currentIter;
 
-  public ConcatOperator(Defn defn, List<Operator> children,
-      FragmentContext context) {
+  public ConcatOperator(List<Operator> children) {
     childIter = children.iterator();
   }
 
   @Override
-  public Iterator<Object> open()
+  public Iterator<Object> open(FragmentContext context)
   {
+    this.context = context;
     return this;
   }
 
@@ -78,7 +54,7 @@ public class ConcatOperator implements IterableOperator
         return false;
       }
       current = childIter.next();
-      currentIter = current.open();
+      currentIter = current.open(context);
     }
   }
 

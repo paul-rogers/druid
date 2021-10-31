@@ -27,7 +27,6 @@ import java.util.Map;
 
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.UOE;
-import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.segment.BaseObjectColumnValueSelector;
 import org.apache.druid.segment.Cursor;
@@ -45,17 +44,16 @@ import com.google.common.base.Supplier;
  * choose to create one or more queries: each is handled by an instance of this
  * class.
  */
-public class CursorReader implements IterableOperator
+public class CursorReader implements Iterator<Object>
 {
   private final Cursor cursor;
   private final List<String> selectedColumns;
   private final long limit;
   private final int batchSize;
   private final ResultFormat resultFormat;
-  private final boolean isLegacy;
+  private final List<Supplier<Object>> columnAccessors;
   private long targetCount;
   private long rowCount;
-  private List<Supplier<Object>> columnAccessors;
 
   public CursorReader(
       Cursor cursor,
@@ -71,12 +69,6 @@ public class CursorReader implements IterableOperator
     this.limit = limit;
     this.batchSize = batchSize;
     this.resultFormat = resultFormat;
-    this.isLegacy = isLegacy;
-  }
-
-  @Override
-  public Iterator<Object> open()
-  {
     columnAccessors = new ArrayList<>(selectedColumns.size());
     for (String column : selectedColumns) {
       final Supplier<Object> accessor;
@@ -110,7 +102,6 @@ public class CursorReader implements IterableOperator
       }
       columnAccessors.add(accessor);
     }
-    return this;
   }
 
   @Override
@@ -129,12 +120,6 @@ public class CursorReader implements IterableOperator
     default:
       throw new UOE("resultFormat[%s] is not supported", resultFormat.toString());
     }
-  }
-
-  @Override
-  public void close(boolean cascade)
-  {
-    // Cursors don't have a close()
   }
 
   private void advance()

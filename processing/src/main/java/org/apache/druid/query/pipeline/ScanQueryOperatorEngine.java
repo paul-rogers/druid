@@ -2,8 +2,7 @@ package org.apache.druid.query.pipeline;
 
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.pipeline.FragmentRunner.FragmentContextImpl;
-import org.apache.druid.query.pipeline.ScanQueryOperator.Defn;
+import org.apache.druid.query.pipeline.Operator.FragmentContextImpl;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryEngine2;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -11,6 +10,16 @@ import org.apache.druid.segment.Segment;
 
 public class ScanQueryOperatorEngine implements ScanQueryEngine2
 {
+  /**
+   * Return an instance of the scan query operator in a form that mimics the
+   * "classic" ScanQuery Engine so that the operator version can be "slotted into"
+   * existing code.
+   */
+  public static ScanQueryEngine2 asEngine()
+  {
+    return new ScanQueryOperatorEngine();
+  }
+
   @Override
   public Sequence<ScanResultValue> process(
       final ScanQuery query,
@@ -18,10 +27,8 @@ public class ScanQueryOperatorEngine implements ScanQueryEngine2
       final ResponseContext responseContext
   )
   {
-    Defn defn = new Defn(query, segment);
-    ScanQueryOperator reader = new ScanQueryOperator(defn,
-        new FragmentContextImpl(query.getId(), responseContext)
-        );
-    return Operators.toLoneSequence(reader);
+    ScanQueryOperator reader = new ScanQueryOperator(query, segment);
+    return Operators.toLoneSequence(reader,
+        new FragmentContextImpl(query.getId(), responseContext));
   }
 }

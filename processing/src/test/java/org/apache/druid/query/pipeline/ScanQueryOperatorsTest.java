@@ -9,19 +9,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.Druids.ScanQueryBuilder;
-import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.SegmentDescriptor;
-import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
-import org.apache.druid.query.pipeline.Operator.OperatorDefn;
+import org.apache.druid.query.pipeline.Operator.FragmentContext;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -34,6 +29,8 @@ import com.google.common.base.Strings;
 
 public class ScanQueryOperatorsTest
 {
+  private final FragmentContext context = Operator.defaultContext();
+
   private Interval interval(int offset)
   {
     Duration grain = Duration.ofMinutes(1);
@@ -43,9 +40,9 @@ public class ScanQueryOperatorsTest
     return new Interval(start.toEpochMilli(), start.plus(grain).toEpochMilli());
   }
 
-  private MockScanResultReader.Defn scanDefn(int columnCount, int rowCount)
+  private MockScanResultReader scan(int columnCount, int rowCount, int batchSize)
   {
-    return new MockScanResultReader.Defn(columnCount, rowCount, interval(0));
+    return new MockScanResultReader(columnCount, rowCount, batchSize, interval(0));
   }
 
   // Tests for the mock reader used to power tests without the overhead
@@ -53,19 +50,17 @@ public class ScanQueryOperatorsTest
   // the difference.
   @Test
   public void testMockReaderNull() {
-    MockScanResultReader.Defn defn = scanDefn(0, 0);
-    Operator op = MockScanResultReader.FACTORY.build(defn, null, null);
-    Iterator<Object> iter = op.open();
+    Operator op = scan(0, 0, 3);
+    Iterator<Object> iter = op.open(context);
     assertFalse(iter.hasNext());
     op.close(false);
   }
 
   @Test
   public void testMockReaderEmpty() {
-    MockScanResultReader.Defn defn = scanDefn(0, 1);
-    assertFalse(Strings.isNullOrEmpty(defn.segmentId));
-    Operator op = MockScanResultReader.FACTORY.build(defn, null, null);
-    Iterator<Object> iter = op.open();
+    MockScanResultReader scan = scan(0, 1, 3);
+    assertFalse(Strings.isNullOrEmpty(scan.segmentId));
+    Iterator<Object> iter = scan.open(context);
     assertTrue(iter.hasNext());
     ScanResultValue value = (ScanResultValue) iter.next();
     assertTrue(value.getColumns().isEmpty());
@@ -73,15 +68,13 @@ public class ScanQueryOperatorsTest
     assertEquals(1, events.size());
     assertTrue(events.get(0).isEmpty());
     assertFalse(iter.hasNext());
-    op.close(false);
+    scan.close(false);
   }
 
   @Test
   public void testMockReader() {
-    MockScanResultReader.Defn defn = scanDefn(3, 10);
-    defn.batchSize = 4;
-    Operator op = MockScanResultReader.FACTORY.build(defn, null, null);
-    Iterator<Object> iter = op.open();
+    Operator scan = scan(3, 10, 4);
+    Iterator<Object> iter = scan.open(context);
     int rowCount = 0;
     while (iter.hasNext()) {
       ScanResultValue value = (ScanResultValue) iter.next();
@@ -109,7 +102,7 @@ public class ScanQueryOperatorsTest
       }
     }
     assertEquals(10, rowCount);
-    op.close(false);
+    scan.close(false);
   }
 
   /**
@@ -120,29 +113,21 @@ public class ScanQueryOperatorsTest
   @Test
   public void testOffset()
   {
-    OperatorRegistry reg = new OperatorRegistry();
-    MockScanResultReader.register(reg);
-    ScanResultOffsetOperator.register(reg);
     final int totalRows = 10;
-    MockScanResultReader.Defn leafDefn = scanDefn(3, totalRows);
-    leafDefn.batchSize = 4;
     for (int offset = 1; offset < 2 * totalRows; offset++) {
-      FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
-      ScanResultOffsetOperator.Defn offsetDefn = new ScanResultOffsetOperator.Defn();
-      offsetDefn.offset = offset;
-      offsetDefn.child = leafDefn;
-      runner.build(offsetDefn);
-      AtomicInteger rowCount = new AtomicInteger();
+      Operator scan = scan(3, totalRows, 4);
+      Operator root = new ScanResultOffsetOperator(offset, scan);
+      int rowCount = 0;
       final String firstVal = StringUtils.format("Value %d.1", offset);
-      runner.fullRun(row -> {
+      for (Object row : Operators.toIterable(root, context)) {
         ScanResultValue value = (ScanResultValue) row;
         List<List<Object>> events = value.getRows();
-        if (rowCount.getAndAdd(events.size()) == 0) {
+        if (rowCount == 0) {
           assertEquals(firstVal, events.get(0).get(1));
         }
-        return true;
-      });
-      assertEquals(Math.max(0, totalRows - offset), rowCount.get());
+        rowCount += events.size();
+      }
+      assertEquals(Math.max(0, totalRows - offset), rowCount);
     }
   }
 
@@ -154,26 +139,16 @@ public class ScanQueryOperatorsTest
   @Test
   public void testLimit()
   {
-    OperatorRegistry reg = new OperatorRegistry();
-    MockScanResultReader.register(reg);
-    ScanResultLimitOperator.register(reg);
-    FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
     final int totalRows = 10;
-    MockScanResultReader.Defn leafDefn = scanDefn(3, totalRows);
-    leafDefn.batchSize = 4;
     for (int limit = 0; limit < totalRows + 1; limit++) {
-      ScanResultLimitOperator.Defn limitDefn = new ScanResultLimitOperator.Defn();
-      limitDefn.limit = limit;
-      limitDefn.grouped = true;
-      limitDefn.child = leafDefn;
-      runner.build(limitDefn);
-      AtomicInteger rowCount = new AtomicInteger();
-      runner.fullRun(row -> {
+      Operator scan = scan(3, totalRows, 4);
+      ScanResultLimitOperator root = new ScanResultLimitOperator(limit, true, 4, scan);
+      int rowCount = 0;
+      for (Object row : Operators.toIterable(root, context)) {
         ScanResultValue value = (ScanResultValue) row;
-        rowCount.getAndAdd(value.rowCount());
-        return true;
-      });
-      assertEquals(Math.min(totalRows, limit), rowCount.get());
+        rowCount += value.rowCount();
+      }
+      assertEquals(Math.min(totalRows, limit), rowCount);
     }
   }
 
@@ -183,27 +158,20 @@ public class ScanQueryOperatorsTest
   @Test
   public void testConcat()
   {
-    OperatorRegistry reg = new OperatorRegistry();
-    MockScanResultReader.register(reg);
-    ConcatOperator.register(reg);
-    FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
     final int rowsPerReader = 10;
     for (int inputCount = 1; inputCount < 5 + 1; inputCount++) {
-      MockScanResultReader.Defn leafDefn = scanDefn(3, rowsPerReader);
-      leafDefn.batchSize = 4; // Creates uneven batches
-      List<OperatorDefn> children = new ArrayList<>();
+      List<Operator> children = new ArrayList<>();
       for (int i = 0; i < inputCount; i++) {
-        children.add(leafDefn);
+        // Creates uneven batches
+        children.add(scan(3, rowsPerReader, 4));
       }
-      ConcatOperator.Defn root = new ConcatOperator.Defn(children);
-      runner.build(root);
-      AtomicInteger rowCount = new AtomicInteger();
-      runner.fullRun(row -> {
+      ConcatOperator root = new ConcatOperator(children);
+      int rowCount = 0;
+      for (Object row : Operators.toIterable(root, context)) {
         ScanResultValue value = (ScanResultValue) row;
-        rowCount.getAndAdd(value.rowCount());
-        return true;
-      });
-      assertEquals(rowsPerReader * inputCount, rowCount.get());
+        rowCount += value.rowCount();
+      }
+      assertEquals(rowsPerReader * inputCount, rowCount);
     }
   }
 
@@ -214,37 +182,32 @@ public class ScanQueryOperatorsTest
   @Test
   public void testConcatLifecycle()
   {
-    OperatorRegistry reg = new OperatorRegistry();
-    MockScanResultReader.register(reg);
-    ConcatOperator.register(reg);
-    FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
-    MockScanResultReader.Defn leafDefn = scanDefn(3, 4);
-    leafDefn.batchSize = 2;
-    List<OperatorDefn> children = Arrays.asList(leafDefn, leafDefn);
-    ConcatOperator.Defn root = new ConcatOperator.Defn(children);
-    ConcatOperator concat = (ConcatOperator) runner.build(root);
-    MockScanResultReader firstLeaf = (MockScanResultReader) runner.operator(0);
-    MockScanResultReader secondLeaf = (MockScanResultReader) runner.operator(1);
+    MockScanResultReader firstLeaf = scan(3, 4, 2);
+    MockScanResultReader secondLeaf = scan(3, 4, 2);
+    List<Operator> children = Arrays.asList(firstLeaf, secondLeaf);
+    ConcatOperator root = new ConcatOperator(children);
+    Iterator<Object> iter = root.open(context);
 
     assertEquals(Operator.State.START, firstLeaf.state);
     assertEquals(Operator.State.START, secondLeaf.state);
-    assertTrue(concat.hasNext());
+    assertTrue(iter.hasNext());
     assertEquals(Operator.State.RUN, firstLeaf.state);
     assertEquals(Operator.State.START, secondLeaf.state);
-    concat.next();
-    assertTrue(concat.hasNext());
+    iter.next();
+    assertTrue(iter.hasNext());
     assertEquals(Operator.State.RUN, firstLeaf.state);
     assertEquals(Operator.State.START, secondLeaf.state);
-    concat.next();
-    assertTrue(concat.hasNext());
+    iter.next();
+    assertTrue(iter.hasNext());
     assertEquals(Operator.State.CLOSED, firstLeaf.state);
     assertEquals(Operator.State.RUN, secondLeaf.state);
-    concat.next();
-    assertTrue(concat.hasNext());
+    iter.next();
+    assertTrue(iter.hasNext());
     assertEquals(Operator.State.RUN, secondLeaf.state);
-    concat.next();
-    assertFalse(concat.hasNext());
+    iter.next();
+    assertFalse(iter.hasNext());
     assertEquals(Operator.State.CLOSED, secondLeaf.state);
+    root.close(true);
   }
 
   // Value of descriptor not used in test, just keeps the query builder
@@ -257,13 +220,8 @@ public class ScanQueryOperatorsTest
 
   final int ROWS_PER_STEP = 10;
 
-  private FragmentRunner setupSort(int segCount, ScanQuery.Order order)
+  private Operator setupSort(int segCount, ScanQuery.Order order)
   {
-    OperatorRegistry reg = new OperatorRegistry();
-    MockScanResultReader.register(reg);
-    NullOperator.register(reg);
-    ConcatOperator.register(reg);
-    ScanResultSortOperator.register(reg);
     ScanQuery query = new ScanQueryBuilder()
         .dataSource("dummy")
         .intervals(new SpecificSegmentSpec(DUMMY_DESCRIPTOR))
@@ -274,31 +232,25 @@ public class ScanQueryOperatorsTest
     // Create segments in unsorted order
     final int segs[] = new int[]{1, 0, 4, 2, 3};
     final int expectedRows = ROWS_PER_STEP * segCount;
-    final OperatorDefn input;
+    final Operator input;
     switch (segCount) {
     case 0:
-      input = NullOperator.DEFN;
+      input = new NullOperator();
       break;
     case 1: {
-      MockScanResultReader.Defn leafDefn = scanDefn(3, expectedRows);
-      leafDefn.batchSize = 4;
-      input = leafDefn;
+      input = scan(3, expectedRows, 4);
       break;
     }
     default: {
-      List<OperatorDefn> leaves = new ArrayList<>();
+      List<Operator> leaves = new ArrayList<>();
       for (int j = 0; j < segCount; j++) {
-        MockScanResultReader.Defn leafDefn = new MockScanResultReader.Defn(3, ROWS_PER_STEP, interval(segs[j]));
-        leafDefn.batchSize = 4;
-        leaves.add(leafDefn);
+        MockScanResultReader scan = new MockScanResultReader(3, ROWS_PER_STEP, 4, interval(segs[j]));
+         leaves.add(scan);
       }
-      input = new ConcatOperator.Defn(leaves);
+      input = new ConcatOperator(leaves);
     }
     }
-    OperatorDefn sortDefn = new ScanResultSortOperator.Defn(query, input);
-    FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
-    runner.build(sortDefn);
-    return runner;
+    return ScanResultSortOperator.forQuery(query, input);
   }
 
   /**
@@ -308,18 +260,17 @@ public class ScanQueryOperatorsTest
   public void testSortAsc()
   {
     for (int i = 0; i < 5; i++) {
-      FragmentRunner runner = setupSort(i, ScanQuery.Order.ASCENDING);
-      AtomicInteger rowCount = new AtomicInteger();
-      AtomicLong lastTs = new AtomicLong();
-      runner.fullRun(row -> {
+      Operator root = setupSort(i, ScanQuery.Order.ASCENDING);
+      int rowCount = 0;
+      long lastTs = 0;
+      for (Object row : Operators.toIterable(root, context)) {
         ScanResultValue value = (ScanResultValue) row;
-        rowCount.getAndAdd(value.rowCount());
+        rowCount += value.rowCount();
         long startTs = MockScanResultReader.getFirstTime(row);
-        assertTrue(lastTs.get() < startTs);
-        lastTs.set(startTs);
-        return true;
-      });
-      assertEquals(ROWS_PER_STEP * i, rowCount.get());
+        assertTrue(lastTs < startTs);
+        lastTs = startTs;
+      }
+      assertEquals(ROWS_PER_STEP * i, rowCount);
     }
   }
 
@@ -327,18 +278,17 @@ public class ScanQueryOperatorsTest
   public void testSortDesc()
   {
     for (int i = 0; i < 5; i++) {
-      FragmentRunner runner = setupSort(i, ScanQuery.Order.DESCENDING);
-      AtomicInteger rowCount = new AtomicInteger();
-      AtomicLong lastTs = new AtomicLong(Long.MAX_VALUE);
-      runner.fullRun(row -> {
+      Operator root = setupSort(i, ScanQuery.Order.DESCENDING);
+      int rowCount = 0;
+      long lastTs = Long.MAX_VALUE;
+      for (Object row : Operators.toIterable(root, context)) {
         ScanResultValue value = (ScanResultValue) row;
-        rowCount.getAndAdd(value.rowCount());
+        rowCount += value.rowCount();
         long startTs = MockScanResultReader.getFirstTime(row);
-        assertTrue(lastTs.get() > startTs);
-        lastTs.set(startTs);
-        return true;
-      });
-      assertEquals(ROWS_PER_STEP * i, rowCount.get());
+        assertTrue(lastTs > startTs);
+        lastTs = startTs;
+      }
+      assertEquals(ROWS_PER_STEP * i, rowCount);
     }
   }
 
@@ -347,32 +297,21 @@ public class ScanQueryOperatorsTest
   @Test
   public void testDeaggregate()
   {
-    OperatorRegistry reg = new OperatorRegistry();
-    MockScanResultReader.register(reg);
-    DisaggregateScanResultOperator.register(reg);
     final int totalRows = 10;
-    MockScanResultReader.Defn leafDefn = scanDefn(3, totalRows);
-    leafDefn.batchSize = 4;
-    FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
-    OperatorDefn root = new DisaggregateScanResultOperator.Defn(leafDefn);
-    runner.build(root);
-    AtomicInteger rowCount = new AtomicInteger();
-    runner.fullRun(row -> {
+    Operator scan = scan(3, totalRows, 4);
+    Operator root = new DisaggregateScanResultOperator(scan);
+    int rowCount = 0;
+    for (Object row : Operators.toIterable(root, context)) {
       ScanResultValue value = (ScanResultValue) row;
       assertEquals(1, value.rowCount());
-      rowCount.getAndAdd(1);
-      return true;
-    });
-    assertEquals(totalRows, rowCount.get());
+      rowCount += value.rowCount();
+    }
+    assertEquals(totalRows, rowCount);
   }
 
   @Test
   public void testMerge()
   {
-    OperatorRegistry reg = new OperatorRegistry();
-    MockScanResultReader.register(reg);
-    DisaggregateScanResultOperator.register(reg);
-    ScanResultMergeOperator.register(reg);
     ScanQuery query = new ScanQueryBuilder()
         .dataSource("dummy")
         .intervals(new SpecificSegmentSpec(DUMMY_DESCRIPTOR))
@@ -381,27 +320,23 @@ public class ScanQueryOperatorsTest
         .build();
     final int rowsPerReader = 10;
     final int readerCount = 5;
-    List<OperatorDefn> inputs = new ArrayList<>();
+    List<Operator> inputs = new ArrayList<>();
     for (int i = 0; i < readerCount; i++) {
-      MockScanResultReader.Defn leafDefn = scanDefn(3, rowsPerReader);
-      leafDefn.batchSize = 4;
-      OperatorDefn disagg = new DisaggregateScanResultOperator.Defn(leafDefn);
+      Operator scan = scan(3, rowsPerReader, 4);
+      Operator disagg = new DisaggregateScanResultOperator(scan);
       inputs.add(disagg);
     }
-    OperatorDefn root = new ScanResultMergeOperator.Defn(query, inputs);
-    FragmentRunner runner = new FragmentRunner(reg, FragmentRunner.defaultContext());
-    runner.build(root);
-    AtomicInteger rowCount = new AtomicInteger();
-    AtomicLong lastTs = new AtomicLong();
-    runner.fullRun(row -> {
+    Operator root = ScanResultMergeOperator.forQuery(query, inputs);
+    int rowCount = 0;
+    long lastTs = 0;
+    for (Object row : Operators.toIterable(root, context)) {
       ScanResultValue value = (ScanResultValue) row;
       assertEquals(1, value.rowCount());
-      rowCount.getAndAdd(1);
+      rowCount++;
       long startTs = MockScanResultReader.getFirstTime(row);
-      assertTrue(lastTs.get() <= startTs);
-      lastTs.set(startTs);
-      return true;
-    });
-    assertEquals(rowsPerReader * readerCount, rowCount.get());
+      assertTrue(lastTs <= startTs);
+      lastTs = startTs;
+    }
+    assertEquals(rowsPerReader * readerCount, rowCount);
   }
 }

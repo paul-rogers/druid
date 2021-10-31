@@ -22,6 +22,7 @@ package org.apache.druid.query.pipeline;
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.pipeline.Operator.FragmentContext;
 
 import java.util.Iterator;
 
@@ -37,12 +38,12 @@ public class Operators
    * Convenience function to open the operator and return its
    * iterator as an {@code Iterable}.
    */
-  public static Iterable<Object> toIterable(Operator op) {
+  public static Iterable<Object> toIterable(Operator op, FragmentContext context) {
     return new Iterable<Object>() {
       @Override
       public Iterator<Object> iterator()
       {
-        return op.open();
+        return op.open(context);
       }
     };
   }
@@ -51,7 +52,7 @@ public class Operators
    * Converts the operator to a sequence in the context of a fragment
    * runner which starts and closes the set of operators.
    */
-  public static <T> Sequence<T> toSequence(Operator op) {
+  public static <T> Sequence<T> toSequence(Operator op, FragmentContext context) {
     return new BaseSequence<>(
         new BaseSequence.IteratorMaker<T, Iterator<T>>()
         {
@@ -59,7 +60,7 @@ public class Operators
           @Override
           public Iterator<T> make()
           {
-            return (Iterator<T>) op;
+            return (Iterator<T>) op.open(context);
           }
 
           @Override
@@ -75,7 +76,7 @@ public class Operators
    * Converts a stand-alone operator to a sequence outside the context of a fragment
    * runner. The sequence starts and closes the operator.
    */
-  public static <T> Sequence<T> toLoneSequence(Operator op) {
+  public static <T> Sequence<T> toLoneSequence(Operator op, FragmentContext context) {
     return new BaseSequence<>(
         new BaseSequence.IteratorMaker<T, Iterator<T>>()
         {
@@ -83,8 +84,7 @@ public class Operators
           @Override
           public Iterator<T> make()
           {
-            op.open();
-            return (Iterator<T>) op;
+            return (Iterator<T>) op.open(context);
           }
 
           @Override

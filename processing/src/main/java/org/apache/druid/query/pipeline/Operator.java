@@ -4,7 +4,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
+import org.apache.druid.query.context.ResponseContext;
 
 /**
  * An operator is a data pipeline transform: something that changes a stream of
@@ -165,13 +165,37 @@ public interface Operator
     Operator build(OperatorDefn defn, List<Operator> children, FragmentContext context);
   }
 
-//  /**
-//   * Identifies an operator that accepts a decorator.
-//   */
-//  public interface Decoratable
-//  {
-//    void decorate(Decorator listener);
-//  }
+  public interface FragmentContext
+  {
+    String queryId();
+    ResponseContext responseContext();
+  }
+
+  public static class FragmentContextImpl implements FragmentContext
+  {
+    private final ResponseContext responseContext;
+    private final String queryId;
+
+    public FragmentContextImpl(String queryId, ResponseContext responseContext)
+    {
+      this.queryId = queryId;
+      this.responseContext = responseContext;
+    }
+
+    @Override
+    public String queryId() {
+      return queryId;
+    }
+
+    @Override
+    public ResponseContext responseContext() {
+      return responseContext;
+    }
+  }
+
+  public static FragmentContext defaultContext() {
+    return new FragmentContextImpl("unknown", ResponseContext.createEmpty());
+  }
 
   /**
    * Convenience interface for an operator which is its own iterator.
@@ -196,7 +220,7 @@ public interface Operator
    * in the {@code open()} call for simple operators,or later, on demand, for more
    * complex operators such as in a merge or union.
    */
-  Iterator<Object> open();
+  Iterator<Object> open(FragmentContext context);
 
   /**
    * Called at two distinct times. An operator may choose to close a child

@@ -23,6 +23,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.pipeline.Operator.FragmentContext;
 import org.apache.druid.query.pipeline.Operator.OperatorDefn;
 import org.apache.druid.query.pipeline.Operator.OperatorFactory;
 
@@ -85,38 +86,6 @@ public class FragmentRunner
     boolean accept(Object row);
   }
 
-  public interface FragmentContext
-  {
-    String queryId();
-    ResponseContext responseContext();
-  }
-
-  public static class FragmentContextImpl implements FragmentContext
-  {
-    private final ResponseContext responseContext;
-    private final String queryId;
-
-    public FragmentContextImpl(String queryId, ResponseContext responseContext)
-    {
-      this.queryId = queryId;
-      this.responseContext = responseContext;
-    }
-
-    @Override
-    public String queryId() {
-      return queryId;
-    }
-
-    @Override
-    public ResponseContext responseContext() {
-      return responseContext;
-    }
-  }
-
-  public static FragmentContext defaultContext() {
-    return new FragmentContextImpl("unknown", ResponseContext.createEmpty());
-  }
-
   private final OperatorRegistry registry;
   private final FragmentContext context;
   private final List<Operator> operators = new ArrayList<>();
@@ -148,7 +117,7 @@ public class FragmentRunner
 
   public void run(Consumer consumer) {
    Operator root = root();
-   for (Object row : Operators.toIterable(root)) {
+   for (Object row : Operators.toIterable(root, context)) {
       if (!consumer.accept(row)) {
         break;
       }
