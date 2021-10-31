@@ -19,16 +19,16 @@
 
 package org.apache.druid.query.scan;
 
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.ObjectArrays;
-import com.google.common.collect.Sets;
-import com.google.common.hash.Hashing;
-import com.google.common.io.CharSource;
-import com.google.common.io.LineProcessor;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.hll.HyperLogLogCollector;
@@ -51,7 +51,7 @@ import org.apache.druid.query.extraction.MapLookupExtractor;
 import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.lookup.LookupExtractionFn;
-import org.apache.druid.query.pipeline.ScanQueryOperator;
+import org.apache.druid.query.pipeline.ScanQueryOperatorEngine;
 import org.apache.druid.query.spec.LegacySegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.segment.TestIndex;
@@ -66,15 +66,16 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.ObjectArrays;
+import com.google.common.collect.Sets;
+import com.google.common.hash.Hashing;
+import com.google.common.io.CharSource;
+import com.google.common.io.LineProcessor;
 
 /**
  *
@@ -146,7 +147,7 @@ public class ScanQueryRunnerTest extends InitializedNullHandlingTest
         QueryRunnerTestHelper.makeQueryRunners(
             new ScanQueryRunnerFactory(
                 TOOL_CHEST,
-                orig ? new ScanQueryEngine() : ScanQueryOperator.asEngine(),
+                orig ? new ScanQueryEngine() : ScanQueryOperatorEngine.asEngine(),
                 new ScanQueryConfig()
             )
         ),
