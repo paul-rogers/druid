@@ -35,6 +35,8 @@ import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.ReferenceCountingSegmentQueryRunner;
 import org.apache.druid.query.ReportTimelineMissingSegmentQueryRunner;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.query.pipeline.HistoricalQueryPlannerStub;
+import org.apache.druid.query.pipeline.Operators;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
@@ -198,6 +200,7 @@ public class HistoricalQueryPlannerShim
 
     final ReferenceCountingSegment segment = chunk.getObject();
     return buildAndDecorateQueryRunner(
+        query,
         factory,
         toolChest,
         segmentMapFn.apply(segment),
@@ -208,6 +211,7 @@ public class HistoricalQueryPlannerShim
   }
 
   private <T> QueryRunner<T> buildAndDecorateQueryRunner(
+      final Query<T> query,
       final QueryRunnerFactory<T, Query<T>> factory,
       final QueryToolChest<T, Query<T>> toolChest,
       final SegmentReference segment,
@@ -227,10 +231,14 @@ public class HistoricalQueryPlannerShim
     }
     String segmentIdString = segmentId.toString();
 
+    HistoricalQueryPlannerStub stub = new HistoricalQueryPlannerStub(factory);
+    QueryRunner<T> stubRunner = Operators.toRunner(stub.planRefCount(query, segment, segmentDescriptor));
+
     MetricsEmittingQueryRunner<T> metricsEmittingQueryRunnerInner = new MetricsEmittingQueryRunner<>(
         emitter,
         toolChest,
-        new ReferenceCountingSegmentQueryRunner<>(factory, segment, segmentDescriptor),
+        stubRunner,
+        //new ReferenceCountingSegmentQueryRunner<>(factory, segment, segmentDescriptor),
         QueryMetrics::reportSegmentTime,
         queryMetrics -> queryMetrics.segment(segmentIdString)
     );

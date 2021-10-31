@@ -11,7 +11,6 @@ import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.ResourceLimitExceededException;
-import org.apache.druid.query.pipeline.Operator.OperatorDefn;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryConfig;
 import org.apache.druid.query.scan.ScanQueryQueryToolChest;
@@ -43,7 +42,7 @@ public class ScanQueryPlanner
     this.scanQueryConfig = scanQueryConfig;
   }
 
-  public OperatorDefn plan(QueryPlus<ScanResultValue> queryPlus)
+  public Operator plan(QueryPlus<ScanResultValue> queryPlus)
   {
     Query<ScanResultValue> query = queryPlus.getQuery();
     if (!(query instanceof ScanQuery)) {
@@ -53,7 +52,7 @@ public class ScanQueryPlanner
   }
 
   // See ScanQueryQueryToolChest.mergeResults
-  public OperatorDefn planScanQuery(ScanQuery query)
+  public Operator planScanQuery(ScanQuery query)
   {
     // Ensure "legacy" is a non-null value, such that all other nodes this query is forwarded to will treat it
     // the same way, even if they have different default legacy values.
@@ -62,7 +61,7 @@ public class ScanQueryPlanner
   }
 
   // See ScanQueryQueryToolChest.mergeResults
-  public OperatorDefn planOffset(ScanQuery query)
+  public Operator planOffset(ScanQuery query)
   {
     long offset = query.getScanRowsOffset();
     if (offset == 0) {
@@ -92,30 +91,30 @@ public class ScanQueryPlanner
   }
 
   // See ScanQueryQueryToolChest.mergeResults
-  public OperatorDefn planLimit(ScanQuery query)
+  public Operator planLimit(ScanQuery query)
   {
-    OperatorDefn child = unknown(query);
+    Operator child = unknown(query);
     if (!query.isLimited()) {
       return child;
     }
-    return new ScanResultLimitOperator.Defn(query, child);
+    return ScanResultLimitOperator.forQuery(query, child);
   }
 
   // See ScanQueryRunnerFactory.mergeRunners
   // See ScanQueryRunnerFactory.nWayMergeAndLimit
-  public OperatorDefn planMerge(ScanQuery query)
+  public Operator planMerge(ScanQuery query)
   {
     List<Interval> intervalsOrdered = ScanQueryRunnerFactory.getIntervalsFromSpecificQuerySpec(query.getQuerySegmentSpec());
     if (query.getOrder().equals(ScanQuery.Order.DESCENDING)) {
       intervalsOrdered = Lists.reverse(intervalsOrdered);
     }
     // TODO: Create actual scans
-    List<OperatorDefn> children = unknownList(query);
+    List<Operator> children = unknownList(query);
     if (query.getOrder() == ScanQuery.Order.NONE) {
       // Use normal strategy
-      OperatorDefn concat = concat(children);
+      Operator concat = concat(children);
       if (query.isLimited()) {
-        return new ScanResultLimitOperator.Defn(query, concat);
+        return ScanResultLimitOperator.forQuery(query, concat);
       }
       return concat;
     }
@@ -125,10 +124,10 @@ public class ScanQueryPlanner
     if (query.getScanRowsLimit() <= maxRowsQueuedForOrdering) {
       // Use sort strategy
       // TODO: Group by interval as for the n-way merge
-      return new ScanResultSortOperator.Defn(query, concat(children));
+      return ScanResultSortOperator.forQuery(query, concat(children));
     }
     // Use n-way merge strategy using a priority queue
-    List<Pair<Interval, OperatorDefn>> intervalsAndRunnersOrdered = new ArrayList<>();
+    List<Pair<Interval, Operator>> intervalsAndRunnersOrdered = new ArrayList<>();
     if (intervalsOrdered.size() == children.size()) {
       for (int i = 0; i < children.size(); i++) {
         intervalsAndRunnersOrdered.add(new Pair<>(intervalsOrdered.get(i), children.get(i)));
@@ -143,7 +142,7 @@ public class ScanQueryPlanner
     }
     // Group the list of pairs by interval.  The LinkedHashMap will have an interval paired with a list of all the
     // operators for that segment
-    LinkedHashMap<Interval, List<Pair<Interval, OperatorDefn>>> partitionsGroupedByInterval =
+    LinkedHashMap<Interval, List<Pair<Interval, Operator>>> partitionsGroupedByInterval =
         intervalsAndRunnersOrdered.stream()
                                   .collect(Collectors.groupingBy(
                                       x -> x.lhs,
@@ -179,7 +178,7 @@ public class ScanQueryPlanner
     // Create a list of grouped runner lists (i.e. each sublist/"runner group" corresponds to an interval) ->
     // there should be no interval overlap.  We create a list of lists so we can create a sequence of sequences.
     // There's no easy way to convert a LinkedHashMap to a sequence because it's non-iterable.
-    List<List<OperatorDefn>> groupedRunners =
+    List<List<Operator>> groupedRunners =
         partitionsGroupedByInterval.entrySet()
                                    .stream()
                                    .map(entry -> entry.getValue()
@@ -192,36 +191,36 @@ public class ScanQueryPlanner
     // (1) Disaggregate each ScanResultValue returned by the input operators
     // (2) Do a n-way merge per interval group based on timestamp
     // (3) Concatenate the groups
-    OperatorDefn result = concat(groupedRunners
+    Operator result = concat(groupedRunners
       .stream()
-      .map(group -> new ScanResultMergeOperator.Defn(
+      .map(group -> ScanResultMergeOperator.forQuery(
           query,
           group
             .stream()
-            .map(input -> new DisaggregateScanResultOperator.Defn(input))
+            .map(input -> new DisaggregateScanResultOperator(input))
             .collect(Collectors.toList())))
       .collect(Collectors.toList()));
 
     if (query.isLimited()) {
-      return new ScanResultLimitOperator.Defn(query, result);
+      return ScanResultLimitOperator.forQuery(query, result);
     }
     return result;
   }
 
-  public OperatorDefn concat(List<OperatorDefn> children) {
+  public Operator concat(List<Operator> children) {
     return ConcatOperator.concatOrNot(children);
   }
 
-  public OperatorDefn unknown(ScanQuery query) {
+  public Operator unknown(ScanQuery query) {
     return null;
   }
 
-  public List<OperatorDefn> unknownList(ScanQuery query) {
+  public List<Operator> unknownList(ScanQuery query) {
     return null;
   }
 
   // See ScanQueryRunnerFactory.ScanQueryRunner.run
-  public OperatorDefn planScan(ScanQuery query, Segment segment) {
-    return new ScanQueryOperator.Defn(query, segment);
+  public Operator planScan(ScanQuery query, Segment segment) {
+    return new ScanQueryOperator(query, segment);
   }
 }

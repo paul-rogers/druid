@@ -30,6 +30,22 @@ import com.google.common.collect.Iterables;
  */
 public class ScanResultLimitOperator extends LimitOperator
 {
+  public static ScanResultLimitOperator forQuery(ScanQuery query, Operator child)
+  {
+    ScanQuery.ResultFormat resultFormat = query.getResultFormat();
+    if (ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR.equals(resultFormat)) {
+      throw new UOE(ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR + " is not supported yet");
+    }
+    boolean grouped = query.getOrder() == ScanQuery.Order.NONE ||
+        !query.getContextBoolean(ScanQuery.CTX_KEY_OUTERMOST, true);
+    return new ScanResultLimitOperator(
+        query.getScanRowsLimit(),
+        grouped,
+        query.getBatchSize(),
+        child
+        );
+  }
+
   private final boolean grouped;
   private final int batchSize;
 
@@ -39,18 +55,6 @@ public class ScanResultLimitOperator extends LimitOperator
     super(limit, child);
     this.grouped = grouped;
     this.batchSize = batchSize;
-  }
-
-  public ScanResultLimitOperator(ScanQuery query, Operator child)
-  {
-    super(query.getScanRowsLimit(), child);
-    ScanQuery.ResultFormat resultFormat = query.getResultFormat();
-    if (ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR.equals(resultFormat)) {
-      throw new UOE(ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR + " is not supported yet");
-    }
-    this.grouped = query.getOrder() == ScanQuery.Order.NONE ||
-        !query.getContextBoolean(ScanQuery.CTX_KEY_OUTERMOST, true);
-    this.batchSize = query.getBatchSize();
   }
 
   @Override

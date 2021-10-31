@@ -1,8 +1,6 @@
 package org.apache.druid.query.pipeline;
 
-import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 
 import org.apache.druid.query.context.ResponseContext;
 

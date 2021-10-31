@@ -28,7 +28,7 @@ public class ScanQueryOperatorEngine implements ScanQueryEngine2
   )
   {
     ScanQueryOperator reader = new ScanQueryOperator(query, segment);
-    return Operators.toLoneSequence(reader,
+    return Operators.toSequence(reader,
         new FragmentContextImpl(query.getId(), responseContext));
   }
 }

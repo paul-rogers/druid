@@ -22,7 +22,11 @@ package org.apache.druid.query.pipeline;
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryPlus;
+import org.apache.druid.query.QueryRunner;
+import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.pipeline.Operator.FragmentContext;
+import org.apache.druid.query.pipeline.Operator.FragmentContextImpl;
 
 import java.util.Iterator;
 
@@ -48,35 +52,35 @@ public class Operators
     };
   }
 
-  /**
-   * Converts the operator to a sequence in the context of a fragment
-   * runner which starts and closes the set of operators.
-   */
-  public static <T> Sequence<T> toSequence(Operator op, FragmentContext context) {
-    return new BaseSequence<>(
-        new BaseSequence.IteratorMaker<T, Iterator<T>>()
-        {
-          @SuppressWarnings("unchecked")
-          @Override
-          public Iterator<T> make()
-          {
-            return (Iterator<T>) op.open(context);
-          }
-
-          @Override
-          public void cleanup(Iterator<T> iterFromMake)
-          {
-            // No cleanup: fragment runner will close operators
-          }
-        }
-    );
-  }
+//  /**
+//   * Converts the operator to a sequence in the context of a fragment
+//   * runner which starts and closes the set of operators.
+//   */
+//  public static <T> Sequence<T> toSequence(Operator op, FragmentContext context) {
+//    return new BaseSequence<>(
+//        new BaseSequence.IteratorMaker<T, Iterator<T>>()
+//        {
+//          @SuppressWarnings("unchecked")
+//          @Override
+//          public Iterator<T> make()
+//          {
+//            return (Iterator<T>) op.open(context);
+//          }
+//
+//          @Override
+//          public void cleanup(Iterator<T> iterFromMake)
+//          {
+//            // No cleanup: fragment runner will close operators
+//          }
+//        }
+//    );
+//  }
 
   /**
    * Converts a stand-alone operator to a sequence outside the context of a fragment
    * runner. The sequence starts and closes the operator.
    */
-  public static <T> Sequence<T> toLoneSequence(Operator op, FragmentContext context) {
+  public static <T> Sequence<T> toSequence(Operator op, FragmentContext context) {
     return new BaseSequence<>(
         new BaseSequence.IteratorMaker<T, Iterator<T>>()
         {
@@ -99,5 +103,26 @@ public class Operators
   public static Operator toOperator(Sequence<?> sequence)
   {
     return new SequenceOperator(sequence);
+  }
+
+  /**
+   * Wrap an operator in a query runner which wraps the operator in
+   * a Sequence.
+   */
+  public static <T> QueryRunner<T> toRunner(Operator op)
+  {
+    return new QueryRunner<T>()
+    {
+      @Override
+      public Sequence<T> run(QueryPlus<T> queryPlus, ResponseContext responseContext) {
+        return toSequence(
+            op,
+            new FragmentContextImpl(
+                queryPlus.getQuery().getId(),
+                responseContext
+                )
+            );
+      }
+    };
   }
 }
