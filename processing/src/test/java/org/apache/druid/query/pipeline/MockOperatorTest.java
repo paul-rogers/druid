@@ -19,22 +19,19 @@
 
 package org.apache.druid.query.pipeline;
 
-import org.apache.druid.java.util.common.guava.Sequence;
-import org.apache.druid.java.util.common.guava.SequenceTestHelper;
-import org.apache.druid.query.pipeline.FragmentRunner.OperatorRegistry;
-import org.apache.druid.query.pipeline.Operator.FragmentContext;
-import org.junit.Test;
-
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+
+import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.java.util.common.guava.SequenceTestHelper;
+import org.apache.druid.query.pipeline.Operator.FragmentContext;
+import org.junit.Test;
 
 public class MockOperatorTest
 {

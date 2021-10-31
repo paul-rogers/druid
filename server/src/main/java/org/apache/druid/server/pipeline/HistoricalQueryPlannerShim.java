@@ -1,3 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.druid.server.pipeline;
 
 import java.util.Collections;
@@ -9,7 +28,6 @@ import org.apache.druid.client.CachingQueryRunner;
 import org.apache.druid.client.cache.Cache;
 import org.apache.druid.client.cache.CacheConfig;
 import org.apache.druid.client.cache.CachePopulator;
-import org.apache.druid.guice.annotations.Smile;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
@@ -20,7 +38,6 @@ import org.apache.druid.query.BySegmentQueryRunner;
 import org.apache.druid.query.CPUTimeMetricQueryRunner;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
 import org.apache.druid.query.MetricsEmittingQueryRunner;
-import org.apache.druid.query.NoopQueryRunner;
 import org.apache.druid.query.PerSegmentOptimizingQueryRunner;
 import org.apache.druid.query.PerSegmentQueryOptimizationContext;
 import org.apache.druid.query.Query;
@@ -32,11 +49,9 @@ import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryUnsupportedException;
-import org.apache.druid.query.ReferenceCountingSegmentQueryRunner;
 import org.apache.druid.query.ReportTimelineMissingSegmentQueryRunner;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.pipeline.HistoricalQueryPlannerStub;
-import org.apache.druid.query.pipeline.Operators;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
@@ -44,7 +59,6 @@ import org.apache.druid.segment.ReferenceCountingSegment;
 import org.apache.druid.segment.SegmentReference;
 import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.filter.Filters;
-import org.apache.druid.segment.join.JoinableFactory;
 import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.server.SegmentManager;
 import org.apache.druid.server.SetAndVerifyContextQueryRunner;
@@ -57,7 +71,6 @@ import org.joda.time.Interval;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
-import com.google.inject.Inject;
 
 /**
  * Temporary query planner that combines QueryRunners for the "top" part
@@ -231,17 +244,17 @@ public class HistoricalQueryPlannerShim
     }
     String segmentIdString = segmentId.toString();
 
-    HistoricalQueryPlannerStub stub = new HistoricalQueryPlannerStub(factory);
+    HistoricalQueryPlannerStub stub = new HistoricalQueryPlannerStub(factory, toolChest, emitter);
     QueryRunner<T> stubRunner = stub.plan(query, segment, segmentDescriptor);
 
-    MetricsEmittingQueryRunner<T> metricsEmittingQueryRunnerInner = new MetricsEmittingQueryRunner<>(
-        emitter,
-        toolChest,
-        stubRunner,
-        //new ReferenceCountingSegmentQueryRunner<>(factory, segment, segmentDescriptor),
-        QueryMetrics::reportSegmentTime,
-        queryMetrics -> queryMetrics.segment(segmentIdString)
-    );
+//    MetricsEmittingQueryRunner<T> metricsEmittingQueryRunnerInner = new MetricsEmittingQueryRunner<>(
+//        emitter,
+//        toolChest,
+//        stubRunner,
+//        //new ReferenceCountingSegmentQueryRunner<>(factory, segment, segmentDescriptor),
+//        QueryMetrics::reportSegmentTime,
+//        queryMetrics -> queryMetrics.segment(segmentIdString)
+//    );
 
     StorageAdapter storageAdapter = segment.asStorageAdapter();
     long segmentMaxTime = storageAdapter.getMaxTime().getMillis();
@@ -255,7 +268,7 @@ public class HistoricalQueryPlannerShim
         objectMapper,
         cache,
         toolChest,
-        metricsEmittingQueryRunnerInner,
+        stubRunner,
         cachePopulator,
         cacheConfig
     );

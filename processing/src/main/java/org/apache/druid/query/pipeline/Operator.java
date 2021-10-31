@@ -83,12 +83,18 @@ public interface Operator
 {
   public interface FragmentContext
   {
+    public enum State
+    {
+      RUN, SUCEEDED, FAILED
+    }
+    State state();
     String queryId();
     ResponseContext responseContext();
   }
 
   public static class FragmentContextImpl implements FragmentContext
   {
+    private State state = State.RUN;
     private final ResponseContext responseContext;
     private final String queryId;
 
@@ -99,6 +105,11 @@ public interface Operator
     }
 
     @Override
+    public State state() {
+      return state;
+    }
+
+    @Override
     public String queryId() {
       return queryId;
     }
@@ -106,6 +117,11 @@ public interface Operator
     @Override
     public ResponseContext responseContext() {
       return responseContext;
+    }
+
+    public void completed(boolean success)
+    {
+      state = success ? State.SUCEEDED : State.FAILED;
     }
   }
 

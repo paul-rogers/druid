@@ -26,7 +26,7 @@ import java.util.Iterator;
  */
 public class BaseSequence<T, IterType extends Iterator<T>> implements Sequence<T>
 {
-  private final IteratorMaker<T, IterType> maker;
+  protected final IteratorMaker<T, IterType> maker;
 
   public BaseSequence(IteratorMaker<T, IterType> maker)
   {
