@@ -31,6 +31,16 @@ import org.apache.druid.query.pipeline.SequenceOperator;
 
 import com.google.common.base.Function;
 
+/**
+ * Writes the results from the input operator to the cache.
+ * <p>
+ * The caching mechanism assumes a sequence, so the present
+ * implementation does a bit of song-and-dance to convert from the
+ * operator protocol to the sequence protocol and back. It would be
+ * more efficient if the caching mechanism worked row-by-row.
+ *
+ * @see {@link org.apache.druid.client.CachingQueryRunner}
+ */
 public class ToCacheOperator implements Operator
 {
   private final Operator child;
@@ -80,5 +90,4 @@ public class ToCacheOperator implements Operator
       child.close(cascade);
     }
   }
-
 }

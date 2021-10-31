@@ -33,9 +33,10 @@ import com.google.common.base.Preconditions;
 /**
  * Operator to retrieve a query value from the cache or child. If the results
  * are present in the cache, {@code open()} returns an iterator over those
- * results.
- * If not present, returns the iterator for the child operator,
+ * results. If not present, returns the iterator for the child operator,
  * which presumably will produce the result.
+ *
+ * @see {@link org.apache.druid.client.CachingQueryRunner}
  */
 public class FromCacheOperator implements Operator
 {

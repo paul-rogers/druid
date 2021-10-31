@@ -31,6 +31,7 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.CacheStrategy;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
@@ -191,14 +192,23 @@ public class HistoricalQueryPlannerStub
                 planScan())));
     }
 
+    /**
+     * Plan the cache operation. Depending on configuration, the query may
+     * come from, or go to the cache (or both or neither). The to-cache and
+     * from-cache steps are distinct operators. We add only those requested
+     * by configuration. This means the operator DAG will not contain cache
+     * operations if caching is not enabled.
+     *
+     * @see {@link org.apache.druid.client.CachingQueryRunner}
+     */
     public Operator planCache(Operator child)
     {
       if (!queryPlanner.cacheKeyPrefix.isPresent()) {
         return child;
       }
       final CacheStrategy<T, Object, Query<T>> strategy = queryPlanner.toolChest.getCacheStrategy(query);
-      boolean populate = canPopulateCache(strategy);
-      boolean use = canUseCache(strategy);
+      final boolean populate = canPopulateCache(strategy);
+      final boolean use = canUseCache(strategy);
       if (!populate && !use) {
         return child;
       }
@@ -227,17 +237,30 @@ public class HistoricalQueryPlannerStub
       return op;
     }
 
+    /**
+     * Add the metrics-reporting operator. Allows metrics to be optional. If not
+     * present, simply omits the metrics operator.
+     *
+     * @see {@link org.apache.druid.server.coordination.ServerManager#buildAndDecorateQueryRunner}
+     */
     public Operator planMetrics(Operator child)
     {
       final QueryPlus<T> queryWithMetrics = QueryPlus.wrap(query).withQueryMetrics(queryPlanner.toolChest);
+      final QueryMetrics<?> queryMetrics = queryWithMetrics.getQueryMetrics();
+      if (queryMetrics == null) {
+        return child;
+      }
       return queryPlanner.add(
           new MetricsOperator(
               planContext.emitter,
               segment.getId().toString(),
-              queryWithMetrics.getQueryMetrics(),
+              queryMetrics,
               child));
     }
 
+    /**
+     * @see {@link org.apache.druid.server.coordination.ServerManager#buildAndDecorateQueryRunner}
+     */
     public Operator planRefCount(Operator child)
     {
       return queryPlanner.add(new SegmentLockOperator(segment, descriptor, child));
@@ -250,6 +273,7 @@ public class HistoricalQueryPlannerStub
 
     /**
      * @return whether the segment level cache should be used or not. False if strategy is null
+     * @see {@link org.apache.druid.client.CachingQueryRunner#canUseCache}
      */
     @VisibleForTesting
     boolean canUseCache(CacheStrategy<T, Object, Query<T>> strategy)
@@ -265,6 +289,7 @@ public class HistoricalQueryPlannerStub
 
     /**
      * @return whether the segment level cache should be populated or not. False if strategy is null
+     * @see {@link org.apache.druid.client.CachingQueryRunner#canPopulateCache}
      */
     @VisibleForTesting
     boolean canPopulateCache(CacheStrategy<T, Object, Query<T>> strategy)
@@ -278,6 +303,9 @@ public class HistoricalQueryPlannerStub
           );
     }
 
+    /**
+     * @see {@link org.apache.druid.client.CachingQueryRunner#alignToActualDataInterval}
+     */
     private SegmentDescriptor alignToActualDataInterval()
     {
       Interval interval = descriptor.getInterval();
@@ -341,37 +369,4 @@ public class HistoricalQueryPlannerStub
     // Convert the fragment runner to a query runner.
     return queryPlanner.runner.toRunner();
   }
-
-//  public static class CachePlanner
-//  {
-//     private final CacheConfig cacheConfig;
-//
-//    public CachePlanner(
-//        final CacheConfig cacheConfig,
-//        final DataSourceAnalysis analysis,
-//        final JoinableFactoryWrapper joinableFactoryWrapper)
-//    {
-//      this.cacheConfig = cacheConfig;
-//    }
-//   }
-
-//  private final FactoryHolder<?> holder;
-//  private final Cache cache;
-//  private final CachePlanner cachePlanner;
-//
-//  public <T> HistoricalQueryPlannerStub(
-//      final QueryRunnerFactory<T, Query<T>> factory,
-//      final QueryToolChest<T, Query<T>> toolChest,
-//      final ServiceEmitter emitter,
-//      final Cache cache,
-//      final CacheConfig cacheConfig,
-//      final DataSourceAnalysis analysis,
-//      final JoinableFactoryWrapper joinableFactoryWrapper)
-//  {
-//    this.holder = new FactoryHolder<T>(factory, toolChest);
-//    this.emitter = emitter;
-//    this.cache = cache;
-//    this.cachePlanner = new CachePlanner(cacheConfig, analysis, joinableFactoryWrapper);
-//  }
-
 }
