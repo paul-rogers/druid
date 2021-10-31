@@ -51,7 +51,6 @@ import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.ReportTimelineMissingSegmentQueryRunner;
 import org.apache.druid.query.SegmentDescriptor;
-import org.apache.druid.query.pipeline.HistoricalQueryPlannerStub;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
@@ -64,6 +63,8 @@ import org.apache.druid.server.SegmentManager;
 import org.apache.druid.server.SetAndVerifyContextQueryRunner;
 import org.apache.druid.server.coordination.ServerManager;
 import org.apache.druid.server.initialization.ServerConfig;
+import org.apache.druid.server.pipeline.HistoricalQueryPlannerStub.PlanContext;
+import org.apache.druid.server.pipeline.HistoricalQueryPlannerStub.QueryPlanner;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.VersionedIntervalTimeline;
 import org.apache.druid.timeline.partition.PartitionChunk;
@@ -161,6 +162,20 @@ public class HistoricalQueryPlannerShim
                                             ? joinableFactoryWrapper.computeJoinDataSourceCacheKey(analysis)
                                             : Optional.of(StringUtils.EMPTY_BYTES);
 
+    final PlanContext planContext = new PlanContext(
+        emitter,
+        cacheConfig,
+        cache,
+        cachePopulator,
+        objectMapper,
+        joinableFactoryWrapper
+        );
+    final QueryPlanner<T> queryPlanner = new QueryPlanner<>(
+        planContext,
+        query,
+        factory,
+        analysis
+        );
     final FunctionalIterable<QueryRunner<T>> queryRunners = FunctionalIterable
         .create(specs)
         .transformCat(
@@ -173,7 +188,8 @@ public class HistoricalQueryPlannerShim
                     timeline,
                     segmentMapFn,
                     cpuTimeAccumulator,
-                    cacheKeyPrefix
+                    cacheKeyPrefix,
+                    queryPlanner
                 )
             )
         );
@@ -198,7 +214,8 @@ public class HistoricalQueryPlannerShim
       final VersionedIntervalTimeline<String, ReferenceCountingSegment> timeline,
       final Function<SegmentReference, SegmentReference> segmentMapFn,
       final AtomicLong cpuTimeAccumulator,
-      Optional<byte[]> cacheKeyPrefix
+      Optional<byte[]> cacheKeyPrefix,
+      final QueryPlanner<T> queryPlanner
   )
   {
     final PartitionChunk<ReferenceCountingSegment> chunk = timeline.findChunk(
@@ -219,7 +236,8 @@ public class HistoricalQueryPlannerShim
         segmentMapFn.apply(segment),
         cacheKeyPrefix,
         descriptor,
-        cpuTimeAccumulator
+        cpuTimeAccumulator,
+        queryPlanner
     );
   }
 
@@ -230,7 +248,8 @@ public class HistoricalQueryPlannerShim
       final SegmentReference segment,
       final Optional<byte[]> cacheKeyPrefix,
       final SegmentDescriptor segmentDescriptor,
-      final AtomicLong cpuTimeAccumulator
+      final AtomicLong cpuTimeAccumulator,
+      final QueryPlanner<T> queryPlanner
   )
   {
     final SpecificSegmentSpec segmentSpec = new SpecificSegmentSpec(segmentDescriptor);
@@ -244,8 +263,11 @@ public class HistoricalQueryPlannerShim
     }
     String segmentIdString = segmentId.toString();
 
-    HistoricalQueryPlannerStub stub = new HistoricalQueryPlannerStub(factory, toolChest, emitter);
-    QueryRunner<T> stubRunner = stub.plan(query, segment, segmentDescriptor);
+    QueryRunner<T> stubRunner = HistoricalQueryPlannerStub.planSegmentStub(
+        queryPlanner,
+        query,
+        segment,
+        segmentDescriptor);
 
 //    MetricsEmittingQueryRunner<T> metricsEmittingQueryRunnerInner = new MetricsEmittingQueryRunner<>(
 //        emitter,
@@ -256,27 +278,27 @@ public class HistoricalQueryPlannerShim
 //        queryMetrics -> queryMetrics.segment(segmentIdString)
 //    );
 
-    StorageAdapter storageAdapter = segment.asStorageAdapter();
-    long segmentMaxTime = storageAdapter.getMaxTime().getMillis();
-    long segmentMinTime = storageAdapter.getMinTime().getMillis();
-    Interval actualDataInterval = Intervals.utc(segmentMinTime, segmentMaxTime + 1);
-    CachingQueryRunner<T> cachingQueryRunner = new CachingQueryRunner<>(
-        segmentIdString,
-        cacheKeyPrefix,
-        segmentDescriptor,
-        actualDataInterval,
-        objectMapper,
-        cache,
-        toolChest,
-        stubRunner,
-        cachePopulator,
-        cacheConfig
-    );
+//    StorageAdapter storageAdapter = segment.asStorageAdapter();
+//    long segmentMaxTime = storageAdapter.getMaxTime().getMillis();
+//    long segmentMinTime = storageAdapter.getMinTime().getMillis();
+//    Interval actualDataInterval = Intervals.utc(segmentMinTime, segmentMaxTime + 1);
+//    CachingQueryRunner<T> cachingQueryRunner = new CachingQueryRunner<>(
+//        segmentIdString,
+//        cacheKeyPrefix,
+//        segmentDescriptor,
+//        actualDataInterval,
+//        objectMapper,
+//        cache,
+//        toolChest,
+//        stubRunner,
+//        cachePopulator,
+//        cacheConfig
+//    );
 
     BySegmentQueryRunner<T> bySegmentQueryRunner = new BySegmentQueryRunner<>(
         segmentId,
         segmentInterval.getStart(),
-        cachingQueryRunner
+        stubRunner
     );
 
     MetricsEmittingQueryRunner<T> metricsEmittingQueryRunnerOuter = new MetricsEmittingQueryRunner<>(
