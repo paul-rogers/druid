@@ -3,6 +3,7 @@ package org.apache.druid.query.pipeline;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
+import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.scan.ScanQuery;
@@ -42,6 +43,7 @@ public class HistoricalQueryPlannerStub
 
   private final FactoryHolder<?> holder;
   private final QueryPlanner queryPlanner;
+  private final FragmentRunner runner = new FragmentRunner();
 
   public <T> HistoricalQueryPlannerStub(final QueryRunnerFactory<T, Query<T>> factory)
   {
@@ -51,11 +53,26 @@ public class HistoricalQueryPlannerStub
     this.queryPlanner = new ScanQueryPlanner();
   }
 
-  public Operator planRefCount(Query<?> query,
+  public <T> QueryRunner<T> plan(final Query<?> query,
       SegmentReference segment,
       SegmentDescriptor descriptor)
   {
-    Operator scan = queryPlanner.planScan(query, segment);
-    return new SegmentLockOperator(segment, descriptor, scan);
+    planRefCount(segment, descriptor,
+        planScan(query, segment));
+    return runner.toRunner();
+  }
+
+  public Operator planRefCount(
+      SegmentReference segment,
+      SegmentDescriptor descriptor,
+      Operator child)
+  {
+    return runner.add(new SegmentLockOperator(segment, descriptor, child));
+  }
+
+  private Operator planScan(Query<?> query,
+      SegmentReference segment)
+  {
+    return runner.add(queryPlanner.planScan(query, segment));
   }
 }

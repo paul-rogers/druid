@@ -232,7 +232,7 @@ public class HistoricalQueryPlannerShim
     String segmentIdString = segmentId.toString();
 
     HistoricalQueryPlannerStub stub = new HistoricalQueryPlannerStub(factory);
-    QueryRunner<T> stubRunner = Operators.toRunner(stub.planRefCount(query, segment, segmentDescriptor));
+    QueryRunner<T> stubRunner = stub.plan(query, segment, segmentDescriptor);
 
     MetricsEmittingQueryRunner<T> metricsEmittingQueryRunnerInner = new MetricsEmittingQueryRunner<>(
         emitter,

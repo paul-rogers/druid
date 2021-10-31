@@ -94,7 +94,7 @@ public class Operators
           @Override
           public void cleanup(Iterator<T> iterFromMake)
           {
-            op.close(false);
+            op.close(true);
           }
         }
     );
