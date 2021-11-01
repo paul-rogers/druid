@@ -295,22 +295,22 @@ public class HistoricalQueryPlannerShim
 //        cacheConfig
 //    );
 
-    BySegmentQueryRunner<T> bySegmentQueryRunner = new BySegmentQueryRunner<>(
-        segmentId,
-        segmentInterval.getStart(),
-        stubRunner
-    );
+//    BySegmentQueryRunner<T> bySegmentQueryRunner = new BySegmentQueryRunner<>(
+//        segmentId,
+//        segmentInterval.getStart(),
+//        stubRunner
+//    );
 
-    MetricsEmittingQueryRunner<T> metricsEmittingQueryRunnerOuter = new MetricsEmittingQueryRunner<>(
-        emitter,
-        toolChest,
-        bySegmentQueryRunner,
-        QueryMetrics::reportSegmentAndCacheTime,
-        queryMetrics -> queryMetrics.segment(segmentIdString)
-    ).withWaitMeasuredFromNow();
+//    MetricsEmittingQueryRunner<T> metricsEmittingQueryRunnerOuter = new MetricsEmittingQueryRunner<>(
+//        emitter,
+//        toolChest,
+//        stubRunner,
+//        QueryMetrics::reportSegmentAndCacheTime,
+//        queryMetrics -> queryMetrics.segment(segmentIdString)
+//    ).withWaitMeasuredFromNow();
 
     SpecificSegmentQueryRunner<T> specificSegmentQueryRunner = new SpecificSegmentQueryRunner<>(
-        metricsEmittingQueryRunnerOuter,
+        stubRunner,
         segmentSpec
     );
 

@@ -20,6 +20,7 @@
 package org.apache.druid.server.pipeline;
 
 import java.util.Optional;
+import java.util.function.ObjLongConsumer;
 
 import org.apache.druid.client.CacheUtil;
 import org.apache.druid.client.cache.Cache;
@@ -29,20 +30,24 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
+import org.apache.druid.query.BySegmentResultValueClass;
 import org.apache.druid.query.CacheStrategy;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.query.pipeline.BySegmentOperator;
 import org.apache.druid.query.pipeline.FragmentRunner;
 import org.apache.druid.query.pipeline.MetricsOperator;
 import org.apache.druid.query.pipeline.Operator;
 import org.apache.druid.query.pipeline.ScanQueryOperator;
 import org.apache.druid.query.pipeline.SegmentLockOperator;
 import org.apache.druid.query.planning.DataSourceAnalysis;
+import org.apache.druid.query.profile.Timer;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryRunnerFactory;
 import org.apache.druid.segment.SegmentReference;
@@ -122,6 +127,7 @@ public class HistoricalQueryPlannerStub
     final DataSourceAnalysis analysis;
     final QueryTypePlanner queryTypePlanner;
     final Optional<byte[]> cacheKeyPrefix;
+    final Timer waitTimer = Timer.createStarted();
     final FragmentRunner runner = new FragmentRunner();
 
     public QueryPlanner(
@@ -163,6 +169,7 @@ public class HistoricalQueryPlannerStub
     final SegmentDescriptor descriptor;
     final String segmentIdString;
     final Interval actualDataInterval;
+    final QueryMetrics<?> queryMetrics;
 
     public SegmentPlanner(
         final QueryPlanner<T> queryPlanner,
@@ -182,14 +189,48 @@ public class HistoricalQueryPlannerStub
       long segmentMaxTime = storageAdapter.getMaxTime().getMillis();
       long segmentMinTime = storageAdapter.getMinTime().getMillis();
       this.actualDataInterval = Intervals.utc(segmentMinTime, segmentMaxTime + 1);
+      final QueryPlus<T> queryWithMetrics = QueryPlus.wrap(query).withQueryMetrics(queryPlanner.toolChest);
+      this.queryMetrics = queryWithMetrics.getQueryMetrics();
     }
 
     public Operator plan()
     {
-      return planCache(
-          planMetrics(
-            planRefCount(
-                planScan())));
+      return planSegmentAndCacheMetrics(
+          planBySegment(
+            planCache(
+              planSegmentMetrics(
+                planRefCount(
+                    planScan())))));
+    }
+
+    private Operator planSegmentAndCacheMetrics(Operator child)
+    {
+      return planMetrics(
+          QueryMetrics::reportSegmentAndCacheTime,
+          true,
+          child
+          );
+    }
+
+    /**
+     * Create an operator that wraps a base single-segment query operator, and wraps its results in a
+     * {@link BySegmentResultValueClass} object if the "bySegment" query context parameter is set. Otherwise, it
+     * delegates to the base operator without any behavior modification.
+     *
+     * @see {@link org.apache.druid.server.coordination.ServerManager#buildAndDecorateQueryRunner}
+     * @see {@link org.apache.druid.query.BySegmentQueryRunner}
+     */
+    private Operator planBySegment(Operator child)
+    {
+      if (!QueryContexts.isBySegment(query)) {
+        return child;
+      }
+      return queryPlanner.add(
+          new BySegmentOperator(
+              segmentIdString,
+              segment.getDataInterval().getStart(),
+              query.getIntervals().get(0),
+              child));
     }
 
     /**
@@ -201,7 +242,7 @@ public class HistoricalQueryPlannerStub
      *
      * @see {@link org.apache.druid.client.CachingQueryRunner}
      */
-    public Operator planCache(Operator child)
+    private Operator planCache(Operator child)
     {
       if (!queryPlanner.cacheKeyPrefix.isPresent()) {
         return child;
@@ -237,16 +278,26 @@ public class HistoricalQueryPlannerStub
       return op;
     }
 
+    private Operator planSegmentMetrics(Operator child)
+    {
+      return planMetrics(
+          QueryMetrics::reportSegmentTime,
+          false,
+          child
+          );
+    }
+
     /**
      * Add the metrics-reporting operator. Allows metrics to be optional. If not
      * present, simply omits the metrics operator.
      *
      * @see {@link org.apache.druid.server.coordination.ServerManager#buildAndDecorateQueryRunner}
      */
-    public Operator planMetrics(Operator child)
+    private Operator planMetrics(
+        ObjLongConsumer<? super QueryMetrics<?>> reportMetric,
+        boolean withWaitTime,
+        Operator child)
     {
-      final QueryPlus<T> queryWithMetrics = QueryPlus.wrap(query).withQueryMetrics(queryPlanner.toolChest);
-      final QueryMetrics<?> queryMetrics = queryWithMetrics.getQueryMetrics();
       if (queryMetrics == null) {
         return child;
       }
@@ -255,13 +306,17 @@ public class HistoricalQueryPlannerStub
               planContext.emitter,
               segment.getId().toString(),
               queryMetrics,
+              reportMetric,
+              // TODO: Should wait time be reported at the segment level?
+              // TODO: Should wait time be from the start of query?
+              withWaitTime ? Timer.createStarted() : null,
               child));
     }
 
     /**
      * @see {@link org.apache.druid.server.coordination.ServerManager#buildAndDecorateQueryRunner}
      */
-    public Operator planRefCount(Operator child)
+    private Operator planRefCount(Operator child)
     {
       return queryPlanner.add(new SegmentLockOperator(segment, descriptor, child));
     }

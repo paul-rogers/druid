@@ -107,6 +107,8 @@ public class HistoricalQueryPlanner<T>
         emitter,
         segment.getId().toString(),
         queryMetrics,
+        QueryMetrics::reportSegmentTime,
+        null,
         child
         );
   }

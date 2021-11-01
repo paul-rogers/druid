@@ -20,6 +20,7 @@
 package org.apache.druid.query.pipeline;
 
 import java.util.Iterator;
+import java.util.function.ObjLongConsumer;
 
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
@@ -39,25 +40,30 @@ public class MetricsOperator implements Operator
 {
   private static final Logger log = new Logger(MetricsOperator.class);
 
-  private final Timer waitTimer = Timer.createStarted();
+  private final Timer waitTimer;
   private final ServiceEmitter emitter;
   private final String segmentIdString;
   private final QueryMetrics<?> queryMetrics;
+  private final ObjLongConsumer<? super QueryMetrics<?>> reportMetric;
   private final Operator child;
   private final Timer runTimer = Timer.create();
   private FragmentContext context;
   private State state = State.START;
 
   public MetricsOperator(
-          final ServiceEmitter emitter,
-          final String segmentIdString,
-          final QueryMetrics<?> queryMetrics,
-          final Operator child
+      final ServiceEmitter emitter,
+      final String segmentIdString,
+      final QueryMetrics<?> queryMetrics,
+      final ObjLongConsumer<? super QueryMetrics<?>> reportMetric,
+      final Timer waitTimer,
+      final Operator child
   )
   {
     this.emitter = emitter;
     this.segmentIdString = segmentIdString;
     this.queryMetrics = queryMetrics;
+    this.reportMetric = reportMetric;
+    this.waitTimer = waitTimer;
     this.child = child;
   }
 
@@ -84,8 +90,12 @@ public class MetricsOperator implements Operator
     if (context.state() == FragmentContext.State.FAILED) {
       queryMetrics.status("failed");
     }
-    queryMetrics.reportSegmentTime(runTimer.get());
-    queryMetrics.reportWaitTime(waitTimer.get() - runTimer.get());
+    reportMetric.accept(queryMetrics, runTimer.get());
+
+    // Wait time is reported only in the other-most metric operator.
+    if (waitTimer != null) {
+      queryMetrics.reportWaitTime(waitTimer.get() - runTimer.get());
+    }
     try {
       queryMetrics.emit(emitter);
     }
