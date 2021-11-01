@@ -40,6 +40,11 @@ public class MissingSegmentsOperator implements Operator
 
   private final List<SegmentDescriptor> descriptors;
 
+  public MissingSegmentsOperator(SegmentDescriptor descriptor)
+  {
+    this(Collections.singletonList(descriptor));
+  }
+
   public MissingSegmentsOperator(List<SegmentDescriptor> descriptors)
   {
     this.descriptors = descriptors;

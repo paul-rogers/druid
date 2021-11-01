@@ -19,50 +19,32 @@
 
 package org.apache.druid.server.pipeline;
 
-import java.util.Collections;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 
 import org.apache.druid.client.cache.Cache;
 import org.apache.druid.client.cache.CacheConfig;
 import org.apache.druid.client.cache.CachePopulator;
-import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.java.util.common.guava.FunctionalIterable;
 import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.CPUTimeMetricQueryRunner;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryUnsupportedException;
-import org.apache.druid.query.ReportTimelineMissingSegmentQueryRunner;
 import org.apache.druid.query.SegmentDescriptor;
-import org.apache.druid.query.planning.DataSourceAnalysis;
-import org.apache.druid.query.spec.SpecificSegmentSpec;
-import org.apache.druid.segment.ReferenceCountingSegment;
-import org.apache.druid.segment.SegmentReference;
-import org.apache.druid.segment.filter.Filters;
 import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.server.SegmentManager;
-import org.apache.druid.server.SetAndVerifyContextQueryRunner;
 import org.apache.druid.server.coordination.ServerManager;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.pipeline.HistoricalQueryPlannerStub.PlanContext;
 import org.apache.druid.server.pipeline.HistoricalQueryPlannerStub.QueryPlanner;
-import org.apache.druid.timeline.SegmentId;
-import org.apache.druid.timeline.VersionedIntervalTimeline;
-import org.apache.druid.timeline.partition.PartitionChunk;
-import org.joda.time.Interval;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Lists;
 
 /**
  * Temporary query planner that combines QueryRunners for the "top" part
@@ -123,36 +105,37 @@ public class HistoricalQueryPlannerShim
     }
 
     final QueryToolChest<T, Query<T>> toolChest = factory.getToolchest();
-    final DataSourceAnalysis analysis = DataSourceAnalysis.forDataSource(query.getDataSource());
+//    final DataSourceAnalysis analysis = DataSourceAnalysis.forDataSource(query.getDataSource());
     final AtomicLong cpuTimeAccumulator = new AtomicLong(0L);
+//
+//    final VersionedIntervalTimeline<String, ReferenceCountingSegment> timeline;
+//    final Optional<VersionedIntervalTimeline<String, ReferenceCountingSegment>> maybeTimeline =
+//        segmentManager.getTimeline(analysis);
 
-    final VersionedIntervalTimeline<String, ReferenceCountingSegment> timeline;
-    final Optional<VersionedIntervalTimeline<String, ReferenceCountingSegment>> maybeTimeline =
-        segmentManager.getTimeline(analysis);
+//    // Make sure this query type can handle the subquery, if present.
+//    if (analysis.isQuery() && !toolChest.canPerformSubquery(((QueryDataSource) analysis.getDataSource()).getQuery())) {
+//      throw new ISE("Cannot handle subquery: %s", analysis.getDataSource());
+//    }
 
-    // Make sure this query type can handle the subquery, if present.
-    if (analysis.isQuery() && !toolChest.canPerformSubquery(((QueryDataSource) analysis.getDataSource()).getQuery())) {
-      throw new ISE("Cannot handle subquery: %s", analysis.getDataSource());
-    }
+//    if (maybeTimeline.isPresent()) {
+//      timeline = maybeTimeline.get();
+//    } else {
+//      return new ReportTimelineMissingSegmentQueryRunner<>(Lists.newArrayList(specs));
+//    }
 
-    if (maybeTimeline.isPresent()) {
-      timeline = maybeTimeline.get();
-    } else {
-      return new ReportTimelineMissingSegmentQueryRunner<>(Lists.newArrayList(specs));
-    }
+//    // segmentMapFn maps each base Segment into a joined Segment if necessary.
+//    final Function<SegmentReference, SegmentReference> segmentMapFn = joinableFactoryWrapper.createSegmentMapFn(
+//        analysis.getJoinBaseTableFilter().map(Filters::toFilter).orElse(null),
+//        analysis.getPreJoinableClauses(),
+//        cpuTimeAccumulator,
+//        analysis.getBaseQuery().orElse(query)
+//    );
+//    // We compute the join cache key here itself so it doesn't need to be re-computed for every segment
+//    final Optional<byte[]> cacheKeyPrefix = analysis.isJoin()
+//                                            ? joinableFactoryWrapper.computeJoinDataSourceCacheKey(analysis)
+//                                            : Optional.of(StringUtils.EMPTY_BYTES);
 
-    // segmentMapFn maps each base Segment into a joined Segment if necessary.
-    final Function<SegmentReference, SegmentReference> segmentMapFn = joinableFactoryWrapper.createSegmentMapFn(
-        analysis.getJoinBaseTableFilter().map(Filters::toFilter).orElse(null),
-        analysis.getPreJoinableClauses(),
-        cpuTimeAccumulator,
-        analysis.getBaseQuery().orElse(query)
-    );
-    // We compute the join cache key here itself so it doesn't need to be re-computed for every segment
-    final Optional<byte[]> cacheKeyPrefix = analysis.isJoin()
-                                            ? joinableFactoryWrapper.computeJoinDataSourceCacheKey(analysis)
-                                            : Optional.of(StringUtils.EMPTY_BYTES);
-
+    // One of these per engine. Created in-line for now.
     final PlanContext planContext = new PlanContext(
         serverConfig,
         emitter,
@@ -160,37 +143,42 @@ public class HistoricalQueryPlannerShim
         cache,
         cachePopulator,
         objectMapper,
+        segmentManager,
         joinableFactoryWrapper
         );
+    // One per query.
     final QueryPlanner<T> queryPlanner = new QueryPlanner<>(
         planContext,
         query,
-        factory,
-        analysis
+        specs,
+        factory
         );
-    final FunctionalIterable<QueryRunner<T>> queryRunners = FunctionalIterable
-        .create(specs)
-        .transformCat(
-            descriptor -> Collections.singletonList(
-                buildQueryRunnerForSegment(
-                    query,
-                    descriptor,
-                    factory,
-                    toolChest,
-                    timeline,
-                    segmentMapFn,
-                    cpuTimeAccumulator,
-                    cacheKeyPrefix,
-                    queryPlanner
-                )
-            )
-        );
+    QueryRunner<T> stubRunner = queryPlanner.planQueryStub();
+//    final FunctionalIterable<QueryRunner<T>> queryRunners = FunctionalIterable
+//        .create(specs)
+//        .transformCat(
+//            descriptor -> Collections.singletonList(
+//                buildQueryRunnerForSegment(
+//                    query,
+//                    descriptor,
+////                    factory,
+////                    toolChest,
+//                    timeline,
+//                    segmentMapFn,
+////                    cpuTimeAccumulator,
+////                    cacheKeyPrefix,
+//                    queryPlanner
+//                )
+//            )
+//        );
 
     return CPUTimeMetricQueryRunner.safeBuild(
-        new FinalizeResultsQueryRunner<>(
-            toolChest.mergeResults(factory.mergeRunners(queryProcessingPool, queryRunners)),
-            toolChest
-        ),
+        stubRunner,
+//        new FinalizeResultsQueryRunner<>(
+//            stubRunner,
+////            toolChest.mergeResults(factory.mergeRunners(queryProcessingPool, queryRunners)),
+//            toolChest
+//        ),
         toolChest,
         emitter,
         cpuTimeAccumulator,
@@ -198,52 +186,56 @@ public class HistoricalQueryPlannerShim
     );
   }
 
-  protected <T> QueryRunner<T> buildQueryRunnerForSegment(
-      final Query<T> query,
-      final SegmentDescriptor descriptor,
-      final QueryRunnerFactory<T, Query<T>> factory,
-      final QueryToolChest<T, Query<T>> toolChest,
-      final VersionedIntervalTimeline<String, ReferenceCountingSegment> timeline,
-      final Function<SegmentReference, SegmentReference> segmentMapFn,
-      final AtomicLong cpuTimeAccumulator,
-      Optional<byte[]> cacheKeyPrefix,
-      final QueryPlanner<T> queryPlanner
-  )
-  {
-    final PartitionChunk<ReferenceCountingSegment> chunk = timeline.findChunk(
-        descriptor.getInterval(),
-        descriptor.getVersion(),
-        descriptor.getPartitionNumber()
-    );
+//  protected <T> QueryRunner<T> buildQueryRunnerForSegment(
+//      final Query<T> query,
+//      final SegmentDescriptor descriptor,
+////      final QueryRunnerFactory<T, Query<T>> factory,
+////      final QueryToolChest<T, Query<T>> toolChest,
+//      final VersionedIntervalTimeline<String, ReferenceCountingSegment> timeline,
+//      final Function<SegmentReference, SegmentReference> segmentMapFn,
+////      final AtomicLong cpuTimeAccumulator,
+////      Optional<byte[]> cacheKeyPrefix,
+//      final QueryPlanner<T> queryPlanner
+//  )
+//  {
+//    final PartitionChunk<ReferenceCountingSegment> chunk = timeline.findChunk(
+//        descriptor.getInterval(),
+//        descriptor.getVersion(),
+//        descriptor.getPartitionNumber()
+//    );
+//
+//    if (chunk == null) {
+//      return new ReportTimelineMissingSegmentQueryRunner<>(descriptor);
+//    }
+//
+//    final ReferenceCountingSegment segment = chunk.getObject();
+//    return HistoricalQueryPlannerStub.planSegmentStub(
+//        queryPlanner,
+//        query,
+//        descriptor);
+////    return buildAndDecorateQueryRunner(
+////        query,
+////        factory,
+////        toolChest,
+////        segmentMapFn.apply(segment),
+////        cacheKeyPrefix,
+////        descriptor,
+////        cpuTimeAccumulator,
+////        queryPlanner
+////    );
+//  }
 
-    if (chunk == null) {
-      return new ReportTimelineMissingSegmentQueryRunner<>(descriptor);
-    }
-
-    final ReferenceCountingSegment segment = chunk.getObject();
-    return buildAndDecorateQueryRunner(
-        query,
-        factory,
-        toolChest,
-        segmentMapFn.apply(segment),
-        cacheKeyPrefix,
-        descriptor,
-        cpuTimeAccumulator,
-        queryPlanner
-    );
-  }
-
-  private <T> QueryRunner<T> buildAndDecorateQueryRunner(
-      final Query<T> query,
-      final QueryRunnerFactory<T, Query<T>> factory,
-      final QueryToolChest<T, Query<T>> toolChest,
-      final SegmentReference segment,
-      final Optional<byte[]> cacheKeyPrefix,
-      final SegmentDescriptor segmentDescriptor,
-      final AtomicLong cpuTimeAccumulator,
-      final QueryPlanner<T> queryPlanner
-  )
-  {
+//  private <T> QueryRunner<T> buildAndDecorateQueryRunner(
+//      final Query<T> query,
+//      final QueryRunnerFactory<T, Query<T>> factory,
+//      final QueryToolChest<T, Query<T>> toolChest,
+//      final SegmentReference segment,
+//      final Optional<byte[]> cacheKeyPrefix,
+//      final SegmentDescriptor segmentDescriptor,
+//      final AtomicLong cpuTimeAccumulator,
+//      final QueryPlanner<T> queryPlanner
+//  )
+//  {
 //    final SpecificSegmentSpec segmentSpec = new SpecificSegmentSpec(segmentDescriptor);
 //    final SegmentId segmentId = segment.getId();
 //    final Interval segmentInterval = segment.getDataInterval();
@@ -255,11 +247,11 @@ public class HistoricalQueryPlannerShim
 //    }
 //    String segmentIdString = segmentId.toString();
 
-    return HistoricalQueryPlannerStub.planSegmentStub(
-        queryPlanner,
-        query,
-        segment,
-        segmentDescriptor);
+//    return HistoricalQueryPlannerStub.planSegmentStub(
+//        queryPlanner,
+//        query,
+//        segment,
+//        segmentDescriptor);
 
 //    MetricsEmittingQueryRunner<T> metricsEmittingQueryRunnerInner = new MetricsEmittingQueryRunner<>(
 //        emitter,
@@ -321,5 +313,5 @@ public class HistoricalQueryPlannerShim
 //            false
 //        )
 //    );
-  }
+//  }
 }

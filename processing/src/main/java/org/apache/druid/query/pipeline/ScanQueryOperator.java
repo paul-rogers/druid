@@ -299,7 +299,9 @@ public class ScanQueryOperator implements Operator
   @Override
   public void close(boolean cascade)
   {
-    impl.closeCursorReader();
+    if (impl != null) {
+      impl.closeCursorReader();
+    }
     impl = null;
   }
 }
