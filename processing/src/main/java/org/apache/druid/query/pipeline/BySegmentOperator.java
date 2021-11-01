@@ -27,6 +27,7 @@ import org.apache.druid.query.BySegmentResultValueClass;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.Result;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 

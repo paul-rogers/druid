@@ -22,11 +22,12 @@ package org.apache.druid.query.pipeline;
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.pipeline.Operator.FragmentContext;
-import org.apache.druid.query.pipeline.Operator.FragmentContextImpl;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContextImpl;
 
 import java.util.Iterator;
 
@@ -115,10 +116,12 @@ public class Operators
     {
       @Override
       public Sequence<T> run(QueryPlus<T> queryPlus, ResponseContext responseContext) {
+        Query<T> query = queryPlus.getQuery();
         return toSequence(
             op,
             new FragmentContextImpl(
-                queryPlus.getQuery().getId(),
+                query.getId(),
+                QueryContexts.getTimeout(query, FragmentRunner.NO_TIMEOUT),
                 responseContext
                 )
             );

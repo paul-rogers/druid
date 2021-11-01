@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.Accumulator;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Yielder;
@@ -31,13 +32,108 @@ import org.apache.druid.java.util.common.guava.Yielders;
 import org.apache.druid.java.util.common.guava.YieldingAccumulator;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
+import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.pipeline.Operator.FragmentContextImpl;
 
 import com.google.common.base.Preconditions;
 
 public class FragmentRunner
 {
+  public static final long NO_TIMEOUT = -1;
+
+  public interface FragmentContext
+  {
+    public enum State
+    {
+      RUN, SUCEEDED, FAILED
+    }
+    State state();
+    String queryId();
+    ResponseContext responseContext();
+
+    /**
+     * Checks if a query timeout has occurred. If so, will throw
+     * an unchecked exception. The operator need not catch this
+     * exception: the fragment runner will unwind the stack and
+     * call each operator's {@code close()} method on timeout.
+     */
+    void checkTimeout();
+  }
+
+  public static class FragmentContextImpl implements FragmentContext
+  {
+    private State state = State.RUN;
+    private final ResponseContext responseContext;
+    private final String queryId;
+    private final long startTimeMillis;
+    private final long timeoutMs;
+    private final long timeoutAt;
+
+    public FragmentContextImpl(
+        final String queryId,
+        long timeoutMs,
+        final ResponseContext responseContext)
+    {
+      this.queryId = queryId;
+      this.responseContext = responseContext;
+      this.startTimeMillis = System.currentTimeMillis();
+      this.timeoutMs = timeoutMs;
+      if (timeoutMs < 0) {
+        this.timeoutAt = 0;
+      } else {
+        this.timeoutAt = startTimeMillis + timeoutMs;
+      }
+    }
+
+    @Override
+    public State state() {
+      return state;
+    }
+
+    @Override
+    public String queryId() {
+      return queryId;
+    }
+
+    @Override
+    public ResponseContext responseContext() {
+      return responseContext;
+    }
+
+    public void completed(boolean success)
+    {
+      state = success ? State.SUCEEDED : State.FAILED;
+    }
+
+    @Override
+    public void checkTimeout() {
+      if (timeoutAt > 0 && System.currentTimeMillis() >= timeoutAt) {
+        throw new QueryTimeoutException(
+            StringUtils.nonStrictFormat("Query [%s] timed out after [%d] ms",
+                queryId, timeoutMs));
+      }
+    }
+
+    protected void recordRunTime()
+    {
+      if (timeoutAt == 0) {
+        return;
+      }
+      // This is very likely wrong
+      responseContext.put(
+          ResponseContext.Key.TIMEOUT_AT,
+          timeoutAt - (System.currentTimeMillis() - startTimeMillis)
+      );
+    }
+  }
+
+  public static FragmentContext defaultContext() {
+    return new FragmentContextImpl(
+        "unknown",
+        NO_TIMEOUT,
+        ResponseContext.createEmpty());
+  }
+
   /**
    * Variation of {@code BaseSequence}, but modified to capture exceptions,
    * and create the operator iterator directly.
@@ -156,8 +252,14 @@ public class FragmentRunner
     }
   }
 
+  private final long timeoutMs;
   private final List<Operator> operators = new ArrayList<>();
   private FragmentContextImpl context;
+
+  public FragmentRunner(long timeoutMs)
+  {
+    this.timeoutMs = timeoutMs;
+  }
 
   public Operator add(Operator op)
   {
@@ -184,6 +286,7 @@ public class FragmentRunner
       public Sequence<T> run(QueryPlus<T> queryPlus, ResponseContext responseContext) {
         start(new FragmentContextImpl(
             queryPlus.getQuery().getId(),
+            timeoutMs,
             responseContext
             ));
         return new FragmentSequence<T>();
@@ -215,5 +318,6 @@ public class FragmentRunner
       }
     }
     // TODO: Do something with the exceptions
+    context.recordRunTime();
   }
 }

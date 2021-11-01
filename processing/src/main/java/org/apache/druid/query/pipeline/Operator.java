@@ -1,8 +1,27 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.druid.query.pipeline;
 
 import java.util.Iterator;
 
-import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 
 /**
  * An operator is a data pipeline transform: something that changes a stream of
@@ -81,54 +100,6 @@ import org.apache.druid.query.context.ResponseContext;
  */
 public interface Operator
 {
-  public interface FragmentContext
-  {
-    public enum State
-    {
-      RUN, SUCEEDED, FAILED
-    }
-    State state();
-    String queryId();
-    ResponseContext responseContext();
-  }
-
-  public static class FragmentContextImpl implements FragmentContext
-  {
-    private State state = State.RUN;
-    private final ResponseContext responseContext;
-    private final String queryId;
-
-    public FragmentContextImpl(String queryId, ResponseContext responseContext)
-    {
-      this.queryId = queryId;
-      this.responseContext = responseContext;
-    }
-
-    @Override
-    public State state() {
-      return state;
-    }
-
-    @Override
-    public String queryId() {
-      return queryId;
-    }
-
-    @Override
-    public ResponseContext responseContext() {
-      return responseContext;
-    }
-
-    public void completed(boolean success)
-    {
-      state = success ? State.SUCEEDED : State.FAILED;
-    }
-  }
-
-  public static FragmentContext defaultContext() {
-    return new FragmentContextImpl("unknown", ResponseContext.createEmpty());
-  }
-
   /**
    * Convenience interface for an operator which is its own iterator.
    */
@@ -166,6 +137,9 @@ public interface Operator
    * Because the fragment runner will ensure a final close, operators are
    * not required to ensure {@code close()} is called on children for odd
    * paths, such as errors.
+   * <p>
+   * If an operator needs to know if a query failed, it can check the status
+   * in the fragment context for the state of the query (i.e. failed.)
    *
    * @param cascade {@code false} if this is the final call from the fragment
    * runner, {@code true} if it is an "early close" from a parent.

@@ -25,6 +25,7 @@ import org.apache.druid.client.cache.Cache;
 import org.apache.druid.client.cache.CachePopulator;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.CacheStrategy;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.Operator;
 import org.apache.druid.query.pipeline.Operators;
 import org.apache.druid.query.pipeline.SequenceOperator;

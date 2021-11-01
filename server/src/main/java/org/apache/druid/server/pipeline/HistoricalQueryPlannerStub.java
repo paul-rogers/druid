@@ -19,19 +19,24 @@
 
 package org.apache.druid.server.pipeline;
 
+import java.util.Collections;
 import java.util.Optional;
 import java.util.function.ObjLongConsumer;
 
 import org.apache.druid.client.CacheUtil;
+import org.apache.druid.client.DirectDruidClient;
 import org.apache.druid.client.cache.Cache;
 import org.apache.druid.client.cache.CacheConfig;
 import org.apache.druid.client.cache.CachePopulator;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
+import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.BySegmentResultValueClass;
 import org.apache.druid.query.CacheStrategy;
+import org.apache.druid.query.PerSegmentQueryOptimizationContext;
+import org.apache.druid.query.Queries;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryMetrics;
@@ -39,10 +44,13 @@ import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.QueryToolChest;
+import org.apache.druid.query.ReportTimelineMissingSegmentQueryRunner;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.pipeline.BySegmentOperator;
 import org.apache.druid.query.pipeline.FragmentRunner;
 import org.apache.druid.query.pipeline.MetricsOperator;
+import org.apache.druid.query.pipeline.MissingSegmentsOperator;
 import org.apache.druid.query.pipeline.Operator;
 import org.apache.druid.query.pipeline.ScanQueryOperator;
 import org.apache.druid.query.pipeline.SegmentLockOperator;
@@ -51,15 +59,18 @@ import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.profile.Timer;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryRunnerFactory;
+import org.apache.druid.query.spec.SpecificSegmentSpec;
 import org.apache.druid.segment.SegmentReference;
 import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.join.JoinableFactoryWrapper;
+import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.timeline.SegmentId;
 import org.joda.time.Interval;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Bytes;
 
 public class HistoricalQueryPlannerStub
@@ -70,6 +81,7 @@ public class HistoricalQueryPlannerStub
    */
   public static class PlanContext
   {
+    protected final ServerConfig serverConfig;
     protected final ServiceEmitter emitter;
     protected final CacheConfig cacheConfig;
     protected final Cache cache;
@@ -78,6 +90,7 @@ public class HistoricalQueryPlannerStub
     protected final JoinableFactoryWrapper joinableFactoryWrapper;
 
     public PlanContext(
+        final ServerConfig serverConfig,
         final ServiceEmitter emitter,
         final CacheConfig cacheConfig,
         final Cache cache,
@@ -86,12 +99,27 @@ public class HistoricalQueryPlannerStub
         final JoinableFactoryWrapper joinableFactoryWrapper
     )
     {
+      this.serverConfig = serverConfig;
       this.emitter = emitter;
       this.cacheConfig = cacheConfig;
       this.cache = cache;
       this.cachePopulator = cachePopulator;
       this.objectMapper = objectMapper;
       this.joinableFactoryWrapper = joinableFactoryWrapper;
+    }
+
+    public <T> Query<T> withTimeoutAndMaxScatterGatherBytes(Query<T> query)
+    {
+      return QueryContexts.verifyMaxQueryTimeout(
+          QueryContexts.withMaxScatterGatherBytes(
+              QueryContexts.withDefaultTimeout(
+                  query,
+                  Math.min(serverConfig.getDefaultQueryTimeout(), serverConfig.getMaxQueryTimeout())
+              ),
+              serverConfig.getMaxScatterGatherBytes()
+          ),
+          serverConfig.getMaxQueryTimeout()
+      );
     }
   }
 
@@ -114,22 +142,30 @@ public class HistoricalQueryPlannerStub
   /**
    * Holds the query-dependent information needed for
    * query planning. This is information about the query as
-   * a whole in it original, unrewritten form.
+   * a whole, after rewriting for timeout and max scatter/gather bytes.
+   * <p>
+   * Note that timeout is handled differently in the operator pipeline than
+   * in the original query runner model. Here, the fragment context keeps track
+   * of the start time and timeout: each operator just asks the context to check
+   * for timeout. As a result, we don't write into the query context the timeout
+   * time. That is handy, because the timeout is relative to when the query starts
+   * executing, and must exclude any wait time between now and then. The fragment
+   * model handles that issue for us.
+   * <p>
+   * The result is that the fragment runner context replaces the
+   * {@link org.apache.druid.server.SetAndVerifyContextQueryRunner}.
    */
   public static class QueryPlanner<T>
   {
     final PlanContext planContext;
-    @SuppressWarnings("unused")
     final Query<T> query;
-    @SuppressWarnings("unused")
     final QueryRunnerFactory<T, Query<T>> factory;
     final QueryToolChest<T, Query<T>> toolChest;
-    @SuppressWarnings("unused")
     final DataSourceAnalysis analysis;
     final QueryTypePlanner queryTypePlanner;
     final Optional<byte[]> cacheKeyPrefix;
     final Timer waitTimer = Timer.createStarted();
-    final FragmentRunner runner = new FragmentRunner();
+    final FragmentRunner runner;
 
     public QueryPlanner(
         final PlanContext planContext,
@@ -138,17 +174,25 @@ public class HistoricalQueryPlannerStub
         final DataSourceAnalysis analysis)
     {
       this.planContext = planContext;
-      this.query = query;
+      this.query = planContext.withTimeoutAndMaxScatterGatherBytes(query);
       this.factory = factory;
       this.toolChest = factory.getToolchest();
       this.analysis = analysis;
+
       // TODO: Obtain the planner from the factory
       Preconditions.checkArgument(((Object) factory) instanceof ScanQueryRunnerFactory);
       this.queryTypePlanner = new ScanQueryPlanner();
+
       // We compute the join cache key here itself so it doesn't need to be re-computed for every segment
       this.cacheKeyPrefix = analysis.isJoin()
           ? planContext.joinableFactoryWrapper.computeJoinDataSourceCacheKey(analysis)
           : Optional.of(StringUtils.EMPTY_BYTES);
+
+      // Note: the timeout timer starts ticking when we start running the
+      // operator pipeline, now now when we create it.
+      runner = new FragmentRunner(
+          QueryContexts.getTimeout(this.query)
+          );
     }
 
     Operator add(Operator op)
@@ -160,6 +204,17 @@ public class HistoricalQueryPlannerStub
   /**
    * Holds query- and fragment-dependent information needed
    * to plan the per-fragment parts of a query.
+   * <p>
+   * This planner optimizes queries made on a single segment, using per-segment information,
+   * before submitting the queries to the base runner.
+   * <p>
+   * Example optimizations include adjusting query filters based on per-segment information, such as intervals.
+   * <p>
+   * This planner plans queries that will
+   * be used to query a single segment (i.e., when the query reaches a historical node).
+   * <p>
+   *
+   * @see {@link org.apache.druid.query.PerSegmentOptimizingQueryRunner}
    */
   public static class SegmentPlanner<T>
   {
@@ -167,8 +222,7 @@ public class HistoricalQueryPlannerStub
     final QueryPlanner<T> queryPlanner;
     final Query<T> query;
     final SegmentReference segment;
-    final SegmentDescriptor descriptor;
-    final String segmentIdString;
+    final SegmentDescriptor segmentDescriptor;
     final Interval actualDataInterval;
     final QueryMetrics<?> queryMetrics;
 
@@ -181,11 +235,17 @@ public class HistoricalQueryPlannerStub
     {
       this.planContext = queryPlanner.planContext;
       this.queryPlanner = queryPlanner;
-      this.query = query;
+
+      // See PerSegmentOptimizingQueryRunner
+      // Can be done here because this is the planner for a per-segment query.
+      // See SpecificSegmentQueryRunner
+      this.query = Queries.withSpecificSegments(
+              query,
+              Collections.singletonList(descriptor)
+              ).optimizeForSegment(
+                  new PerSegmentQueryOptimizationContext(descriptor));
       this.segment = segment;
-      this.descriptor = descriptor;
-      SegmentId segmentId = segment.getId();
-      this.segmentIdString = segmentId.toString();
+      this.segmentDescriptor = descriptor;
       StorageAdapter storageAdapter = segment.asStorageAdapter();
       long segmentMaxTime = storageAdapter.getMaxTime().getMillis();
       long segmentMinTime = storageAdapter.getMinTime().getMillis();
@@ -194,19 +254,49 @@ public class HistoricalQueryPlannerStub
       this.queryMetrics = queryWithMetrics.getQueryMetrics();
     }
 
+    /**
+     * Plan a per-segment query.
+     * <p>
+     * For the most part, each query runner in the traditional implementation maps to
+     * an operator in the operator pipeline. Some operators have effect only in their
+     * start and end to mimic wrapper sequences.
+     * <p>
+     * One exception is the {@code PerSegmentOptimizingQueryRunner}, which simply rewrites
+     * the query and is done in the constructor above. Unlike with query runners, operators
+     * don't pass a query downwards, so we do the work here instead.
+     * <p>
+     * Another exception is {@code SetAndVerifyContextQueryRunner} which sets timeouts.
+     * Timeout in this model is handled by the fragment runner, so no need for an operator
+     * to rewrite the query for timeout.
+     *
+     * @see {@link org.apache.druid.server.coordination.ServerManager#buildAndDecorateQueryRunner}
+     */
     public Operator plan()
     {
+      final SegmentId segmentId = segment.getId();
+      final Interval segmentInterval = segment.getDataInterval();
+      // SegmentLockOperator will return null for ID or interval if it's already closed.
+      // Here, we check one more time if the segment is closed.
+      // If the segment is closed after this line, SegmentLockOperator will handle and do the right thing.
+      if (segmentId == null || segmentInterval == null) {
+        return queryPlanner.add(
+            new MissingSegmentsOperator(
+                Collections.singletonList(segmentDescriptor)));
+      }
+      String segmentIdString = segmentId.toString();
+
       return planSpecificSegment(
           planSegmentAndCacheMetrics(
             planBySegment(
+              segmentIdString,
               planCache(
+                segmentIdString,
                 planSegmentMetrics(
                   planRefCount(
                       planScan()))))));
     }
 
     /**
-     *
      * @see {@link org.apache.druid.query.spec.SpecificSegmentQueryRunner}
      */
     private Operator planSpecificSegment(Operator child)
@@ -232,7 +322,7 @@ public class HistoricalQueryPlannerStub
      * @see {@link org.apache.druid.server.coordination.ServerManager#buildAndDecorateQueryRunner}
      * @see {@link org.apache.druid.query.BySegmentQueryRunner}
      */
-    private Operator planBySegment(Operator child)
+    private Operator planBySegment(final String segmentIdString, final Operator child)
     {
       if (!QueryContexts.isBySegment(query)) {
         return child;
@@ -260,7 +350,7 @@ public class HistoricalQueryPlannerStub
      *
      * @see {@link org.apache.druid.client.CachingQueryRunner}
      */
-    private Operator planCache(Operator child)
+    private Operator planCache(final String segmentIdString, final Operator child)
     {
       if (!queryPlanner.cacheKeyPrefix.isPresent()) {
         return child;
@@ -336,7 +426,7 @@ public class HistoricalQueryPlannerStub
      */
     private Operator planRefCount(Operator child)
     {
-      return queryPlanner.add(new SegmentLockOperator(segment, descriptor, child));
+      return queryPlanner.add(new SegmentLockOperator(segment, segmentDescriptor, child));
     }
 
     private Operator planScan()
@@ -381,16 +471,17 @@ public class HistoricalQueryPlannerStub
      */
     private SegmentDescriptor alignToActualDataInterval()
     {
-      Interval interval = descriptor.getInterval();
+      Interval interval = segmentDescriptor.getInterval();
       return new SegmentDescriptor(
           interval.overlaps(actualDataInterval) ? interval.overlap(actualDataInterval) : interval,
-          descriptor.getVersion(),
-          descriptor.getPartitionNumber()
+          segmentDescriptor.getVersion(),
+          segmentDescriptor.getPartitionNumber()
       );
     }
   }
 
   public static <T> QueryRunner<T> planSegmentStub(
+      final ServerConfig serverConfig,
       final ServiceEmitter emitter,
       final CacheConfig cacheConfig,
       final Cache cache,
@@ -405,6 +496,7 @@ public class HistoricalQueryPlannerStub
   )
   {
     final PlanContext context = new PlanContext(
+        serverConfig,
         emitter,
         cacheConfig,
         cache,

@@ -23,6 +23,7 @@ import java.util.Iterator;
 import java.util.function.Function;
 
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.Operator.IterableOperator;
 
 import com.google.common.base.Preconditions;

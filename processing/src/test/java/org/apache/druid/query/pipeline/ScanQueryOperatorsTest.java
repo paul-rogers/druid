@@ -16,7 +16,7 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.Druids.ScanQueryBuilder;
 import org.apache.druid.query.SegmentDescriptor;
-import org.apache.druid.query.pipeline.Operator.FragmentContext;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -29,7 +29,7 @@ import com.google.common.base.Strings;
 
 public class ScanQueryOperatorsTest
 {
-  private final FragmentContext context = Operator.defaultContext();
+  private final FragmentContext context = FragmentRunner.defaultContext();
 
   private Interval interval(int offset)
   {

@@ -24,25 +24,18 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
-import org.apache.druid.client.CachingQueryRunner;
 import org.apache.druid.client.cache.Cache;
 import org.apache.druid.client.cache.CacheConfig;
 import org.apache.druid.client.cache.CachePopulator;
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.FunctionalIterable;
 import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
-import org.apache.druid.query.BySegmentQueryRunner;
 import org.apache.druid.query.CPUTimeMetricQueryRunner;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
-import org.apache.druid.query.MetricsEmittingQueryRunner;
-import org.apache.druid.query.PerSegmentOptimizingQueryRunner;
-import org.apache.druid.query.PerSegmentQueryOptimizationContext;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryDataSource;
-import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
@@ -52,11 +45,9 @@ import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.ReportTimelineMissingSegmentQueryRunner;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.planning.DataSourceAnalysis;
-import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
 import org.apache.druid.segment.ReferenceCountingSegment;
 import org.apache.druid.segment.SegmentReference;
-import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.filter.Filters;
 import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.server.SegmentManager;
@@ -163,6 +154,7 @@ public class HistoricalQueryPlannerShim
                                             : Optional.of(StringUtils.EMPTY_BYTES);
 
     final PlanContext planContext = new PlanContext(
+        serverConfig,
         emitter,
         cacheConfig,
         cache,
@@ -252,18 +244,18 @@ public class HistoricalQueryPlannerShim
       final QueryPlanner<T> queryPlanner
   )
   {
-    final SpecificSegmentSpec segmentSpec = new SpecificSegmentSpec(segmentDescriptor);
-    final SegmentId segmentId = segment.getId();
-    final Interval segmentInterval = segment.getDataInterval();
-    // ReferenceCountingSegment can return null for ID or interval if it's already closed.
-    // Here, we check one more time if the segment is closed.
-    // If the segment is closed after this line, ReferenceCountingSegmentQueryRunner will handle and do the right thing.
-    if (segmentId == null || segmentInterval == null) {
-      return new ReportTimelineMissingSegmentQueryRunner<>(segmentDescriptor);
-    }
-    String segmentIdString = segmentId.toString();
+//    final SpecificSegmentSpec segmentSpec = new SpecificSegmentSpec(segmentDescriptor);
+//    final SegmentId segmentId = segment.getId();
+//    final Interval segmentInterval = segment.getDataInterval();
+//    // ReferenceCountingSegment can return null for ID or interval if it's already closed.
+//    // Here, we check one more time if the segment is closed.
+//    // If the segment is closed after this line, ReferenceCountingSegmentQueryRunner will handle and do the right thing.
+//    if (segmentId == null || segmentInterval == null) {
+//      return new ReportTimelineMissingSegmentQueryRunner<>(segmentDescriptor);
+//    }
+//    String segmentIdString = segmentId.toString();
 
-    QueryRunner<T> stubRunner = HistoricalQueryPlannerStub.planSegmentStub(
+    return HistoricalQueryPlannerStub.planSegmentStub(
         queryPlanner,
         query,
         segment,
@@ -314,20 +306,20 @@ public class HistoricalQueryPlannerShim
 //        segmentSpec
 //    );
 
-    PerSegmentOptimizingQueryRunner<T> perSegmentOptimizingQueryRunner = new PerSegmentOptimizingQueryRunner<>(
-        stubRunner,
-        new PerSegmentQueryOptimizationContext(segmentDescriptor)
-    );
+//    PerSegmentOptimizingQueryRunner<T> perSegmentOptimizingQueryRunner = new PerSegmentOptimizingQueryRunner<>(
+//        stubRunner,
+//        new PerSegmentQueryOptimizationContext(segmentDescriptor)
+//    );
 
-    return new SetAndVerifyContextQueryRunner<>(
-        serverConfig,
-        CPUTimeMetricQueryRunner.safeBuild(
-            perSegmentOptimizingQueryRunner,
-            toolChest,
-            emitter,
-            cpuTimeAccumulator,
-            false
-        )
-    );
+//    return new SetAndVerifyContextQueryRunner<>(
+//        serverConfig,
+//        CPUTimeMetricQueryRunner.safeBuild(
+//            stubRunner,
+//            toolChest,
+//            emitter,
+//            cpuTimeAccumulator,
+//            false
+//        )
+//    );
   }
 }

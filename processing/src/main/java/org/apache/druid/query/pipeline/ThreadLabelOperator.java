@@ -21,6 +21,8 @@ package org.apache.druid.query.pipeline;
 
 import java.util.Iterator;
 
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
+
 /**
  * Operator which relabels its thread during its execution.
  *

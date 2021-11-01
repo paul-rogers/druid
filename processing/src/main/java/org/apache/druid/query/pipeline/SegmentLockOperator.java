@@ -28,6 +28,7 @@ import java.util.Optional;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.segment.SegmentReference;
 
 /**

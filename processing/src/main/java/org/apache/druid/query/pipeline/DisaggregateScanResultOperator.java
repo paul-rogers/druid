@@ -21,6 +21,7 @@ package org.apache.druid.query.pipeline;
 
 import java.util.Iterator;
 
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanResultValue;
 

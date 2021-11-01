@@ -25,6 +25,7 @@ import java.util.function.ObjLongConsumer;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.QueryMetrics;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.profile.Timer;
 
 import com.google.common.base.Preconditions;

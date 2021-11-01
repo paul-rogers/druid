@@ -22,6 +22,8 @@ package org.apache.druid.query.pipeline;
 import java.util.Collections;
 import java.util.Iterator;
 
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
+
 import com.google.common.base.Preconditions;
 
 /**

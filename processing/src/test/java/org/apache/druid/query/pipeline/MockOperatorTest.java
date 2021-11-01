@@ -30,12 +30,12 @@ import java.util.List;
 
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.SequenceTestHelper;
-import org.apache.druid.query.pipeline.Operator.FragmentContext;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.junit.Test;
 
 public class MockOperatorTest
 {
-  private final FragmentContext context = Operator.defaultContext();
+  private final FragmentContext context = FragmentRunner.defaultContext();
 
   @Test
   public void testMockStringOperator()

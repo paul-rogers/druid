@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Yielder;
 import org.apache.druid.java.util.common.guava.YieldingAccumulator;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.Operator.IterableOperator;
 
 import java.io.IOException;

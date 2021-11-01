@@ -26,6 +26,7 @@ import java.util.List;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 
 /**
  * Trivial operator which only reports missing segments. Should be replaced

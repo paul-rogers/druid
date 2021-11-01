@@ -25,6 +25,7 @@ import java.util.Iterator;
 
 import org.apache.druid.client.cache.Cache;
 import org.apache.druid.query.CacheStrategy;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.Operator;
 
 import com.fasterxml.jackson.databind.ObjectMapper;

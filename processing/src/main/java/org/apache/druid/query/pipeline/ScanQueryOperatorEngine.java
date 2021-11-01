@@ -20,8 +20,9 @@
 package org.apache.druid.query.pipeline;
 
 import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.pipeline.Operator.FragmentContextImpl;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContextImpl;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryEngine2;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -48,6 +49,9 @@ public class ScanQueryOperatorEngine implements ScanQueryEngine2
   {
     ScanQueryOperator reader = new ScanQueryOperator(query, segment);
     return Operators.toSequence(reader,
-        new FragmentContextImpl(query.getId(), responseContext));
+        new FragmentContextImpl(
+            query.getId(),
+            QueryContexts.getTimeout(query, FragmentRunner.NO_TIMEOUT),
+            responseContext));
   }
 }

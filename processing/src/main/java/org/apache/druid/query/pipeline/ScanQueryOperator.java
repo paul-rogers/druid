@@ -27,13 +27,11 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.JodaUtils;
-import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.QueryContexts;
-import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.segment.Cursor;
@@ -64,10 +62,8 @@ public class ScanQueryOperator implements Operator
    */
   private class Impl implements Iterator<Object>
   {
-    private final ResponseContext responseContext;
+    private final FragmentContext context;
     private final SequenceIterator<Cursor> iter;
-    private final long timeoutAt;
-    private final long startTime;
     private final List<String> selectedColumns;
     private final long limit;
     private CursorReader cursorReader;
@@ -77,15 +73,8 @@ public class ScanQueryOperator implements Operator
 
     private Impl(FragmentContext context)
     {
-      this.responseContext = context.responseContext();
-      // TODO: Move higher
-      // it happens in unit tests
-      final Number timeoutValue = (Number) responseContext.get(ResponseContext.Key.TIMEOUT_AT);
-      if (timeoutValue == null || timeoutValue.longValue() == 0L) {
-        responseContext.put(ResponseContext.Key.TIMEOUT_AT, JodaUtils.MAX_INSTANT);
-      }
-      timeoutAt = (long) responseContext.get(ResponseContext.Key.TIMEOUT_AT);
-      startTime = System.currentTimeMillis();
+      this.context = context;
+      ResponseContext responseContext = context.responseContext();
       responseContext.add(ResponseContext.Key.NUM_SCANNED_ROWS, 0L);
       long baseLimit = query.getScanRowsLimit();
       if (limitType() == Limit.GLOBAL) {
@@ -187,14 +176,8 @@ public class ScanQueryOperator implements Operator
     private void finish()
     {
       closeCursorReader();
+      ResponseContext responseContext = context.responseContext();
       responseContext.add(ResponseContext.Key.NUM_SCANNED_ROWS, rowCount);
-      if (hasTimeout()) {
-        // This is very likely wrong
-        responseContext.put(
-            ResponseContext.Key.TIMEOUT_AT,
-            timeoutAt - (System.currentTimeMillis() - startTime)
-        );
-      }
     }
 
     /**
@@ -204,9 +187,7 @@ public class ScanQueryOperator implements Operator
     @Override
     public Object next()
     {
-      if (hasTimeout() && System.currentTimeMillis() >= timeoutAt) {
-        throw new QueryTimeoutException(StringUtils.nonStrictFormat("Query [%s] timed out", query.getId()));
-      }
+      context.checkTimeout();
       List<?> result = (List<?>) cursorReader.next();
       batchCount++;
       rowCount += result.size();

@@ -43,6 +43,8 @@ import com.google.common.base.Supplier;
  * to scan a specific query known only at runtime. A storage adapter may
  * choose to create one or more queries: each is handled by an instance of this
  * class.
+ *
+ * @see {@link org.apache.druid.query.scan.ScanQueryEngine}
  */
 public class CursorReader implements Iterator<Object>
 {
@@ -56,12 +58,12 @@ public class CursorReader implements Iterator<Object>
   private long rowCount;
 
   public CursorReader(
-      Cursor cursor,
-      List<String> selectedColumns,
-      long limit,
-      int batchSize,
-      ResultFormat resultFormat,
-      boolean isLegacy
+      final Cursor cursor,
+      final List<String> selectedColumns,
+      final long limit,
+      final int batchSize,
+      final ResultFormat resultFormat,
+      final boolean isLegacy
   )
   {
     this.cursor = cursor;
@@ -69,7 +71,12 @@ public class CursorReader implements Iterator<Object>
     this.limit = limit;
     this.batchSize = batchSize;
     this.resultFormat = resultFormat;
-    columnAccessors = new ArrayList<>(selectedColumns.size());
+    this.columnAccessors = buildAccessors(isLegacy);
+  }
+
+  private List<Supplier<Object>> buildAccessors(final boolean isLegacy)
+  {
+    List<Supplier<Object>> accessors = new ArrayList<>(selectedColumns.size());
     for (String column : selectedColumns) {
       final Supplier<Object> accessor;
       final BaseObjectColumnValueSelector<?> selector;
@@ -100,17 +107,20 @@ public class CursorReader implements Iterator<Object>
           };
         }
       }
-      columnAccessors.add(accessor);
+      accessors.add(accessor);
     }
+    return accessors;
   }
 
   @Override
-  public boolean hasNext() {
+  public boolean hasNext()
+  {
     return !cursor.isDone() && rowCount < limit;
   }
 
   @Override
-  public Object next() {
+  public Object next()
+  {
     targetCount = Math.min(limit - rowCount, rowCount + batchSize);
     switch (resultFormat) {
     case RESULT_FORMAT_LIST:

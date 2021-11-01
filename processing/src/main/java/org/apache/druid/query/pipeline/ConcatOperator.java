@@ -22,6 +22,7 @@ package org.apache.druid.query.pipeline;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.Operator.IterableOperator;
 
 import com.google.common.base.Preconditions;

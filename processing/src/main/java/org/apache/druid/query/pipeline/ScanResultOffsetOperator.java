@@ -24,6 +24,7 @@ import java.util.List;
 
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.UOE;
+import org.apache.druid.query.pipeline.FragmentRunner.FragmentContext;
 import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
