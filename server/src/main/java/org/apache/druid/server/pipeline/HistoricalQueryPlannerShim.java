@@ -309,13 +309,13 @@ public class HistoricalQueryPlannerShim
 //        queryMetrics -> queryMetrics.segment(segmentIdString)
 //    ).withWaitMeasuredFromNow();
 
-    SpecificSegmentQueryRunner<T> specificSegmentQueryRunner = new SpecificSegmentQueryRunner<>(
-        stubRunner,
-        segmentSpec
-    );
+//    SpecificSegmentQueryRunner<T> specificSegmentQueryRunner = new SpecificSegmentQueryRunner<>(
+//        stubRunner,
+//        segmentSpec
+//    );
 
     PerSegmentOptimizingQueryRunner<T> perSegmentOptimizingQueryRunner = new PerSegmentOptimizingQueryRunner<>(
-        specificSegmentQueryRunner,
+        stubRunner,
         new PerSegmentQueryOptimizationContext(segmentDescriptor)
     );
 

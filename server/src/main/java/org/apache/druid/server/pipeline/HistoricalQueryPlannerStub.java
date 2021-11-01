@@ -46,6 +46,7 @@ import org.apache.druid.query.pipeline.MetricsOperator;
 import org.apache.druid.query.pipeline.Operator;
 import org.apache.druid.query.pipeline.ScanQueryOperator;
 import org.apache.druid.query.pipeline.SegmentLockOperator;
+import org.apache.druid.query.pipeline.ThreadLabelOperator;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.profile.Timer;
 import org.apache.druid.query.scan.ScanQuery;
@@ -195,12 +196,23 @@ public class HistoricalQueryPlannerStub
 
     public Operator plan()
     {
-      return planSegmentAndCacheMetrics(
-          planBySegment(
-            planCache(
-              planSegmentMetrics(
-                planRefCount(
-                    planScan())))));
+      return planSpecificSegment(
+          planSegmentAndCacheMetrics(
+            planBySegment(
+              planCache(
+                planSegmentMetrics(
+                  planRefCount(
+                      planScan()))))));
+    }
+
+    /**
+     *
+     * @see {@link org.apache.druid.query.spec.SpecificSegmentQueryRunner}
+     */
+    private Operator planSpecificSegment(Operator child)
+    {
+      final String newName = query.getType() + "_" + query.getDataSource() + "_" + query.getIntervals();
+      return queryPlanner.add(new ThreadLabelOperator(newName, child));
     }
 
     private Operator planSegmentAndCacheMetrics(Operator child)
@@ -223,6 +235,12 @@ public class HistoricalQueryPlannerStub
     private Operator planBySegment(Operator child)
     {
       if (!QueryContexts.isBySegment(query)) {
+        return child;
+      }
+      // By-segment is not compatible with a scan query.
+      // (See Issue #11862: https://github.com/apache/druid/issues/11862)
+      // So, ignore this option for scan queries.
+      if (query instanceof ScanQuery) {
         return child;
       }
       return queryPlanner.add(
