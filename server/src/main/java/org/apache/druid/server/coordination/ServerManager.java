@@ -169,7 +169,7 @@ public class ServerManager implements QuerySegmentWalker
   @Override
   public <T> QueryRunner<T> getQueryRunnerForSegments(Query<T> query, Iterable<SegmentDescriptor> specs)
   {
-    if (query instanceof ScanQuery) {
+    if (false && query instanceof ScanQuery) {
       HistoricalQueryPlannerShim planner = new HistoricalQueryPlannerShim(
           conglomerate,
           emitter,

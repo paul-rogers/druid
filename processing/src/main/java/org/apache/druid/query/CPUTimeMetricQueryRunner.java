@@ -56,7 +56,6 @@ public class CPUTimeMetricQueryRunner<T> implements QueryRunner<T>
     this.report = report;
   }
 
-
   @Override
   public Sequence<T> run(final QueryPlus<T> queryPlus, final ResponseContext responseContext)
   {

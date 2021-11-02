@@ -55,6 +55,7 @@ import org.apache.druid.query.aggregation.MetricManipulationFn;
 import org.apache.druid.query.aggregation.MetricManipulatorFns;
 import org.apache.druid.query.pipeline.BySegmentOperator;
 import org.apache.druid.query.pipeline.ConcatOperator;
+import org.apache.druid.query.pipeline.CpuMetricOperator;
 import org.apache.druid.query.pipeline.FragmentRunner;
 import org.apache.druid.query.pipeline.MetricsOperator;
 import org.apache.druid.query.pipeline.MissingSegmentsOperator;
@@ -367,14 +368,9 @@ public class HistoricalQueryPlannerStub
           .map(descriptor -> planSegment(rewrittenQuery, descriptor))
           .collect(Collectors.toList());
 
-      return planFinalizeResults(
-                planMerge(segOps));
-//      return planCpuMetric(
-//          planFinalizeResults(
-//              planMerge(segOps));
-      // merge
-      // finalize
-      // time
+      return planCpuMetric(
+                planFinalizeResults(
+                    planMerge(segOps)));
     }
 
     /**
@@ -391,10 +387,10 @@ public class HistoricalQueryPlannerStub
        return segmentPlanner.plan();
     }
 
-//    private Operator planCpuMetric(Operator child)
-//    {
-//      return runner.add(new CPUMetricOperator(child));
-//    }
+    private Operator planCpuMetric(Operator child)
+    {
+      return runner.add(new CpuMetricOperator(cpuTimeAccumulator, child));
+    }
 
     /**
      * Plan step that applies {@link QueryToolChest#makePostComputeManipulatorFn(Query, MetricManipulationFn)} to the

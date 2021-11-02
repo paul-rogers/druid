@@ -47,6 +47,7 @@ import org.apache.druid.query.MetricsEmittingQueryProcessingPool;
 import org.apache.druid.query.PrioritizedExecutorService;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.pipeline.ScanQueryOperatorEngine;
+import org.apache.druid.query.scan.ScanQueryEngine;
 import org.apache.druid.query.scan.ScanQueryEngine2;
 import org.apache.druid.server.metrics.MetricsModule;
 import org.apache.druid.utils.JvmUtils;
@@ -69,7 +70,7 @@ public class DruidProcessingModule implements Module
   {
     binder.bind(ExecutorServiceConfig.class).to(DruidProcessingConfig.class);
     MetricsModule.register(binder, ExecutorServiceMonitor.class);
-    binder.bind(ScanQueryEngine2.class).to(ScanQueryOperatorEngine.class);
+    binder.bind(ScanQueryEngine2.class).to(ScanQueryEngine.class);
   }
 
   @Provides

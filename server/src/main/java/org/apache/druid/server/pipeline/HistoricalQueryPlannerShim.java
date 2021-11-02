@@ -19,22 +19,17 @@
 
 package org.apache.druid.server.pipeline;
 
-import java.util.concurrent.atomic.AtomicLong;
-
 import org.apache.druid.client.cache.Cache;
 import org.apache.druid.client.cache.CacheConfig;
 import org.apache.druid.client.cache.CachePopulator;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
-import org.apache.druid.query.CPUTimeMetricQueryRunner;
-import org.apache.druid.query.FinalizeResultsQueryRunner;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
-import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.segment.join.JoinableFactoryWrapper;
@@ -104,9 +99,9 @@ public class HistoricalQueryPlannerShim
       throw e;
     }
 
-    final QueryToolChest<T, Query<T>> toolChest = factory.getToolchest();
-//    final DataSourceAnalysis analysis = DataSourceAnalysis.forDataSource(query.getDataSource());
-    final AtomicLong cpuTimeAccumulator = new AtomicLong(0L);
+//    final QueryToolChest<T, Query<T>> toolChest = factory.getToolchest();
+////    final DataSourceAnalysis analysis = DataSourceAnalysis.forDataSource(query.getDataSource());
+//    final AtomicLong cpuTimeAccumulator = new AtomicLong(0L);
 //
 //    final VersionedIntervalTimeline<String, ReferenceCountingSegment> timeline;
 //    final Optional<VersionedIntervalTimeline<String, ReferenceCountingSegment>> maybeTimeline =
@@ -153,7 +148,7 @@ public class HistoricalQueryPlannerShim
         specs,
         factory
         );
-    QueryRunner<T> stubRunner = queryPlanner.planQueryStub();
+    return queryPlanner.planQueryStub();
 //    final FunctionalIterable<QueryRunner<T>> queryRunners = FunctionalIterable
 //        .create(specs)
 //        .transformCat(
@@ -172,18 +167,18 @@ public class HistoricalQueryPlannerShim
 //            )
 //        );
 
-    return CPUTimeMetricQueryRunner.safeBuild(
-        stubRunner,
-//        new FinalizeResultsQueryRunner<>(
-//            stubRunner,
-////            toolChest.mergeResults(factory.mergeRunners(queryProcessingPool, queryRunners)),
-//            toolChest
-//        ),
-        toolChest,
-        emitter,
-        cpuTimeAccumulator,
-        true
-    );
+//    return CPUTimeMetricQueryRunner.safeBuild(
+//        stubRunner,
+////        new FinalizeResultsQueryRunner<>(
+////            stubRunner,
+//////            toolChest.mergeResults(factory.mergeRunners(queryProcessingPool, queryRunners)),
+////            toolChest
+////        ),
+//        toolChest,
+//        emitter,
+//        cpuTimeAccumulator,
+//        true
+//    );
   }
 
 //  protected <T> QueryRunner<T> buildQueryRunnerForSegment(
