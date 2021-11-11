@@ -56,6 +56,7 @@ import java.util.List;
     @JsonSubTypes.Type(name = LimitProfile.TYPE, value = LimitProfile.class),
     @JsonSubTypes.Type(name = DistributorProfile.TYPE, value = DistributorProfile.class),
     @JsonSubTypes.Type(name = NativeQueryProfile.TYPE, value = NativeQueryProfile.class),
+    @JsonSubTypes.Type(name = FinalizeProfile.TYPE, value = FinalizeProfile.class),
 })
 public abstract class OperatorProfile
 {

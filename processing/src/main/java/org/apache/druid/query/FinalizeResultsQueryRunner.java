@@ -20,6 +20,7 @@
 package org.apache.druid.query;
 
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.apache.druid.java.util.common.ISE;
@@ -28,6 +29,9 @@ import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
 import org.apache.druid.query.aggregation.MetricManipulatorFns;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.profile.FinalizeProfile;
+import org.apache.druid.query.profile.ProfileStack;
+import org.apache.druid.query.profile.Timer;
 
 /**
  * Query runner that applies {@link QueryToolChest#makePostComputeManipulatorFn(Query, MetricManipulationFn)} to the
@@ -83,6 +87,7 @@ public class FinalizeResultsQueryRunner<T> implements QueryRunner<T>
         public Result<BySegmentResultValue<T>> apply(T input)
         {
           //noinspection unchecked (input is not actually a T; see class-level javadoc)
+          @SuppressWarnings("unchecked")
           Result<BySegmentResultValueClass<T>> result = (Result<BySegmentResultValueClass<T>>) input;
 
           if (input == null) {
@@ -105,10 +110,30 @@ public class FinalizeResultsQueryRunner<T> implements QueryRunner<T>
       finalizerFn = toolChest.makePostComputeManipulatorFn(query, metricManipulationFn);
     }
 
-    //noinspection unchecked (Technically unsound, but see class-level javadoc for rationale)
-    return (Sequence<T>) Sequences.map(
+    // Short-circuit for an identity function
+    if (finalizerFn == Functions.identity()) {
+      return baseRunner.run(queryPlus.withQuery(queryToRun), responseContext);
+    }
+
+    final FinalizeProfile profile = new FinalizeProfile();
+    final ProfileStack profileStack = responseContext.getProfileStack();
+    profileStack.push(profile);
+    Timer timer = Timer.create();
+    final Function<T, T> profileFn = row -> {
+      timer.restart();
+      //noinspection unchecked (Technically unsound, but see class-level javadoc for rationale)
+      @SuppressWarnings("unchecked")
+      T temp = (T) finalizerFn.apply(row);
+      profile.timeNs += timer.get();
+      profile.batches++;
+      return temp;
+    };
+
+    Sequence<T> results = (Sequence<T>) Sequences.map(
         baseRunner.run(queryPlus.withQuery(queryToRun), responseContext),
-        finalizerFn
+        profileFn
     );
+    profileStack.pop(profile);
+    return results;
   }
 }

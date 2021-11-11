@@ -19,49 +19,9 @@
 
 package org.apache.druid.query.profile;
 
-/**
- * Very simple nano-second timer with an on/off switch.
- */
-public class Timer
+import org.apache.druid.query.profile.OperatorProfile.SimpleOperatorProfile;
+
+public class FinalizeProfile extends SimpleOperatorProfile
 {
-  private long totalTime;
-  private long startTime;
-
-  public static Timer create()
-  {
-    return new Timer();
-  }
-
-  public static Timer createStarted()
-  {
-    Timer timer = create();
-    timer.start();
-    return timer;
-  }
-
-  public void start()
-  {
-    if (startTime == 0) {
-      startTime = System.nanoTime();
-    }
-  }
-
-  public void restart()
-  {
-    startTime = System.nanoTime();
-  }
-
-  public void stop()
-  {
-    if (startTime != 0) {
-      totalTime += System.nanoTime() - startTime;
-      startTime = 0;
-    }
-  }
-
-  public long get()
-  {
-    stop();
-    return totalTime;
-  }
+  public static final String TYPE = "finalize";
 }

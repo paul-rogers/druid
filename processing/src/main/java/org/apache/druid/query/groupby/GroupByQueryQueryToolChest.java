@@ -245,16 +245,14 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<ResultRow, GroupB
         ), query);
       }
 
+    } else  if (query.getSubtotalsSpec() != null) {
+      return groupByStrategy.processSubtotalsSpec(
+          query,
+          resource,
+          groupByStrategy.mergeResults(runner, query.withSubtotalsSpec(null), context)
+      );
     } else {
-      if (query.getSubtotalsSpec() != null) {
-        return groupByStrategy.processSubtotalsSpec(
-            query,
-            resource,
-            groupByStrategy.mergeResults(runner, query.withSubtotalsSpec(null), context)
-        );
-      } else {
-        return groupByStrategy.applyPostProcessing(groupByStrategy.mergeResults(runner, query, context), query);
-      }
+      return groupByStrategy.applyPostProcessing(groupByStrategy.mergeResults(runner, query, context), query);
     }
   }
 
