@@ -77,12 +77,14 @@ import java.util.List;
 import java.util.Properties;
 
 @Command(
-    name = "broker",
-    description = "Runs a broker node, see https://druid.apache.org/docs/latest/Broker.html for a description"
+    name = CliBroker.NAME,
+    description = CliBroker.DESCRIPTION
 )
 public class CliBroker extends ServerRunnable
 {
   private static final Logger log = new Logger(CliBroker.class);
+  public static final String NAME = "broker";
+  public static final String DESCRIPTION = "Runs a broker node, see https://druid.apache.org/docs/latest/Broker.html for a description.";
 
   private boolean isZkEnabled = true;
 

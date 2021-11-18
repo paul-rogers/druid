@@ -86,12 +86,14 @@ import java.util.Properties;
  *
  */
 @Command(
-    name = "middleManager",
-    description = "Runs a Middle Manager, this is a \"task\" node used as part of the remote indexing service, see https://druid.apache.org/docs/latest/design/middlemanager.html for a description"
+    name = CliMiddleManager.NAME,
+    description = CliMiddleManager.DESCRIPTION
 )
 public class CliMiddleManager extends ServerRunnable
 {
   private static final Logger log = new Logger(CliMiddleManager.class);
+  public static final String NAME = "middleManager";
+  public static final String DESCRIPTION = "Runs a Middle Manager, this is a \"task\" node used as part of the remote indexing service, see https://druid.apache.org/docs/latest/design/middlemanager.html for a description.";
 
   private boolean isZkEnabled = true;
 

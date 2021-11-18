@@ -127,13 +127,15 @@ import java.util.concurrent.ExecutorService;
  *
  */
 @Command(
-    name = "coordinator",
-    description = "Runs the Coordinator, see https://druid.apache.org/docs/latest/Coordinator.html for a description."
+    name = CliCoordinator.NAME,
+    description = CliCoordinator.DESCRIPTION
 )
 public class CliCoordinator extends ServerRunnable
 {
   private static final Logger log = new Logger(CliCoordinator.class);
   private static final String AS_OVERLORD_PROPERTY = "druid.coordinator.asOverlord.enabled";
+  public static final String NAME = "coordinator";
+  public static final String DESCRIPTION = "Runs the Coordinator, see https://druid.apache.org/docs/latest/Coordinator.html for a description.";
 
   private Properties properties;
   private boolean beOverlord;

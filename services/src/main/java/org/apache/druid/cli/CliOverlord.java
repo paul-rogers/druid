@@ -134,12 +134,14 @@ import java.util.List;
 /**
  */
 @Command(
-    name = "overlord",
-    description = "Runs an Overlord node, see https://druid.apache.org/docs/latest/Indexing-Service.html for a description"
+    name = CliOverlord.NAME,
+    description = CliOverlord.DESCRIPTION
 )
 public class CliOverlord extends ServerRunnable
 {
   private static Logger log = new Logger(CliOverlord.class);
+  public static final String NAME = "overlord";
+  public static final String DESCRIPTION = "Runs an Overlord node, see https://druid.apache.org/docs/latest/Indexing-Service.html for a description.";
 
   protected static final List<String> UNSECURED_PATHS = ImmutableList.of(
       "/druid/indexer/v1/isLeader",

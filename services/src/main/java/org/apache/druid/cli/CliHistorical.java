@@ -64,12 +64,14 @@ import java.util.List;
 import java.util.Properties;
 
 @Command(
-    name = "historical",
-    description = "Runs a Historical node, see https://druid.apache.org/docs/latest/Historical.html for a description"
+    name = CliHistorical.NAME,
+    description = CliHistorical.DESCRIPTION
 )
 public class CliHistorical extends ServerRunnable
 {
   private static final Logger log = new Logger(CliHistorical.class);
+  public static final String NAME = "historical";
+  public static final String DESCRIPTION = "Runs a Historical node, see https://druid.apache.org/docs/latest/Historical.html for a description.";
 
   private boolean isZkEnabled = true;
 

@@ -85,12 +85,14 @@ import java.util.Properties;
  *
  */
 @Command(
-    name = "indexer",
-    description = "Runs an Indexer. The Indexer is a task execution process that runs each task in a separate thread."
+    name = CliIndexer.NAME,
+    description = CliIndexer.DESCRIPTION
 )
 public class CliIndexer extends ServerRunnable
 {
   private static final Logger log = new Logger(CliIndexer.class);
+  public static final String NAME = "indexer";
+  public static final String DESCRIPTION = "Runs an Indexer. The Indexer is a task execution process that runs each task in a separate thread.";
 
   private Properties properties;
   private boolean isZkEnabled = true;

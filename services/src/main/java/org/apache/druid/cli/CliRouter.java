@@ -62,13 +62,16 @@ import java.util.List;
 /**
  */
 @Command(
-    name = "router",
-    description = "Experimental! Understands tiers and routes things to different brokers, "
-                  + "see https://druid.apache.org/docs/latest/development/router.html for a description"
+    name = CliRouter.NAME,
+    description = CliRouter.DESCRIPTION
 )
 public class CliRouter extends ServerRunnable
 {
   private static final Logger log = new Logger(CliRouter.class);
+  public static final String NAME = "router";
+  public static final String DESCRIPTION =
+      "Experimental! Understands tiers and routes things to different brokers, "
+      + "see https://druid.apache.org/docs/latest/development/router.html for a description.";
 
   public CliRouter()
   {

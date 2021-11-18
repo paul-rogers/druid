@@ -19,6 +19,7 @@
 
 package org.apache.druid.cli;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Injector;
 import io.airlift.airline.Cli;
 import io.airlift.airline.Help;
@@ -45,16 +46,17 @@ public class Main
     }
   }
 
+  @VisibleForTesting
   @SuppressWarnings("unchecked")
-  @SuppressForbidden(reason = "System#out")
-  public static void main(String[] args)
-  {
+  public static Cli<Runnable> buildCli(final Injector injector) {
     final Cli.CliBuilder<Runnable> builder = Cli.builder("druid");
 
     builder.withDescription("Druid command-line runner.")
            .withDefaultCommand(Help.class)
            .withCommands(Help.class, Version.class);
 
+    // Note: if you add a service here which can run "bundled" with others,
+    // then also add it to BundleCommand
     List<Class<? extends Runnable>> serverCommands = Arrays.asList(
         CliCoordinator.class,
         CliHistorical.class,
@@ -68,6 +70,7 @@ public class Main
            .withDescription("Run one of the Druid server types.")
            .withDefaultCommand(Help.class)
            .withCommands(serverCommands);
+    builder.withCommand(BundleCommand.class);
 
     List<Class<? extends Runnable>> toolCommands = Arrays.asList(
         DruidJsonValidator.class,
@@ -93,7 +96,6 @@ public class Main
            .withDefaultCommand(Help.class)
            .withCommands(CliPeon.class, CliInternalHadoopIndexer.class);
 
-    final Injector injector = GuiceInjectors.makeStartupInjector();
     final ExtensionsConfig config = injector.getInstance(ExtensionsConfig.class);
     final Collection<CliCommandCreator> extensionCommands = Initialization.getFromExtensions(
         config,
@@ -104,7 +106,14 @@ public class Main
       creator.addCommands(builder);
     }
 
-    final Cli<Runnable> cli = builder.build();
+    return builder.build();
+  }
+
+  @SuppressForbidden(reason = "System#out")
+  public static void main(String[] args)
+  {
+    final Injector injector = GuiceInjectors.makeStartupInjector();
+    Cli<Runnable> cli = buildCli(injector);
     try {
       final Runnable command = cli.parse(args);
       if (!(command instanceof Help)) { // Hack to work around Help not liking being injected
