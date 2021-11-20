@@ -1,7 +1,6 @@
 package org.apache.druid.query.scan;
 
 import java.io.Closeable;
-import java.io.IOException;
 
 import org.apache.druid.java.util.common.guava.Accumulator;
 import org.apache.druid.java.util.common.guava.Sequence;
