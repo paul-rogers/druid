@@ -82,13 +82,12 @@ public class PropertiesModule implements Module
 
     if (stream != null) {
       return stream;
+    }
+    File workingDirectoryFile = new File(systemProps.getProperty("druid.properties.file", propertiesFile));
+    if (workingDirectoryFile.exists()) {
+      return new BufferedInputStream(new FileInputStream(workingDirectoryFile));
     } else {
-      File workingDirectoryFile = new File(systemProps.getProperty("druid.properties.file", propertiesFile));
-      if (workingDirectoryFile.exists()) {
-        return new BufferedInputStream(new FileInputStream(workingDirectoryFile));
-      } else {
-        return null;
-      }
+      return null;
     }
   }
 }

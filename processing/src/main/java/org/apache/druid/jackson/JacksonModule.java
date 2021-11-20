@@ -33,6 +33,9 @@ import org.apache.druid.guice.annotations.JsonNonNull;
 import org.apache.druid.guice.annotations.Smile;
 
 /**
+ * Provides Jackson services during the startup phase, during the
+ * use of the startup injector. See {@link DruidSecondaryModule}
+ * for the Jackson support used in the service-specific injector.
  */
 public class JacksonModule implements Module
 {
@@ -49,7 +52,7 @@ public class JacksonModule implements Module
   }
 
   /**
-   * Provides ObjectMapper that suppress serializing properties with null values
+   * Provides ObjectMapper that suppresses serializing properties with null values
    */
   @Provides @LazySingleton @JsonNonNull
   public ObjectMapper jsonMapperOnlyNonNullValue()

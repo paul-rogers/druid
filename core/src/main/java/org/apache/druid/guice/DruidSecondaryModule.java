@@ -37,9 +37,18 @@ import org.skife.config.ConfigurationObjectFactory;
 import javax.validation.Validator;
 import java.util.Properties;
 
+/**
+ * Provides a "clone" of startup resources for use by the "secondary"
+ * service-specific injector. Note that the Jackson support provided here
+ * differs from that of the startup {@link JacksonModule}.
+ * <p>
+ * The per-service injector inherits from the "root" injector defined
+ * in {@link GuiceInjectors}. When possible, use Guice inheritance to
+ * make startup modules available to secondary injectors. Add items to
+ * this class only if the secondary behavior differs from startup.
+ */
 public class DruidSecondaryModule implements Module
 {
-  private final Properties properties;
   private final ConfigurationObjectFactory factory;
   private final ObjectMapper jsonMapper;
   private final ObjectMapper jsonMapperOnlyNonNullValueSerialization;
@@ -48,7 +57,6 @@ public class DruidSecondaryModule implements Module
 
   @Inject
   public DruidSecondaryModule(
-      Properties properties,
       ConfigurationObjectFactory factory,
       @Json ObjectMapper jsonMapper,
       @JsonNonNull ObjectMapper jsonMapperOnlyNonNullValueSerialization,
@@ -56,7 +64,6 @@ public class DruidSecondaryModule implements Module
       Validator validator
   )
   {
-    this.properties = properties;
     this.factory = factory;
     this.jsonMapper = jsonMapper;
     this.jsonMapperOnlyNonNullValueSerialization = jsonMapperOnlyNonNullValueSerialization;
@@ -67,8 +74,6 @@ public class DruidSecondaryModule implements Module
   @Override
   public void configure(Binder binder)
   {
-    binder.install(new DruidGuiceExtensions());
-    binder.bind(Properties.class).toInstance(properties);
     binder.bind(ConfigurationObjectFactory.class).toInstance(factory);
     binder.bind(ObjectMapper.class).to(Key.get(ObjectMapper.class, Json.class));
     binder.bind(Validator.class).toInstance(validator);

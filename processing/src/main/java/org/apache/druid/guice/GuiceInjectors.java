@@ -19,28 +19,43 @@
 
 package org.apache.druid.guice;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Binding;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.google.inject.Key;
 import com.google.inject.Module;
+import io.netty.util.SuppressForbidden;
 import org.apache.druid.jackson.JacksonModule;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.math.expr.ExpressionProcessingModule;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map.Entry;
 
 /**
  */
 public class GuiceInjectors
 {
-  public static Collection<Module> makeDefaultStartupModules()
+  public static Collection<Module> makeRootModules()
   {
     return ImmutableList.of(
         new DruidGuiceExtensions(),
+        new PropertiesModule(Arrays.asList("common.runtime.properties", "runtime.properties"))
+    );
+  }
+
+  public static Collection<Module> makeDefaultStartupModules()
+  {
+    return ImmutableList.of(
+        // The following (mostly) configure Jackson.
+        // TODO: Move to the root injector and remove from DruidSecondaryModule
+        // Requires resolving some mysteries, however.
         new JacksonModule(),
-        new PropertiesModule(Arrays.asList("common.runtime.properties", "runtime.properties")),
         new RuntimeInfoModule(),
         new ConfigModule(),
         new NullHandlingModule(),
@@ -55,7 +70,8 @@ public class GuiceInjectors
 
   public static Injector makeStartupInjector()
   {
-    return Guice.createInjector(makeDefaultStartupModules());
+    final Injector root = Guice.createInjector(makeRootModules());
+    return root.createChildInjector(makeDefaultStartupModules());
   }
 
   public static Injector makeStartupInjectorWithModules(Iterable<? extends Module> modules)
@@ -65,5 +81,29 @@ public class GuiceInjectors
       theModules.add(theModule);
     }
     return Guice.createInjector(theModules);
+  }
+
+  public static String guiceMap(Injector injector)
+  {
+    StringBuilder buf = new StringBuilder();
+    if (injector.getParent() != null) {
+      buf.append("-- Parent --\n");
+      buf.append(guiceMap(injector.getParent()));
+      buf.append("----\n");
+    }
+    for (Entry<Key<?>, Binding<?>> entry : injector.getBindings().entrySet()) {
+      buf.append(StringUtils.format("%s: %s\n",
+          entry.getKey().toString(),
+          entry.getValue().getClass().getSimpleName()));
+    }
+    return buf.toString();
+  }
+
+  @VisibleForTesting
+  @SuppressForbidden(reason = "System#out")
+  public static void printMap(Injector injector)
+  {
+    System.out.println("Guice map");
+    System.out.print(guiceMap(injector));
   }
 }

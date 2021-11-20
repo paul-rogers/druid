@@ -33,6 +33,7 @@ import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeAnnouncer;
 import org.apache.druid.discovery.DruidService;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.annotations.Self;
@@ -60,6 +61,7 @@ public abstract class ServerRunnable extends GuiceRunnable
   public void run()
   {
     final Injector injector = makeInjector();
+    //GuiceInjectors.printMap(injector);
     final Lifecycle lifecycle = initLifecycle(injector);
 
     try {
@@ -124,7 +126,7 @@ public abstract class ServerRunnable extends GuiceRunnable
   }
 
   /**
-   * This is a helper class used by CliXXX classes to announce {@link DiscoveryDruidNode}
+   * Helper class used by CliXXX classes to announce {@link DiscoveryDruidNode}
    * as part of {@link Lifecycle.Stage#ANNOUNCEMENTS}.
    */
   public static class DiscoverySideEffectsProvider implements Provider<DiscoverySideEffectsProvider.Child>

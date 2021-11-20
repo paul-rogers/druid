@@ -83,9 +83,11 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
@@ -94,9 +96,15 @@ import java.util.stream.Collectors;
 public class Initialization
 {
   private static final Logger log = new Logger(Initialization.class);
-  private static final ConcurrentHashMap<File, URLClassLoader> LOADERS_MAP = new ConcurrentHashMap<>();
 
-  private static final ConcurrentHashMap<Class<?>, Collection<?>> EXTENSIONS_MAP = new ConcurrentHashMap<>();
+  // File system loaders scanned once
+  private static boolean loaded;
+  private static final Map<File, URLClassLoader> FILE_JARS_MAP = new ConcurrentHashMap<>();
+
+  private static final Map<File, URLClassLoader> LOADERS_MAP = new ConcurrentHashMap<>();
+
+  // Extensions map build per-class
+  private static final Map<Class<?>, Collection<?>> EXTENSIONS_MAP = new ConcurrentHashMap<>();
 
   /**
    * @param clazz service class
@@ -126,6 +134,36 @@ public class Initialization
     return LOADERS_MAP;
   }
 
+  static Map<File, URLClassLoader> loadFileExtensions(ExtensionsConfig extensionsConfig)
+  {
+    if (loaded)
+      return FILE_JARS_MAP;
+    loaded = true;
+    for (File extension : getExtensionFilesToLoad(extensionsConfig)) {
+      log.debug("Loading extension [%s]", extension.getName());
+      try {
+        final URLClassLoader loader = getClassLoaderForExtension(
+            extension,
+            extensionsConfig.isUseExtensionClassloaderFirst()
+        );
+
+        log.info(
+            "Loading extension [%s], jars: %s",
+            extension.getName(),
+            Arrays.stream(loader.getURLs())
+                  .map(u -> new File(u.getPath()).getName())
+                  .collect(Collectors.joining(", "))
+        );
+
+        FILE_JARS_MAP.put(extension, loader);
+      }
+      catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    }
+    return FILE_JARS_MAP;
+  }
+
   /**
    * Look for implementations for the given class from both classpath and extensions directory, using {@link
    * ServiceLoader}. A user should never put the same two extensions in classpath and extensions directory, if he/she
@@ -141,7 +179,7 @@ public class Initialization
   public static <T> Collection<T> getFromExtensions(ExtensionsConfig config, Class<T> serviceClass)
   {
     // It's not clear whether we should recompute modules even if they have been computed already for the serviceClass,
-    // but that's how it used to be an preserving the old behaviour here.
+    // but that's how it used to be and preserving the old behaviour here.
     Collection<?> modules = EXTENSIONS_MAP.compute(
         serviceClass,
         (serviceC, ignored) -> new ServiceLoadingFromExtensions<>(config, serviceC).implsToLoad
@@ -176,22 +214,11 @@ public class Initialization
 
     private void addAllFromFileSystem()
     {
-      for (File extension : getExtensionFilesToLoad(extensionsConfig)) {
+      for (Entry<File, URLClassLoader> extn : loadFileExtensions(extensionsConfig).entrySet()) {
+        File extension = extn.getKey();
+        URLClassLoader loader = extn.getValue();
         log.debug("Loading extension [%s] for class [%s]", extension.getName(), serviceClass);
         try {
-          final URLClassLoader loader = getClassLoaderForExtension(
-              extension,
-              extensionsConfig.isUseExtensionClassloaderFirst()
-          );
-
-          log.info(
-              "Loading extension [%s], jars: %s",
-              extension.getName(),
-              Arrays.stream(loader.getURLs())
-                    .map(u -> new File(u.getPath()).getName())
-                    .collect(Collectors.joining(", "))
-          );
-
           ServiceLoader.load(serviceClass, loader).forEach(impl -> tryAdd(impl, "local file system"));
         }
         catch (Exception e) {
@@ -223,17 +250,17 @@ public class Initialization
   }
 
   /**
-   * Find all the extension files that should be loaded by druid.
+   * Find all the extension files that should be loaded by Druid.
    * <p/>
    * If user explicitly specifies druid.extensions.loadList, then it will look for those extensions under root
-   * extensions directory. If one of them is not found, druid will fail loudly.
+   * extensions directory. If one of them is not found, Druid will fail loudly.
    * <p/>
-   * If user doesn't specify druid.extension.toLoad (or its value is empty), druid will load all the extensions
+   * If user doesn't specify druid.extension.toLoad (or its value is empty), Druid will load all the extensions
    * under the root extensions directory.
    *
    * @param config ExtensionsConfig configured by druid.extensions.xxx
    *
-   * @return an array of druid extension files that will be loaded by druid process
+   * @return an array of druid extension files that will be loaded by Druid process
    */
   public static File[] getExtensionFilesToLoad(ExtensionsConfig config)
   {
@@ -256,7 +283,7 @@ public class Initialization
 
         if (!extensionDir.isDirectory()) {
           throw new ISE(
-              "Extension [%s] specified in \"druid.extensions.loadList\" didn't exist!?",
+              "Extension [%s] specified in \"druid.extensions.loadList\" doesn't exist!",
               extensionDir.getAbsolutePath()
           );
         }
@@ -267,12 +294,12 @@ public class Initialization
   }
 
   /**
-   * Find all the hadoop dependencies that should be loaded by druid
+   * Find all the Hadoop dependencies that should be loaded by druid
    *
    * @param hadoopDependencyCoordinates e.g.["org.apache.hadoop:hadoop-client:2.3.0"]
    * @param extensionsConfig            ExtensionsConfig configured by druid.extensions.xxx
    *
-   * @return an array of hadoop dependency files that will be loaded by druid process
+   * @return an array of Hadoop dependency files that will be loaded by druid process
    */
   public static File[] getHadoopDependencyFilesToLoad(
       List<String> hadoopDependencyCoordinates,
@@ -291,7 +318,7 @@ public class Initialization
       final File versionDir = new File(hadoopDependencyDir, artifact.getVersion());
       // find the hadoop dependency with the version specified in coordinate
       if (!hadoopDependencyDir.isDirectory() || !versionDir.isDirectory()) {
-        throw new ISE("Hadoop dependency [%s] didn't exist!?", versionDir.getAbsolutePath());
+        throw new ISE("Hadoop dependency [%s] doesn't exist!", versionDir.getAbsolutePath());
       }
       hadoopDependenciesToLoad[i++] = versionDir;
     }
@@ -430,7 +457,8 @@ public class Initialization
       extensionModules.addModule(module);
     }
 
-    return Guice.createInjector(Modules.override(intermediateModules).with(extensionModules.getModules()));
+    final Injector root = baseInjector.getParent();
+    return root.createChildInjector(Modules.override(intermediateModules).with(extensionModules.getModules()));
   }
 
   private static class ModuleList

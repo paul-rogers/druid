@@ -25,6 +25,7 @@ import org.apache.druid.guice.annotations.ExtensionPoint;
 import java.util.List;
 
 /**
+ * Guice module for Druid components. Druid modules offer Jackson modules.
  */
 @ExtensionPoint
 public interface DruidModule extends com.google.inject.Module
