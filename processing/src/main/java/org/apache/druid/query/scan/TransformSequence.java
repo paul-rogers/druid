@@ -1,10 +1,12 @@
 package org.apache.druid.query.scan;
 
+import java.io.Closeable;
 import java.io.IOException;
 
 import org.apache.druid.java.util.common.guava.Accumulator;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Yielder;
+import org.apache.druid.java.util.common.guava.Yielders;
 import org.apache.druid.java.util.common.guava.YieldingAccumulator;
 
 public abstract class TransformSequence<T> implements Sequence<T>
@@ -43,45 +45,79 @@ public abstract class TransformSequence<T> implements Sequence<T>
     return accumulated;
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public <OutType> Yielder<OutType> toYielder(OutType initValue,
       YieldingAccumulator<OutType, T> accumulator) {
     open();
-    return (Yielder<OutType>) new TransformYielder();
+    try {
+      return makeYielder(initValue, accumulator);
+    }
+    catch (Throwable t) {
+      try {
+       close();
+      }
+      catch (Exception e) {
+        t.addSuppressed(e);
+      }
+      throw t;
+    }
   }
 
-  private class TransformYielder implements Yielder<T>
+  private <OutType> Yielder<OutType> makeYielder(
+      final OutType initValue,
+      final YieldingAccumulator<OutType, T> accumulator
+  )
   {
-    private T value;
-
-    public TransformYielder() {
-      next(null);
+    OutType retVal = initValue;
+    while (!accumulator.yielded() && hasNext()) {
+      retVal = accumulator.accumulate(retVal, next());
     }
 
-    @Override
-    public boolean isDone() {
-      return value == null;
+    if (!accumulator.yielded()) {
+      return Yielders.done(
+          retVal,
+          (Closeable) () -> TransformSequence.this.close()
+      );
     }
 
-    @Override
-    public T get() {
-      return value;
-    }
-
-    @Override
-    public Yielder<T> next(T initValue) {
-      if (hasNext()) {
-        value = TransformSequence.this.next();
-      } else {
-        value = null;
+    final OutType finalRetVal = retVal;
+    return new Yielder<OutType>()
+    {
+      @Override
+      public OutType get()
+      {
+        return finalRetVal;
       }
-      return this;
-    }
 
-    @Override
-    public void close() throws IOException {
-      TransformSequence.this.close();
-    }
+      @Override
+      public Yielder<OutType> next(OutType initValue)
+      {
+        accumulator.reset();
+        try {
+          return makeYielder(initValue, accumulator);
+        }
+        catch (Throwable t) {
+          try {
+            TransformSequence.this.close();
+          }
+          catch (Exception e) {
+            t.addSuppressed(e);
+          }
+          throw t;
+        }
+      }
+
+      @Override
+      public boolean isDone()
+      {
+        return false;
+      }
+
+      @Override
+      public void close()
+      {
+        TransformSequence.this.close();
+      }
+    };
   }
 }
