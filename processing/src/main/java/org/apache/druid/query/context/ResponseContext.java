@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import org.apache.druid.guice.annotations.PublicApi;
 import org.apache.druid.java.util.common.IAE;
@@ -32,6 +33,7 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.NonnullPair;
 import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.query.pipeline.FragmentContext;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
@@ -273,6 +275,7 @@ public abstract class ResponseContext
   }
 
   protected abstract Map<BaseKey, Object> getDelegate();
+  protected FragmentContext fragmentContext;
 
   private static final Comparator<Map.Entry<String, JsonNode>> VALUE_LENGTH_REVERSED_COMPARATOR =
       Comparator.comparing((Map.Entry<String, JsonNode> e) -> e.getValue().toString().length()).reversed();
@@ -346,6 +349,26 @@ public abstract class ResponseContext
         add(key, newValue);
       }
     });
+  }
+
+  public void setFragmentContext(FragmentContext context) {
+    Preconditions.checkState(fragmentContext == null);
+    fragmentContext = context;
+  }
+
+  public FragmentContext getFragmentContext()
+  {
+    Preconditions.checkNotNull(fragmentContext);
+    return fragmentContext;
+  }
+
+  /**
+   * Tells query runners whether to prefer operator-based implementations.
+   * If false, use the traditional, non-operator implementations.
+   */
+  public boolean useOperators()
+  {
+    return fragmentContext != null;
   }
 
   /**

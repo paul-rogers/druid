@@ -45,6 +45,7 @@ import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryToolChestWarehouse;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.pipeline.OperatorConfig;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -89,6 +90,7 @@ public class QueryLifecycle
   private AuthenticationResult authenticationResult;
   private QueryToolChest toolChest;
   private Query baseQuery;
+  private ResponseContext responseContext;
 
   public QueryLifecycle(
       final QueryToolChestWarehouse warehouse,
@@ -248,7 +250,8 @@ public class QueryLifecycle
   {
     transition(State.AUTHORIZED, State.EXECUTING);
 
-    final ResponseContext responseContext = DirectDruidClient.makeResponseContextForQuery();
+    responseContext = DirectDruidClient.makeResponseContextForQuery();
+    OperatorConfig.setupContext(baseQuery, responseContext);
 
     final Sequence res = QueryPlus.wrap(baseQuery)
                                   .withIdentity(authenticationResult.getIdentity())
@@ -284,6 +287,7 @@ public class QueryLifecycle
 
     final boolean success = e == null;
 
+    OperatorConfig.shutdown(responseContext, success);
     try {
       final long queryTimeNs = System.nanoTime() - startNs;
 
