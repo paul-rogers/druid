@@ -21,7 +21,6 @@ package org.apache.druid.initialization;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -87,7 +86,6 @@ import java.util.Map.Entry;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
@@ -97,7 +95,6 @@ public class Initialization
 {
   private static final Logger log = new Logger(Initialization.class);
 
-  // File system loaders scanned once
   private static boolean loaded;
   private static final Map<File, URLClassLoader> FILE_JARS_MAP = new ConcurrentHashMap<>();
 
@@ -134,6 +131,10 @@ public class Initialization
     return LOADERS_MAP;
   }
 
+  /**
+   * Scans the file system for the list of extension jars. Logs each found.
+   * Caches the scan result since the set of jars cannot change during the run.
+   */
   static Map<File, URLClassLoader> loadFileExtensions(ExtensionsConfig extensionsConfig)
   {
     if (loaded)
@@ -176,10 +177,13 @@ public class Initialization
    * elements in the returned collection is not specified and not guaranteed to be the same for different calls to
    * getFromExtensions().
    */
+  @SuppressWarnings("unchecked")
   public static <T> Collection<T> getFromExtensions(ExtensionsConfig config, Class<T> serviceClass)
   {
     // It's not clear whether we should recompute modules even if they have been computed already for the serviceClass,
     // but that's how it used to be and preserving the old behaviour here.
+    // In actual practice, it appears we ask for each class once, so it doesn't matter
+    // if we recompute or not.
     Collection<?> modules = EXTENSIONS_MAP.compute(
         serviceClass,
         (serviceC, ignored) -> new ServiceLoadingFromExtensions<>(config, serviceC).implsToLoad
@@ -266,7 +270,7 @@ public class Initialization
   {
     final File rootExtensionsDir = new File(config.getDirectory());
     if (rootExtensionsDir.exists() && !rootExtensionsDir.isDirectory()) {
-      throw new ISE("Root extensions directory [%s] is not a directory!?", rootExtensionsDir);
+      throw new ISE("Root extensions directory [%s] is not a directory!", rootExtensionsDir);
     }
     File[] extensionsToLoad;
     final LinkedHashSet<String> toLoad = config.getLoadList();
@@ -294,7 +298,7 @@ public class Initialization
   }
 
   /**
-   * Find all the Hadoop dependencies that should be loaded by druid
+   * Find all the Hadoop dependencies that should be loaded by Druid
    *
    * @param hadoopDependencyCoordinates e.g.["org.apache.hadoop:hadoop-client:2.3.0"]
    * @param extensionsConfig            ExtensionsConfig configured by druid.extensions.xxx
@@ -483,6 +487,7 @@ public class Initialization
       return Collections.unmodifiableList(modules);
     }
 
+    @SuppressWarnings({ "unchecked", "rawtypes" })
     public void addModule(Object input)
     {
       if (input instanceof DruidModule) {

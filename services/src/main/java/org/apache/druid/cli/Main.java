@@ -87,12 +87,12 @@ public class Main
            .withCommands(toolCommands);
 
     builder.withGroup("index")
-           .withDescription("Run indexing for druid")
+           .withDescription("Run indexing for Druid")
            .withDefaultCommand(Help.class)
            .withCommands(CliHadoopIndexer.class);
 
     builder.withGroup("internal")
-           .withDescription("Processes that Druid runs \"internally\", you should rarely use these directly")
+           .withDescription("Processes that Druid runs internally, you should rarely use these directly")
            .withDefaultCommand(Help.class)
            .withCommands(CliPeon.class, CliInternalHadoopIndexer.class);
 
