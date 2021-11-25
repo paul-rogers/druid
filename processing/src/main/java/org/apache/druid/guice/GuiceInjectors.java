@@ -26,6 +26,7 @@ import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Provider;
 import io.netty.util.SuppressForbidden;
 import org.apache.druid.jackson.JacksonModule;
 import org.apache.druid.java.util.common.StringUtils;
@@ -94,8 +95,23 @@ public class GuiceInjectors
     for (Entry<Key<?>, Binding<?>> entry : injector.getBindings().entrySet()) {
       buf.append(StringUtils.format("%s: %s\n",
           entry.getKey().toString(),
-          entry.getValue().getClass().getSimpleName()));
+          entryToString(entry.getValue())));
     }
+    return buf.toString();
+  }
+
+  public static String entryToString(Binding<?> binding)
+  {
+    StringBuilder buf = new StringBuilder();
+    buf.append(binding.getClass().getSimpleName());
+    buf.append("(");
+    Provider<?> provider = binding.getProvider();
+    if (provider == null) {
+      buf.append("null");
+    } else {
+      buf.append(provider.getClass().getSimpleName());
+    }
+    buf.append(")");
     return buf.toString();
   }
 

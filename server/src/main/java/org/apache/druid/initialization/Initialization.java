@@ -407,12 +407,24 @@ public class Initialization
 
   public static Injector makeInjectorWithModules(final Injector baseInjector, Iterable<? extends Module> modules)
   {
-    final ModuleList defaultModules = new ModuleList(baseInjector);
-    defaultModules.addModules(
+    final ModuleList commonModules = new ModuleList(baseInjector);
+    commonModules.addModules(
         // New modules should be added after Log4jShutterDownerModule
         new Log4jShutterDownerModule(),
         new DruidAuthModule(),
         new LifecycleModule(),
+        TLSCertificateCheckerModule.class,
+        DruidSecondaryModule.class
+    );
+    final Injector root = baseInjector.getParent();
+    Injector common = root.createChildInjector(commonModules.getModules());
+
+    final ModuleList defaultModules = new ModuleList(baseInjector);
+    defaultModules.addModules(
+        // New modules should be added after Log4jShutterDownerModule
+//        new Log4jShutterDownerModule(),
+//        new DruidAuthModule(),
+//        new LifecycleModule(),
         TLSCertificateCheckerModule.class,
         EmitterModule.class,
         HttpClientModule.global(),
@@ -448,7 +460,7 @@ public class Initialization
     );
 
     ModuleList actualModules = new ModuleList(baseInjector);
-    actualModules.addModule(DruidSecondaryModule.class);
+//    actualModules.addModule(DruidSecondaryModule.class);
     for (Object module : modules) {
       actualModules.addModule(module);
     }
@@ -461,8 +473,71 @@ public class Initialization
       extensionModules.addModule(module);
     }
 
+    return common.createChildInjector(Modules.override(intermediateModules).with(extensionModules.getModules()));
+  }
+
+  public static Injector makeInjectorWithModules2(final Injector baseInjector, Iterable<? extends Module> modules)
+  {
+    final ModuleList defaultModules = new ModuleList(baseInjector);
+    defaultModules.addModules(
+        // New modules should be added after Log4jShutterDownerModule
+        new Log4jShutterDownerModule(),
+        new DruidAuthModule(),
+        new LifecycleModule(),
+        TLSCertificateCheckerModule.class,
+//        EmitterModule.class,
+        HttpClientModule.global(),
+        HttpClientModule.escalatedGlobal(),
+        new HttpClientModule("druid.broker.http", Client.class),
+        new HttpClientModule("druid.broker.http", EscalatedClient.class),
+        new CuratorModule(),
+        new AnnouncerModule(),
+        new MetricsModule(),
+        new SegmentWriteOutMediumModule(),
+//        new ServerModule(),
+        new DruidProcessingConfigModule(),
+        new StorageNodeModule(),
+        new JettyServerModule(),
+        new ExpressionModule(),
+        new DiscoveryModule(),
+        new ServerViewModule(),
+        new MetadataConfigModule(),
+        new DerbyMetadataStorageDruidModule(),
+        new JacksonConfigManagerModule(),
+        new IndexingServiceDiscoveryModule(),
+        new CoordinatorDiscoveryModule(),
+        new LocalDataStorageDruidModule(),
+        new FirehoseModule(),
+        new JavaScriptModule(),
+        new AuthenticatorModule(),
+        new AuthenticatorMapperModule(),
+        new EscalatorModule(),
+        new AuthorizerModule(),
+        new AuthorizerMapperModule(),
+        new StartupLoggingModule(),
+        new ExternalStorageAccessSecurityModule(),
+        DruidSecondaryModule.class
+    );
+
+//    Module intermediateModules = Modules.override(defaultModules.getModules()).with(actualModules.getModules());
+
+    ModuleList extensionModules = new ModuleList(baseInjector);
+    final ExtensionsConfig config = baseInjector.getInstance(ExtensionsConfig.class);
+    for (DruidModule module : Initialization.getFromExtensions(config, DruidModule.class)) {
+      extensionModules.addModule(module);
+    }
+
     final Injector root = baseInjector.getParent();
-    return root.createChildInjector(Modules.override(intermediateModules).with(extensionModules.getModules()));
+    Injector common = root.createChildInjector(Modules.override(defaultModules.getModules()).with(extensionModules.getModules()));
+
+    ModuleList actualModules = new ModuleList(baseInjector);
+    actualModules.addModule(EmitterModule.class);
+    actualModules.addModule(new ServerModule());
+    for (Object module : modules) {
+      actualModules.addModule(module);
+    }
+
+    return common.createChildInjector(actualModules.getModules());
   }
 
   private static class ModuleList
