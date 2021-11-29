@@ -368,7 +368,7 @@ public class JettyServerModule extends JerseyServletModule
       connectors[index++] = connector;
       connector.setIdleTimeout(Ints.checkedCast(config.getMaxIdleTime().toStandardDuration().getMillis()));
       // workaround suggested in -
-      // https://bugs.eclipse.org/bugs/show_bug.cgi?id=435322#c66 for jetty half open connection issues during failovers
+      // https://bugs.eclipse.org/bugs/show_bug.cgi?id=435322#c66 for Jetty half open connection issues during failovers
       connector.setAcceptorPriorityDelta(-1);
 
       List<ConnectionFactory> monitoredConnFactories = new ArrayList<>();
