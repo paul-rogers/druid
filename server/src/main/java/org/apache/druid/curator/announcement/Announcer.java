@@ -53,7 +53,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Announces things on Zookeeper.
+ * Announces things on ZooKeeper.
  */
 public class Announcer
 {

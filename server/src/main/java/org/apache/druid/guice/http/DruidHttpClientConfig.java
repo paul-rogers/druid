@@ -30,7 +30,6 @@ import javax.validation.constraints.Min;
 
 /**
  */
-
 public class DruidHttpClientConfig
 {
   private final String DEFAULT_COMPRESSION_CODEC = "gzip";
@@ -102,7 +101,7 @@ public class DruidHttpClientConfig
     if (unusedConnectionTimeout != null && readTimeout != null
         && unusedConnectionTimeout.toStandardDuration().compareTo(readTimeout.toStandardDuration()) >= 0) {
       LOG.warn(
-          "Ohh no! UnusedConnectionTimeout[%s] is longer than readTimeout[%s], please correct"
+          "Oh no! UnusedConnectionTimeout[%s] is longer than readTimeout[%s], please correct"
           + " the configuration, this might not be supported in future.",
           unusedConnectionTimeout,
           readTimeout

@@ -33,16 +33,29 @@ import java.util.Properties;
  */
 public class ConfigModule implements Module
 {
+  public static class EarlyConfigModule implements Module
+  {
+    @Override
+    public void configure(Binder binder)
+    {
+    }
+
+    /**
+     * Provides the <a href="https://github.com/brianm/config-magic">Config Magic</a>
+     * config object factory. See {@link org.apache.druid.guice.ConfigProvider ConfigProvider}
+     * for usage.
+     */
+    @Provides @LazySingleton
+    public ConfigurationObjectFactory makeFactory(Properties props)
+    {
+      return Config.createFactory(props);
+    }
+  }
+
   @Override
   public void configure(Binder binder)
   {
-    binder.bind(Validator.class).toInstance(Validation.buildDefaultValidatorFactory().getValidator());
     binder.bind(JsonConfigurator.class).in(LazySingleton.class);
-  }
-
-  @Provides @LazySingleton
-  public ConfigurationObjectFactory makeFactory(Properties props)
-  {
-    return Config.createFactory(props);
+    binder.bind(Validator.class).toInstance(Validation.buildDefaultValidatorFactory().getValidator());
   }
 }

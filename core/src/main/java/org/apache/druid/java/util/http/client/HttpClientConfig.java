@@ -161,10 +161,10 @@ public class HttpClientConfig
   public static class Builder
   {
     private int numConnections = 1;
-    private SSLContext sslContext = null;
-    private HttpClientProxyConfig proxyConfig = null;
-    private Duration readTimeout = null;
-    private Duration sslHandshakeTimeout = null;
+    private SSLContext sslContext;
+    private HttpClientProxyConfig proxyConfig;
+    private Duration readTimeout;
+    private Duration sslHandshakeTimeout;
     private int bossCount = DEFAULT_BOSS_COUNT;
     private int workerCount = DEFAULT_WORKER_COUNT;
     private CompressionCodec compressionCodec = DEFAULT_COMPRESSION_CODEC;

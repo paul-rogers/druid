@@ -30,6 +30,8 @@ import java.util.List;
 
 /**
  * A scope that adds objects to the Lifecycle.  This is by definition also a lazy singleton scope.
+ *
+ * Here "scope" is a Guice concept that maps to the Lifecycle "stages": one scope for each stage.
  */
 public class LifecycleScope implements Scope
 {

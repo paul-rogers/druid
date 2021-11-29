@@ -46,14 +46,15 @@ public class GuiceInjectors
   {
     return ImmutableList.of(
         new DruidGuiceExtensions(),
-        new PropertiesModule(Arrays.asList("common.runtime.properties", "runtime.properties"))
+        new PropertiesModule(Arrays.asList("common.runtime.properties", "runtime.properties")),
+        new ConfigModule.EarlyConfigModule()
     );
   }
 
   public static Collection<Module> makeDefaultStartupModules()
   {
     return ImmutableList.of(
-        // The following (mostly) configure Jackson.
+        // The following (mostly) configures Jackson.
         // TODO: Move to the root injector and remove from DruidSecondaryModule
         // Requires resolving some mysteries, however.
         new JacksonModule(),
@@ -72,6 +73,7 @@ public class GuiceInjectors
   public static Injector makeStartupInjector()
   {
     final Injector root = Guice.createInjector(makeRootModules());
+    GuiceInjectors.printMap(root);
     return root.createChildInjector(makeDefaultStartupModules());
   }
 

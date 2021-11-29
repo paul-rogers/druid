@@ -51,9 +51,6 @@ public class PropertiesModule implements Module
     final Properties fileProps = new Properties();
     Properties systemProps = System.getProperties();
 
-    Properties props = new Properties(fileProps);
-    props.putAll(systemProps);
-
     for (String propertiesFile : propertiesFiles) {
       try (InputStream stream = openPropertiesFile(propertiesFile, systemProps)) {
         if (stream != null) {
@@ -71,6 +68,8 @@ public class PropertiesModule implements Module
       }
     }
 
+    Properties props = new Properties(fileProps);
+    props.putAll(systemProps);
     binder.bind(Properties.class).toInstance(props);
   }
 

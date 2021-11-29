@@ -89,12 +89,18 @@ public class ServerConfig
 
   public ServerConfig()
   {
-
   }
 
   @JsonProperty
   @Min(1)
   private int numThreads = getDefaultNumThreads();
+
+  /**
+   * Minimum number of threads in the thread pool. A negative value (the default) means
+   * to use the numThreads value for backward compatibility.
+   */
+  @JsonProperty
+  private int minThreads = -1;
 
   @JsonProperty
   @Min(1)
@@ -161,6 +167,11 @@ public class ServerConfig
   public int getNumThreads()
   {
     return numThreads;
+  }
+
+  public int getMinThreads()
+  {
+    return minThreads;
   }
 
   public int getQueueSize()

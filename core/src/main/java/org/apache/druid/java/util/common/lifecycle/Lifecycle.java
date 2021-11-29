@@ -92,7 +92,7 @@ public class Lifecycle
     STOP
   }
 
-  private final NavigableMap<Stage, CopyOnWriteArrayList<Handler>> handlers;
+  private final NavigableMap<Stage, CopyOnWriteArrayList<Handler>> handlers = new TreeMap<>();
   /** This lock is used to linearize all calls to Handler.start() and Handler.stop() on the managed handlers. */
   private final Lock startStopLock = new ReentrantLock();
   private final AtomicReference<State> state = new AtomicReference<>(State.NOT_STARTED);
@@ -109,7 +109,6 @@ public class Lifecycle
   {
     Preconditions.checkArgument(StringUtils.isNotEmpty(name), "Lifecycle name must not be null or empty");
     this.name = name;
-    handlers = new TreeMap<>();
     for (Stage stage : Stage.values()) {
       handlers.put(stage, new CopyOnWriteArrayList<>());
     }

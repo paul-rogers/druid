@@ -78,6 +78,7 @@ import org.eclipse.jetty.util.component.LifeCycle;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.eclipse.jetty.util.thread.ScheduledExecutorScheduler;
+import org.jboss.netty.handler.codec.http.HttpVersion;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLEngine;
@@ -108,7 +109,7 @@ public class JettyServerModule extends JerseyServletModule
   private static final Logger log = new Logger(JettyServerModule.class);
 
   private static final AtomicInteger ACTIVE_CONNECTIONS = new AtomicInteger();
-  private static final String HTTP_1_1_STRING = "HTTP/1.1";
+  private static final String HTTP_1_1_STRING = HttpVersion.HTTP_1_1.getText();
   private static QueuedThreadPool jettyServerThreadPool = null;
 
   @Override
@@ -139,6 +140,7 @@ public class JettyServerModule extends JerseyServletModule
     MetricsModule.register(binder, JettyMonitor.class);
   }
 
+  @SuppressWarnings("serial")
   public static class DruidGuiceContainer extends GuiceContainer
   {
     private final Set<Class<?>> resources;
@@ -215,14 +217,25 @@ public class JettyServerModule extends JerseyServletModule
     // that concurrently handle the requests".
     int numServerThreads = config.getNumThreads() + getMaxJettyAcceptorsSelectorsNum(node);
 
+    // Minimum thread pool size. Defaults to the number of threads for backward
+    // compatibility. Else, it is the provided number up to the total number.
+    // A smaller minimum means faster startup which benefits debugging and testing,
+    // at the cost of slower initial responses when threads are created on demand.
+    int minThreads = config.getMinThreads();
+    if (minThreads < 0) {
+      minThreads = numServerThreads;
+    } else {
+      minThreads = Math.min(numServerThreads, minThreads);
+    }
+
     final QueuedThreadPool threadPool;
     if (config.getQueueSize() == Integer.MAX_VALUE) {
       threadPool = new QueuedThreadPool();
-      threadPool.setMinThreads(numServerThreads);
+      threadPool.setMinThreads(minThreads);
       threadPool.setMaxThreads(numServerThreads);
     } else {
       threadPool = new QueuedThreadPool(
-          numServerThreads,
+          minThreads,
           numServerThreads,
           60000, // same default is used in other case when threadPool = new QueuedThreadPool()
           new LinkedBlockingQueue<>(config.getQueueSize())
@@ -502,7 +515,7 @@ public class JettyServerModule extends JerseyServletModule
 
   private static int getMaxJettyAcceptorsSelectorsNum(DruidNode druidNode)
   {
-    // This computation is based on Jetty v9.3.19 which uses upto 8(4 acceptors and 4 selectors) threads per
+    // This computation is based on Jetty v9.3.19 which uses up to 8 (4 acceptors and 4 selectors) threads per
     // ServerConnector
     int numServerConnector = (druidNode.isEnablePlaintextPort() ? 1 : 0) + (druidNode.isEnableTlsPort() ? 1 : 0);
     return numServerConnector * 8;

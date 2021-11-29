@@ -49,7 +49,7 @@ import java.util.Properties;
  */
 public class DruidSecondaryModule implements Module
 {
-  private final ConfigurationObjectFactory factory;
+//  private final ConfigurationObjectFactory factory;
   private final ObjectMapper jsonMapper;
   private final ObjectMapper jsonMapperOnlyNonNullValueSerialization;
   private final ObjectMapper smileMapper;
@@ -57,14 +57,14 @@ public class DruidSecondaryModule implements Module
 
   @Inject
   public DruidSecondaryModule(
-      ConfigurationObjectFactory factory,
+//      ConfigurationObjectFactory factory,
       @Json ObjectMapper jsonMapper,
       @JsonNonNull ObjectMapper jsonMapperOnlyNonNullValueSerialization,
       @Smile ObjectMapper smileMapper,
       Validator validator
   )
   {
-    this.factory = factory;
+//    this.factory = factory;
     this.jsonMapper = jsonMapper;
     this.jsonMapperOnlyNonNullValueSerialization = jsonMapperOnlyNonNullValueSerialization;
     this.smileMapper = smileMapper;
@@ -74,7 +74,7 @@ public class DruidSecondaryModule implements Module
   @Override
   public void configure(Binder binder)
   {
-    binder.bind(ConfigurationObjectFactory.class).toInstance(factory);
+//    binder.bind(ConfigurationObjectFactory.class).toInstance(factory);
     binder.bind(ObjectMapper.class).to(Key.get(ObjectMapper.class, Json.class));
     binder.bind(Validator.class).toInstance(validator);
     binder.bind(JsonConfigurator.class);
