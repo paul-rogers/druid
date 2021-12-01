@@ -46,6 +46,7 @@ import org.apache.druid.guice.ServerModule;
 import org.apache.druid.guice.ServerViewModule;
 import org.apache.druid.guice.StartupLoggingModule;
 import org.apache.druid.guice.StorageNodeModule;
+import org.apache.druid.guice.Tools.OverrideAnalyzer;
 import org.apache.druid.guice.annotations.Client;
 import org.apache.druid.guice.annotations.EscalatedClient;
 import org.apache.druid.guice.annotations.Json;
@@ -411,36 +412,46 @@ public class Initialization
     defaultModules.addModules(
         // New modules should be added after Log4jShutterDownerModule
         new Log4jShutterDownerModule(),
-        new DruidAuthModule(),
         new LifecycleModule(),
-        TLSCertificateCheckerModule.class,
-        EmitterModule.class,
+        new ServerModule(),
+        new DruidProcessingConfigModule(),
+        new JettyServerModule(),
+        new ExpressionModule(),
+        new JacksonConfigManagerModule(),
+        new FirehoseModule(),
+        new JavaScriptModule(),
+        new EscalatorModule(),
+
+        // Cold storage
+        new SegmentWriteOutMediumModule(),
+        new LocalDataStorageDruidModule(),
+
+        // Cluster management
         HttpClientModule.global(),
         HttpClientModule.escalatedGlobal(),
         new HttpClientModule("druid.broker.http", Client.class),
         new HttpClientModule("druid.broker.http", EscalatedClient.class),
         new CuratorModule(),
         new AnnouncerModule(),
-        new MetricsModule(),
-        new SegmentWriteOutMediumModule(),
-        new ServerModule(),
-        new DruidProcessingConfigModule(),
-        new StorageNodeModule(),
-        new JettyServerModule(),
-        new ExpressionModule(),
         new DiscoveryModule(),
         new ServerViewModule(),
-        new MetadataConfigModule(),
-        new DerbyMetadataStorageDruidModule(),
-        new JacksonConfigManagerModule(),
         new IndexingServiceDiscoveryModule(),
         new CoordinatorDiscoveryModule(),
-        new LocalDataStorageDruidModule(),
-        new FirehoseModule(),
-        new JavaScriptModule(),
+        new StorageNodeModule(),
+
+        // Metrics
+        EmitterModule.class,
+        new MetricsModule(),
+
+        // Metadata support
+        new MetadataConfigModule(),
+        new DerbyMetadataStorageDruidModule(),
+
+        // Security-related modules
+        new DruidAuthModule(),
+        TLSCertificateCheckerModule.class,
         new AuthenticatorModule(),
         new AuthenticatorMapperModule(),
-        new EscalatorModule(),
         new AuthorizerModule(),
         new AuthorizerMapperModule(),
         new StartupLoggingModule(),
@@ -472,6 +483,7 @@ public class Initialization
     private final ObjectMapper jsonMapper;
     private final ObjectMapper smileMapper;
     private final List<Module> modules;
+    private final OverrideAnalyzer analyzer = new OverrideAnalyzer();
 
     public ModuleList(Injector baseInjector)
     {
@@ -495,21 +507,27 @@ public class Initialization
           return;
         }
         baseInjector.injectMembers(input);
+        analyzer.add((Module) input);
         modules.add(registerJacksonModules(((DruidModule) input)));
       } else if (input instanceof Module) {
         if (!checkModuleClass(input.getClass())) {
           return;
         }
         baseInjector.injectMembers(input);
+        analyzer.add((Module) input);
         modules.add((Module) input);
       } else if (input instanceof Class) {
         if (!checkModuleClass((Class<?>) input)) {
           return;
         }
         if (DruidModule.class.isAssignableFrom((Class) input)) {
-          modules.add(registerJacksonModules(baseInjector.getInstance((Class<? extends DruidModule>) input)));
+          DruidModule module = baseInjector.getInstance((Class<? extends DruidModule>) input);
+          analyzer.add((Module) input);
+          modules.add(registerJacksonModules(module));
         } else if (Module.class.isAssignableFrom((Class) input)) {
-          modules.add(baseInjector.getInstance((Class<? extends Module>) input));
+          Module module = baseInjector.getInstance((Class<? extends Module>) input);
+          analyzer.add(module);
+          modules.add(module);
           return;
         } else {
           throw new ISE("Class[%s] does not implement %s", input.getClass(), Module.class);

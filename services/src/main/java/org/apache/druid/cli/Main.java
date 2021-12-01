@@ -28,6 +28,7 @@ import io.netty.util.SuppressForbidden;
 import org.apache.druid.cli.validate.DruidJsonValidator;
 import org.apache.druid.guice.ExtensionsConfig;
 import org.apache.druid.guice.GuiceInjectors;
+import org.apache.druid.guice.Tools;
 import org.apache.druid.initialization.Initialization;
 
 import java.util.Arrays;
@@ -113,7 +114,7 @@ public class Main
   public static void main(String[] args)
   {
     final Injector injector = GuiceInjectors.makeStartupInjector();
-    GuiceInjectors.printMap(injector);
+//    Tools.printMap(injector);
     Cli<Runnable> cli = buildCli(injector);
     try {
       final Runnable command = cli.parse(args);

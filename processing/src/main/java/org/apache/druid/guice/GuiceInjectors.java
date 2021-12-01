@@ -19,24 +19,17 @@
 
 package org.apache.druid.guice;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Binding;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
-import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.Provider;
-import io.netty.util.SuppressForbidden;
 import org.apache.druid.jackson.JacksonModule;
-import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.math.expr.ExpressionProcessingModule;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map.Entry;
 
 /**
  */
@@ -73,7 +66,7 @@ public class GuiceInjectors
   public static Injector makeStartupInjector()
   {
     final Injector root = Guice.createInjector(makeRootModules());
-    GuiceInjectors.printMap(root);
+//    Tools.printMap(root);
     return root.createChildInjector(makeDefaultStartupModules());
   }
 
@@ -84,44 +77,5 @@ public class GuiceInjectors
       theModules.add(theModule);
     }
     return Guice.createInjector(theModules);
-  }
-
-  public static String guiceMap(Injector injector)
-  {
-    StringBuilder buf = new StringBuilder();
-    if (injector.getParent() != null) {
-      buf.append("-- Parent --\n");
-      buf.append(guiceMap(injector.getParent()));
-      buf.append("----\n");
-    }
-    for (Entry<Key<?>, Binding<?>> entry : injector.getBindings().entrySet()) {
-      buf.append(StringUtils.format("%s: %s\n",
-          entry.getKey().toString(),
-          entryToString(entry.getValue())));
-    }
-    return buf.toString();
-  }
-
-  public static String entryToString(Binding<?> binding)
-  {
-    StringBuilder buf = new StringBuilder();
-    buf.append(binding.getClass().getSimpleName());
-    buf.append("(");
-    Provider<?> provider = binding.getProvider();
-    if (provider == null) {
-      buf.append("null");
-    } else {
-      buf.append(provider.getClass().getSimpleName());
-    }
-    buf.append(")");
-    return buf.toString();
-  }
-
-  @VisibleForTesting
-  @SuppressForbidden(reason = "System#out")
-  public static void printMap(Injector injector)
-  {
-    System.out.println("Guice map");
-    System.out.print(guiceMap(injector));
   }
 }
