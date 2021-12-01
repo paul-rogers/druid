@@ -25,17 +25,23 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provider;
+import com.google.inject.multibindings.Multibinder;
+import com.google.inject.spi.DefaultBindingTargetVisitor;
 import com.google.inject.spi.DefaultElementVisitor;
 import com.google.inject.spi.Element;
 import com.google.inject.spi.Elements;
+import com.google.inject.spi.ProviderInstanceBinding;
 import io.netty.util.SuppressForbidden;
+import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.StringUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  * Development-time tools for working with Guice.
@@ -126,16 +132,76 @@ public class Tools
               Key<T> key = binding.getKey();
               Module current = bindings.get(key);
               if (current != null) {
-                Replacement replacement = new Replacement(key, current, module);
-                replacements.add(replacement);
-                System.out.println(replacement);
-              }
+                boolean isReplacement = binding.acceptTargetVisitor(
+                    new DefaultBindingTargetVisitor<Object, Boolean>()
+                {
+                  @Override
+                  protected Boolean visitOther(Binding<? extends Object> binding) {
+                    return true;
+                  }
+
+                  @Override
+                  public Boolean visit(ProviderInstanceBinding<? extends Object> providerInstanceBinding) {
+                    Provider<?> providerInstance = providerInstanceBinding.getProviderInstance();
+                    if (providerInstance instanceof Multibinder || providerInstance instanceof PolyBind) {
+                      // This is a list, so no actual override
+                      return false;
+                    }
+                    return true;
+                  }
+                });
+//                try {
+//                  Provider<T> provider = binding.getProvider();
+//                  if (provider instanceof Multibinder || provider instanceof PolyBind) {
+//                    // Do nothing, this is a list, so no actual override
+//                    isReplacement = false;
+//                  }
+//                }
+//                catch (UnsupportedOperationException e) {
+//                  // Occurs if the binding does not support a provider
+//                }
+                if (isReplacement) {
+                 Replacement replacement = new Replacement(key, current, module);
+                 replacements.add(replacement);
+                 System.out.println(replacement);
+               }
+             }
               bindings.put(key, module);
               return null;
             }
         });
       }
     }
-  }
 
+    public List<Pair<Module, List<Module>>> dependencies()
+    {
+      Map<Module, Map<Module, Boolean>> overrides = new IdentityHashMap<>();
+      for (Replacement replacement : replacements) {
+        Map<Module, Boolean> predecessors = overrides.get(replacement.overrideModule);
+        if (predecessors == null) {
+          predecessors = new IdentityHashMap<Module, Boolean>();
+          overrides.put(replacement.overrideModule, predecessors);
+        }
+        predecessors.put(replacement.originalModule, true);
+      }
+      List<Pair<Module, List<Module>>> deps = new ArrayList<>();
+      for (Entry<Module, Map<Module, Boolean>> entry : overrides.entrySet()) {
+        List<Module> preds = new ArrayList<>(entry.getValue().keySet());
+        deps.add(new Pair<>(entry.getKey(), preds));
+      }
+      return deps;
+    }
+
+    public void printDependencies()
+    {
+      System.out.println("Dependencies:");
+      for (Pair<Module, List<Module>>item : dependencies()) {
+        System.out.println(item.lhs.getClass().getSimpleName());
+        for (Module dep : item.rhs) {
+          System.out.print("  ");
+          System.out.println(dep.getClass().getSimpleName());
+        }
+      }
+    }
+  }
 }

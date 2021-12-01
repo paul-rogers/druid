@@ -168,7 +168,9 @@ public class CliBroker extends ServerRunnable
           Jerseys.addResource(binder, SelfDiscoveryResource.class);
           LifecycleModule.registerKey(binder, Key.get(SelfDiscoveryResource.class));
         },
+        // Must come after the above in-line module.
         new LookupModule(),
+        // Must come after DruidProcessingModule, LookupModule
         new SqlModule()
     );
   }

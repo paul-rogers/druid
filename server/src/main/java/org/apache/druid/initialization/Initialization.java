@@ -412,47 +412,39 @@ public class Initialization
     defaultModules.addModules(
         // New modules should be added after Log4jShutterDownerModule
         new Log4jShutterDownerModule(),
+        new DruidAuthModule(),
         new LifecycleModule(),
-        new ServerModule(),
-        new DruidProcessingConfigModule(),
-        new JettyServerModule(),
-        new ExpressionModule(),
-        new JacksonConfigManagerModule(),
-        new FirehoseModule(),
-        new JavaScriptModule(),
-        new EscalatorModule(),
-
-        // Cold storage
-        new SegmentWriteOutMediumModule(),
-        new LocalDataStorageDruidModule(),
-
-        // Cluster management
+        TLSCertificateCheckerModule.class,
+        EmitterModule.class,
         HttpClientModule.global(),
         HttpClientModule.escalatedGlobal(),
         new HttpClientModule("druid.broker.http", Client.class),
         new HttpClientModule("druid.broker.http", EscalatedClient.class),
         new CuratorModule(),
         new AnnouncerModule(),
+        new MetricsModule(),
+        new SegmentWriteOutMediumModule(),
+        new ServerModule(),
+        new DruidProcessingConfigModule(),
+        new StorageNodeModule(),
+        // Must come after JettyServerModule
+        new JettyServerModule(),
+        new ExpressionModule(),
         new DiscoveryModule(),
         new ServerViewModule(),
-        new IndexingServiceDiscoveryModule(),
-        new CoordinatorDiscoveryModule(),
-        new StorageNodeModule(),
-
-        // Metrics
-        EmitterModule.class,
-        new MetricsModule(),
-
-        // Metadata support
         new MetadataConfigModule(),
         new DerbyMetadataStorageDruidModule(),
-
-        // Security-related modules
-        new DruidAuthModule(),
-        TLSCertificateCheckerModule.class,
+        new JacksonConfigManagerModule(),
+        new IndexingServiceDiscoveryModule(),
+        new CoordinatorDiscoveryModule(),
+        new LocalDataStorageDruidModule(),
+        new FirehoseModule(),
+        new JavaScriptModule(),
         new AuthenticatorModule(),
         new AuthenticatorMapperModule(),
+        new EscalatorModule(),
         new AuthorizerModule(),
+        // Must come after AuthenticatorMapperModule
         new AuthorizerMapperModule(),
         new StartupLoggingModule(),
         new ExternalStorageAccessSecurityModule()
@@ -496,6 +488,7 @@ public class Initialization
 
     private List<Module> getModules()
     {
+      analyzer.printDependencies();
       return Collections.unmodifiableList(modules);
     }
 
