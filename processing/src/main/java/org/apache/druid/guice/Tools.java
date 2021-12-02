@@ -30,7 +30,9 @@ import com.google.inject.spi.DefaultBindingTargetVisitor;
 import com.google.inject.spi.DefaultElementVisitor;
 import com.google.inject.spi.Element;
 import com.google.inject.spi.Elements;
+import com.google.inject.spi.LinkedKeyBinding;
 import com.google.inject.spi.ProviderInstanceBinding;
+import com.google.inject.spi.ProviderWithDependencies;
 import io.netty.util.SuppressForbidden;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.StringUtils;
@@ -41,14 +43,12 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
 /**
  * Development-time tools for working with Guice.
  */
 public class Tools
 {
-
   /**
    * Dump to stdout a listing of the keys in the given injector, and its
    * parent injector, if any.
@@ -112,7 +112,7 @@ public class Tools
     @Override
     public String toString()
     {
-      return "[key=" + key.toString() +
+      return "[" + key.toString() +
              ",\n  original=" + originalModule.getClass().getSimpleName() +
              ",\n  override=" + overrideModule.getClass().getSimpleName() +
              "]";
@@ -127,47 +127,45 @@ public class Tools
     public void add(Module module)
     {
       for(Element element : Elements.getElements(module)) {
-        element.acceptVisitor(new DefaultElementVisitor<Void>() {
-            @Override public <T> Void visit(Binding<T> binding) {
-              Key<T> key = binding.getKey();
-              Module current = bindings.get(key);
-              if (current != null) {
-                boolean isReplacement = binding.acceptTargetVisitor(
-                    new DefaultBindingTargetVisitor<Object, Boolean>()
-                {
-                  @Override
-                  protected Boolean visitOther(Binding<? extends Object> binding) {
-                    return true;
-                  }
+        element.acceptVisitor(new DefaultElementVisitor<Void>()
+        {
+          @Override public <T> Void visit(Binding<T> binding) {
+            Key<T> key = binding.getKey();
+            Module current = bindings.get(key);
+            if (current != null) {
+              boolean isReplacement = binding.acceptTargetVisitor(
+                  new DefaultBindingTargetVisitor<Object, Boolean>()
+              {
+                @Override
+                protected Boolean visitOther(Binding<? extends Object> binding) {
+                  return true;
+                }
 
-                  @Override
-                  public Boolean visit(ProviderInstanceBinding<? extends Object> providerInstanceBinding) {
-                    Provider<?> providerInstance = providerInstanceBinding.getProviderInstance();
-                    if (providerInstance instanceof Multibinder || providerInstance instanceof PolyBind) {
-                      // This is a list, so no actual override
-                      return false;
-                    }
-                    return true;
+                @Override
+                public Boolean visit(ProviderInstanceBinding<? extends Object> providerInstanceBinding) {
+                  Provider<?> providerInstance = providerInstanceBinding.getProviderInstance();
+                  if (providerInstance instanceof Multibinder || providerInstance instanceof ProviderWithDependencies) {
+                    // This is a multibinding, so no actual override
+                    return false;
                   }
-                });
-//                try {
-//                  Provider<T> provider = binding.getProvider();
-//                  if (provider instanceof Multibinder || provider instanceof PolyBind) {
-//                    // Do nothing, this is a list, so no actual override
-//                    isReplacement = false;
-//                  }
-//                }
-//                catch (UnsupportedOperationException e) {
-//                  // Occurs if the binding does not support a provider
-//                }
-                if (isReplacement) {
-                 Replacement replacement = new Replacement(key, current, module);
-                 replacements.add(replacement);
-                 System.out.println(replacement);
-               }
+                  return true;
+                }
+
+                @Override
+                public Boolean visit(LinkedKeyBinding<? extends Object> linkedKeyBinding) {
+                  // Used as part of the multibinding. Ignore this one.
+                  return false;
+                }
+
+              });
+              if (isReplacement) {
+                Replacement replacement = new Replacement(key, current, module);
+                replacements.add(replacement);
+                System.out.println(replacement);
+              }
              }
-              bindings.put(key, module);
-              return null;
+             bindings.put(key, module);
+             return null;
             }
         });
       }
@@ -194,6 +192,9 @@ public class Tools
 
     public void printDependencies()
     {
+      if (replacements.isEmpty()) {
+        return;
+      }
       System.out.println("Dependencies:");
       for (Pair<Module, List<Module>>item : dependencies()) {
         System.out.println(item.lhs.getClass().getSimpleName());

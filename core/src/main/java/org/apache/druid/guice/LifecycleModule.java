@@ -110,6 +110,7 @@ public class LifecycleModule implements Module
     getEagerBinder(binder).addBinding().toInstance(new KeyHolder<Object>(key));
   }
 
+  @SuppressWarnings("rawtypes")
   private static Multibinder<KeyHolder> getEagerBinder(Binder binder)
   {
     return Multibinder.newSetBinder(binder, KeyHolder.class, Names.named("lifecycle"));
@@ -129,7 +130,9 @@ public class LifecycleModule implements Module
   @Provides @LazySingleton
   public Lifecycle getLifecycle(final Injector injector)
   {
+    @SuppressWarnings("rawtypes")
     final Key<Set<KeyHolder>> keyHolderKey = Key.get(new TypeLiteral<Set<KeyHolder>>(){}, Names.named("lifecycle"));
+    @SuppressWarnings("rawtypes")
     final Set<KeyHolder> eagerClasses = injector.getInstance(keyHolderKey);
 
     Lifecycle lifecycle = new Lifecycle("module")
