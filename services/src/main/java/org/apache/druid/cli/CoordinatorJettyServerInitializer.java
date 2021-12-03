@@ -117,7 +117,7 @@ class CoordinatorJettyServerInitializer implements JettyServerInitializer
     // redirect anything other than status to the current lead
     root.addFilter(new FilterHolder(injector.getInstance(RedirectFilter.class)), "/*", null);
 
-    // The coordinator really needs a standarized api path
+    // The coordinator really needs a standardized API path
     // Can't use '/*' here because of Guice and Jetty static content conflicts
     root.addFilter(GuiceFilter.class, "/info/*", null);
     root.addFilter(GuiceFilter.class, "/druid/coordinator/*", null);

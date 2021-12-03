@@ -224,7 +224,7 @@ public class JettyServerModule extends JerseyServletModule
         certificateChecker
         );
     Server server = builder.build();
-    jettyServerThreadPool = builder.threadPool();
+    setJettyServerThreadPool(builder.threadPool());
     return server;
   }
 
