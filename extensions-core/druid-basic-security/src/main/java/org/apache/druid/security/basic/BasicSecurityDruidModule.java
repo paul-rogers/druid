@@ -27,6 +27,7 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.name.Names;
+import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
@@ -207,7 +208,7 @@ public class BasicSecurityDruidModule implements DruidModule
         NoopBasicAuthorizerCacheNotifier.class
     );
   }
-  
+
   @Override
   public List<? extends Module> getJacksonModules()
   {
@@ -248,7 +249,7 @@ public class BasicSecurityDruidModule implements DruidModule
   {
     final String serviceName;
     try {
-      serviceName = injector.getInstance(Key.get(String.class, Names.named("serviceName")));
+      serviceName = injector.getInstance(Key.get(String.class, GuiceInjectors.SERVICE_NAME));
     }
     catch (Exception e) {
       return false;

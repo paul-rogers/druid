@@ -40,6 +40,7 @@ import org.apache.druid.collections.bitmap.ConciseBitmapFactory;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.collections.bitmap.RoaringBitmapFactory;
 import org.apache.druid.guice.DruidProcessingModule;
+import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
 import org.apache.druid.guice.annotations.Json;
@@ -441,9 +442,7 @@ public class DumpSegment extends GuiceRunnable
           @Override
           public void configure(Binder binder)
           {
-            binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/tool");
-            binder.bindConstant().annotatedWith(Names.named("servicePort")).to(9999);
-            binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+            GuiceInjectors.bindService(binder, "druid/tool", 9999, GuiceInjectors.NULL_TLS_PORT);
             binder.bind(DruidProcessingConfig.class).toInstance(
                 new DruidProcessingConfig()
                 {

@@ -39,6 +39,7 @@ import org.apache.druid.client.indexing.IndexingService;
 import org.apache.druid.client.indexing.IndexingServiceClient;
 import org.apache.druid.client.indexing.IndexingServiceSelectorConfig;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.IndexingServiceFirehoseModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
 import org.apache.druid.guice.IndexingServiceModuleHelper;
@@ -168,11 +169,11 @@ public class CliOverlord extends ServerRunnable
           public void configure(Binder binder)
           {
             if (standalone) {
-              binder.bindConstant()
-                    .annotatedWith(Names.named("serviceName"))
-                    .to(IndexingServiceSelectorConfig.DEFAULT_SERVICE_NAME);
-              binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8090);
-              binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(8290);
+              GuiceInjectors.bindService(
+                  binder,
+                  IndexingServiceSelectorConfig.DEFAULT_SERVICE_NAME,
+                  8090,
+                  8290);
             }
 
             JsonConfigProvider.bind(binder, "druid.coordinator.asOverlord", CoordinatorOverlordServiceConfig.class);

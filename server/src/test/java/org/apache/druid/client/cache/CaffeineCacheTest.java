@@ -72,10 +72,7 @@ public class CaffeineCacheTest
     Injector injector = Initialization.makeInjectorWithModules(
         GuiceInjectors.makeStartupInjector(), ImmutableList.of(
             binder -> {
-              binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/test/redis");
-              binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-              binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
-
+              GuiceInjectors.bindService(binder, "druid/test/redis");
               binder.bind(CaffeineCacheConfig.class).toInstance(config);
               binder.bind(Cache.class).toProvider(CaffeineCacheProviderWithConfig.class).in(ManageLifecycle.class);
             }
@@ -100,10 +97,7 @@ public class CaffeineCacheTest
     final Injector injector = Initialization.makeInjectorWithModules(
         GuiceInjectors.makeStartupInjector(), ImmutableList.of(
             binder -> {
-              binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/test/redis");
-              binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-              binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
-
+              GuiceInjectors.bindService(binder, "druid/test/redis");
               binder.bind(Cache.class).toProvider(CacheProvider.class);
               JsonConfigProvider.bind(binder, uuid, CacheProvider.class);
             }
@@ -384,9 +378,7 @@ public class CaffeineCacheTest
         GuiceInjectors.makeStartupInjector(),
         ImmutableList.of(
             binder -> {
-              binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/test");
-              binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-              binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+              GuiceInjectors.bindService(binder, "druid/test");
               JsonConfigProvider.bind(binder, keyPrefix, CaffeineCacheConfig.class);
             }
         )
@@ -415,9 +407,7 @@ public class CaffeineCacheTest
         GuiceInjectors.makeStartupInjector(),
         ImmutableList.of(
             binder -> {
-              binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/test");
-              binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-              binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+              GuiceInjectors.bindService(binder, "druid/test");
               JsonConfigProvider.bind(binder, keyPrefix, CaffeineCacheConfig.class);
             }
         )
@@ -443,9 +433,7 @@ public class CaffeineCacheTest
         GuiceInjectors.makeStartupInjector(),
         ImmutableList.of(
             binder -> {
-              binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/test");
-              binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-              binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+              GuiceInjectors.bindService(binder, "druid/test");
               JsonConfigProvider.bind(binder, keyPrefix, CaffeineCacheConfig.class);
             }
         )

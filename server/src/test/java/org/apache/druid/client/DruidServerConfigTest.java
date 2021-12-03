@@ -51,9 +51,7 @@ public class DruidServerConfigTest
   public ObjectMapper mapper = new DefaultObjectMapper();
 
   private static final Module SERVER_CONFIG_MODULE = (binder) -> {
-    binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/test");
-    binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-    binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+    GuiceInjectors.bindService(binder, "druid/test");
   };
 
   @Before
@@ -61,7 +59,6 @@ public class DruidServerConfigTest
   {
     testSegmentCacheDir1 = tmpFolder.newFolder("segment_cache_folder1");
     testSegmentCacheDir2 = tmpFolder.newFolder("segment_cache_folder2");
-
   }
 
   @Test
@@ -74,7 +71,6 @@ public class DruidServerConfigTest
 
     Assert.assertNotNull(druidServerConfig);
     Assert.assertEquals(DruidServerConfig.class, druidServerConfig.getClass());
-
   }
 
   @Test

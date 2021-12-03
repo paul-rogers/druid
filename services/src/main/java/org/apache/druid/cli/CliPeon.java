@@ -46,6 +46,7 @@ import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.Binders;
 import org.apache.druid.guice.CacheModule;
 import org.apache.druid.guice.DruidProcessingModule;
+import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.IndexingServiceFirehoseModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
 import org.apache.druid.guice.IndexingServiceTuningConfigModule;
@@ -205,9 +206,7 @@ public class CliPeon extends GuiceRunnable
             taskStatusPath = taskAndStatusFile.get(1);
             taskReportPath = taskAndStatusFile.get(2);
 
-            binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/peon");
-            binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-            binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+            GuiceInjectors.bindService(binder, "druid/peon");
             binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
 
             JsonConfigProvider.bind(binder, "druid.task.executor", DruidNode.class, Parent.class);

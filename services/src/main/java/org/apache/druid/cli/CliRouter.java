@@ -27,6 +27,7 @@ import com.google.inject.name.Names;
 import io.airlift.airline.Command;
 import org.apache.druid.curator.discovery.DiscoveryModule;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
@@ -88,9 +89,7 @@ public class CliRouter extends ServerRunnable
         new JettyHttpClientModule("druid.router.http", Router.class),
         JettyHttpClientModule.global(),
         binder -> {
-          binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/router");
-          binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8888);
-          binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(9088);
+          GuiceInjectors.bindService(binder, "druid/router", 8888, 9088);
 
           JsonConfigProvider.bind(binder, "druid.router", TieredBrokerConfig.class);
           JsonConfigProvider.bind(binder, "druid.router.avatica.balancer", AvaticaConnectionBalancer.class);

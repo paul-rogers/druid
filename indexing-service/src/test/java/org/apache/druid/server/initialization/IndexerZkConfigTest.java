@@ -60,9 +60,7 @@ public class IndexerZkConfigTest
     @Override
     public void configure(Binder binder)
     {
-      binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/test");
-      binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-      binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+      GuiceInjectors.bindService(binder, "druid/test");
       // See IndexingServiceModuleHelper
       JsonConfigProvider.bind(binder, INDEXER_PROPERTY_STRING, IndexerZkConfig.class);
       JsonConfigProvider.bind(binder, ZK_SERVICE_CONFIG_STRING, ZkPathsConfig.class);

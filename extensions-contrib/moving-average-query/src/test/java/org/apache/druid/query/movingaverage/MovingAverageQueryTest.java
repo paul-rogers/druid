@@ -132,9 +132,7 @@ public class MovingAverageQueryTest extends InitializedNullHandlingTest
     List<Module> modules = getRequiredModules();
     modules.add(
         binder -> {
-          binder.bindConstant().annotatedWith(Names.named("serviceName")).to("queryTest");
-          binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-          binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(1);
+          GuiceInjectors.bindService(binder, "queryTest");
           binder.bind(QuerySegmentWalker.class).toProvider(Providers.of(new QuerySegmentWalker()
           {
             @Override

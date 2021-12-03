@@ -41,6 +41,7 @@ import org.apache.druid.discovery.LookupNodeService;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.CacheModule;
 import org.apache.druid.guice.DruidProcessingModule;
+import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JoinableFactoryModule;
 import org.apache.druid.guice.JsonConfigProvider;
@@ -109,11 +110,11 @@ public class CliBroker extends ServerRunnable
         new SegmentWranglerModule(),
         new JoinableFactoryModule(),
         binder -> {
-          binder.bindConstant().annotatedWith(Names.named("serviceName")).to(
-              TieredBrokerConfig.DEFAULT_BROKER_SERVICE_NAME
-          );
-          binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8082);
-          binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(8282);
+          GuiceInjectors.bindService(
+              binder,
+              TieredBrokerConfig.DEFAULT_BROKER_SERVICE_NAME,
+              8082,
+              8282);
           binder.bindConstant().annotatedWith(PruneLoadSpec.class).to(true);
           binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(false));
 

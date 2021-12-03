@@ -23,7 +23,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
-import com.google.inject.name.Names;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.JsonConfigurator;
 import org.apache.druid.guice.LazySingleton;
@@ -69,9 +68,6 @@ public class AWSCredentialsConfigTest
 
     final Injector injector = Guice.createInjector(
         binder -> {
-          binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/test/redis");
-          binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-          binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
           binder.bind(Validator.class).toInstance(Validation.buildDefaultValidatorFactory().getValidator());
           binder.bindScope(LazySingleton.class, Scopes.SINGLETON);
           binder.bind(JsonConfigurator.class).in(LazySingleton.class);
@@ -93,9 +89,6 @@ public class AWSCredentialsConfigTest
 
     final Injector injector = Guice.createInjector(
         binder -> {
-          binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/test/redis");
-          binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-          binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
           binder.bind(Validator.class).toInstance(Validation.buildDefaultValidatorFactory().getValidator());
           binder.bindScope(LazySingleton.class, Scopes.SINGLETON);
           binder.bind(JsonConfigurator.class).in(LazySingleton.class);

@@ -95,9 +95,7 @@ public class RedisStandaloneCacheTest
     Injector injector = Initialization.makeInjectorWithModules(
         GuiceInjectors.makeStartupInjector(), ImmutableList.of(
             binder -> {
-              binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/test/redis");
-              binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-              binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+              GuiceInjectors.bindService(binder, "druid/test/redis");
 
               binder.bindConstant().annotatedWith(Names.named("host")).to("localhost");
               binder.bindConstant().annotatedWith(Names.named("port")).to(6379);
@@ -126,9 +124,7 @@ public class RedisStandaloneCacheTest
     final Injector injector = Initialization.makeInjectorWithModules(
         GuiceInjectors.makeStartupInjector(), ImmutableList.of(
             binder -> {
-              binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/test/redis");
-              binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-              binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+              GuiceInjectors.bindService(binder, "druid/test/redis");
 
               binder.bind(Cache.class).toProvider(CacheProvider.class);
               JsonConfigProvider.bind(binder, uuid, CacheProvider.class);

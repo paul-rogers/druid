@@ -109,9 +109,7 @@ public class TimestampMinMaxAggregatorTest
               @Override
               public void configure(Binder binder)
               {
-                binder.bindConstant().annotatedWith(Names.named("serviceName")).to("test");
-                binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-                binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+                GuiceInjectors.bindService(binder, "test");
               }
             },
             new TimestampMinMaxModule()

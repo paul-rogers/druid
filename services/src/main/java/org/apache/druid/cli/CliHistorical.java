@@ -25,7 +25,6 @@ import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.name.Names;
 import io.airlift.airline.Command;
 import org.apache.druid.client.cache.CacheConfig;
 import org.apache.druid.curator.ZkEnablementConfig;
@@ -34,6 +33,7 @@ import org.apache.druid.discovery.LookupNodeService;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.CacheModule;
 import org.apache.druid.guice.DruidProcessingModule;
+import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JoinableFactoryModule;
 import org.apache.druid.guice.JsonConfigProvider;
@@ -95,9 +95,7 @@ public class CliHistorical extends ServerRunnable
         new QueryRunnerFactoryModule(),
         new JoinableFactoryModule(),
         binder -> {
-          binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/historical");
-          binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8083);
-          binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(8283);
+          GuiceInjectors.bindService(binder, "druid/historical", 8083, 8283);
           binder.bindConstant().annotatedWith(PruneLastCompactionState.class).to(true);
           binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
 

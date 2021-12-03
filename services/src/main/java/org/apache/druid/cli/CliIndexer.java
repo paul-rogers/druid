@@ -35,6 +35,7 @@ import org.apache.druid.discovery.LookupNodeService;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.discovery.WorkerNodeService;
 import org.apache.druid.guice.DruidProcessingModule;
+import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.IndexingServiceFirehoseModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
 import org.apache.druid.guice.IndexingServiceModuleHelper;
@@ -122,9 +123,7 @@ public class CliIndexer extends ServerRunnable
           @Override
           public void configure(Binder binder)
           {
-            binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/indexer");
-            binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8091);
-            binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(8291);
+            GuiceInjectors.bindService(binder, "druid/indexer", 8091, 8291);
             binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
 
             IndexingServiceModuleHelper.configureTaskRunnerConfigs(binder);

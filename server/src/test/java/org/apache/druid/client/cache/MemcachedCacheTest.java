@@ -148,10 +148,7 @@ public class MemcachedCacheTest
               @Override
               public void configure(Binder binder)
               {
-                binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/test/memcached");
-                binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-                binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
-
+                GuiceInjectors.bindService(binder, "druid/test/memcached");
                 binder.bind(MemcachedCacheConfig.class).toInstance(config);
                 binder.bind(Cache.class).toProvider(MemcachedProviderWithConfig.class).in(ManageLifecycle.class);
               }
@@ -182,10 +179,7 @@ public class MemcachedCacheTest
               @Override
               public void configure(Binder binder)
               {
-                binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/test/memcached");
-                binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-                binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
-
+                GuiceInjectors.bindService(binder, "druid/test/memcached");
                 binder.bind(Cache.class).toProvider(CacheProvider.class);
                 JsonConfigProvider.bind(binder, uuid, CacheProvider.class);
               }

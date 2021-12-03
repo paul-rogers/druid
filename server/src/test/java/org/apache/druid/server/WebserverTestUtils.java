@@ -74,9 +74,7 @@ public class WebserverTestUtils
     Injector injector = Initialization.makeInjectorWithModules(
         GuiceInjectors.makeStartupInjector(),
         ImmutableList.of(binder -> {
-          binder.bindConstant().annotatedWith(Names.named("serviceName")).to(SERVICE_NAME);
-          binder.bindConstant().annotatedWith(Names.named("servicePort")).to(baseUri.getPort());
-          binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(baseUri.getPort() + 1);
+          GuiceInjectors.bindService(binder, SERVICE_NAME, baseUri.getPort(), baseUri.getPort() + 1);
           binder.bind(Key.get(ServiceEmitter.class)).toInstance(new NoopServiceEmitter());
           binder.bind(Key.get(AuthConfig.class)).toInstance(new AuthConfig());
           binder.bind(AuthorizerMapper.class).toInstance(AuthTestUtils.TEST_AUTHORIZER_MAPPER);

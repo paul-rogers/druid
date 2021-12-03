@@ -40,6 +40,7 @@ import org.apache.druid.data.input.impl.StringInputRowParser;
 import org.apache.druid.guice.DruidProcessingModule;
 import org.apache.druid.guice.ExtensionsConfig;
 import org.apache.druid.guice.FirehoseModule;
+import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.IndexingServiceFirehoseModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
 import org.apache.druid.guice.LocalDataStorageDruidModule;
@@ -104,9 +105,7 @@ public class DruidJsonValidator extends GuiceRunnable
         new QueryableModule(),
         new QueryRunnerFactoryModule(),
         binder -> {
-          binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/validator");
-          binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-          binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+          GuiceInjectors.bindService(binder, "druid/validator");
         }
     );
   }

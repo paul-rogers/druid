@@ -137,9 +137,7 @@ public class KinesisIndexTaskSerdeTest
         Arrays.asList(
             module,
             (Module) binder -> {
-              binder.bindConstant().annotatedWith(Names.named("serviceName")).to("test");
-              binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8000);
-              binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(9000);
+              GuiceInjectors.bindService(binder, "test", 8000, 9000);
               binder.bind(ChatHandlerProvider.class).toInstance(new NoopChatHandlerProvider());
               binder.bind(RowIngestionMetersFactory.class).toInstance(new DropwizardRowIngestionMetersFactory());
               binder.bind(AppenderatorsManager.class).toInstance(new TestAppenderatorsManager());

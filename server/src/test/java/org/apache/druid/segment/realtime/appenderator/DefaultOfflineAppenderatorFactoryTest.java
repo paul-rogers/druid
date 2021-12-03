@@ -67,9 +67,7 @@ public class DefaultOfflineAppenderatorFactoryTest
               @Override
               public void configure(Binder binder)
               {
-                binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/tool");
-                binder.bindConstant().annotatedWith(Names.named("servicePort")).to(9999);
-                binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+                GuiceInjectors.bindService(binder, "druid/tool", 9999, GuiceInjectors.NULL_TLS_PORT);
                 binder.bind(DruidProcessingConfig.class).toInstance(
                     new DruidProcessingConfig()
                     {

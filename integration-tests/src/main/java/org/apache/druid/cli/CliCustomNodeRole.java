@@ -30,6 +30,7 @@ import com.google.inject.servlet.GuiceFilter;
 import io.airlift.airline.Command;
 import org.apache.druid.client.coordinator.CoordinatorClient;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
@@ -75,9 +76,11 @@ public class CliCustomNodeRole extends ServerRunnable
     return ImmutableList.of(
         binder -> {
           LOG.info("starting up");
-          binder.bindConstant().annotatedWith(Names.named("serviceName")).to(CliCustomNodeRole.SERVICE_NAME);
-          binder.bindConstant().annotatedWith(Names.named("servicePort")).to(CliCustomNodeRole.PORT);
-          binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(CliCustomNodeRole.TLS_PORT);
+          GuiceInjectors.bindService(
+              binder,
+              CliCustomNodeRole.SERVICE_NAME,
+              CliCustomNodeRole.PORT,
+              CliCustomNodeRole.TLS_PORT);
 
           binder.bind(CoordinatorClient.class).in(LazySingleton.class);
 

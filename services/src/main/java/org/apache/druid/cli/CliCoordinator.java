@@ -44,6 +44,7 @@ import org.apache.druid.client.indexing.IndexingServiceClient;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.ConditionalMultibind;
 import org.apache.druid.guice.ConfigProvider;
+import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.JsonConfigurator;
@@ -169,11 +170,11 @@ public class CliCoordinator extends ServerRunnable
           @Override
           public void configure(Binder binder)
           {
-            binder.bindConstant()
-                  .annotatedWith(Names.named("serviceName"))
-                  .to(TieredBrokerConfig.DEFAULT_COORDINATOR_SERVICE_NAME);
-            binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8081);
-            binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(8281);
+            GuiceInjectors.bindService(
+                binder,
+                TieredBrokerConfig.DEFAULT_COORDINATOR_SERVICE_NAME,
+                8081,
+                8281);
 
             ConfigProvider.bind(binder, DruidCoordinatorConfig.class);
 

@@ -20,9 +20,12 @@
 package org.apache.druid.guice;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Binder;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.name.Named;
+import com.google.inject.name.Names;
 import org.apache.druid.jackson.JacksonModule;
 import org.apache.druid.math.expr.ExpressionProcessingModule;
 
@@ -77,5 +80,28 @@ public class GuiceInjectors
       theModules.add(theModule);
     }
     return Guice.createInjector(theModules);
+  }
+
+  public static final Named SERVICE_NAME = Names.named("serviceName");
+  public static final Named SERVICE_PORT = Names.named("servicePort");
+  public static final Named SERVICE_TLS_PORT = Names.named("tlsServicePort");
+  public static final int NULL_TLS_PORT = -1;
+
+  /**
+   * Define an internal service with no external ports.
+   */
+  public static void bindService(Binder binder, String serviceName)
+  {
+    bindService(binder, serviceName, 0, NULL_TLS_PORT);
+  }
+
+  /**
+   * Define a service which exposes ports.
+   */
+  public static void bindService(Binder binder, String serviceName, int servicePort, int tlsServicePort)
+  {
+    binder.bindConstant().annotatedWith(SERVICE_NAME).to(serviceName);
+    binder.bindConstant().annotatedWith(SERVICE_PORT).to(servicePort);
+    binder.bindConstant().annotatedWith(SERVICE_TLS_PORT).to(tlsServicePort);
   }
 }
