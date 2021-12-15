@@ -19,7 +19,6 @@
 
 package org.apache.druid.cli;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
@@ -29,8 +28,6 @@ import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
-import com.google.inject.name.Names;
-import com.google.inject.servlet.GuiceFilter;
 import com.google.inject.util.Providers;
 import io.airlift.airline.Command;
 import org.apache.druid.audit.AuditManager;
@@ -39,7 +36,6 @@ import org.apache.druid.client.indexing.IndexingService;
 import org.apache.druid.client.indexing.IndexingServiceClient;
 import org.apache.druid.client.indexing.IndexingServiceSelectorConfig;
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.IndexingServiceFirehoseModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
 import org.apache.druid.guice.IndexingServiceModuleHelper;
@@ -53,7 +49,7 @@ import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.ListProvider;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.PolyBind;
-import org.apache.druid.guice.annotations.Json;
+import org.apache.druid.guice.Services;
 import org.apache.druid.indexing.common.actions.LocalTaskActionClientFactory;
 import org.apache.druid.indexing.common.actions.TaskActionClientFactory;
 import org.apache.druid.indexing.common.actions.TaskActionToolbox;
@@ -112,23 +108,14 @@ import org.apache.druid.server.http.RedirectFilter;
 import org.apache.druid.server.http.RedirectInfo;
 import org.apache.druid.server.http.SelfDiscoveryResource;
 import org.apache.druid.server.initialization.ServerConfig;
-import org.apache.druid.server.initialization.jetty.JettyServerInitUtils;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
 import org.apache.druid.server.metrics.TaskCountStatsProvider;
 import org.apache.druid.server.metrics.TaskSlotCountStatsProvider;
-import org.apache.druid.server.security.AuthConfig;
-import org.apache.druid.server.security.AuthenticationUtils;
-import org.apache.druid.server.security.Authenticator;
-import org.apache.druid.server.security.AuthenticatorMapper;
 import org.apache.druid.tasklogs.TaskLogStreamer;
 import org.apache.druid.tasklogs.TaskLogs;
-import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.handler.HandlerList;
-import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.FilterHolder;
 import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
 
 import java.util.List;
 
@@ -169,7 +156,7 @@ public class CliOverlord extends ServerRunnable
           public void configure(Binder binder)
           {
             if (standalone) {
-              GuiceInjectors.bindService(
+              Services.bindService(
                   binder,
                   IndexingServiceSelectorConfig.DEFAULT_SERVICE_NAME,
                   8090,
@@ -367,78 +354,43 @@ public class CliOverlord extends ServerRunnable
    */
   private static class OverlordJettyServerInitializer implements JettyServerInitializer
   {
-    private final AuthConfig authConfig;
     private final ServerConfig serverConfig;
 
     @Inject
-    OverlordJettyServerInitializer(AuthConfig authConfig, ServerConfig serverConfig)
+    OverlordJettyServerInitializer(ServerConfig serverConfig)
     {
-      this.authConfig = authConfig;
       this.serverConfig = serverConfig;
     }
 
     @Override
     public void initialize(Server server, Injector injector)
     {
-      final ServletContextHandler root = new ServletContextHandler(ServletContextHandler.SESSIONS);
-      root.setInitParameter("org.eclipse.jetty.servlet.Default.dirAllowed", "false");
+      final Builder builder = new Builder(server, serverConfig, injector)
+          .withServletHolder()
+          .startAuth()
+          .unsecuredPaths(UNSECURED_PATHS);
 
-      ServletHolder holderPwd = new ServletHolder("default", DefaultServlet.class);
-
-      root.addServlet(holderPwd, "/");
-
-      final ObjectMapper jsonMapper = injector.getInstance(Key.get(ObjectMapper.class, Json.class));
-      final AuthenticatorMapper authenticatorMapper = injector.getInstance(AuthenticatorMapper.class);
-
-      AuthenticationUtils.addSecuritySanityCheckFilter(root, jsonMapper);
-
-      // perform no-op authorization/authentication for these resources
-      AuthenticationUtils.addNoopAuthenticationAndAuthorizationFilters(root, UNSECURED_PATHS);
+      final ServletContextHandler root = builder.root();
       WebConsoleJettyServerInitializer.intializeServerForWebConsoleRoot(root);
-      AuthenticationUtils.addNoopAuthenticationAndAuthorizationFilters(root, authConfig.getUnsecuredPaths());
-
-      final List<Authenticator> authenticators = authenticatorMapper.getAuthenticatorChain();
-      AuthenticationUtils.addAuthenticationFilterChain(root, authenticators);
-
-      AuthenticationUtils.addAllowOptionsFilter(root, authConfig.isAllowUnauthenticatedHttpOptions());
-      JettyServerInitUtils.addAllowHttpMethodsFilter(root, serverConfig.getAllowedHttpMethods());
-
-      JettyServerInitUtils.addExtensionFilters(root, injector);
-
-
-      // Check that requests were authorized before sending responses
-      AuthenticationUtils.addPreResponseAuthorizationCheckFilter(
-          root,
-          authenticators,
-          jsonMapper
-      );
-
-      // add some paths not to be redirected to leader.
-      root.addFilter(GuiceFilter.class, "/status/*", null);
-      root.addFilter(GuiceFilter.class, "/druid-internal/*", null);
+      builder.endAuth();
 
       // redirect anything other than status to the current lead
       root.addFilter(new FilterHolder(injector.getInstance(RedirectFilter.class)), "/*", null);
+      builder.guicePaths(new String[] {
+          // add some paths not to be redirected to leader.
+          "/status/*",
+          "/druid-internal/*",
 
-      // Can't use /* here because of Guice and Jetty static content conflicts
-      root.addFilter(GuiceFilter.class, "/druid/*", null);
+          // Can't use /* here because of Guice and Jetty static content conflicts
+          "/druid/*",
 
-      root.addFilter(GuiceFilter.class, "/druid-ext/*", null);
+          "/druid-ext/*"
+      });
 
-      HandlerList handlerList = new HandlerList();
-      handlerList.setHandlers(
-          new Handler[]{
-              WebConsoleJettyServerInitializer.createWebConsoleRewriteHandler(),
-              JettyServerInitUtils.getJettyRequestLogHandler(),
-              JettyServerInitUtils.wrapWithDefaultGzipHandler(
-                  root,
-                  serverConfig.getInflateBufferSize(),
-                  serverConfig.getCompressionLevel()
-              )
-          }
-      );
-
-      server.setHandler(handlerList);
+      builder
+        .addHandler(WebConsoleJettyServerInitializer.createWebConsoleRewriteHandler())
+        .standardHandlers()
+        .build();
     }
   }
 }

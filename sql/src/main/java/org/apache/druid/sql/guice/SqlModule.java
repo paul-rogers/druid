@@ -53,7 +53,6 @@ public class SqlModule implements Module
 
   public SqlModule()
   {
-
   }
 
   @VisibleForTesting

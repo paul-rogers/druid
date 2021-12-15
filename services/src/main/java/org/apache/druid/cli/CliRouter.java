@@ -23,11 +23,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
-import com.google.inject.name.Names;
 import io.airlift.airline.Command;
 import org.apache.druid.curator.discovery.DiscoveryModule;
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
@@ -36,6 +34,7 @@ import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
 import org.apache.druid.guice.RouterProcessingModule;
+import org.apache.druid.guice.Services;
 import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.guice.http.JettyHttpClientModule;
 import org.apache.druid.java.util.common.logger.Logger;
@@ -89,7 +88,7 @@ public class CliRouter extends ServerRunnable
         new JettyHttpClientModule("druid.router.http", Router.class),
         JettyHttpClientModule.global(),
         binder -> {
-          GuiceInjectors.bindService(binder, "druid/router", 8888, 9088);
+          Services.bindService(binder, "druid/router", 8888, 9088);
 
           JsonConfigProvider.bind(binder, "druid.router", TieredBrokerConfig.class);
           JsonConfigProvider.bind(binder, "druid.router.avatica.balancer", AvaticaConnectionBalancer.class);

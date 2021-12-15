@@ -19,36 +19,25 @@
 
 package org.apache.druid.cli;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
-import com.google.inject.Key;
-import com.google.inject.servlet.GuiceFilter;
 import org.apache.druid.guice.annotations.Global;
-import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.http.DruidHttpClientConfig;
 import org.apache.druid.server.AsyncManagementForwardingServlet;
 import org.apache.druid.server.AsyncQueryForwardingServlet;
 import org.apache.druid.server.initialization.ServerConfig;
-import org.apache.druid.server.initialization.jetty.JettyServerInitUtils;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
 import org.apache.druid.server.router.ManagementProxyConfig;
 import org.apache.druid.server.router.Router;
-import org.apache.druid.server.security.AuthConfig;
-import org.apache.druid.server.security.AuthenticationUtils;
-import org.apache.druid.server.security.Authenticator;
-import org.apache.druid.server.security.AuthenticatorMapper;
 import org.apache.druid.sql.avatica.DruidAvaticaJsonHandler;
 import org.apache.druid.sql.avatica.DruidAvaticaProtobufHandler;
-import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.handler.HandlerList;
-import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 
 import javax.servlet.Servlet;
+
 import java.util.List;
 
 public class RouterJettyServerInitializer implements JettyServerInitializer
@@ -69,7 +58,6 @@ public class RouterJettyServerInitializer implements JettyServerInitializer
   private final ManagementProxyConfig managementProxyConfig;
   private final AsyncQueryForwardingServlet asyncQueryForwardingServlet;
   private final AsyncManagementForwardingServlet asyncManagementForwardingServlet;
-  private final AuthConfig authConfig;
   private final ServerConfig serverConfig;
 
   @Inject
@@ -79,8 +67,7 @@ public class RouterJettyServerInitializer implements JettyServerInitializer
       ManagementProxyConfig managementProxyConfig,
       AsyncQueryForwardingServlet asyncQueryForwardingServlet,
       AsyncManagementForwardingServlet asyncManagementForwardingServlet,
-      AuthConfig authConfig,
-      ServerConfig serverConfig
+       ServerConfig serverConfig
   )
   {
     this.routerHttpClientConfig = routerHttpClientConfig;
@@ -88,17 +75,15 @@ public class RouterJettyServerInitializer implements JettyServerInitializer
     this.managementProxyConfig = managementProxyConfig;
     this.asyncQueryForwardingServlet = asyncQueryForwardingServlet;
     this.asyncManagementForwardingServlet = asyncManagementForwardingServlet;
-    this.authConfig = authConfig;
     this.serverConfig = serverConfig;
   }
 
   @Override
   public void initialize(Server server, Injector injector)
   {
-    final ServletContextHandler root = new ServletContextHandler(ServletContextHandler.SESSIONS);
-    root.setInitParameter("org.eclipse.jetty.servlet.Default.dirAllowed", "false");
-
-    root.addServlet(new ServletHolder(new DefaultServlet()), "/*");
+    final Builder builder = new Builder(server, serverConfig, injector)
+        .withServletHolder();
+    final ServletContextHandler root = builder.root();
 
     ServletHolder queryServletHolder = buildServletHolder(asyncQueryForwardingServlet, routerHttpClientConfig);
     root.addServlet(queryServletHolder, "/druid/v2/*");
@@ -114,50 +99,22 @@ public class RouterJettyServerInitializer implements JettyServerInitializer
       root.addServlet(managementForwardingServletHolder, "/proxy/*");
     }
 
-
-    final ObjectMapper jsonMapper = injector.getInstance(Key.get(ObjectMapper.class, Json.class));
-    final AuthenticatorMapper authenticatorMapper = injector.getInstance(AuthenticatorMapper.class);
-
-    AuthenticationUtils.addSecuritySanityCheckFilter(root, jsonMapper);
-
-    // perform no-op authorization/authentication for these resources
-    AuthenticationUtils.addNoopAuthenticationAndAuthorizationFilters(root, UNSECURED_PATHS);
+    builder
+        .startAuth()
+        .unsecuredPaths(UNSECURED_PATHS);
     WebConsoleJettyServerInitializer.intializeServerForWebConsoleRoot(root);
-    AuthenticationUtils.addNoopAuthenticationAndAuthorizationFilters(root, authConfig.getUnsecuredPaths());
+    builder
+        .endAuth()
 
-    final List<Authenticator> authenticators = authenticatorMapper.getAuthenticatorChain();
-    AuthenticationUtils.addAuthenticationFilterChain(root, authenticators);
-
-    AuthenticationUtils.addAllowOptionsFilter(root, authConfig.isAllowUnauthenticatedHttpOptions());
-    JettyServerInitUtils.addAllowHttpMethodsFilter(root, serverConfig.getAllowedHttpMethods());
-
-    JettyServerInitUtils.addExtensionFilters(root, injector);
-
-    // Check that requests were authorized before sending responses
-    AuthenticationUtils.addPreResponseAuthorizationCheckFilter(
-        root,
-        authenticators,
-        jsonMapper
-    );
-
-    // Can't use '/*' here because of Guice conflicts with AsyncQueryForwardingServlet path
-    root.addFilter(GuiceFilter.class, "/status/*", null);
-    root.addFilter(GuiceFilter.class, "/druid/router/*", null);
-    root.addFilter(GuiceFilter.class, "/druid-ext/*", null);
-
-    final HandlerList handlerList = new HandlerList();
-    handlerList.setHandlers(
-        new Handler[]{
-            WebConsoleJettyServerInitializer.createWebConsoleRewriteHandler(),
-            JettyServerInitUtils.getJettyRequestLogHandler(),
-            JettyServerInitUtils.wrapWithDefaultGzipHandler(
-                root,
-                serverConfig.getInflateBufferSize(),
-                serverConfig.getCompressionLevel()
-            )
-        }
-    );
-    server.setHandler(handlerList);
+        // Can't use '/*' here because of Guice conflicts with AsyncQueryForwardingServlet path
+        .guicePaths(new String[] {
+            "/status/*",
+            "/druid/router/*",
+            "/druid-ext/*",
+            })
+        .addHandler(WebConsoleJettyServerInitializer.createWebConsoleRewriteHandler())
+        .standardHandlers()
+        .build();
   }
 
   private ServletHolder buildServletHolder(Servlet servlet, DruidHttpClientConfig httpClientConfig)

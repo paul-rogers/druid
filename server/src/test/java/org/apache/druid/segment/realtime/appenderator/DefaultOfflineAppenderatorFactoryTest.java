@@ -24,12 +24,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.name.Names;
 import org.apache.druid.data.input.impl.DimensionsSpec;
 import org.apache.druid.data.input.impl.JSONParseSpec;
 import org.apache.druid.data.input.impl.MapInputRowParser;
 import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.guice.GuiceInjectors;
+import org.apache.druid.guice.Services;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
@@ -67,7 +67,7 @@ public class DefaultOfflineAppenderatorFactoryTest
               @Override
               public void configure(Binder binder)
               {
-                GuiceInjectors.bindService(binder, "druid/tool", 9999, GuiceInjectors.NULL_TLS_PORT);
+                Services.bindService(binder, "druid/tool", 9999, Services.NULL_TLS_PORT);
                 binder.bind(DruidProcessingConfig.class).toInstance(
                     new DruidProcessingConfig()
                     {

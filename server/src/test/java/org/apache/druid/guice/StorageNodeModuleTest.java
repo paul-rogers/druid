@@ -168,7 +168,7 @@ public class StorageNodeModuleTest
         GuiceInjectors.makeStartupInjector(), (ImmutableList.of(Modules.override(
             (binder) -> {
               binder.bind(DruidNode.class).annotatedWith(Self.class).toInstance(self);
-              GuiceInjectors.bindService(binder, "test");
+              Services.bindService(binder, "test");
               binder.bind(DruidProcessingConfig.class).toInstance(druidProcessingConfig);
             },
             target).with(

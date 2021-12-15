@@ -260,7 +260,8 @@ public class JettyServerModule extends JerseyServletModule
       this.certificateChecker = certificateChecker;
     }
 
-    private ThreadPool buildThreadPool() {
+    private ThreadPool buildThreadPool()
+    {
       // adjusting to make config.getNumThreads() mean, "number of threads
       // that concurrently handle the requests".
       int numServerThreads = config.getNumThreads() + getMaxJettyAcceptorsSelectorsNum();

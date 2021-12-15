@@ -22,9 +22,9 @@ package org.apache.druid.indexing.kinesis;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.name.Names;
 import org.apache.druid.common.aws.AWSCredentialsConfig;
 import org.apache.druid.guice.GuiceInjectors;
+import org.apache.druid.guice.Services;
 import org.apache.druid.indexing.common.stats.DropwizardRowIngestionMetersFactory;
 import org.apache.druid.indexing.common.task.TestAppenderatorsManager;
 import org.apache.druid.indexing.seekablestream.SeekableStreamEndSequenceNumbers;
@@ -137,7 +137,7 @@ public class KinesisIndexTaskSerdeTest
         Arrays.asList(
             module,
             (Module) binder -> {
-              GuiceInjectors.bindService(binder, "test", 8000, 9000);
+              Services.bindService(binder, "test", 8000, 9000);
               binder.bind(ChatHandlerProvider.class).toInstance(new NoopChatHandlerProvider());
               binder.bind(RowIngestionMetersFactory.class).toInstance(new DropwizardRowIngestionMetersFactory());
               binder.bind(AppenderatorsManager.class).toInstance(new TestAppenderatorsManager());

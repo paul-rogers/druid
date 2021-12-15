@@ -33,7 +33,6 @@ import org.apache.druid.discovery.LookupNodeService;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.CacheModule;
 import org.apache.druid.guice.DruidProcessingModule;
-import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JoinableFactoryModule;
 import org.apache.druid.guice.JsonConfigProvider;
@@ -43,6 +42,7 @@ import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
 import org.apache.druid.guice.ServerTypeConfig;
+import org.apache.druid.guice.Services;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.lookup.LookupModule;
@@ -95,7 +95,7 @@ public class CliHistorical extends ServerRunnable
         new QueryRunnerFactoryModule(),
         new JoinableFactoryModule(),
         binder -> {
-          GuiceInjectors.bindService(binder, "druid/historical", 8083, 8283);
+          Services.bindService(binder, "druid/historical", 8083, 8283);
           binder.bindConstant().annotatedWith(PruneLastCompactionState.class).to(true);
           binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
 

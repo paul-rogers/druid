@@ -25,7 +25,6 @@ import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import com.google.inject.name.Names;
 import io.airlift.airline.Command;
 import org.apache.druid.client.DruidServer;
 import org.apache.druid.client.DruidServerConfig;
@@ -35,7 +34,6 @@ import org.apache.druid.discovery.LookupNodeService;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.discovery.WorkerNodeService;
 import org.apache.druid.guice.DruidProcessingModule;
-import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.IndexingServiceFirehoseModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
 import org.apache.druid.guice.IndexingServiceModuleHelper;
@@ -51,6 +49,7 @@ import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
 import org.apache.druid.guice.QueryablePeonModule;
 import org.apache.druid.guice.ServerTypeConfig;
+import org.apache.druid.guice.Services;
 import org.apache.druid.guice.annotations.Parent;
 import org.apache.druid.guice.annotations.RemoteChatHandler;
 import org.apache.druid.guice.annotations.Self;
@@ -123,7 +122,7 @@ public class CliIndexer extends ServerRunnable
           @Override
           public void configure(Binder binder)
           {
-            GuiceInjectors.bindService(binder, "druid/indexer", 8091, 8291);
+            Services.bindService(binder, "druid/indexer", 8091, 8291);
             binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
 
             IndexingServiceModuleHelper.configureTaskRunnerConfigs(binder);

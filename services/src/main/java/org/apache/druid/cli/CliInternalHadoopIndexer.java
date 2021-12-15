@@ -25,11 +25,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
-import com.google.inject.name.Names;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
-import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.LazySingleton;
+import org.apache.druid.guice.Services;
 import org.apache.druid.indexer.HadoopDruidDetermineConfigurationJob;
 import org.apache.druid.indexer.HadoopDruidIndexerConfig;
 import org.apache.druid.indexer.HadoopDruidIndexerJob;
@@ -77,7 +76,7 @@ public class CliInternalHadoopIndexer extends GuiceRunnable
   {
     return ImmutableList.of(
         binder -> {
-          GuiceInjectors.bindService(binder, "druid/internal-hadoop-indexer");
+          Services.bindService(binder, "druid/internal-hadoop-indexer");
 
           // bind metadata storage config based on HadoopIOConfig
           MetadataStorageUpdaterJobSpec metadataSpec = getHadoopDruidIndexerConfig().getSchema()

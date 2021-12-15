@@ -29,7 +29,6 @@ import com.google.common.io.CharSource;
 import com.google.common.io.LineProcessor;
 import com.google.common.io.Resources;
 import com.google.inject.Injector;
-import com.google.inject.name.Names;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
 import io.netty.util.SuppressForbidden;
@@ -40,12 +39,12 @@ import org.apache.druid.data.input.impl.StringInputRowParser;
 import org.apache.druid.guice.DruidProcessingModule;
 import org.apache.druid.guice.ExtensionsConfig;
 import org.apache.druid.guice.FirehoseModule;
-import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.IndexingServiceFirehoseModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
 import org.apache.druid.guice.LocalDataStorageDruidModule;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
+import org.apache.druid.guice.Services;
 import org.apache.druid.indexer.HadoopDruidIndexerConfig;
 import org.apache.druid.indexer.IndexingHadoopModule;
 import org.apache.druid.indexing.common.task.Task;
@@ -105,7 +104,7 @@ public class DruidJsonValidator extends GuiceRunnable
         new QueryableModule(),
         new QueryRunnerFactoryModule(),
         binder -> {
-          GuiceInjectors.bindService(binder, "druid/validator");
+          Services.bindService(binder, "druid/validator");
         }
     );
   }

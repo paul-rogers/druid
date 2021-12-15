@@ -26,9 +26,9 @@ import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.name.Names;
 import org.apache.druid.guice.CacheModule;
 import org.apache.druid.guice.GuiceInjectors;
+import org.apache.druid.guice.Services;
 import org.apache.druid.guice.annotations.Global;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.java.util.common.StringUtils;
@@ -60,7 +60,7 @@ public class HybridCacheTest
               @Override
               public void configure(Binder binder)
               {
-                GuiceInjectors.bindService(binder, "hybridTest");
+                Services.bindService(binder, "hybridTest");
                 binder.install(new CacheModule(prefix));
               }
             }

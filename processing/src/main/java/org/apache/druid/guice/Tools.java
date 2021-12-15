@@ -126,47 +126,53 @@ public class Tools
 
     public void add(Module module)
     {
-      for(Element element : Elements.getElements(module)) {
+      for (Element element : Elements.getElements(module)) {
         element.acceptVisitor(new DefaultElementVisitor<Void>()
         {
-          @Override public <T> Void visit(Binding<T> binding) {
+          @Override
+          public <T> Void visit(Binding<T> binding)
+          {
             Key<T> key = binding.getKey();
             Module current = bindings.get(key);
             if (current != null) {
               boolean isReplacement = binding.acceptTargetVisitor(
                   new DefaultBindingTargetVisitor<Object, Boolean>()
-              {
-                @Override
-                protected Boolean visitOther(Binding<? extends Object> binding) {
-                  return true;
-                }
+                  {
+                    @Override
+                    protected Boolean visitOther(Binding<? extends Object> binding)
+                    {
+                      return true;
+                    }
 
-                @Override
-                public Boolean visit(ProviderInstanceBinding<? extends Object> providerInstanceBinding) {
-                  Provider<?> providerInstance = providerInstanceBinding.getProviderInstance();
-                  if (providerInstance instanceof Multibinder || providerInstance instanceof ProviderWithDependencies) {
-                    // This is a multibinding, so no actual override
-                    return false;
-                  }
-                  return true;
-                }
+                    @Override
+                    public Boolean visit(ProviderInstanceBinding<? extends Object> providerInstanceBinding)
+                    {
+                      Provider<?> providerInstance = providerInstanceBinding.getProviderInstance();
+                      if (providerInstance instanceof Multibinder
+                          || providerInstance instanceof ProviderWithDependencies) {
+                        // This is a multibinding, so no actual override
+                        return false;
+                      }
+                      return true;
+                    }
 
-                @Override
-                public Boolean visit(LinkedKeyBinding<? extends Object> linkedKeyBinding) {
-                  // Used as part of the multibinding. Ignore this one.
-                  return false;
-                }
+                    @Override
+                    public Boolean visit(LinkedKeyBinding<? extends Object> linkedKeyBinding)
+                    {
+                      // Used as part of the multibinding. Ignore this one.
+                      return false;
+                    }
 
-              });
+                  });
               if (isReplacement) {
                 Replacement replacement = new Replacement(key, current, module);
                 replacements.add(replacement);
                 System.out.println(replacement);
               }
-             }
-             bindings.put(key, module);
-             return null;
             }
+            bindings.put(key, module);
+            return null;
+          }
         });
       }
     }
@@ -196,7 +202,7 @@ public class Tools
         return;
       }
       System.out.println("Dependencies:");
-      for (Pair<Module, List<Module>>item : dependencies()) {
+      for (Pair<Module, List<Module>> item : dependencies()) {
         System.out.println(item.lhs.getClass().getSimpleName());
         for (Module dep : item.rhs) {
           System.out.print("  ");

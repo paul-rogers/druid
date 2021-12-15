@@ -33,7 +33,6 @@ import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeAnnouncer;
 import org.apache.druid.discovery.DruidService;
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.annotations.Self;

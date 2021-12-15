@@ -28,7 +28,6 @@ import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.name.Names;
 import net.spy.memcached.BroadcastOpFactory;
 import net.spy.memcached.CASResponse;
 import net.spy.memcached.CASValue;
@@ -47,6 +46,7 @@ import org.apache.druid.collections.StupidResourceHolder;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.ManageLifecycle;
+import org.apache.druid.guice.Services;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.StringUtils;
@@ -148,7 +148,7 @@ public class MemcachedCacheTest
               @Override
               public void configure(Binder binder)
               {
-                GuiceInjectors.bindService(binder, "druid/test/memcached");
+                Services.bindService(binder, "druid/test/memcached");
                 binder.bind(MemcachedCacheConfig.class).toInstance(config);
                 binder.bind(Cache.class).toProvider(MemcachedProviderWithConfig.class).in(ManageLifecycle.class);
               }
@@ -179,7 +179,7 @@ public class MemcachedCacheTest
               @Override
               public void configure(Binder binder)
               {
-                GuiceInjectors.bindService(binder, "druid/test/memcached");
+                Services.bindService(binder, "druid/test/memcached");
                 binder.bind(Cache.class).toProvider(CacheProvider.class);
                 JsonConfigProvider.bind(binder, uuid, CacheProvider.class);
               }

@@ -24,8 +24,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.name.Names;
 import org.apache.druid.guice.GuiceInjectors;
+import org.apache.druid.guice.Services;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.segment.loading.SegmentLoaderConfig;
@@ -51,7 +51,7 @@ public class DruidServerConfigTest
   public ObjectMapper mapper = new DefaultObjectMapper();
 
   private static final Module SERVER_CONFIG_MODULE = (binder) -> {
-    GuiceInjectors.bindService(binder, "druid/test");
+    Services.bindService(binder, "druid/test");
   };
 
   @Before

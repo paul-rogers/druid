@@ -24,11 +24,11 @@ import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
-import com.google.inject.name.Names;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.JsonConfigurator;
 import org.apache.druid.guice.ManageLifecycle;
+import org.apache.druid.guice.Services;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.lifecycle.Lifecycle;
@@ -72,7 +72,7 @@ public class CaffeineCacheTest
     Injector injector = Initialization.makeInjectorWithModules(
         GuiceInjectors.makeStartupInjector(), ImmutableList.of(
             binder -> {
-              GuiceInjectors.bindService(binder, "druid/test/redis");
+              Services.bindService(binder, "druid/test/redis");
               binder.bind(CaffeineCacheConfig.class).toInstance(config);
               binder.bind(Cache.class).toProvider(CaffeineCacheProviderWithConfig.class).in(ManageLifecycle.class);
             }
@@ -97,7 +97,7 @@ public class CaffeineCacheTest
     final Injector injector = Initialization.makeInjectorWithModules(
         GuiceInjectors.makeStartupInjector(), ImmutableList.of(
             binder -> {
-              GuiceInjectors.bindService(binder, "druid/test/redis");
+              Services.bindService(binder, "druid/test/redis");
               binder.bind(Cache.class).toProvider(CacheProvider.class);
               JsonConfigProvider.bind(binder, uuid, CacheProvider.class);
             }
@@ -378,7 +378,7 @@ public class CaffeineCacheTest
         GuiceInjectors.makeStartupInjector(),
         ImmutableList.of(
             binder -> {
-              GuiceInjectors.bindService(binder, "druid/test");
+              Services.bindService(binder, "druid/test");
               JsonConfigProvider.bind(binder, keyPrefix, CaffeineCacheConfig.class);
             }
         )
@@ -407,7 +407,7 @@ public class CaffeineCacheTest
         GuiceInjectors.makeStartupInjector(),
         ImmutableList.of(
             binder -> {
-              GuiceInjectors.bindService(binder, "druid/test");
+              Services.bindService(binder, "druid/test");
               JsonConfigProvider.bind(binder, keyPrefix, CaffeineCacheConfig.class);
             }
         )
@@ -433,7 +433,7 @@ public class CaffeineCacheTest
         GuiceInjectors.makeStartupInjector(),
         ImmutableList.of(
             binder -> {
-              GuiceInjectors.bindService(binder, "druid/test");
+              Services.bindService(binder, "druid/test");
               JsonConfigProvider.bind(binder, keyPrefix, CaffeineCacheConfig.class);
             }
         )

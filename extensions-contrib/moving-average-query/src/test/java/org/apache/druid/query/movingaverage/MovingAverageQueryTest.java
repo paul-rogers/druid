@@ -29,7 +29,6 @@ import com.google.common.collect.Maps;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.multibindings.Multibinder;
-import com.google.inject.name.Names;
 import com.google.inject.util.Providers;
 import org.apache.druid.client.CachingClusteredClient;
 import org.apache.druid.client.DruidServer;
@@ -46,6 +45,7 @@ import org.apache.druid.guice.DruidProcessingModule;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
+import org.apache.druid.guice.Services;
 import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.guice.http.DruidHttpClientConfig;
 import org.apache.druid.initialization.Initialization;
@@ -132,7 +132,7 @@ public class MovingAverageQueryTest extends InitializedNullHandlingTest
     List<Module> modules = getRequiredModules();
     modules.add(
         binder -> {
-          GuiceInjectors.bindService(binder, "queryTest");
+          Services.bindService(binder, "queryTest");
           binder.bind(QuerySegmentWalker.class).toProvider(Providers.of(new QuerySegmentWalker()
           {
             @Override

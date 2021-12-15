@@ -24,11 +24,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.name.Names;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServer;
 import org.apache.curator.test.TestingCluster;
 import org.apache.druid.guice.GuiceInjectors;
+import org.apache.druid.guice.Services;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
@@ -114,7 +114,7 @@ public class TestKafkaExtractionCluster
               @Override
               public void configure(Binder binder)
               {
-                GuiceInjectors.bindService(binder, "test");
+                Services.bindService(binder, "test");
               }
             },
             // These injections fail under IntelliJ but are required for maven

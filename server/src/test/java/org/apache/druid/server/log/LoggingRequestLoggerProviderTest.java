@@ -22,14 +22,13 @@ package org.apache.druid.server.log;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
-import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.name.Names;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.JsonConfigurator;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.QueryableModule;
+import org.apache.druid.guice.Services;
 import org.apache.druid.initialization.Initialization;
 import org.hamcrest.Matchers;
 import org.junit.Assert;
@@ -91,7 +90,7 @@ public class LoggingRequestLoggerProviderTest
               public void configure(Binder binder)
               {
                 binder.bind(RequestLogger.class).toProvider(RequestLoggerProvider.class).in(ManageLifecycle.class);
-                GuiceInjectors.bindService(binder, "some service");
+                Services.bindService(binder, "some service");
                 JsonConfigProvider.bind(binder, propertyPrefix, RequestLoggerProvider.class);
               }
             }

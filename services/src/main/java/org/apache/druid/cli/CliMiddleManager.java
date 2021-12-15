@@ -27,7 +27,6 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
-import com.google.inject.name.Names;
 import com.google.inject.util.Providers;
 import io.airlift.airline.Command;
 import org.apache.druid.client.indexing.HttpIndexingServiceClient;
@@ -35,7 +34,6 @@ import org.apache.druid.client.indexing.IndexingServiceClient;
 import org.apache.druid.curator.ZkEnablementConfig;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.discovery.WorkerNodeService;
-import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.IndexingServiceFirehoseModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
 import org.apache.druid.guice.IndexingServiceModuleHelper;
@@ -47,6 +45,7 @@ import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.PolyBind;
+import org.apache.druid.guice.Services;
 import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.indexing.common.config.TaskConfig;
 import org.apache.druid.indexing.common.stats.DropwizardRowIngestionMetersFactory;
@@ -118,7 +117,7 @@ public class CliMiddleManager extends ServerRunnable
           @Override
           public void configure(Binder binder)
           {
-            GuiceInjectors.bindService(binder, "druid/middlemanager", 8091, 8291);
+            Services.bindService(binder, "druid/middlemanager", 8091, 8291);
             binder.bindConstant().annotatedWith(PruneLastCompactionState.class).to(true);
 
             IndexingServiceModuleHelper.configureTaskRunnerConfigs(binder);

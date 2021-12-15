@@ -32,7 +32,6 @@ import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.name.Named;
-import com.google.inject.name.Names;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
@@ -46,7 +45,6 @@ import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.Binders;
 import org.apache.druid.guice.CacheModule;
 import org.apache.druid.guice.DruidProcessingModule;
-import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.IndexingServiceFirehoseModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
 import org.apache.druid.guice.IndexingServiceTuningConfigModule;
@@ -61,6 +59,7 @@ import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
 import org.apache.druid.guice.QueryablePeonModule;
 import org.apache.druid.guice.ServerTypeConfig;
+import org.apache.druid.guice.Services;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.annotations.Parent;
 import org.apache.druid.guice.annotations.Self;
@@ -206,7 +205,7 @@ public class CliPeon extends GuiceRunnable
             taskStatusPath = taskAndStatusFile.get(1);
             taskReportPath = taskAndStatusFile.get(2);
 
-            GuiceInjectors.bindService(binder, "druid/peon");
+            Services.bindService(binder, "druid/peon");
             binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
 
             JsonConfigProvider.bind(binder, "druid.task.executor", DruidNode.class, Parent.class);

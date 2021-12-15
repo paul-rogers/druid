@@ -30,7 +30,6 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
-import com.google.inject.name.Names;
 import com.google.inject.util.Providers;
 import io.airlift.airline.Command;
 import org.apache.curator.framework.CuratorFramework;
@@ -44,13 +43,13 @@ import org.apache.druid.client.indexing.IndexingServiceClient;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.ConditionalMultibind;
 import org.apache.druid.guice.ConfigProvider;
-import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.JsonConfigurator;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.ManageLifecycle;
+import org.apache.druid.guice.Services;
 import org.apache.druid.guice.annotations.CoordinatorIndexingServiceDuty;
 import org.apache.druid.guice.annotations.CoordinatorMetadataStoreManagementDuty;
 import org.apache.druid.guice.annotations.EscalatedGlobal;
@@ -170,7 +169,7 @@ public class CliCoordinator extends ServerRunnable
           @Override
           public void configure(Binder binder)
           {
-            GuiceInjectors.bindService(
+            Services.bindService(
                 binder,
                 TieredBrokerConfig.DEFAULT_COORDINATOR_SERVICE_NAME,
                 8081,

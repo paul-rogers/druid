@@ -19,37 +19,23 @@
 
 package org.apache.druid.cli;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.name.Names;
-import com.google.inject.servlet.GuiceFilter;
 import io.airlift.airline.Command;
 import org.apache.druid.client.coordinator.CoordinatorClient;
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
-import org.apache.druid.guice.annotations.Json;
+import org.apache.druid.guice.Services;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.server.http.SelfDiscoveryResource;
 import org.apache.druid.server.initialization.ServerConfig;
-import org.apache.druid.server.initialization.jetty.JettyServerInitUtils;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
-import org.apache.druid.server.security.AuthenticationUtils;
-import org.apache.druid.server.security.Authenticator;
-import org.apache.druid.server.security.AuthenticatorMapper;
-import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.handler.HandlerList;
-import org.eclipse.jetty.server.handler.StatisticsHandler;
-import org.eclipse.jetty.servlet.DefaultServlet;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
 
 import java.util.List;
 
@@ -76,7 +62,7 @@ public class CliCustomNodeRole extends ServerRunnable
     return ImmutableList.of(
         binder -> {
           LOG.info("starting up");
-          GuiceInjectors.bindService(
+          Services.bindService(
               binder,
               CliCustomNodeRole.SERVICE_NAME,
               CliCustomNodeRole.PORT,
@@ -98,7 +84,7 @@ public class CliCustomNodeRole extends ServerRunnable
     );
   }
 
-  // ugly mimic of other jetty initializers
+  // Mimic of other Jetty initializers
   private static class CustomJettyServiceInitializer implements JettyServerInitializer
   {
     private static List<String> UNSECURED_PATHS = ImmutableList.of(
@@ -116,54 +102,17 @@ public class CliCustomNodeRole extends ServerRunnable
     @Override
     public void initialize(Server server, Injector injector)
     {
-      final ServletContextHandler root = new ServletContextHandler(ServletContextHandler.SESSIONS);
-      root.addServlet(new ServletHolder(new DefaultServlet()), "/*");
-
-      final ObjectMapper jsonMapper = injector.getInstance(Key.get(ObjectMapper.class, Json.class));
-      final AuthenticatorMapper authenticatorMapper = injector.getInstance(AuthenticatorMapper.class);
-
-      AuthenticationUtils.addSecuritySanityCheckFilter(root, jsonMapper);
-
-      // perform no-op authorization for these resources
-      AuthenticationUtils.addNoopAuthenticationAndAuthorizationFilters(root, UNSECURED_PATHS);
-
-      List<Authenticator> authenticators = authenticatorMapper.getAuthenticatorChain();
-      AuthenticationUtils.addAuthenticationFilterChain(root, authenticators);
-
-      JettyServerInitUtils.addAllowHttpMethodsFilter(root, serverConfig.getAllowedHttpMethods());
-
-      JettyServerInitUtils.addExtensionFilters(root, injector);
-
-      // Check that requests were authorized before sending responses
-      AuthenticationUtils.addPreResponseAuthorizationCheckFilter(
-          root,
-          authenticators,
-          jsonMapper
-      );
-
-      root.addFilter(GuiceFilter.class, "/*", null);
-
-      final HandlerList handlerList = new HandlerList();
-      // Do not change the order of the handlers that have already been added
-      for (Handler handler : server.getHandlers()) {
-        handlerList.addHandler(handler);
-      }
-
-      handlerList.addHandler(JettyServerInitUtils.getJettyRequestLogHandler());
-
-      // Add Gzip handler at the very end
-      handlerList.addHandler(
-          JettyServerInitUtils.wrapWithDefaultGzipHandler(
-              root,
-              serverConfig.getInflateBufferSize(),
-              serverConfig.getCompressionLevel()
-          )
-      );
-
-      final StatisticsHandler statisticsHandler = new StatisticsHandler();
-      statisticsHandler.setHandler(handlerList);
-
-      server.setHandler(statisticsHandler);
+      new Builder(server, serverConfig, injector)
+          .withDefaultServlet()
+          .startAuth()
+          // The builder adds unsecuredPaths(authConfig.getUnsecuredPaths());
+          // But this original code did not. OK?
+          .unsecuredPaths(UNSECURED_PATHS)
+          .endAuth()
+          .guicePath("/*")
+          .keepServerHandlers()
+          .withStatistics()
+          .build();
     }
   }
 }

@@ -25,7 +25,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 
-import javax.annotation.Nullable;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -34,9 +33,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import java.util.Properties;
 
 /**
@@ -128,7 +124,8 @@ public class StartupPropertiesModule implements Module
     binder.bind(Properties.class).toInstance(props);
   }
 
-  public boolean hasConfig() {
+  public boolean hasConfig()
+  {
     return customFile != null || hasCommon || hasSpecific;
   }
 
@@ -188,7 +185,7 @@ public class StartupPropertiesModule implements Module
       return null;
     }
     URL url = ClassLoader.getSystemResource(COMMON_PROPERTIES);
-    File commonDir =  FileUtils.toFile(url);
+    File commonDir = FileUtils.toFile(url);
     if (commonDir == null) {
       return null;
     }
@@ -218,7 +215,7 @@ public class StartupPropertiesModule implements Module
       return null;
     }
     URL url = ClassLoader.getSystemResource(SERVICE_PROPERTIES);
-    File serviceDir =  FileUtils.toFile(url);
+    File serviceDir = FileUtils.toFile(url);
     if (serviceDir == null) {
       return null;
     }

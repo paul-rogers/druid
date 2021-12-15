@@ -26,8 +26,8 @@ import com.google.common.collect.Iterables;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.name.Names;
 import org.apache.druid.guice.GuiceInjectors;
+import org.apache.druid.guice.Services;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.easymock.EasyMock;
@@ -109,7 +109,7 @@ public class TimestampMinMaxAggregatorTest
               @Override
               public void configure(Binder binder)
               {
-                GuiceInjectors.bindService(binder, "test");
+                Services.bindService(binder, "test");
               }
             },
             new TimestampMinMaxModule()

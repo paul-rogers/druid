@@ -31,7 +31,6 @@ import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.name.Names;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
 import io.netty.util.SuppressForbidden;
@@ -40,9 +39,9 @@ import org.apache.druid.collections.bitmap.ConciseBitmapFactory;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.collections.bitmap.RoaringBitmapFactory;
 import org.apache.druid.guice.DruidProcessingModule;
-import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
+import org.apache.druid.guice.Services;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
@@ -442,7 +441,7 @@ public class DumpSegment extends GuiceRunnable
           @Override
           public void configure(Binder binder)
           {
-            GuiceInjectors.bindService(binder, "druid/tool", 9999, GuiceInjectors.NULL_TLS_PORT);
+            Services.bindService(binder, "druid/tool", 9999, Services.NULL_TLS_PORT);
             binder.bind(DruidProcessingConfig.class).toInstance(
                 new DruidProcessingConfig()
                 {

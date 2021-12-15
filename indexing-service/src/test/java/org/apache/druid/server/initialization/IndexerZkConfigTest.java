@@ -24,10 +24,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.name.Names;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.JsonConfigurator;
+import org.apache.druid.guice.Services;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.StringUtils;
@@ -60,7 +60,7 @@ public class IndexerZkConfigTest
     @Override
     public void configure(Binder binder)
     {
-      GuiceInjectors.bindService(binder, "druid/test");
+      Services.bindService(binder, "druid/test");
       // See IndexingServiceModuleHelper
       JsonConfigProvider.bind(binder, INDEXER_PROPERTY_STRING, IndexerZkConfig.class);
       JsonConfigProvider.bind(binder, ZK_SERVICE_CONFIG_STRING, ZkPathsConfig.class);

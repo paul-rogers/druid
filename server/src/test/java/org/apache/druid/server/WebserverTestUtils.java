@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.name.Names;
 import com.sun.jersey.api.container.grizzly2.GrizzlyServerFactory;
 import com.sun.jersey.api.core.ClassNamesResourceConfig;
 import com.sun.jersey.api.core.ResourceConfig;
@@ -31,6 +30,7 @@ import com.sun.jersey.core.spi.component.ioc.IoCComponentProviderFactory;
 import com.sun.jersey.guice.spi.container.GuiceComponentProviderFactory;
 import com.sun.jersey.spi.inject.SingletonTypeInjectableProvider;
 import org.apache.druid.guice.GuiceInjectors;
+import org.apache.druid.guice.Services;
 import org.apache.druid.guice.annotations.Client;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
@@ -74,7 +74,7 @@ public class WebserverTestUtils
     Injector injector = Initialization.makeInjectorWithModules(
         GuiceInjectors.makeStartupInjector(),
         ImmutableList.of(binder -> {
-          GuiceInjectors.bindService(binder, SERVICE_NAME, baseUri.getPort(), baseUri.getPort() + 1);
+          Services.bindService(binder, SERVICE_NAME, baseUri.getPort(), baseUri.getPort() + 1);
           binder.bind(Key.get(ServiceEmitter.class)).toInstance(new NoopServiceEmitter());
           binder.bind(Key.get(AuthConfig.class)).toInstance(new AuthConfig());
           binder.bind(AuthorizerMapper.class).toInstance(AuthTestUtils.TEST_AUTHORIZER_MAPPER);

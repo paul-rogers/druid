@@ -24,13 +24,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
-import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.ProvisionException;
-import com.google.inject.name.Names;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.IndexingServiceModuleHelper;
 import org.apache.druid.guice.JsonConfigurator;
+import org.apache.druid.guice.Services;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.junit.Assert;
@@ -50,7 +49,7 @@ public class ForkingTaskRunnerConfigTest
             @Override
             public void configure(Binder binder)
             {
-              GuiceInjectors.bindService(binder, "some service");
+              Services.bindService(binder, "some service");
             }
           }
       )

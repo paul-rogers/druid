@@ -25,6 +25,7 @@ import com.google.inject.Inject;
 import com.sun.jersey.spi.container.ResourceFilters;
 import org.apache.druid.client.ServerViewUtil;
 import org.apache.druid.client.TimelineServerView;
+import org.apache.druid.guice.annotations.BrokerRole;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.guice.annotations.Smile;
@@ -49,6 +50,7 @@ import java.io.InputStream;
 /**
  */
 @Path("/druid/v2/")
+@BrokerRole
 public class BrokerQueryResource extends QueryResource
 {
   private final TimelineServerView brokerServerView;

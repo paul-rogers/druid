@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.name.Names;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.java.util.common.StringUtils;
 import org.easymock.EasyMock;
@@ -81,7 +80,7 @@ public abstract class JsonConfigTesterBase<T>
     @Override
     public void configure(Binder binder)
     {
-      GuiceInjectors.bindService(binder, "druid/test");
+      Services.bindService(binder, "druid/test");
       JsonConfigProvider.bind(binder, CONFIG_PREFIX, clazz);
     }
   };

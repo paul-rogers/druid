@@ -593,7 +593,6 @@ public class AsyncQueryForwardingServletTest extends BaseJettyTest
 
   public static class ProxyJettyServerInit implements JettyServerInitializer
   {
-
     private final DruidNode node;
 
     @Inject

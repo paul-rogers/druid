@@ -138,8 +138,9 @@ public class Initialization
    */
   static Map<File, URLClassLoader> loadFileExtensions(ExtensionsConfig extensionsConfig)
   {
-    if (loaded)
+    if (loaded) {
       return FILE_JARS_MAP;
+    }
     loaded = true;
     for (File extension : getExtensionFilesToLoad(extensionsConfig)) {
       log.debug("Loading extension [%s]", extension.getName());

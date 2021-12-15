@@ -27,9 +27,9 @@ import com.google.inject.name.Names;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
 import org.apache.druid.guice.DruidProcessingModule;
-import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
+import org.apache.druid.guice.Services;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.DruidProcessingConfig;
@@ -91,7 +91,7 @@ public class ValidateSegments extends GuiceRunnable
           @Override
           public void configure(Binder binder)
           {
-            GuiceInjectors.bindService(binder, "druid/tool", 9999, GuiceInjectors.NULL_TLS_PORT);
+            Services.bindService(binder, "druid/tool", 9999, Services.NULL_TLS_PORT);
             binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
             binder.bind(DruidProcessingConfig.class).toInstance(
                 new DruidProcessingConfig()

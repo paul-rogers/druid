@@ -31,7 +31,6 @@ import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.multibindings.Multibinder;
-import com.google.inject.name.Names;
 import org.apache.calcite.avatica.AvaticaClientRuntimeException;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.MissingResultsException;
@@ -40,6 +39,7 @@ import org.apache.calcite.avatica.server.AbstractAvaticaHandler;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.LazySingleton;
+import org.apache.druid.guice.Services;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Pair;
@@ -184,7 +184,7 @@ public abstract class DruidAvaticaHandlerTest extends CalciteTestBase
               @Override
               public void configure(Binder binder)
               {
-                GuiceInjectors.bindService(binder, "test");
+                Services.bindService(binder, "test");
                 binder.bind(AuthenticatorMapper.class).toInstance(CalciteTests.TEST_AUTHENTICATOR_MAPPER);
                 binder.bind(AuthorizerMapper.class).toInstance(CalciteTests.TEST_AUTHORIZER_MAPPER);
                 binder.bind(Escalator.class).toInstance(CalciteTests.TEST_AUTHENTICATOR_ESCALATOR);

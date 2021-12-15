@@ -34,7 +34,8 @@ import static org.junit.Assert.assertTrue;
  */
 public class BundleTest
 {
-  public Cli<Runnable> buildCli() {
+  public Cli<Runnable> buildCli()
+  {
     final Injector injector = GuiceInjectors.makeStartupInjector();
     return Main.buildCli(injector);
   }
