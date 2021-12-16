@@ -26,6 +26,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.net.HostAndPort;
 import com.google.inject.name.Named;
 import org.apache.druid.common.utils.SocketUtil;
+import org.apache.druid.guice.Services;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 
@@ -111,12 +112,12 @@ public class DruidNode
    */
   @JsonCreator
   public DruidNode(
-      @JacksonInject @Named("serviceName") @JsonProperty("service") String serviceName,
+      @JacksonInject @Named(Services.SERVICE_NAME_KEY) @JsonProperty("service") String serviceName,
       @JsonProperty("host") String host,
       @JsonProperty("bindOnHost") boolean bindOnHost,
       @JsonProperty("plaintextPort") Integer plaintextPort,
-      @JacksonInject @Named(Services.SERVICE_NAME_KEY) @JsonProperty("port") Integer port,
-      @JacksonInject @Named("tlsServicePort") @JsonProperty("tlsPort") Integer tlsPort,
+      @JacksonInject @Named(Services.SERVICE_PORT_KEY) @JsonProperty("port") Integer port,
+      @JacksonInject @Named(Services.SERVICE_TLS_PORT_KEY) @JsonProperty("tlsPort") Integer tlsPort,
       @JsonProperty("enablePlaintextPort") Boolean enablePlaintextPort,
       @JsonProperty("enableTlsPort") boolean enableTlsPort
   )

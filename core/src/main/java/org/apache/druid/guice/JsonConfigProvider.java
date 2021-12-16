@@ -209,7 +209,7 @@ public class JsonConfigProvider<T> implements Provider<Supplier<T>>
   private Properties props;
   private JsonConfigurator configurator;
 
-  private Supplier<T> retVal = null;
+  private Supplier<T> retVal;
 
   public JsonConfigProvider(
       String propertyBase,
