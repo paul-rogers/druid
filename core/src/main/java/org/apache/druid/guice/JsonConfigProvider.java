@@ -89,7 +89,7 @@ public class JsonConfigProvider<T> implements Provider<Supplier<T>>
         propertyBase,
         classToProvide,
         Key.get(classToProvide),
-        (Key) Key.get(Types.newParameterizedType(Supplier.class, classToProvide))
+        (Key<Supplier<T>>) Key.get(Types.newParameterizedType(Supplier.class, classToProvide))
     );
   }
 
@@ -107,7 +107,7 @@ public class JsonConfigProvider<T> implements Provider<Supplier<T>>
         classToProvide,
         defaultClass,
         Key.get(classToProvide),
-        (Key) Key.get(Types.newParameterizedType(Supplier.class, classToProvide))
+        (Key<Supplier<T>>) Key.get(Types.newParameterizedType(Supplier.class, classToProvide))
     );
   }
 
@@ -119,7 +119,7 @@ public class JsonConfigProvider<T> implements Provider<Supplier<T>>
         propertyBase,
         classToProvide,
         Key.get(classToProvide, annotation),
-        (Key) Key.get(Types.newParameterizedType(Supplier.class, classToProvide), annotation)
+        (Key<Supplier<T>>) Key.get(Types.newParameterizedType(Supplier.class, classToProvide), annotation)
     );
   }
 
@@ -136,7 +136,7 @@ public class JsonConfigProvider<T> implements Provider<Supplier<T>>
         propertyBase,
         classToProvide,
         Key.get(classToProvide, annotation),
-        (Key) Key.get(Types.newParameterizedType(Supplier.class, classToProvide), annotation)
+        (Key<Supplier<T>>) Key.get(Types.newParameterizedType(Supplier.class, classToProvide), annotation)
     );
   }
 
@@ -175,7 +175,7 @@ public class JsonConfigProvider<T> implements Provider<Supplier<T>>
     binder.bind(bindKey).toInstance(instance);
 
     final ParameterizedType supType = Types.newParameterizedType(Supplier.class, bindKey.getTypeLiteral().getType());
-    final Key supplierKey;
+    final Key<?> supplierKey;
 
     if (bindKey.getAnnotationType() != null) {
       supplierKey = Key.get(supType, bindKey.getAnnotationType());
@@ -185,7 +185,7 @@ public class JsonConfigProvider<T> implements Provider<Supplier<T>>
       supplierKey = Key.get(supType);
     }
 
-    binder.bind(supplierKey).toInstance(Suppliers.ofInstance(instance));
+    binder.bind((Key<Supplier<T>>) supplierKey).toInstance(Suppliers.ofInstance(instance));
   }
 
   public static <T> JsonConfigProvider<T> of(String propertyBase, Class<T> classToProvide)

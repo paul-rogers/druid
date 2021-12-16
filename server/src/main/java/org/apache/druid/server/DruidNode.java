@@ -115,7 +115,7 @@ public class DruidNode
       @JsonProperty("host") String host,
       @JsonProperty("bindOnHost") boolean bindOnHost,
       @JsonProperty("plaintextPort") Integer plaintextPort,
-      @JacksonInject @Named("servicePort") @JsonProperty("port") Integer port,
+      @JacksonInject @Named(Services.SERVICE_NAME_KEY) @JsonProperty("port") Integer port,
       @JacksonInject @Named("tlsServicePort") @JsonProperty("tlsPort") Integer tlsPort,
       @JsonProperty("enablePlaintextPort") Boolean enablePlaintextPort,
       @JsonProperty("enableTlsPort") boolean enableTlsPort

@@ -25,9 +25,12 @@ import com.google.inject.name.Names;
 
 public class Services
 {
-  public static final Named SERVICE_NAME = Names.named("serviceName");
-  public static final Named SERVICE_PORT = Names.named("servicePort");
-  public static final Named SERVICE_TLS_PORT = Names.named("tlsServicePort");
+  public static final String SERVICE_NAME_KEY = "serviceName";
+  public static final String SERVICE_PORT_KEY = "servicePort";
+  public static final String SERVICE_TLS_PORT_KEY = "tlsServicePort";
+  public static final Named SERVICE_NAME = Names.named(SERVICE_NAME_KEY);
+  public static final Named SERVICE_PORT = Names.named(SERVICE_PORT_KEY);
+  public static final Named SERVICE_TLS_PORT = Names.named(SERVICE_TLS_PORT_KEY);
   public static final int NULL_TLS_PORT = -1;
 
   /**

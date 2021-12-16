@@ -119,12 +119,12 @@ public class Tools
     }
   }
 
-  @SuppressForbidden(reason = "System#out")
   public static class OverrideAnalyzer
   {
     private final Map<Key<?>, Module> bindings = new HashMap<>();
     private final List<Replacement> replacements = new ArrayList<>();
 
+    @SuppressForbidden(reason = "System#out")
     public void add(Module module)
     {
       for (Element element : Elements.getElements(module)) {

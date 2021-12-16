@@ -92,7 +92,7 @@ public class JsonConfigurator
         final String propValue = props.getProperty(prop);
         Object value;
         try {
-          // If it's a String Jackson wants it to be quoted, so check if it's not an object or array and quote.
+          // If it's a String then Jackson wants it to be quoted, so check if it's not an object or array and quote.
           String modifiedPropValue = propValue;
           if (!(modifiedPropValue.startsWith("[") || modifiedPropValue.startsWith("{"))) {
             modifiedPropValue = jsonMapper.writeValueAsString(propValue);
@@ -220,7 +220,7 @@ public class JsonConfigurator
     Object nested = targetMap.computeIfAbsent(nestedKey, k -> new HashMap<String, Object>());
     if (!(nested instanceof Map)) {
       // Clash is possible between properties, which are used to configure different objects: e. g.
-      // druid.emitter=parametrized is used to configure Emitter class, and druid.emitter.parametrized.xxx=yyy is used
+      // druid.emitter=parameterized is used to configure Emitter class, and druid.emitter.parametrized.xxx=yyy is used
       // to configure ParametrizedUriEmitterConfig object. So skipping xxx=yyy key-value pair when configuring Emitter
       // doesn't make any difference. That is why we just log this situation, instead of throwing an exception.
       log.info(
@@ -230,6 +230,7 @@ public class JsonConfigurator
       );
       return;
     }
+    @SuppressWarnings("unchecked")
     Map<String, Object> nestedMap = (Map<String, Object>) nested;
     hieraricalPutValue(propertyPrefix, originalProperty, property.substring(dotIndex + 1), value, nestedMap);
   }
