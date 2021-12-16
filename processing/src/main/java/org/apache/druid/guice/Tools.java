@@ -119,6 +119,7 @@ public class Tools
     }
   }
 
+  @SuppressForbidden(reason = "System#out")
   public static class OverrideAnalyzer
   {
     private final Map<Key<?>, Module> bindings = new HashMap<>();
@@ -196,6 +197,7 @@ public class Tools
       return deps;
     }
 
+    @SuppressForbidden(reason = "System#out")
     public void printDependencies()
     {
       if (replacements.isEmpty()) {

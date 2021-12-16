@@ -135,7 +135,8 @@ public class StartupPropertiesModule implements Module
     try (InputStreamReader in =
         new InputStreamReader(
             new BufferedInputStream(
-                new FileInputStream(new File(customFile))))) {
+                new FileInputStream(new File(customFile))),
+            StandardCharsets.UTF_8)) {
       log.debug("Loading properties from %s", customFile);
       fileProps.load(in);
     }
