@@ -1,25 +1,7 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
-
 package org.apache.druid.query.pipeline;
 
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
@@ -29,45 +11,66 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryConfig;
 import org.apache.druid.query.scan.ScanResultValue;
+import org.apache.druid.segment.Segment;
 
 import com.google.common.collect.ImmutableMap;
 
 /**
- * Query runner which implements the
- * {@link org.apache.druid.query.scan.ScanQueryQueryToolChest ScanQueryQueryToolChest}
- * {@code mergeResults()} operation in terms of operators.
- * <p>
- * The basic code is a clone of that in {@code ScanQueryQueryToolChest}. if all works
- * fine, we'd remove the original code in favor of this implementation.
- * <p>
- * Operators perform the transform steps. Each takes a sequence as input and produces
- * a sequence as output. In both cases, a wrapper class does the deed. However, if the
- * query has both a limit and an offset, then the intermediate layers are stripped
- * away to leave just {@code offset --> limit} directly.
+ * Scan-specific parts of the hybrid query planner.
  *
- * @see {@link org.apache.druid.query.scan.ScanQueryQueryToolChest ScanQueryQueryToolChest#mergeResults}
+ * @see {@link QueryPlanner}
  */
-public class LimitAndOffsetRunner implements QueryRunner<ScanResultValue>
+public class ScanPlanner
 {
-  private final ScanQueryConfig scanQueryConfig;
-  private final QueryRunner<ScanResultValue> input;
-
-  public LimitAndOffsetRunner(
-      final ScanQueryConfig scanQueryConfig,
-      final QueryRunner<ScanResultValue> input
-  )
+  /**
+   * Query runner which implements the
+   * {@link org.apache.druid.query.scan.ScanQueryQueryToolChest ScanQueryQueryToolChest}
+   * {@code mergeResults()} operation in terms of operators.
+   * <p>
+   * The basic code is a clone of that in {@code ScanQueryQueryToolChest}. if all works
+   * fine, we'd remove the original code in favor of this implementation.
+   * <p>
+   * Operators perform the transform steps. Each takes a sequence as input and produces
+   * a sequence as output. In both cases, a wrapper class does the deed. However, if the
+   * query has both a limit and an offset, then the intermediate layers are stripped
+   * away to leave just {@code offset --> limit} directly.
+   *
+   * @see {@link org.apache.druid.query.scan.ScanQueryQueryToolChest ScanQueryQueryToolChest#mergeResults}
+   */
+  public static class LimitAndOffsetRunner implements QueryRunner<ScanResultValue>
   {
-    this.scanQueryConfig = scanQueryConfig;
-    this.input = input;
+    private final ScanQueryConfig scanQueryConfig;
+    private final QueryRunner<ScanResultValue> input;
+
+    public LimitAndOffsetRunner(
+        final ScanQueryConfig scanQueryConfig,
+        final QueryRunner<ScanResultValue> input
+    )
+    {
+      this.scanQueryConfig = scanQueryConfig;
+      this.input = input;
+    }
+
+    /**
+     * @see {@link org.apache.druid.query.scan.ScanQueryQueryToolChest.mergeResults}
+     */
+    @Override
+    public Sequence<ScanResultValue> run(
+        final QueryPlus<ScanResultValue> queryPlus,
+        final ResponseContext responseContext)
+    {
+      return ScanPlanner.runMergeResults(queryPlus, input, responseContext, scanQueryConfig);
+    }
   }
 
   /**
    * @see {@link org.apache.druid.query.scan.ScanQueryQueryToolChest.mergeResults}
    */
-  @Override
-  public Sequence<ScanResultValue> run(
+  public static Sequence<ScanResultValue> runMergeResults(
       final QueryPlus<ScanResultValue> queryPlus,
-      final ResponseContext responseContext)
+      QueryRunner<ScanResultValue> input,
+      final ResponseContext responseContext,
+      ScanQueryConfig scanQueryConfig)
   {
     // Ensure "legacy" is a non-null value, such that all other nodes this query is forwarded to will treat it
     // the same way, even if they have different default legacy values.
@@ -99,11 +102,11 @@ public class LimitAndOffsetRunner implements QueryRunner<ScanResultValue>
     if (!queryToRun.isLimited()) {
       results = input.run(queryPlus.withQuery(queryToRun), responseContext);
     } else {
-      results = limit(queryPlus.withQuery(queryToRun), responseContext);
+      results = limit(queryPlus.withQuery(queryToRun), input, responseContext);
     }
 
     if (originalQuery.getScanRowsOffset() > 0) {
-      return offset(results, originalQuery.getScanRowsOffset(), responseContext);
+      return offset(results, originalQuery, responseContext);
     } else {
       return results;
     }
@@ -115,8 +118,9 @@ public class LimitAndOffsetRunner implements QueryRunner<ScanResultValue>
    *
    * @see {@link org.apache.druid.query.scan.ScanQueryLimitRowIterator}
    */
-  private Sequence<ScanResultValue> limit(
+  private static Sequence<ScanResultValue> limit(
       final QueryPlus<ScanResultValue> inputQuery,
+      QueryRunner<ScanResultValue> input,
       final ResponseContext responseContext
   )
   {
@@ -136,23 +140,50 @@ public class LimitAndOffsetRunner implements QueryRunner<ScanResultValue>
         Operators.toProducer(input, QueryPlus.wrap(historicalQuery), responseContext)
         );
     responseContext.getFragmentContext().register(op);
-    return Operators.toSequence(op, responseContext.getFragmentContext());
+    return QueryPlanner.toSequence(op, query, responseContext);
   }
 
   /**
    * Shim function to convert from the query runner protocol to the offset
    * operator protocol.
    */
-  private Sequence<ScanResultValue> offset(
+  private static Sequence<ScanResultValue> offset(
       Sequence<ScanResultValue> baseSequence,
-      long skip,
+      ScanQuery query,
       final ResponseContext responseContext)
   {
     ScanResultOffsetOperator op = new ScanResultOffsetOperator(
-        skip,
+        query.getScanRowsOffset(),
         Operators.toProducer(baseSequence)
         );
     responseContext.getFragmentContext().register(op);
-    return Operators.toSequence(op, responseContext.getFragmentContext());
+    return QueryPlanner.toSequence(op, query, responseContext);
+  }
+
+  /**
+   * Convert the operator-based scan to that expected by the sequence-based
+   * query runner.
+   *
+   * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory.ScanQueryRunner}
+   */
+  public static Sequence<ScanResultValue> runScan(
+      final ScanQuery query,
+      final Segment segment,
+      final ResponseContext responseContext)
+  {
+    final Number timeoutAt = (Number) responseContext.get(ResponseContext.Key.TIMEOUT_AT);
+    final long timeout;
+    if (timeoutAt != null && timeoutAt.longValue() > 0L) {
+      timeout = timeoutAt.longValue();
+    } else {
+      timeout = JodaUtils.MAX_INSTANT;
+    }
+    // TODO (paul): Set the timeout at the overall fragment context level.
+    return Operators.toSequence(
+        new ScanQueryOperator(query, segment),
+        new FragmentContextImpl(
+            query.getId(),
+            timeout,
+            responseContext));
   }
 }

@@ -35,8 +35,8 @@ import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
-import org.apache.druid.query.pipeline.LimitAndOffsetRunner;
 import org.apache.druid.query.pipeline.OperatorConfig;
+import org.apache.druid.query.pipeline.ScanPlanner;
 import org.apache.druid.segment.VirtualColumn;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
@@ -68,7 +68,7 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
   public QueryRunner<ScanResultValue> mergeResults(final QueryRunner<ScanResultValue> runner)
   {
     if (OperatorConfig.enabled()) {
-      return new LimitAndOffsetRunner(scanQueryConfig, runner);
+      return new ScanPlanner.LimitAndOffsetRunner(scanQueryConfig, runner);
     }
     return (queryPlus, responseContext) -> {
       // Ensure "legacy" is a non-null value, such that all other nodes this query is forwarded to will treat it

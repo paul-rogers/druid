@@ -19,10 +19,14 @@
 
 package org.apache.druid.query.scan;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
-import com.google.inject.Inject;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.apache.druid.collections.StableLimitingSorter;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.JodaUtils;
@@ -43,19 +47,18 @@ import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.SinkQueryRunners;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.pipeline.OperatorConfig;
+import org.apache.druid.query.pipeline.ScanPlanner;
 import org.apache.druid.query.spec.MultipleSpecificSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
 import org.apache.druid.segment.Segment;
 import org.joda.time.Interval;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.stream.Collectors;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
+import com.google.inject.Inject;
 
 public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValue, ScanQuery>
 {
@@ -363,6 +366,9 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
       Query<ScanResultValue> query = queryPlus.getQuery();
       if (!(query instanceof ScanQuery)) {
         throw new ISE("Got a [%s] which isn't a %s", query.getClass(), ScanQuery.class);
+      }
+      if (OperatorConfig.enabled()) {
+        return ScanPlanner.runScan((ScanQuery) query, segment, responseContext);
       }
 
       // it happens in unit tests

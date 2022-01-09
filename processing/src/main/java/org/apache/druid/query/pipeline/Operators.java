@@ -129,9 +129,13 @@ public class Operators
   public static Supplier<Operator> toProducer(Sequence<?> sequence) {
     return new Supplier<Operator>()
     {
+      private Operator op;
       @Override
       public Operator get() {
-        return toOperator(sequence);
+        if (op == null) {
+          op =  toOperator(sequence);
+        }
+        return op;
       }
     };
   }

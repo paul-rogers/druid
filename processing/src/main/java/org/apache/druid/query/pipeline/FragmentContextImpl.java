@@ -22,7 +22,9 @@ package org.apache.druid.query.pipeline;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
 
@@ -45,11 +47,21 @@ public class FragmentContextImpl implements FragmentContext
     this.responseContext = responseContext;
     this.startTimeMillis = System.currentTimeMillis();
     this.timeoutMs = timeoutMs;
-    if (timeoutMs < 0) {
-      this.timeoutAt = 0;
-    } else {
+    if (timeoutMs > 0) {
       this.timeoutAt = startTimeMillis + timeoutMs;
+    } else {
+      this.timeoutAt = JodaUtils.MAX_INSTANT;
     }
+  }
+
+  /**
+   * Temporary simplified form.
+   */
+  public FragmentContextImpl(
+      final Query<?> query,
+      final ResponseContext responseContext)
+  {
+    this(query.getId(), 0, responseContext);
   }
 
   @Override

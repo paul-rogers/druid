@@ -331,6 +331,11 @@ public class QueryContexts
 
   public static boolean isDebug(Map<String, Object> queryContext)
   {
+    boolean assertsEnabled = false;
+    assert assertsEnabled = true;
+    if (assertsEnabled) {
+      return true;
+    }
     return parseBoolean(queryContext, ENABLE_DEBUG, DEFAULT_ENABLE_DEBUG);
   }
 

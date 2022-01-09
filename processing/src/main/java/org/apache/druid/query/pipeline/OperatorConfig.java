@@ -20,7 +20,9 @@
 package org.apache.druid.query.pipeline;
 
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.scan.ScanQuery;
 
 /**
  * Temporary hack to enable, disable operators.
@@ -30,6 +32,19 @@ public class OperatorConfig
   public static boolean enabled()
   {
     return true;
+  }
+
+  public static boolean enabledFor(Query<?> query)
+  {
+    if (!(query instanceof ScanQuery)) {
+      return false;
+    }
+    return enabled();
+  }
+
+  public static boolean enabledFor(final QueryPlus<?> queryPlus)
+  {
+    return enabledFor(queryPlus.getQuery());
   }
 
   public interface FragmentHandle

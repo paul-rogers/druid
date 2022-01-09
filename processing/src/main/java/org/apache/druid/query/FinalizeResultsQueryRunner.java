@@ -28,6 +28,8 @@ import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
 import org.apache.druid.query.aggregation.MetricManipulatorFns;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.pipeline.OperatorConfig;
+import org.apache.druid.query.pipeline.QueryPlanner;
 
 /**
  * Query runner that applies {@link QueryToolChest#makePostComputeManipulatorFn(Query, MetricManipulationFn)} to the
@@ -55,6 +57,9 @@ public class FinalizeResultsQueryRunner<T> implements QueryRunner<T>
   @Override
   public Sequence<T> run(final QueryPlus<T> queryPlus, ResponseContext responseContext)
   {
+    if (OperatorConfig.enabledFor(queryPlus)) {
+      return QueryPlanner.runFinalizeResults(baseRunner, toolChest, queryPlus, responseContext);
+    }
     final Query<T> query = queryPlus.getQuery();
     final boolean isBySegment = QueryContexts.isBySegment(query);
     final boolean shouldFinalize = QueryContexts.isFinalize(query, true);

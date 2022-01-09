@@ -19,52 +19,30 @@
 
 package org.apache.druid.query.pipeline;
 
+import java.util.Collections;
 import java.util.Iterator;
-import java.util.function.Supplier;
 
-import org.apache.druid.query.pipeline.Operator.IterableOperator;
+import com.google.common.base.Preconditions;
 
-public abstract class LimitOperator implements IterableOperator
+/**
+ * World's simplest operator: does absolutely nothing
+ * (other than check that the protocol is followed.) Used in
+ * tests when we want an empty input.
+ */
+public class NullOperator implements Operator
 {
-  public static final long UNLIMITED = Long.MAX_VALUE;
-
-  protected final Supplier<Operator> inputSupplier;
-  protected final long limit;
-  protected Iterator<Object> inputIter;
-  protected long rowCount;
-  protected int batchCount;
-
-  public LimitOperator(long limit, Supplier<Operator> inputSupplier)
-  {
-    this.limit = limit;
-    this.inputSupplier = inputSupplier;
-  }
+  public State state = State.START;
 
   @Override
   public Iterator<Object> open(FragmentContext context)
   {
-    inputIter = inputSupplier.get().open(context);
-    return this;
+    Preconditions.checkState(state == State.START);
+    state = State.RUN;
+    return Collections.emptyIterator();
   }
 
   @Override
-  public boolean hasNext() {
-    return rowCount < limit && inputIter.hasNext();
-  }
-
-  @Override
-  public Object next()
-  {
-    rowCount++;
-    return inputIter.next();
-  }
-
-  @Override
-  public void close(boolean cascade)
-  {
-    inputIter = null;
-    if (cascade) {
-      inputSupplier.get().close(cascade);
-    }
+  public void close(boolean cascade) {
+    state = State.CLOSED;
   }
 }
