@@ -174,6 +174,9 @@ public class ScanPlanner
         !query.getContextBoolean(ScanQuery.CTX_KEY_OUTERMOST, true);
   }
 
+  /**
+   * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory.mergeRunners}
+   */
   private static Sequence<ScanResultValue> runConcatMerge(
       final QueryPlus<ScanResultValue> queryPlus,
       final Iterable<QueryRunner<ScanResultValue>> queryRunners,
@@ -184,6 +187,9 @@ public class ScanPlanner
       inputs.add(Operators.toOperator(qr, queryPlus));
     }
     Operator op = ConcatOperator.concatOrNot(inputs);
+    // TODO(paul): The original code applies a limit. Yet, when
+    // run, the stack shows two limits one top of one another,
+    // so the limit here seems unnecessary.
 //    ScanQuery query = (ScanQuery) queryPlus.getQuery();
 //    if (query.isLimited()) {
 //      op = new ScanResultLimitOperator(
