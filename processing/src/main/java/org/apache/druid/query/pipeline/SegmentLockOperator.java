@@ -24,11 +24,9 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.SegmentDescriptor;
-import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.segment.SegmentReference;
 
 /**
@@ -42,7 +40,8 @@ import org.apache.druid.segment.SegmentReference;
  * fails (the segment is no longer available), then reports the missing
  * segment and returns an empty result.
  *
- * @{see {@link org.apache.druid.query.ReferenceCountingSegmentQueryRunner}
+ * @see {@link org.apache.druid.query.ReferenceCountingSegmentQueryRunner}
+ * @see {@link org.apache.druid.query.spec.SpecificSegmentQueryRunner}
  */
 public class SegmentLockOperator implements Operator
 {
@@ -50,18 +49,18 @@ public class SegmentLockOperator implements Operator
 
   private final SegmentReference segment;
   private final SegmentDescriptor descriptor;
-  private final Supplier<Operator> inputSupplier;
+  private final Operator child;
   private Closeable lock;
 
   public SegmentLockOperator(
       SegmentReference segment,
       SegmentDescriptor descriptor,
-      Supplier<Operator> inputSupplier
+      Operator child
   )
   {
     this.segment = segment;
     this.descriptor = descriptor;
-    this.inputSupplier = inputSupplier;
+    this.child = child;
   }
 
   @Override
@@ -69,10 +68,10 @@ public class SegmentLockOperator implements Operator
     Optional<Closeable> maybeLock = segment.acquireReferences();
     if (maybeLock.isPresent()) {
       lock = maybeLock.get();
-      return inputSupplier.get().open(context);
+      return child.open(context);
     } else {
-      LOG.debug("Reporting a missing segment[%s] for query[%s]", descriptor, context.queryId());
-      context.responseContext().add(ResponseContext.Key.MISSING_SEGMENTS, descriptor);
+      LOG.debug("Reporting a missing segment [%s] for query [%s]", descriptor, context.queryId());
+      context.missingSegment(descriptor);
       return Collections.emptyIterator();
     }
   }
@@ -86,7 +85,7 @@ public class SegmentLockOperator implements Operator
     // Release the lock even if the child close fails.
     try {
       if (cascade) {
-        inputSupplier.get().close(cascade);
+        child.close(cascade);
       }
     } finally {
       try {

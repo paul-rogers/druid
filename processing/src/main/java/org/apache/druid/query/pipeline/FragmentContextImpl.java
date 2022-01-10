@@ -26,6 +26,7 @@ import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryTimeoutException;
+import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
 
 public class FragmentContextImpl implements FragmentContext
@@ -109,6 +110,11 @@ public class FragmentContextImpl implements FragmentContext
   public void register(Operator op)
   {
     operators.add(op);
+  }
+
+  @Override
+  public void missingSegment(SegmentDescriptor descriptor) {
+    responseContext.add(ResponseContext.Key.MISSING_SEGMENTS, descriptor);
   }
 
   /**

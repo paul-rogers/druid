@@ -1,15 +1,36 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.druid.query.pipeline;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.ObjLongConsumer;
-import java.util.function.Supplier;
 
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.BySegmentResultValue;
 import org.apache.druid.query.BySegmentResultValueClass;
+import org.apache.druid.query.Queries;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryMetrics;
@@ -23,6 +44,7 @@ import org.apache.druid.query.aggregation.MetricManipulationFn;
 import org.apache.druid.query.aggregation.MetricManipulatorFns;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.profile.Timer;
+import org.apache.druid.query.spec.SpecificSegmentSpec;
 import org.apache.druid.segment.SegmentReference;
 
 import com.google.common.base.Function;
@@ -60,6 +82,14 @@ import com.google.common.collect.Lists;
  * values are passed in repeatedly. When converted to an operator-only
  * planner, the wrapping and unwrapping will disappear, and the
  * constant-per-query values can be set in a constructor and reused.
+ * <p>
+ * At present, the planner consists of a bunch of static functions called
+ * from query runners. As a result, all required info is passed in to
+ * each function. Once we can retire the query runners, this turns into
+ * a stateful class that holds the common information about a query.
+ * The functions become methods that do only operator planning (without
+ * the sequence wrappers.) Flow of control is between methods, not
+ * from query runners into this class as in the current structure.
  */
 public class QueryPlanner
 {
@@ -68,12 +98,20 @@ public class QueryPlanner
       final Query<?> query,
       final ResponseContext responseContext)
   {
+    // TODO(paul): Create context at top, so we can
+    // register operators.
+    // responseContext.getFragmentContext().register(op);
+
     return Operators.toSequence(
         op,
         // TODO(paul): Create this once, not for each operator.
         new FragmentContextImpl(
             query,
             responseContext));
+  }
+
+  protected static Operator concat(List<Operator> children) {
+    return ConcatOperator.concatOrNot(children);
   }
 
   /**
@@ -94,15 +132,14 @@ public class QueryPlanner
     if (!report) {
       return delegate.run(queryWithMetrics, responseContext);
     }
-    Supplier<Operator> input = Operators.toProducer(
+    Operator inputOp = Operators.toOperator(
         delegate,
-        queryWithMetrics,
-        responseContext);
+        queryWithMetrics);
     CpuMetricOperator op = new CpuMetricOperator(
         cpuTimeAccumulator,
         queryWithMetrics.getQueryMetrics(),
         emitter,
-        input);
+        inputOp);
     return toSequence(
         op,
         queryWithMetrics.getQuery(),
@@ -140,7 +177,6 @@ public class QueryPlanner
       queryToRun = query;
       metricManipulationFn = MetricManipulatorFns.identity();
     }
-    Sequence<T> seq = baseRunner.run(queryPlus.withQuery(queryToRun), responseContext);
 
     final Function<T, T> baseFinalizer = toolChest.makePostComputeManipulatorFn(
         query,
@@ -175,17 +211,60 @@ public class QueryPlanner
       };
     } else if (baseFinalizer == Functions.identity()) {
       // Optimize away the finalizer operator if nothing to do.
-      return seq;
+      return baseRunner.run(queryPlus.withQuery(queryToRun), responseContext);
     } else {
       finalizerFn = baseFinalizer;
     }
 
+    Operator inputOp = Operators.toOperator(
+        baseRunner,
+        queryPlus.withQuery(queryToRun));
     TransformOperator op = new TransformOperator(
         finalizerFn,
-        Operators.toProducer(seq));
+        inputOp);
     return toSequence(
         op,
         queryToRun,
+        responseContext);
+  }
+
+  /**
+   * Plans for a specific segment. The {@code SpecificSegmentQueryRunner}
+   * does two things: renames the thread and reports missing segments by
+   * catching the {@code SegmentMissingException}. In the operator model,
+   * the missing segment is caught in the
+   * {@link SegmentLockOperator} and no exception is thrown.
+   * <p>
+   * The only place the exception is thrown is in the
+   * {@code TimeseriesQueryEngine} and {@code TopNQueryEngine}. Those
+   * should be caught by the corresponding operators.
+   *
+   * @see {@link org.apache.druid.query.spec.SpecificSegmentQueryRunner}
+   */
+  public static <T> Sequence<T> runSpecificSegment(
+      final QueryRunner<T> base,
+      final SpecificSegmentSpec specificSpec,
+      final QueryPlus<T> input,
+      final ResponseContext responseContext
+      )
+  {
+    final QueryPlus<T> queryPlus = input.withQuery(
+        Queries.withSpecificSegments(
+            input.getQuery(),
+            Collections.singletonList(specificSpec.getDescriptor())
+        )
+    );
+    final Query<T> query = queryPlus.getQuery();
+    final String newName = query.getType() + "_" + query.getDataSource() + "_" + query.getIntervals();
+    Operator inputOp = Operators.toOperator(
+        base,
+        queryPlus);
+    ThreadLabelOperator op = new ThreadLabelOperator(
+        newName,
+        inputOp);
+    return toSequence(
+        op,
+        queryPlus.getQuery(),
         responseContext);
   }
 
@@ -209,16 +288,15 @@ public class QueryPlanner
     if (queryMetrics == null) {
       return queryRunner.run(queryWithMetrics, responseContext);
     }
-    Supplier<Operator> input = Operators.toProducer(
+    Operator inputOp = Operators.toOperator(
         queryRunner,
-        queryWithMetrics,
-        responseContext);
+        queryWithMetrics);
     MetricsOperator op = new MetricsOperator(
         emitter,
         queryMetrics,
         reportMetric,
         creationTimeNs == 0 ? null : Timer.createAt(creationTimeNs),
-        input);
+        inputOp);
      return toSequence(
         op,
         queryWithMetrics.getQuery(),
@@ -232,11 +310,10 @@ public class QueryPlanner
       final QueryRunnerFactory<T, Query<T>> factory,
       ResponseContext responseContext)
   {
-    Supplier<Operator> input = Operators.toProducer(
+    Operator inputOp = Operators.toOperator(
         factory.createRunner(segment),
-        queryPlus,
-        responseContext);
-    SegmentLockOperator op = new SegmentLockOperator(segment, descriptor, input);
+        queryPlus);
+    SegmentLockOperator op = new SegmentLockOperator(segment, descriptor, inputOp);
     return toSequence(
         op,
         queryPlus.getQuery(),

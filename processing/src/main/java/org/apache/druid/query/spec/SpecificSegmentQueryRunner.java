@@ -32,6 +32,8 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.pipeline.OperatorConfig;
+import org.apache.druid.query.pipeline.QueryPlanner;
 import org.apache.druid.segment.SegmentMissingException;
 
 import java.io.IOException;
@@ -57,6 +59,13 @@ public class SpecificSegmentQueryRunner<T> implements QueryRunner<T>
   @Override
   public Sequence<T> run(final QueryPlus<T> input, final ResponseContext responseContext)
   {
+    if (OperatorConfig.enabledFor(input)) {
+      return QueryPlanner.runSpecificSegment(
+          base,
+          specificSpec,
+          input,
+          responseContext);
+    }
     final QueryPlus<T> queryPlus = input.withQuery(
         Queries.withSpecificSegments(
             input.getQuery(),

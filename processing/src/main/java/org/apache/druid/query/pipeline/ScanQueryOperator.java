@@ -27,9 +27,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
-import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;

@@ -20,7 +20,6 @@
 package org.apache.druid.query.pipeline;
 
 import java.util.Iterator;
-import java.util.function.Supplier;
 
 import org.apache.druid.query.BySegmentQueryRunner;
 import org.apache.druid.query.Query;
@@ -44,20 +43,20 @@ import com.google.common.base.Function;
 public class TransformOperator implements IterableOperator
 {
   private final Function<Object, Object> transformFn;
-  private final Supplier<Operator> inputSupplier;
+  private final Operator child;
   private Iterator<Object> childIter;
 
   @SuppressWarnings("unchecked")
-  public TransformOperator(final Function<?, ?> transformFn, final Supplier<Operator> inputSupplier)
+  public TransformOperator(final Function<?, ?> transformFn, final Operator child)
   {
     this.transformFn = (Function<Object, Object>) transformFn;
-    this.inputSupplier = inputSupplier;
+    this.child = child;
   }
 
   @Override
   public Iterator<Object> open(FragmentContext context)
   {
-    childIter = inputSupplier.get().open(context);
+    childIter = child.open(context);
     return this;
   }
 
@@ -77,7 +76,7 @@ public class TransformOperator implements IterableOperator
   public void close(boolean cascade)
   {
     if (cascade) {
-      inputSupplier.get().close(cascade);
+      child.close(cascade);
     }
     childIter = null;
   }

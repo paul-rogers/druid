@@ -21,7 +21,6 @@ package org.apache.druid.query.pipeline;
 
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
 
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.QueryMetrics;
@@ -38,7 +37,7 @@ import org.apache.druid.utils.JvmUtils;
 public class CpuMetricOperator implements IterableOperator
 {
   private final AtomicLong cpuTimeAccumulator;
-  private final Supplier<Operator> inputSupplier;
+  private final Operator child;
   private final QueryMetrics<?> queryMetrics;
   private final ServiceEmitter emitter;
   private FragmentContext context;
@@ -49,19 +48,17 @@ public class CpuMetricOperator implements IterableOperator
       final AtomicLong cpuTimeAccumulator,
       final QueryMetrics<?> queryMetrics,
       final ServiceEmitter emitter,
-      final Supplier<Operator> inputSupplier)
+      final Operator child)
   {
     this.cpuTimeAccumulator = cpuTimeAccumulator == null ? new AtomicLong(0L) : cpuTimeAccumulator;
     this.queryMetrics = queryMetrics;
     this.emitter = emitter;
-    this.inputSupplier = inputSupplier;
+    this.child = child;
   }
 
   @Override
   public Iterator<Object> open(FragmentContext context) {
-    this.context = context;
-    childIter = inputSupplier.get().open(context);
-    state = State.RUN;
+    childIter = child.open(context);
     return this;
   }
 
@@ -96,7 +93,7 @@ public class CpuMetricOperator implements IterableOperator
       return;
     }
     if (childIter != null && cascade) {
-      inputSupplier.get().close(cascade);
+      child.close(cascade);
     }
     childIter = null;
     final long cpuTimeNs = cpuTimeAccumulator.get();

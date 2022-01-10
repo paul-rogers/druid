@@ -21,7 +21,6 @@ package org.apache.druid.query.pipeline;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.Supplier;
 
 import org.apache.druid.query.pipeline.Operator.IterableOperator;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -34,9 +33,8 @@ import org.apache.druid.query.scan.ScanResultValue;
  */
 public class ScanResultOffsetOperator implements IterableOperator
 {
-  private final Supplier<Operator> inputSupplier;
+  private final Operator input;
   private final long offset;
-  private Operator input;
   private Iterator<Object> inputIter;
   private long rowCount;
   @SuppressWarnings("unused")
@@ -44,16 +42,15 @@ public class ScanResultOffsetOperator implements IterableOperator
   private ScanResultValue lookAhead;
   private boolean done;
 
-  public ScanResultOffsetOperator(long offset, Supplier<Operator> inputSupplier)
+  public ScanResultOffsetOperator(long offset, Operator input)
   {
     this.offset = offset;
-    this.inputSupplier = inputSupplier;
+    this.input = input;
   }
 
   @Override
   public Iterator<Object> open(FragmentContext context)
   {
-    input = inputSupplier.get();
     inputIter = input.open(context);
     return this;
   }

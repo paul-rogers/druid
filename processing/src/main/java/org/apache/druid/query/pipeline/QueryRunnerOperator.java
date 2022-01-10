@@ -21,49 +21,33 @@ package org.apache.druid.query.pipeline;
 
 import java.util.Iterator;
 
-import org.apache.druid.query.pipeline.Operator.IterableOperator;
+import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.query.QueryPlus;
+import org.apache.druid.query.QueryRunner;
 
-public abstract class LimitOperator implements IterableOperator
+public class QueryRunnerOperator<T> implements Operator
 {
-  public static final long UNLIMITED = Long.MAX_VALUE;
+  private final QueryRunner<T> runner;
+  private final QueryPlus<T> query;
+  private Operator child;
 
-  protected final long limit;
-  protected final Operator input;
-  protected Iterator<Object> inputIter;
-  protected long rowCount;
-  protected int batchCount;
-
-  public LimitOperator(long limit, Operator input)
-  {
-    this.limit = limit;
-    this.input = input;
+  public QueryRunnerOperator(QueryRunner<T> runner, QueryPlus<T> query) {
+    this.runner = runner;
+    this.query = query;
   }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
-  {
-    inputIter = input.open(context);
-    return this;
+  public Iterator<Object> open(FragmentContext context) {
+    Sequence<T> seq = runner.run(query, context.responseContext());
+    child = Operators.toOperator(seq);
+    return child.open(context);
   }
 
   @Override
-  public boolean hasNext() {
-    return rowCount < limit && inputIter.hasNext();
-  }
-
-  @Override
-  public Object next()
-  {
-    rowCount++;
-    return inputIter.next();
-  }
-
-  @Override
-  public void close(boolean cascade)
-  {
-    inputIter = null;
-    if (cascade) {
-      input.close(cascade);
+  public void close(boolean cascade) {
+    if (child != null && cascade) {
+      child.close(cascade);
     }
+    child = null;
   }
 }

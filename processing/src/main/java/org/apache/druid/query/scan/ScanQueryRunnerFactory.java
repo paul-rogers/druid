@@ -92,8 +92,17 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
   {
     // in single thread and in jetty thread instead of processing thread
     return (queryPlus, responseContext) -> {
-      ScanQuery query = (ScanQuery) queryPlus.getQuery();
+      if (OperatorConfig.enabledFor(queryPlus)) {
+        Sequence<ScanResultValue> results = ScanPlanner.runMerge(
+            queryPlus,
+            queryRunners,
+            responseContext);
+        if (results != null) {
+          return results;
+        }
+      }
 
+      ScanQuery query = (ScanQuery) queryPlus.getQuery();
       // Note: this variable is effective only when queryContext has a timeout.
       // See the comment of ResponseContext.Key.TIMEOUT_AT.
       final long timeoutAt = System.currentTimeMillis() + QueryContexts.getTimeout(queryPlus.getQuery());
@@ -278,7 +287,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
   }
 
   @VisibleForTesting
-  List<Interval> getIntervalsFromSpecificQuerySpec(QuerySegmentSpec spec)
+  public static List<Interval> getIntervalsFromSpecificQuerySpec(QuerySegmentSpec spec)
   {
     // Query segment spec must be an instance of MultipleSpecificSegmentSpec or SpecificSegmentSpec because
     // segment descriptors need to be present for a 1:1 matching of intervals with query runners.

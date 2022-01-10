@@ -1,19 +1,50 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.druid.query.pipeline;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.JodaUtils;
+import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
+import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryConfig;
+import org.apache.druid.query.scan.ScanQueryRunnerFactory;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.segment.Segment;
+import org.joda.time.Interval;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 
 /**
  * Scan-specific parts of the hybrid query planner.
@@ -59,14 +90,14 @@ public class ScanPlanner
         final QueryPlus<ScanResultValue> queryPlus,
         final ResponseContext responseContext)
     {
-      return ScanPlanner.runMergeResults(queryPlus, input, responseContext, scanQueryConfig);
+      return ScanPlanner.runLimitAndOffset(queryPlus, input, responseContext, scanQueryConfig);
     }
   }
 
   /**
    * @see {@link org.apache.druid.query.scan.ScanQueryQueryToolChest.mergeResults}
    */
-  public static Sequence<ScanResultValue> runMergeResults(
+  public static Sequence<ScanResultValue> runLimitAndOffset(
       final QueryPlus<ScanResultValue> queryPlus,
       QueryRunner<ScanResultValue> input,
       final ResponseContext responseContext,
@@ -97,68 +128,197 @@ public class ScanPlanner
                                               .withOffset(0)
                                               .withLimit(newLimit);
 
-    final Sequence<ScanResultValue> results;
+    final boolean hasLimit = queryToRun.isLimited();
+    final boolean hasOffset = originalQuery.getScanRowsOffset() > 0;
 
-    if (!queryToRun.isLimited()) {
-      results = input.run(queryPlus.withQuery(queryToRun), responseContext);
-    } else {
-      results = limit(queryPlus.withQuery(queryToRun), input, responseContext);
+    // Short-circuit if no limit or offset.
+    if (!hasLimit && !hasOffset) {
+      return input.run(queryPlus.withQuery(queryToRun), responseContext);
     }
 
-    if (originalQuery.getScanRowsOffset() > 0) {
-      return offset(results, originalQuery, responseContext);
-    } else {
-      return results;
+    Query<ScanResultValue> historicalQuery = queryToRun;
+    if (hasLimit) {
+      ScanQuery.ResultFormat resultFormat = queryToRun.getResultFormat();
+      if (ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR.equals(resultFormat)) {
+        throw new UOE(ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR + " is not supported yet");
+      }
+      historicalQuery =
+          queryToRun.withOverriddenContext(ImmutableMap.of(ScanQuery.CTX_KEY_OUTERMOST, false));
     }
+    Operator inputOp = Operators.toOperator(
+        input,
+        QueryPlus.wrap(historicalQuery));
+    if (hasLimit) {
+      final ScanQuery limitedQuery = (ScanQuery) historicalQuery;
+      ScanResultLimitOperator op = new ScanResultLimitOperator(
+          limitedQuery.getScanRowsLimit(),
+          isGrouped(queryToRun),
+          limitedQuery.getBatchSize(),
+          inputOp
+          );
+      inputOp = op;
+    }
+    if (hasOffset) {
+      ScanResultOffsetOperator op = new ScanResultOffsetOperator(
+          queryToRun.getScanRowsOffset(),
+          inputOp
+          );
+      inputOp = op;
+    }
+    return QueryPlanner.toSequence(inputOp, historicalQuery, responseContext);
   }
 
-  /**
-   * Shim function to convert from query runner format to create the limit
-   * operator.
-   *
-   * @see {@link org.apache.druid.query.scan.ScanQueryLimitRowIterator}
-   */
-  private static Sequence<ScanResultValue> limit(
-      final QueryPlus<ScanResultValue> inputQuery,
-      QueryRunner<ScanResultValue> input,
-      final ResponseContext responseContext
-  )
+  private static boolean isGrouped(ScanQuery query)
   {
-    ScanQuery query = (ScanQuery) inputQuery.getQuery();
-    ScanQuery.ResultFormat resultFormat = query.getResultFormat();
-    if (ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR.equals(resultFormat)) {
-      throw new UOE(ScanQuery.ResultFormat.RESULT_FORMAT_VALUE_VECTOR + " is not supported yet");
-    }
-    boolean grouped = query.getOrder() == ScanQuery.Order.NONE ||
+    return query.getOrder() == ScanQuery.Order.NONE ||
         !query.getContextBoolean(ScanQuery.CTX_KEY_OUTERMOST, true);
-    Query<ScanResultValue> historicalQuery =
-        inputQuery.getQuery().withOverriddenContext(ImmutableMap.of(ScanQuery.CTX_KEY_OUTERMOST, false));
-    ScanResultLimitOperator op = new ScanResultLimitOperator(
-        query.getScanRowsLimit(),
-        grouped,
-        query.getBatchSize(),
-        Operators.toProducer(input, QueryPlus.wrap(historicalQuery), responseContext)
-        );
-    responseContext.getFragmentContext().register(op);
-    return QueryPlanner.toSequence(op, query, responseContext);
   }
 
-  /**
-   * Shim function to convert from the query runner protocol to the offset
-   * operator protocol.
-   */
-  private static Sequence<ScanResultValue> offset(
-      Sequence<ScanResultValue> baseSequence,
-      ScanQuery query,
+  private static Sequence<ScanResultValue> runConcatMerge(
+      final QueryPlus<ScanResultValue> queryPlus,
+      final Iterable<QueryRunner<ScanResultValue>> queryRunners,
       final ResponseContext responseContext)
   {
-    ScanResultOffsetOperator op = new ScanResultOffsetOperator(
-        query.getScanRowsOffset(),
-        Operators.toProducer(baseSequence)
-        );
-    responseContext.getFragmentContext().register(op);
-    return QueryPlanner.toSequence(op, query, responseContext);
+    List<Operator> inputs = new ArrayList<>();
+    for (QueryRunner<ScanResultValue> qr : queryRunners) {
+      inputs.add(Operators.toOperator(qr, queryPlus));
+    }
+    Operator op = ConcatOperator.concatOrNot(inputs);
+//    ScanQuery query = (ScanQuery) queryPlus.getQuery();
+//    if (query.isLimited()) {
+//      op = new ScanResultLimitOperator(
+//          query.getScanRowsLimit(),
+//          isGrouped(query),
+//          query.getBatchSize(),
+//          op
+//          );
+//    }
+    return QueryPlanner.toSequence(
+        op,
+        queryPlus.getQuery(),
+        responseContext);
   }
+
+  /**
+   * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory.mergeRunners}
+   * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory.nWayMergeAndLimit}
+   */
+  public static Sequence<ScanResultValue> runMerge(
+      final QueryPlus<ScanResultValue> queryPlus,
+      final Iterable<QueryRunner<ScanResultValue>> queryRunners,
+      final ResponseContext responseContext)
+  {
+    ScanQuery query = (ScanQuery) queryPlus.getQuery();
+    // TODO(paul): timeout code
+
+    if (query.getOrder() == ScanQuery.Order.NONE) {
+      // Use normal strategy
+      return runConcatMerge(
+          queryPlus,
+          queryRunners,
+          responseContext);
+    }
+    return null;
+//    List<Interval> intervalsOrdered = ScanQueryRunnerFactory.getIntervalsFromSpecificQuerySpec(query.getQuerySegmentSpec());
+//    if (query.getOrder().equals(ScanQuery.Order.DESCENDING)) {
+//      intervalsOrdered = Lists.reverse(intervalsOrdered);
+//    }
+//    int maxRowsQueuedForOrdering = (query.getMaxRowsQueuedForOrdering() == null
+//        ? scanQueryConfig.getMaxRowsQueuedForOrdering()
+//        : query.getMaxRowsQueuedForOrdering());
+//    if (query.getScanRowsLimit() <= maxRowsQueuedForOrdering) {
+//      // Use sort strategy
+//      // TODO: Group by interval as for the n-way merge
+//      return ScanResultSortOperator.forQuery(query, concat(children));
+//    }
+//    // Use n-way merge strategy using a priority queue
+//    List<Pair<Interval, Operator>> intervalsAndRunnersOrdered = new ArrayList<>();
+//    if (intervalsOrdered.size() == children.size()) {
+//      for (int i = 0; i < children.size(); i++) {
+//        intervalsAndRunnersOrdered.add(new Pair<>(intervalsOrdered.get(i), children.get(i)));
+//      }
+//      // TODO(paul): Implement this
+////    } else if (queryRunners instanceof SinkQueryRunners) {
+////      ((SinkQueryRunners<ScanResultValue>) queryRunners).runnerIntervalMappingIterator()
+////                                                        .forEachRemaining(intervalsAndRunnersOrdered::add);
+//    } else {
+//      throw new ISE("Number of segment descriptors does not equal number of "
+//                    + "query runners...something went wrong!");
+//    }
+//    // Group the list of pairs by interval.  The LinkedHashMap will have an interval paired with a list of all the
+//    // operators for that segment
+//    LinkedHashMap<Interval, List<Pair<Interval, Operator>>> partitionsGroupedByInterval =
+//        intervalsAndRunnersOrdered.stream()
+//                                  .collect(Collectors.groupingBy(
+//                                      x -> x.lhs,
+//                                      LinkedHashMap::new,
+//                                      Collectors.toList()
+//                                  ));
+//
+//    // Find the segment with the largest numbers of partitions.  This will be used to compare with the
+//    // maxSegmentPartitionsOrderedInMemory limit to determine if the query is at risk of consuming too much memory.
+//    int maxNumPartitionsInSegment =
+//        partitionsGroupedByInterval.values()
+//                                   .stream()
+//                                   .map(x -> x.size())
+//                                   .max(Comparator.comparing(Integer::valueOf))
+//                                   .get();
+//    int maxSegmentPartitionsOrderedInMemory = query.getMaxSegmentPartitionsOrderedInMemory() == null
+//        ? scanQueryConfig.getMaxSegmentPartitionsOrderedInMemory()
+//        : query.getMaxSegmentPartitionsOrderedInMemory();
+//    if (maxNumPartitionsInSegment > maxSegmentPartitionsOrderedInMemory) {
+//      throw ResourceLimitExceededException.withMessage(
+//          "Time ordering is not supported for a Scan query with %,d segments per time chunk and a row limit of %,d. "
+//          + "Try reducing your query limit below maxRowsQueuedForOrdering (currently %,d), or using compaction to "
+//          + "reduce the number of segments per time chunk, or raising maxSegmentPartitionsOrderedInMemory "
+//          + "(currently %,d) above the number of segments you have per time chunk.",
+//          maxNumPartitionsInSegment,
+//          query.getScanRowsLimit(),
+//          maxRowsQueuedForOrdering,
+//          maxSegmentPartitionsOrderedInMemory
+//      );
+//    }
+//    // Use n-way merge strategy
+//
+//    // Create a list of grouped runner lists (i.e. each sublist/"runner group" corresponds to an interval) ->
+//    // there should be no interval overlap.  We create a list of lists so we can create a sequence of sequences.
+//    // There's no easy way to convert a LinkedHashMap to a sequence because it's non-iterable.
+//    List<List<Operator>> groupedRunners =
+//        partitionsGroupedByInterval.entrySet()
+//                                   .stream()
+//                                   .map(entry -> entry.getValue()
+//                                                      .stream()
+//                                                      .map(segQueryRunnerPair -> segQueryRunnerPair.rhs)
+//                                                      .collect(Collectors.toList()))
+//                                   .collect(Collectors.toList());
+//
+//    // Starting from the innermost map:
+//    // (1) Disaggregate each ScanResultValue returned by the input operators
+//    // (2) Do a n-way merge per interval group based on timestamp
+//    // (3) Concatenate the groups
+//    Operator result = concat(groupedRunners
+//      .stream()
+//      .map(group -> ScanResultMergeOperator.forQuery(
+//          query,
+//          group
+//            .stream()
+//            .map(input -> new DisaggregateScanResultOperator(input))
+//            .collect(Collectors.toList())))
+//      .collect(Collectors.toList()));
+//
+//    if (query.isLimited()) {
+//      return ScanResultLimitOperator.forQuery(query, result);
+//    }
+//    return result;
+  }
+
+//  public Operator unknown(ScanQuery query) {
+//    return null;
+//  }
+//
+//  public List<Operator> unknownList(ScanQuery query) {
+//    return null;
+//  }
 
   /**
    * Convert the operator-based scan to that expected by the sequence-based

@@ -45,7 +45,7 @@ public class MetricsOperator implements Operator
   private final ServiceEmitter emitter;
   private final QueryMetrics<?> queryMetrics;
   private final ObjLongConsumer<? super QueryMetrics<?>> reportMetric;
-  private final Supplier<Operator> inputSupplier;
+  private final Operator child;
   private final Timer runTimer = Timer.create();
   private FragmentContext context;
   private State state = State.START;
@@ -55,14 +55,14 @@ public class MetricsOperator implements Operator
       final QueryMetrics<?> queryMetrics,
       final ObjLongConsumer<? super QueryMetrics<?>> reportMetric,
       final Timer waitTimer,
-      final Supplier<Operator> inputSupplier
+      final Operator child
   )
   {
     this.emitter = emitter;
     this.queryMetrics = queryMetrics;
     this.reportMetric = reportMetric;
     this.waitTimer = waitTimer;
-    this.inputSupplier = inputSupplier;
+    this.child = child;
   }
 
   @Override
@@ -71,7 +71,7 @@ public class MetricsOperator implements Operator
     this.context = context;
     state = State.RUN;
     runTimer.start();
-    return inputSupplier.get().open(context);
+    return child.open(context);
   }
 
   @Override
@@ -82,7 +82,7 @@ public class MetricsOperator implements Operator
     }
     state = State.CLOSED;
     if (cascade) {
-      inputSupplier.get().close(cascade);
+      child.close(cascade);
     }
     if (context.state() == FragmentContext.State.FAILED) {
       queryMetrics.status("failed");

@@ -20,14 +20,12 @@
 package org.apache.druid.query.pipeline;
 
 import java.util.Iterator;
-import java.util.function.Supplier;
 
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
-import org.apache.druid.query.context.ResponseContext;
 
 public class Operators
 {
@@ -110,54 +108,7 @@ public class Operators
     return new SequenceOperator(sequence);
   }
 
-  /**
-   * No-op supplier which returns the given operator.
-   */
-  public static Supplier<Operator> toProducer(Operator op) {
-    return new Supplier<Operator>()
-    {
-      @Override
-      public Operator get() {
-        return op;
-      }
-    };
-  }
-
-  /**
-   * Convert the given sequence to an operator on demand.
-   */
-  public static Supplier<Operator> toProducer(Sequence<?> sequence) {
-    return new Supplier<Operator>()
-    {
-      private Operator op;
-      @Override
-      public Operator get() {
-        if (op == null) {
-          op =  toOperator(sequence);
-        }
-        return op;
-      }
-    };
-  }
-
-  /**
-   * Supplier which, at the point where we need the input operator,
-   * runs the query runner and wraps the result in an operator. Allows
-   * a query runner to be an input to an operator, where the query runner
-   * is not run until needed.
-   */
-  public static <T> Supplier<Operator> toProducer(
-      final QueryRunner<T> runner,
-      final QueryPlus<T> queryPlus,
-      final ResponseContext responseContext
-  )
-  {
-    return new Supplier<Operator>()
-    {
-      @Override
-      public Operator get() {
-        return toOperator(runner.run(queryPlus, responseContext));
-      }
-    };
+  public static <T> QueryRunnerOperator<T> toOperator(QueryRunner<T> runner, QueryPlus<T> query) {
+    return new QueryRunnerOperator<T>(runner, query);
   }
 }

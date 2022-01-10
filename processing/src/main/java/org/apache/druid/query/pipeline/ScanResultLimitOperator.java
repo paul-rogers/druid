@@ -21,7 +21,6 @@ package org.apache.druid.query.pipeline;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 import org.apache.druid.query.scan.ScanResultValue;
 
@@ -52,9 +51,9 @@ public class ScanResultLimitOperator extends LimitOperator
   private final int batchSize;
 
   @VisibleForTesting
-  public ScanResultLimitOperator(long limit, boolean grouped, int batchSize, Supplier<Operator> inputSupplier)
+  public ScanResultLimitOperator(long limit, boolean grouped, int batchSize, Operator child)
   {
-    super(limit, inputSupplier);
+    super(limit, child);
     this.grouped = grouped;
     this.batchSize = batchSize;
   }

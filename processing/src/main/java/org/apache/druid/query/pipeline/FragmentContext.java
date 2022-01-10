@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.pipeline;
 
+import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
 
 /**
@@ -50,6 +51,8 @@ public interface FragmentContext
    * call each operator's {@code close()} method on timeout.
    */
   void checkTimeout();
+
+  void missingSegment(SegmentDescriptor descriptor);
 
   /**
    * Closes all registered operators. To be called only at the root
