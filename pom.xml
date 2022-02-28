@@ -127,6 +127,12 @@
 
         <!-- Allow the handful of flaky tests with transient failures to pass. -->
         <surefire.rerunFailingTestsCount>3</surefire.rerunFailingTestsCount>
+
+        <!-- Using -DskipTests will skip both the unit tests and integration tests.
+             to skip just the unit tests (but run the integration tests by setting
+             the required profile), use -DskipUts=true.
+             -DskipTests will skip both ITs and UTs. -->
+        <skipUTs>false</skipUTs>
     </properties>
 
     <modules>
@@ -202,6 +208,12 @@
         <module>extensions-contrib/opentelemetry-emitter</module>
         <!-- distribution packaging -->
         <module>distribution</module>
+        <!-- Revised integration tests -->
+        <module>docker-tests/it-tools</module>
+        <module>docker-tests/it-image</module>
+        <module>docker-tests/it-base</module>
+        <module>docker-tests/it-high-availability</module>
+        <module>docker-tests/it-batch-index</module>
     </modules>
 
     <repositories>
@@ -1169,6 +1181,7 @@
                     <excludes>
                         <!-- Ignore initialization classes, these are tested by the integration tests. -->
                         <exclude>org/apache/druid/cli/Cli*</exclude>
+                        <exclude>org/apache/druid/cli/GuiceRunnable.class</exclude>
                         <exclude>org/apache/druid/cli/*JettyServerInitializer*</exclude>
                         <exclude>org/apache/druid/server/initialization/*Module*</exclude>
                         <exclude>org/apache/druid/server/initialization/jetty/*Module*</exclude>
@@ -1183,6 +1196,14 @@
                         <exclude>org/apache/druid/benchmark/**/*</exclude>  <!-- benchmarks -->
                         <exclude>org/apache/druid/**/*Benchmark*</exclude>  <!-- benchmarks -->
                         <exclude>org/apache/druid/testing/**/*</exclude>  <!-- integration-tests -->
+                        <!-- The "new" ITs put the test classes into the aove testing package. However,
+                             the "old" version has them sprinked through the module tree. Remove the following
+                             once the old version is retired. -->
+                        <exclude>org/apache/druid/server/coordination/ServerManagerForQueryErrorTest.class</exclude>
+                        <exclude>org/apache/druid/guice/SleepModule.class</exclude>
+                        <exclude>org/apache/druid/guice/CustomNodeRoleClientModule.class</exclude>
+                        <exclude>org/apache/druid/cli/CustomNodeRoleCommandCreator.class</exclude>
+                        <exclude>org/apache/druid/cli/QueryRetryTestCommandCreator.class</exclude>
 
                         <!-- Exceptions -->
                         <exclude>org/apache/druid/query/TruncatedResponseContextException.class</exclude>
@@ -1513,6 +1534,9 @@
                             <!--@TODO After fixing https://github.com/apache/druid/issues/4964 remove this parameter-->
                             -Ddruid.indexing.doubleStorage=double
                         </argLine>
+                        <!-- Skip the tests which Surefire runs. Surefire runs the unit tests,
+                             while its sister plugin, Failsafe, runs the ITs. -->
+                        <skipTests>${skipUTs}</skipTests>
                         <trimStackTrace>false</trimStackTrace>
                         <!-- our tests are very verbose, let's keep the volume down -->
                         <redirectTestOutputToFile>true</redirectTestOutputToFile>
@@ -1829,7 +1853,8 @@
                                 <exclude>docker/service-supervisords/*.conf</exclude>
                                 <exclude>target/**</exclude>
                                 <exclude>licenses/**</exclude>
-                                <exclude>**/test/resources/**</exclude>
+                                <exclude>**/test/resources/**</exclude> <!-- test data for "old" ITs. -->
+                                <exclude>**/data/data/**</exclude> <!-- test data for "new" ITs. -->
                                 <exclude>**/derby.log</exclude>
                                 <exclude>**/jvm.config</exclude>
                                 <exclude>**/*.avsc</exclude>
@@ -1837,6 +1862,8 @@
                                 <exclude>**/*.json</exclude>
                                 <exclude>**/*.parq</exclude>
                                 <exclude>**/*.parquet</exclude>
+                                <exclude>**/*.pmd</exclude> <!-- Artifact of maven-pmd-plugin -->
+                                <exclude>**/*.pmdruleset.xml</exclude> <!-- Artifact of maven-pmd-plugin -->
                                 <exclude>**/docker/schema-registry/*</exclude>
                                 <exclude>LICENSE</exclude>
                                 <exclude>LICENSE.BINARY</exclude>
@@ -1912,7 +1939,8 @@
         <profile>
           <id>skip-tests</id>
           <properties>
-            <skipTests>true</skipTests>
+            <skipUTs>true</skipUTs> <!-- Skip only UTs -->
+            <skipITs>true</skipITs> <!-- Not really needed, ITs are behind a profile -->
             <jacoco.skip>true</jacoco.skip>
           </properties>
         </profile>

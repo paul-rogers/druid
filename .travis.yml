@@ -34,8 +34,8 @@ env:
     - DOCKER_IP=127.0.0.1  # for integration tests
     - MVN="mvn -B"
     - > # Various options to make execution of maven goals faster (e.g., mvn install)
-      MAVEN_SKIP="-Pskip-static-checks -Ddruid.console.skip=true -Dmaven.javadoc.skip=true"
-    - MAVEN_SKIP_TESTS="-Pskip-tests"
+      MAVEN_SKIP="-P skip-static-checks -Ddruid.console.skip=true -Dmaven.javadoc.skip=true"
+    - MAVEN_SKIP_TESTS="-P skip-tests"
 
 addons:
   apt:
@@ -46,7 +46,7 @@ addons:
 # Add various options to make 'mvn install' fast and skip javascript compile (-Ddruid.console.skip=true) since it is not
 # needed. Depending on network speeds, "mvn -q install" may take longer than the default 10 minute timeout to print any
 # output.  To compensate, use travis_wait to extend the timeout.
-install: ./check_test_suite.py && travis_terminate 0  || echo 'Running maven install...' && MAVEN_OPTS='-Xmx3000m' travis_wait 15 ${MVN} clean install -q -ff -pl '!distribution' ${MAVEN_SKIP} ${MAVEN_SKIP_TESTS} -T1C && ${MVN} install -q -ff -pl 'distribution' ${MAVEN_SKIP} ${MAVEN_SKIP_TESTS}
+install: ./check_test_suite.py && travis_terminate 0  || echo 'Running Maven install...' && MAVEN_OPTS='-Xmx3000m' travis_wait 15 ${MVN} clean install -q -ff -pl '!distribution' ${MAVEN_SKIP} ${MAVEN_SKIP_TESTS} -T1C && ${MVN} install -q -ff -pl 'distribution' ${MAVEN_SKIP} ${MAVEN_SKIP_TESTS}
 
 # There are 3 stages of tests
 # 1. Tests - phase 1
@@ -73,6 +73,19 @@ jobs:
       stage: Tests - phase 1
       script: ${MVN} animal-sniffer:check --fail-at-end
 
+    # Experimental run of the revised ITs. Done early to debug issues
+    # Move later once things work.
+    - name: "experimental docker tests"
+      stage: Tests - phase 1
+      # Uses the install defined above. Then, builds the test tools and docker image,
+      # and run the various IT tests. If tests fail, echos log lines of any of
+      # the Druid services that did not exit normally.
+      # Run though install to ensure the test tools are installed, and the docker
+      # image is built. The tests only need verify.
+      script: ${MVN} install -P dist,test-image,docker-tests -rf :it-tools ${MAVEN_SKIP} -DskipUTs=true
+      after_failure:
+        - docker-tests/check-results.sh 
+      
     - name: "checkstyle"
       script: ${MVN} checkstyle:checkstyle --fail-at-end
 
@@ -347,7 +360,7 @@ jobs:
       <<: *test_processing_module
       name: "(openjdk8) other modules test"
       env:
-        - MAVEN_PROJECTS='!processing,!indexing-hadoop,!indexing-service,!extensions-core/kafka-indexing-service,!extensions-core/kinesis-indexing-service,!server,!web-console,!integration-tests'
+         - MAVEN_PROJECTS='!processing,!indexing-hadoop,!indexing-service,!extensions-core/kafka-indexing-service,!extensions-core/kinesis-indexing-service,!server,!web-console,!integration-tests,!:it-tools,!:it-image,!:it-base,!:it-high-availability,!:it-batch-index'
 
     - <<: *test_other_modules
       name: "(openjdk11) other modules test"
