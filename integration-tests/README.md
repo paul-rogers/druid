@@ -54,8 +54,10 @@ export APACHE_ARCHIVE_MIRROR_HOST=https://example.com/remote-generic-repo
 
 ## Running tests againt auto brought up Docker containers
 
-> NOTE: This section describes how to start integration tests against docker containers which will be brought up automatically by following commands.
-If you want to buid docker images and run tests separately, see the next section.
+This section describes how to start integration tests against Docker containers which will be brought up automatically by following commands.
+If you want to build Docker images and run tests separately, see the next section.
+
+To run all tests from a test group using Docker and Maven run the following command: 
 
 To run all tests from a test group using docker and mvn run the following command: 
 (list of test groups can be found at `integration-tests/src/test/java/org/apache/druid/tests/TestNGGroup.java`)
@@ -63,23 +65,58 @@ To run all tests from a test group using docker and mvn run the following comman
 mvn verify -P integration-tests -Dgroups=<test_group>
 ```
 
-To run only a single test using mvn run the following command:
+### Run a Single Test
+
+To run only a single test using Maven:
+
 ```bash
 mvn verify -P integration-tests -Dgroups=<test_group> -Dit.test=<test_name>
 ```
-The test group should always be set, as certain test setup and cleanup tasks are based on the test group. You can find
-the test group for a given test as an annotation in the respective test class.
 
-Add `-rf :druid-integration-tests` when running integration tests for the second time or later without changing
+Parameters:
+
+* Test Group: Required, as certain test setup and cleanup tasks are based on the test group. You can find
+the test group for a given test as an annotation in the respective test class. A list of test groups can be found at 
+`integration-tests/src/test/java/org/apache/druid/tests/TestNGGroup.java`. The annotation uses a string
+constant defined in `TsetNGGroup.java`, be sure to use the constant value, not name. For example, if your test has the the annotation: `@Test(groups = TestNGGroup.BATCH_INDEX)` then use the argument `-Dgroups=batch-index`.
+
+* Test Name: Use the fully-qualified class name.
+
+* Add `-pl :druid-integration-tests` when running integration tests for the second time or later without changing
 the code of core modules in between to skip up-to-date checks for the whole module dependency tree.
 
-Integration tests can also be run with either Java 8 or Java 11 by adding `-Djvm.runtime=#` to mvn command, where `#`
+* Integration tests can also be run with either Java 8 or Java 11 by adding `-Djvm.runtime=#` to the Maven command, where `#`
 can either be 8 or 11.
 
-Druid's configuration (using Docker) can be overrided by providing `-Doverride.config.path=<PATH_TO_FILE>`. 
+* Druid's configuration (using Docker) can be overridden by providing `-Doverride.config.path=<PATH_TO_FILE>`. 
 The file must contain one property per line, the key must start with `druid_` and the format should be snake case.
-Note that when bringing up docker containers through mvn and -Doverride.config.path is provided, additional
-Druid routers for security group integration test (permissive tls, no client auth tls, custom check tls) will not be started.   
+Note that when bringing up Docker containers through Maven and `-Doverride.config.path` is provided, additional
+Druid routers for security group integration test (permissive tls, no client auth tls, custom check tls) will not be started.
+
+### Debugging Test Runs
+
+The integration test process is fragile and can fail for many reasons when run on your machine. 
+Here are some suggestions.
+#### Workround for Failed Builds
+
+Sometimes the command above may fail for reasons unrelated to the changes you wish to test.
+In such cases, a workaround is to build the code first, then use the next section to run
+individual tests. To build:
+
+```bash
+mvn clean package  -P integration-tests -Pskip-static-checks -Pskip-tests -Dmaven.javadoc.skip=true -T1.0C -nsu
+```
+
+#### Keep the Local Maven Cache Fresh
+
+As you work with issues, you may be tempted to reuse already-built jars. That only works for about 24 hours,
+after which Maven will helpfully start downloading snapshot jars from an upstream repository.
+This is, unfortunately, a feature of the build scripts. The `-nsu` option above tries to force
+Maven to only look locally for snapshot jars.
+
+#### Faster Builds
+
+While the `-pl` switch above (should* )
 
 ## Running tests against mannually brought up Docker containers
 

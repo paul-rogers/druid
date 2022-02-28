@@ -14,28 +14,63 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This script assumes that the working directory is
+# $DRUID_DEV/druid-integration-tests
+
 echo "Copying integration test resources."
 
 set -e
 
-# setup client keystore
+# Setup client keystore
 ./docker/tls/generate-client-certs-and-keystores.sh
 rm -rf docker/client_tls
 cp -r client_tls docker/client_tls
 
-# install druid jars
+if [ -z "$SHARED_DIR" ]; then
+  # Avoid deleting and creating the wrong directory.
+  echo "SHARED_DIR is not set!" 2>&1
+  exit 1
+fi
+if [ -z "$DRUID_VERSION" ]; then
+  echo "DRUID_VERSION is not set!" 2>&1
+  exit 1
+fi
+
+# Setup client keystore
 rm -rf $SHARED_DIR/docker
 mkdir -p $SHARED_DIR
 cp -R docker $SHARED_DIR/docker
 
-pushd ../
-rm -rf distribution/target/apache-druid-$DRUID_VERSION-integration-test-bin
-mvn -DskipTests -T1C -Danimal.sniffer.skip=true -Dcheckstyle.skip=true -Ddruid.console.skip=true -Denforcer.skip=true -Dforbiddenapis.skip=true -Dmaven.javadoc.skip=true -Dpmd.skip=true -Dspotbugs.skip=true install -Pintegration-test
-mv distribution/target/apache-druid-$DRUID_VERSION-integration-test-bin/lib $SHARED_DIR/docker/lib
-mv distribution/target/apache-druid-$DRUID_VERSION-integration-test-bin/extensions $SHARED_DIR/docker/extensions
-popd
+if [ $DRUID_REUSE_BUILD -eq 1 ]; then
+  echo "Resusing existing build"
+  it_dir=../distribution/target/apache-druid-$DRUID_VERSION-integration-test-bin
+  if [ ! -d $it_dir ]; then
+  	echo "IT Build directory does not exist:" $it_dir 2>&1
+  	exit 1
+  fi
+  if [ ! -d $it_dir/lib ]; then
+  	echo "IT Build directory does not exist:" $it_dir/lib 2>&1
+  	exit 1
+  fi
+  if [ ! -d $it_dir/extensions ]; then
+  	echo "IT Build directory does not exist:" $it_dir/extensions 2>&1
+  	exit 1
+  fi
+  cp -R $it_dir/lib $SHARED_DIR/docker/lib
+  cp -R $it_dir/extensions $SHARED_DIR/docker/extensions
+else
+  echo "Running maven build"
+  pushd ../
+  rm -rf distribution/target/apache-druid-$DRUID_VERSION-integration-test-bin
+  mvn -DskipTests -T1C -Danimal.sniffer.skip=true -Dcheckstyle.skip=true -Ddruid.console.skip=true -Denforcer.skip=true -Dforbiddenapis.skip=true -Dmaven.javadoc.skip=true -Dpmd.skip=true -Dspotbugs.skip=true install -Pintegration-test
+  mv distribution/target/apache-druid-$DRUID_VERSION-integration-test-bin/lib $SHARED_DIR/docker/lib
+  mv distribution/target/apache-druid-$DRUID_VERSION-integration-test-bin/extensions $SHARED_DIR/docker/extensions
+  popd
+fi
 
-# Make directoriess if they dont exist
+# Make directories if they don't exist
+# (They won't exist because we removed the shared dir above.)
+
 mkdir -p $SHARED_DIR/hadoop_xml
 mkdir -p $SHARED_DIR/hadoop-dependencies
 mkdir -p $SHARED_DIR/logs
@@ -43,7 +78,8 @@ mkdir -p $SHARED_DIR/tasklogs
 mkdir -p $SHARED_DIR/docker/extensions
 mkdir -p $SHARED_DIR/docker/credentials
 
-# install logging config
+# Install logging config
+
 cp src/main/resources/log4j2.xml $SHARED_DIR/docker/lib/log4j2.xml
 
 # Extensions for testing are pulled while creating a binary.
@@ -64,13 +100,15 @@ then
   fi
 fi
 
-# one of the integration tests needs the wikiticker sample data
+# One of the integration tests needs the wikiticker sample data
+
 mkdir -p $SHARED_DIR/wikiticker-it
 cp ../examples/quickstart/tutorial/wikiticker-2015-09-12-sampled.json.gz $SHARED_DIR/wikiticker-it/wikiticker-2015-09-12-sampled.json.gz
 cp docker/wiki-simple-lookup.json $SHARED_DIR/wikiticker-it/wiki-simple-lookup.json
 cp docker/test-data/wikipedia.desc $SHARED_DIR/wikiticker-it/wikipedia.desc
 
-# copy other files if needed
+# Copy other files if needed
+
 if [ -n "$DRUID_INTEGRATION_TEST_RESOURCE_FILE_DIR_PATH" ]
 then
   cp -a $DRUID_INTEGRATION_TEST_RESOURCE_FILE_DIR_PATH/. $SHARED_DIR/docker/credentials/

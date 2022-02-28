@@ -538,7 +538,7 @@
                         </goals>
                         <configuration>
                             <sourceFile>${project.build.outputDirectory}/copy_resources_template.sh</sourceFile>
-                            <destinationFile>gen-scripts/copy_resources.sh</destinationFile>
+                            <destinationFile>target/gen-scripts/copy_resources.sh</destinationFile>
                         </configuration>
                     </execution>
                 </executions>
