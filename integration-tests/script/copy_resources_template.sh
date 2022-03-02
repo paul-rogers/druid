@@ -28,11 +28,11 @@ cp -r client_tls docker/client_tls
 
 if [ -z "$SHARED_DIR" ]; then
   # Avoid deleting and creating the wrong directory.
-  echo "SHARED_DIR is not set!" 2>&1
+  echo "SHARED_DIR is not set!" >&2
   exit 1
 fi
 if [ -z "$DRUID_VERSION" ]; then
-  echo "DRUID_VERSION is not set!" 2>&1
+  echo "DRUID_VERSION is not set!" >&2
   exit 1
 fi
 
@@ -45,15 +45,15 @@ if [ $DRUID_REUSE_BUILD -eq 1 ]; then
   echo "Resusing existing build"
   it_dir=../distribution/target/apache-druid-$DRUID_VERSION-integration-test-bin
   if [ ! -d $it_dir ]; then
-  	echo "IT Build directory does not exist:" $it_dir 2>&1
+  	echo "IT Build directory does not exist:" $it_dir >&2
   	exit 1
   fi
   if [ ! -d $it_dir/lib ]; then
-  	echo "IT Build directory does not exist:" $it_dir/lib 2>&1
+  	echo "IT Build directory does not exist:" $it_dir/lib >&2
   	exit 1
   fi
   if [ ! -d $it_dir/extensions ]; then
-  	echo "IT Build directory does not exist:" $it_dir/extensions 2>&1
+  	echo "IT Build directory does not exist:" $it_dir/extensions >&2
   	exit 1
   fi
   cp -R $it_dir/lib $SHARED_DIR/docker/lib
