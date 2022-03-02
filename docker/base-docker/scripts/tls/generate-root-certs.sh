@@ -1,3 +1,5 @@
+#!/bin/bash -eu
+
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -13,16 +15,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-[ ca ]
-default_ca = CA_default
+# Run with the project directory as the cwd
 
-[ CA_default ]
-database = /tls/cert_db2.txt
-x509_extensions	= usr_cert
-name_opt = ca_default
-cert_opt = ca_default
-default_days = 365
-default_crl_days= 30
-default_md = default
-preserve = no
-policy = policy_match
+if [ -z "$SERVER_DIR" ]; then
+	echo "SERVER_DIR is not set!"
+	exit 1
+fi
+
+mkdir -p $SERVER_DIR
+
+rm -f $SERVER_DIR/root.key
+rm -f $SERVER_DIR/untrusted_root.key
+rm -f $SERVER_DIR/root.pem
+rm -f $SERVER_DIR/untrusted_root.pem
+
+genRootKey() {
+  openssl genrsa -out $SERVER_DIR/$1.key 4096
+  openssl req -config $SOURCE_DIR/root.cnf -key $SERVER_DIR/$1.key -new -x509 -days 3650 \
+          -sha256 -extensions v3_ca -out $SERVER_DIR/$1.pem
+}
+
+genRootKey root
+genRootKey untrusted_root
