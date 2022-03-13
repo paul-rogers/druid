@@ -13,9 +13,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-version: "2.2"
+#version: "2.2"
+networks:
+  druid-it-net:
+    name: druid-it-net
+    ipam:
+      config:
+        - subnet: 172.172.172.0/24
+
 services:
-  druid-zookeeper-kafka:
-    extends:
-      file: ../../docker/docker-compose.base.yml
-      service: druid-zookeeper-kafka
+#  zookeeper:
+#    extends:
+#      file: ../../docker/docker-compose.base.yml
+#      service: zookeeper
+
+  druid-metadata-storage:
+    image: mysql:$MYSQL_VERSION
+    container_name: druid-metadata-storage
+    ports:
+      - 13306:3306
+    networks:
+      druid-it-net:
+        ipv4_address: 172.172.172.3
+    volumes:
+      - ${SHARED_DIR}/db:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: driud
+      MYSQL_DATABASE: druid
+      MYSQL_USER: druid
+      MYSQL_PASSWORD: driud
+      
+ 

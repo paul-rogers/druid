@@ -35,27 +35,37 @@ networks:
 
 services:
 ### always there supporting infra:
-  druid-zookeeper-kafka:
-    image: druid/cluster
-    container_name: druid-zookeeper-kafka
+
+  # Uses the official Zookeeper image
+  # See https://hub.docker.com/_/zookeeper
+  zookeeper:
+    image: zookeeper:${ZK_VERSION}
+    container_name: druid-zookeeper
     ports:
       - 2181:2181
+    networks:
+      druid-it-net:
+        ipv4_address: 172.172.172.4
+     volumes:
+      - ${SHARED_DIR}/logs:/logs
+     environment:
+       ZOO_LOG4J_PROP: INFO,ROLLINGFILE
+
+  druid-kafka:
+    image: org.apache.druid/test:${DRUID_VERSION}
+    container_name: druid-kafka
+    ports:
       - 9092:9092
       - 9093:9093
     networks:
       druid-it-net:
-        ## Dockerfile depends on this address for this container it seems...
         ipv4_address: 172.172.172.2
     privileged: true
     volumes:
-      - ${HOME}/shared:/shared
-      - ./service-supervisords/zookeeper.conf:/usr/lib/druid/conf/zookeeper.conf
-      - ./service-supervisords/kafka.conf:/usr/lib/druid/conf/kafka.conf
-    env_file:
-      - ./environment-configs/common
+      - ${SHARED_DIR}:/shared
 
   druid-metadata-storage:
-    image: druid/cluster
+    image: org.apache.druid/test:${DRUID_VERSION}
     container_name: druid-metadata-storage
     ports:
       - 13306:3306
@@ -72,7 +82,7 @@ services:
 
 ### overlords
   druid-overlord:
-    image: druid/cluster
+    image: org.apache.druid/test:${DRUID_VERSION}
     container_name: druid-overlord
     hostname: druid-overlord
     networks:
@@ -92,7 +102,7 @@ services:
       - ${OVERRIDE_ENV}
 
   druid-overlord-two:
-    image: druid/cluster
+    image: org.apache.druid/test:${DRUID_VERSION}
     container_name: druid-overlord-two
     hostname: druid-overlord-two
     networks:
@@ -113,7 +123,7 @@ services:
 
 ### coordinators
   druid-coordinator:
-    image: druid/cluster
+    image: org.apache.druid/test:${DRUID_VERSION}
     container_name: druid-coordinator
     hostname: druid-coordinator
     networks:
@@ -133,7 +143,7 @@ services:
       - ${OVERRIDE_ENV}
 
   druid-coordinator-two:
-    image: druid/cluster
+    image: org.apache.druid/test:${DRUID_VERSION}
     container_name: druid-coordinator-two
     hostname: druid-coordinator-two
     networks:
@@ -154,7 +164,7 @@ services:
 
 ### historicals
   druid-historical:
-    image: druid/cluster
+    image: org.apache.druid/test:${DRUID_VERSION}
     container_name: druid-historical
     hostname: druid-historical
     networks:
@@ -175,7 +185,7 @@ services:
 
 ### middle managers
   druid-middlemanager:
-    image: druid/cluster
+    image: org.apache.druid/test:${DRUID_VERSION}
     container_name: druid-middlemanager
     hostname: druid-middlemanager
     networks:
@@ -209,7 +219,7 @@ services:
 
 ### indexers
   druid-indexer:
-    image: druid/cluster
+    image: org.apache.druid/test:${DRUID_VERSION}
     container_name: druid-indexer
     hostname: druid-indexer
     networks:
@@ -231,7 +241,7 @@ services:
 
 ### brokers
   druid-broker:
-    image: druid/cluster
+    image: org.apache.druid/test:${DRUID_VERSION}
     hostname: druid-broker
     container_name: druid-broker
     networks:
@@ -252,7 +262,7 @@ services:
 
 ### routers
   druid-router:
-    image: druid/cluster
+    image: org.apache.druid/test:${DRUID_VERSION}
     container_name: druid-router
     hostname: druid-router
     networks:
@@ -272,7 +282,7 @@ services:
       - ${OVERRIDE_ENV}
 
   druid-router-permissive-tls:
-    image: druid/cluster
+    image: org.apache.druid/test:${DRUID_VERSION}
     container_name: druid-router-permissive-tls
     networks:
       druid-it-net:
@@ -291,7 +301,7 @@ services:
       - ${OVERRIDE_ENV}
 
   druid-router-no-client-auth-tls:
-    image: druid/cluster
+    image: org.apache.druid/test:${DRUID_VERSION}
     container_name: druid-router-no-client-auth-tls
     networks:
       druid-it-net:
@@ -310,7 +320,7 @@ services:
       - ${OVERRIDE_ENV}
 
   druid-router-custom-check-tls:
-    image: druid/cluster
+    image: org.apache.druid/test:${DRUID_VERSION}
     container_name: druid-router-custom-check-tls
     networks:
       druid-it-net:

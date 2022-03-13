@@ -40,8 +40,8 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
 
     <packaging>pom</packaging>
 
-    <artifactId>test-docker</artifactId>
-    <name>test-docker</name>
+    <artifactId>test-image</artifactId>
+    <name>test-image</name>
     <description>Build the Docker image for integration tests.</description>
 
     <parent>

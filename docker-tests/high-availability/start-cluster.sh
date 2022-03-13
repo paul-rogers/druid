@@ -14,6 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+if [ $# -lt 1 ]; then
+	echo "Usage: $0<druid-version>" 2>&1
+	exit 1
+fi
+export DRUID_VERSION=$1
+
 . cluster-env.sh
 
 cd docker

@@ -25,14 +25,14 @@ set -e
 set -x
 
 if [ $# -lt 1 ]; then
-	echo "Usage: build-image.sh <druid-version>" 2>&1
+	echo "Usage: $0 <druid-version>" 2>&1
 	exit 1
 fi
 
 # Fail on unset environment variables
 set -u
 
-DRUID_VERSION=$1
+export DRUID_VERSION=$1
 
 rm -Rf target/docker
 mkdir -p target/docker

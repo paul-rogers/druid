@@ -30,7 +30,7 @@ set -x
 env
 
 # Do work in /root to make it easy to identify unwanted
-# left-overers.
+# left-overs.
 
 cd /root
 
@@ -64,14 +64,24 @@ echo "[mysqld]\ncharacter-set-server=utf8\ncollation-server=utf8_bin\n" >> /etc/
 apt-get install -y supervisor
 
 # Zookeeper
+# Now using the official image, so skip ZK install.
+# See https://sookocheff.com/post/docker/containerizing-zookeeper-a-guided-tour/
 
-ZK_HOME=/usr/local/zookeeper
-ZK_TAR=apache-zookeeper-$ZK_VERSION-bin
-wget -q -O /tmp/$ZK_TAR.tar.gz "$APACHE_ARCHIVE_MIRROR_HOST/dist/zookeeper/zookeeper-$ZK_VERSION/$ZK_TAR.tar.gz"
-tar -xzf /tmp/$ZK_TAR.tar.gz -C /usr/local
-cp /usr/local/$ZK_TAR/conf/zoo_sample.cfg /usr/local/$ZK_TAR/conf/zoo.cfg
-rm /tmp/$ZK_TAR.tar.gz
-ln -s /usr/local/$ZK_TAR $ZK_HOME
+if [ 1 -eq 0 ]; then
+	ZK_HOME=/usr/local/zookeeper
+	ZK_TAR=apache-zookeeper-$ZK_VERSION-bin
+	wget -q -O /tmp/$ZK_TAR.tar.gz "$APACHE_ARCHIVE_MIRROR_HOST/dist/zookeeper/zookeeper-$ZK_VERSION/$ZK_TAR.tar.gz"
+	tar -xzf /tmp/$ZK_TAR.tar.gz -C /usr/local
+	cp /usr/local/$ZK_TAR/conf/zoo_sample.cfg /usr/local/$ZK_TAR/conf/zoo.cfg
+	rm /tmp/$ZK_TAR.tar.gz
+	ln -s /usr/local/$ZK_TAR $ZK_HOME
+
+	cat > /usr/local/run-zk.sh << EOF
+#! /bin/bash
+
+exec $ZK_HOME/bin/zkServer.sh start-foreground > /shared/logs/zookeeper.log 2>&1
+EOF
+fi
 
 # Kafka
 # KAFKA_VERSION is defined by docker build arguments
@@ -81,6 +91,19 @@ wget -q -O /tmp/kafka_2.13-$KAFKA_VERSION.tgz "$APACHE_ARCHIVE_MIRROR_HOST/dist/
 tar -xzf /tmp/kafka_2.13-$KAFKA_VERSION.tgz -C /usr/local
 ln -s /usr/local/kafka_2.13-$KAFKA_VERSION $KAFKA_HOME
 rm /tmp/kafka_2.13-$KAFKA_VERSION.tgz
+
+# internal docker_ip:9092 endpoint is used to access Kafka from other Docker containers
+# external docker ip:9093 endpoint is used to access Kafka from test code
+
+perl -pi -e "s/#listeners=.*/listeners=INTERNAL:\/\/172.172.172.2:9092,EXTERNAL:\/\/172.172.172.2:9093/" $KAFKA_HOME/config/server.properties
+perl -pi -e "s/#advertised.listeners=.*/advertised.listeners=INTERNAL:\/\/172.172.172.2:9092,EXTERNAL:\/\/${DOCKER_IP}:9093/" $KAFKA_HOME/config/server.properties
+perl -pi -e "s/#listener.security.protocol.map=.*/listener.security.protocol.map=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT\ninter.broker.listener.name=INTERNAL/" $KAFKA_HOME/config/server.properties
+
+cat > /usr/local/run-kafka.sh << EOF
+#! /bin/bash
+
+exec $KAFKA_HOME/bin/kafka-server-start.sh $KAFKA_HOME/config/server.properties > /shared/logs/kafka.log 2>&1
+EOF
 
 # Download the MySQL Java connector
 # target path must match the exact path referenced in environment-configs/common
@@ -114,13 +137,6 @@ EOF
 
 service mysql stop
 
-# internal docker_ip:9092 endpoint is used to access Kafka from other Docker containers
-# external docker ip:9093 endpoint is used to access Kafka from test code
-
-perl -pi -e "s/#listeners=.*/listeners=INTERNAL:\/\/172.172.172.2:9092,EXTERNAL:\/\/172.172.172.2:9093/" /usr/local/kafka/config/server.properties
-perl -pi -e "s/#advertised.listeners=.*/advertised.listeners=INTERNAL:\/\/172.172.172.2:9092,EXTERNAL:\/\/${DOCKER_IP}:9093/" /usr/local/kafka/config/server.properties
-perl -pi -e "s/#listener.security.protocol.map=.*/listener.security.protocol.map=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT\ninter.broker.listener.name=INTERNAL/" /usr/local/kafka/config/server.properties
-
 # Create a setup file with the various paths
 # Only need to add the env vars created here. Docker will provide those
 # set at build time.
@@ -130,18 +146,10 @@ export ZK_HOME=$ZK_HOME
 export KAFKA_HOME=$KAFKA_HOME
 EOF
 cat >> /root/.bashrc << EOF
-. /usr/local/druid-env.sh
+source /usr/local/druid-env.sh
 EOF
 cat >> /home/druid/.bashrc << EOF
-. /usr/local/druid-env.sh
-EOF
-
-# Create login profiles to read the .bashrc files
-cat >> /root/.bash_profile << EOF
-. .bashrc
-EOF
-cat >> /home/druid/.bash_profile << EOF
-. .bashrc
+source /usr/local/druid-env.sh
 EOF
 
 # clean up time

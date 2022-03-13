@@ -5,8 +5,8 @@ to speed up debugging. This project builds the base image with everything *excep
 Druid. When modifying the base image, the general rule is:
 
 * If the artifact comes from *outside* the Druid source tree, add it here.
-* If the artifact comes from *within* the Druid source tree, addd it to the
-Druid image.
+* If the artifact comes from *within* the Druid source tree, add it to the
+test image.
 
 The above rule speeds debugging: the high cost of downloading extern dependencies
 is paid only when they change. The Druid image build is thus much faster.
@@ -72,6 +72,7 @@ The main image contents include:
 * `wget`, `supervise` and `mysql` installed from the Debian repos.
 * Zookeeper, Kafka and the MySQL (or MariaDB) driver from their respective
   repos.
+* Supervisor scripts for the above in `/usr/lib/druid/conf/`.
 
 Key locations:
 
@@ -106,7 +107,38 @@ The Zookeeper and MySql client libraries are downloaded. Since there no Druid
 available yet, they are left in `/usr/local/druid-libs` for merging into the
 Druid install when that is done later.
 
+### Runtime Dependencies
+
+To a service, the launch script should mount an external volume to `/shared`
+to capture logs, etc.
+
+Logs:
+
+* Kafka: `/shared/logs/kafka.log`
+* ZooKeeper: `/shared/logs/zookeeper.log`
+* MySQL: `/shared/logs/mysql.log`
+
+### Druid Launch
+
+The `/usr/lib/druid/conf/druid.conf` file launches Druid. It requires the following
+to be set:
+
+* `DRUID_SERVICE_JAVA_OPTS` - Java options
+* `DRUID_COMMON_JAVA_OPTS` - More Java optoins
+* `DRUID_COMMON_CONF_DIR` - Common config dir on the class path
+* `DRUID_SERVICE_CONF_DIR` - Service-specifi config dir on the class path
+* `DRUID_DEP_LIB_DIR`
+* `DRUID_SERVICE` - Name of the Druid service to run
+* `DRUID_LOG_NAME` - Log path in `/shared/logs`
+
+
 ### MySQL
+
+Previous versions of the Druid integration tests included ZK into the image.
+However, it is easier and more reliable to use the
+[official image](https://hub.docker.com/_/mysql).
+
+The following is old:
 
 MySQL is a bit special. To start MySQL, use:
 
@@ -119,6 +151,13 @@ To stop MySQL, use:
 ```bash
 service mysql stop
 ```
+
+### ZooKeeper
+
+Previous versions of the Druid integration tests included ZK into the image.
+However, it is easier and more reliable to use the
+[official image](https://hub.docker.com/_/zookeeper).
+
 ### Ports
 
 The image exposes a large collection of ports, see the `Dockerfile` for the list.
