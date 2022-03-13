@@ -75,6 +75,9 @@ ENV DOCKER_IP:=${DOCKER_IP}
 COPY start-mysql.sh /usr/local
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
+# Supervisor configs for external dependencies
+COPY service-supervisords/* /usr/lib/druid/conf/
+
 # The single setup script does the setup work.
 # Scripts are easier to write than Dockerfiles.
 # The entire base image is reused; we don't need

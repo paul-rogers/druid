@@ -201,8 +201,8 @@
         <module>extensions-contrib/opentelemetry-emitter</module>
         <!-- distribution packaging -->
         <module>distribution</module>
-        <module>docker/base-docker</module>
-        <module>docker/test-docker</module>
+        <module>docker/test-base</module>
+        <module>docker/test-image</module>
         <module>docker-tests</module>
     </modules>
 

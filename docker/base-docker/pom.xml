@@ -39,8 +39,8 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
 
     <packaging>pom</packaging>
 
-    <artifactId>base-docker</artifactId>
-    <name>base-docker</name>
+    <artifactId>image-base</artifactId>
+    <name>image-base</name>
     <description>Build the base Docker image for integration tests.</description>
 
     <parent>

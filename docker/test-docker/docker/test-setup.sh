@@ -100,7 +100,4 @@ EOF
 cat >> /root/.bashrc << EOF
 source /usr/local/druid-env.sh
 EOF
-cat >> /root/.bash_profile << EOF
-source ~/.bashrc
-EOF
 
