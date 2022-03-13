@@ -41,8 +41,6 @@ services:
   zookeeper:
     image: zookeeper:${ZK_VERSION}
     container_name: druid-zookeeper
-    ports:
-      - 2181:2181
     networks:
       druid-it-net:
         ipv4_address: 172.172.172.4
@@ -65,19 +63,19 @@ services:
       - ${SHARED_DIR}:/shared
 
   druid-metadata-storage:
-    image: org.apache.druid/test:${DRUID_VERSION}
+    image: mysql:$MYSQL_VERSION
     container_name: druid-metadata-storage
-    ports:
-      - 13306:3306
     networks:
       druid-it-net:
         ipv4_address: 172.172.172.3
-    privileged: true
     volumes:
-      - ${HOME}/shared:/shared
-      - ./service-supervisords/metadata-storage.conf:/usr/lib/druid/conf/metadata-storage.conf
-    env_file:
-      - ./environment-configs/common
+      - ${SHARED_DIR}/db:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: driud
+      MYSQL_DATABASE: druid
+      MYSQL_USER: druid
+      MYSQL_PASSWORD: driud
+      
 
 
 ### overlords

@@ -27,20 +27,4 @@ services:
 #      file: ../../docker/docker-compose.base.yml
 #      service: zookeeper
 
-  druid-metadata-storage:
-    image: mysql:$MYSQL_VERSION
-    container_name: druid-metadata-storage
-    ports:
-      - 13306:3306
-    networks:
-      druid-it-net:
-        ipv4_address: 172.172.172.3
-    volumes:
-      - ${SHARED_DIR}/db:/var/lib/mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: driud
-      MYSQL_DATABASE: druid
-      MYSQL_USER: druid
-      MYSQL_PASSWORD: driud
-      
  

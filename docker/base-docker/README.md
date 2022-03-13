@@ -134,9 +134,11 @@ to be set:
 
 ### MySQL
 
-Previous versions of the Druid integration tests included ZK into the image.
+Previous versions of the Druid integration tests included MySQL into the image.
 However, it is easier and more reliable to use the
 [official image](https://hub.docker.com/_/mysql).
+
+The Druid database is created on initial startup in `$SHARED_DIR/db`.
 
 The following is old:
 
