@@ -1,3 +1,4 @@
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -14,25 +15,18 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+#
 
-ARG DRUID_VERSION
+DRUID_SERVICE=router
+DRUID_LOG_PATH=/shared/logs/router.log
 
-FROM org.apache.druid/base-docker:$DRUID_VERSION
+# JAVA OPTS
+SERVICE_DRUID_JAVA_OPTS=-server -Xmx64m -Xms64m -XX:+UseG1GC -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5004
 
-ARG DRUID_VERSION
-ENV DRUID_VERSION=$DRUID_VERSION
+# Druid configs
+druid_host=druid-router
+druid_auth_basic_common_cacheDirectory=/tmp/authCache/router
+druid_sql_avatica_enable=true
+druid_server_https_crlPath=/tls/revocations.crl
+druid_router_managementProxy_enabled=true
 
-# Populate build artifacts
-
-COPY apache-druid-${DRUID_VERSION}-bin.tar.gz /usr/local/
-COPY test-setup.sh /root/
-#COPY ../target/shared/test-data /test-data
-
-# Do the setup tasks
-
-RUN bash /root/test-setup.sh
-
-# Start in the Druid directory. Note: if running a non-Druid
-# service, the launch may want to cd elsewhere.
-
-WORKDIR /usr/local/druid

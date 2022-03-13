@@ -36,18 +36,16 @@ cd /root
 
 # Druid system user
 
-adduser --system --group --no-create-home druid
+adduser --system --group druid
 
 # Create the stub Druid install directory. The Druid
 # image adds the Druid software.
 # Would be great for these artifacts to live outside Druid,
 # but Druid can't handle such a setup at present.
 
-DRUID_HOME=/usr/local/druid
-mkdir -p ${DRUID_HOME}
-mkdir -p ${DRUID_HOME}/extensions
-mkdir -p ${DRUID_HOME}/lib
-chown -R druid:druid $DRUID_HOME
+DRUID_LIBS=/usr/local/druid-lib
+mkdir -p ${DRUID_LIBS}/lib
+chown -R druid:druid $DRUID_LIBS
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
@@ -90,10 +88,10 @@ rm /tmp/kafka_2.13-$KAFKA_VERSION.tgz
 
 if [ "$MYSQL_DRIVER_CLASSNAME" = "com.mysql.jdbc.Driver" ]; then
     wget -q "https://repo1.maven.org/maven2/mysql/mysql-connector-java/$MYSQL_VERSION/mysql-connector-java-$MYSQL_VERSION.jar" \
-    	 -O ${DRUID_HOME}/lib/mysql-connector-java.jar
+    	 -O ${DRUID_LIBS}/lib/mysql-connector-java.jar
 elif [ "$MYSQL_DRIVER_CLASSNAME" = "org.mariadb.jdbc.Driver" ]; then
     wget -q "https://repo1.maven.org/maven2/org/mariadb/jdbc/mariadb-java-client/$MARIA_VERSION/mariadb-java-client-$MARIA_VERSION.jar" \
-    	 -O ${DRUID_HOME}/lib/mysql-connector-java.jar
+    	 -O ${DRUID_LIBS}/lib/mysql-connector-java.jar
 else
 	echo "No MySQL Driver specified. Set MYSQL_DRIVER_CLASSNAME correctly."
 	exit 1
@@ -102,15 +100,17 @@ fi
 # Download kafka protobuf provider
 
 wget -q "https://packages.confluent.io/maven/io/confluent/kafka-protobuf-provider/$CONFLUENT_VERSION/kafka-protobuf-provider-$CONFLUENT_VERSION.jar" \
-     -O ${DRUID_HOME}/lib/kafka-protobuf-provider.jar
+     -O ${DRUID_LIBS}/lib/kafka-protobuf-provider.jar
 
 # Setup metadata store
 
-/start-mysql.sh
+/usr/local/start-mysql.sh
 
-echo "CREATE USER 'druid'@'%' IDENTIFIED BY 'diurd'; \
-      GRANT ALL ON druid.* TO 'druid'@'%'; \
-      CREATE database druid DEFAULT CHARACTER SET utf8mb4;" | mysql -u root \
+mysql -u root << EOF
+CREATE USER 'druid'@'%' IDENTIFIED BY 'diurd';
+GRANT ALL ON druid.* TO 'druid'@'%';
+CREATE database druid DEFAULT CHARACTER SET utf8mb4;
+EOF
 
 service mysql stop
 
@@ -122,12 +122,26 @@ perl -pi -e "s/#advertised.listeners=.*/advertised.listeners=INTERNAL:\/\/172.17
 perl -pi -e "s/#listener.security.protocol.map=.*/listener.security.protocol.map=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT\ninter.broker.listener.name=INTERNAL/" /usr/local/kafka/config/server.properties
 
 # Create a setup file with the various paths
+# Only need to add the env vars created here. Docker will provide those
+# set at build time.
 
-echo /.bashrc << EOF
-export DRUID_HOME=$DRUID_HOME
+cat > /usr/local/druid-env.sh << EOF
 export ZK_HOME=$ZK_HOME
 export KAFKA_HOME=$KAFKA_HOME
-export MYSQL_DRIVER_CLASSNAME=$MYSQL_DRIVER_CLASSNAME
+EOF
+cat >> /root/.bashrc << EOF
+. /usr/local/druid-env.sh
+EOF
+cat >> /home/druid/.bashrc << EOF
+. /usr/local/druid-env.sh
+EOF
+
+# Create login profiles to read the .bashrc files
+cat >> /root/.bash_profile << EOF
+. .bashrc
+EOF
+cat >> /home/druid/.bash_profile << EOF
+. .bashrc
 EOF
 
 # clean up time

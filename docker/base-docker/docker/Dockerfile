@@ -72,7 +72,7 @@ ENV MYSQL_DRIVER_CLASSNAME=${MYSQL_DRIVER_CLASSNAME}
 ARG DOCKER_IP=127.0.0.1
 ENV DOCKER_IP:=${DOCKER_IP}
 
-COPY start-mysql.sh /
+COPY start-mysql.sh /usr/local
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # The single setup script does the setup work.
@@ -105,5 +105,3 @@ EXPOSE 2181 2888 3888
 EXPOSE 8100 8101 8102 8103 8104 8105
 EXPOSE 8300 8301 8302 8303 8304 8305
 EXPOSE 9092 9093
-
-WORKDIR /var/lib/druid
