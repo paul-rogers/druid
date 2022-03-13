@@ -204,6 +204,7 @@
         <module>distribution</module>
         <module>docker/base-docker</module>
         <module>docker/test-docker</module>
+        <module>docker-tests</module>
     </modules>
 
     <repositories>

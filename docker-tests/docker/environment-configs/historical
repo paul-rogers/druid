@@ -1,3 +1,4 @@
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -14,25 +15,19 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+#
 
-ARG DRUID_VERSION
+DRUID_SERVICE=historical
+DRUID_LOG_PATH=/shared/logs/historical.log
 
-FROM org.apache.druid/base-docker:$DRUID_VERSION
+# JAVA OPTS
+SERVICE_DRUID_JAVA_OPTS=-server -Xmx512m -Xms512m -XX:+UseG1GC -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5007
 
-ARG DRUID_VERSION
-ENV DRUID_VERSION=$DRUID_VERSION
-
-# Populate build artifacts
-
-COPY apache-druid-${DRUID_VERSION}-bin.tar.gz /usr/local/
-COPY test-setup.sh /root/
-#COPY ../target/shared/test-data /test-data
-
-# Do the setup tasks
-
-RUN bash /root/test-setup.sh
-
-# Start in the Druid directory. Note: if running a non-Druid
-# service, the launch may want to cd elsewhere.
-
-WORKDIR /usr/local/druid
+# Druid configs
+druid_host=druid-historical
+druid_processing_buffer_sizeBytes=25000000
+druid_processing_numThreads=2
+druid_query_groupBy_maxOnDiskStorage=300000000
+druid_segmentCache_locations=[{"path":"/shared/druid/indexCache","maxSize":5000000000}]
+druid_auth_basic_common_cacheDirectory=/tmp/authCache/historical
+druid_server_https_crlPath=/tls/revocations.crl

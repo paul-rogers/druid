@@ -2,7 +2,14 @@
 
 Druid uses Docker to run integration tests. The Docker image is built in two steps
 to speed up debugging. This project builds the base image with everything *except*
-Druid.
+Druid. When modifying the base image, the general rule is:
+
+* If the artifact comes from *outside* the Druid source tree, add it here.
+* If the artifact comes from *within* the Druid source tree, addd it to the
+Druid image.
+
+The above rule speeds debugging: the high cost of downloading extern dependencies
+is paid only when they change. The Druid image build is thus much faster.
 
 ## Build Process
 
@@ -18,25 +25,44 @@ Building of the image occurs in three steps:
   setting up the network and more.
 
 The `base-setup.sh` script has tracing turned on (`set -x`) so that, if anything
-fails, you can see what the script was doing.
+fails, you can see what the script was doing. This is vital, as it is very hard
+to debug the build script otherwise.
 
 The setup script is left in the container to make it easier to understand what
 was done. Find it in `/root/base-setup.sh`.
 
+The resulting image is named `org.apache.druid/test-base:<version>`.
+
 ## Debugging
 
-Once the base container is build, you can run it, log in and poke around. First
+Modern Docker seems to hide the output of commands, which is a hassle to debug
+a build. Oddly, the details appear for a failed build, but not for success.
+Use the followig to see at least some output:
+
+```bash
+export DOCKER_BUILDKIT=0
+```
+
+Once the base container is built, you can run it, log in and poke around. First
 identify the name:
 
 ```
 docker images
 ```
 
-The name will be of the form `org.apache.druid/base-docker:<version>`
+```bash
+docker run --rm -it --entrypoint bash org.apache.druid/test-base:<version>
+```
+
+Quite a few environment variables are provided by Docker and the setup scripts
+to see them, use:
 
 ```bash
-docker run --rm -it --entrypoint bash org.apache.druid/base-docker:<version>
+env
 ```
+
+Note: be sure to use `bash` and not `sh`: some environment variables
+are set only for `bash`.
 
 ## Image Contents
 
@@ -49,25 +75,43 @@ The main image contents include:
 
 Key locations:
 
-* `DRUID_HOME`: `/usr/local/druid`
 * `ZK_HOME`: `/usr/local/zookeeper`
 * `KAFKA_HOME`: `/usr/local/kafka`
 
-For convenience, these variables are defined in `/.bashrc`:
-
-```bash
-source /.bashrc
-```
+For convenience, these variables are defined in `/etc/profile.d/druid-env.sh`
+which is read by `bash` on startup, and thus available to all users.
 
 The usual commands for these tools are available in the expected
 directories.
+
+The Druid test image adds Druid in this location:
+
+* `DRUID_HOME`: `/usr/local/druid`
+
+In all three cases, the software appears in a versioned directory, and is
+symlinked to the generic name:
+
+```text
+kafka -> /usr/local/kafka_2.13-3.1.0
+zookeeper -> /usr/local/apache-zookeeper-3.5.9-bin
+```
+
+And the Druid image adds:
+
+```text
+druid -> /usr/local/apache-druid-0.23.0-SNAPSHOT
+```
+
+The Zookeeper and MySql client libraries are downloaded. Since there no Druid
+available yet, they are left in `/usr/local/druid-libs` for merging into the
+Druid install when that is done later.
 
 ### MySQL
 
 MySQL is a bit special. To start MySQL, use:
 
 ```bash
-/start-mysql.sh
+/usr/local/start-mysql.sh
 ```
 
 To stop MySQL, use:
@@ -86,7 +130,6 @@ this container while a local Druid cluster is up or visa-versa.
 This project also creates a number of support files in a "shared" directory. "Shared"
 in the sense that the directory is visible both to the client and is mounted into
 containers.
-
 
 ## History
 

@@ -17,12 +17,12 @@ version: "2.2"
 services:
   druid-zookeeper-kafka:
     extends:
-      file: docker-compose.base.yml
+      file: ../../docker/docker-compose.base.yml
       service: druid-zookeeper-kafka
 
   druid-metadata-storage:
     extends:
-      file: docker-compose.base.yml
+      file: ../../docker/docker-compose.base.yml
       service: druid-metadata-storage
     environment:
       - DRUID_INTEGRATION_TEST_GROUP=${DRUID_INTEGRATION_TEST_GROUP}
@@ -31,7 +31,7 @@ services:
 
   druid-coordinator:
     extends:
-      file: docker-compose.base.yml
+      file: ../../docker/docker-compose.base.yml
       service: druid-coordinator
     environment:
       - DRUID_INTEGRATION_TEST_GROUP=${DRUID_INTEGRATION_TEST_GROUP}
@@ -46,7 +46,7 @@ services:
 
   druid-coordinator-two:
     extends:
-      file: docker-compose.base.yml
+      file: ../../docker/docker-compose.base.yml
       service: druid-coordinator-two
     environment:
       - DRUID_INTEGRATION_TEST_GROUP=${DRUID_INTEGRATION_TEST_GROUP}
@@ -63,7 +63,7 @@ services:
 
   druid-overlord:
     extends:
-      file: docker-compose.base.yml
+      file: ../../docker/docker-compose.base.yml
       service: druid-overlord
     environment:
       - DRUID_INTEGRATION_TEST_GROUP=${DRUID_INTEGRATION_TEST_GROUP}
@@ -76,7 +76,7 @@ services:
 
   druid-overlord-two:
     extends:
-      file: docker-compose.base.yml
+      file: ../../docker/docker-compose.base.yml
       service: druid-overlord-two
     environment:
       - DRUID_INTEGRATION_TEST_GROUP=${DRUID_INTEGRATION_TEST_GROUP}
@@ -90,7 +90,7 @@ services:
 
   druid-broker:
     extends:
-      file: docker-compose.base.yml
+      file: ../../docker/docker-compose.base.yml
       service: druid-broker
     environment:
       - DRUID_INTEGRATION_TEST_GROUP=${DRUID_INTEGRATION_TEST_GROUP}
@@ -103,7 +103,7 @@ services:
 
   druid-router:
     extends:
-      file: docker-compose.base.yml
+      file: ../../docker/docker-compose.base.yml
       service: druid-router
     environment:
       - DRUID_INTEGRATION_TEST_GROUP=${DRUID_INTEGRATION_TEST_GROUP}
