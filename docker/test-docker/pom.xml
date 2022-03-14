@@ -52,7 +52,19 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
     </parent>
 
     <properties>
+       <druid.image.name>${project.groupId}/test:${project.version}</druid.image.name>
+       <confluent-version>5.5.1</confluent-version>
+       <mariadb.version>5.5.1</mariadb.version>
     </properties>
+
+    <repositories>
+        <!-- For the Kafka protobuf provider. -->
+        <repository>
+            <id>confluent</id>
+            <name>Confluent</name>
+            <url>https://packages.confluent.io/maven/</url>
+        </repository>
+    </repositories>
 
     <dependencies>
         <dependency>
@@ -61,6 +73,17 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
             <version>${project.parent.version}</version>
   			<type>pom</type>
         </dependency>
+        <!-- Dependencies placed in the image. -->
+		<dependency>
+		    <groupId>mysql</groupId>
+		    <artifactId>mysql-connector-java</artifactId>
+		    <version>${mysql.version}</version>
+		</dependency>
+		<dependency>
+		    <groupId>io.confluent</groupId>
+		    <artifactId>kafka-protobuf-provider</artifactId>
+		    <version>${confluent-version}</version>
+		</dependency>
     </dependencies>
 
    <profiles>
@@ -71,6 +94,42 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
             </activation>
 		    <build>
 			    <plugins>
+			      <!-- Populate the target/docker directory with the MySQL
+                       and Kafka clients. -->
+			      <plugin>
+			        <groupId>org.apache.maven.plugins</groupId>
+			        <artifactId>maven-dependency-plugin</artifactId>
+			        <version>3.3.0</version>
+			        <executions>
+			          <execution>
+			            <id>copy</id>
+			            <phase>prepare-package</phase>
+			            <goals>
+			              <goal>copy</goal>
+			            </goals>
+			            <configuration>
+			              <artifactItems>
+			                <artifactItem>
+							    <groupId>mysql</groupId>
+							    <artifactId>mysql-connector-java</artifactId>
+							    <version>${mysql.version}</version>
+			                  <type>jar</type>
+			                  <overWrite>true</overWrite>
+			                  <outputDirectory>${project.build.directory}/docker</outputDirectory>
+			                </artifactItem>
+			                <artifactItem>
+							    <groupId>io.confluent</groupId>
+							    <artifactId>kafka-protobuf-provider</artifactId>
+							    <version>${confluent-version}</version>
+			                  <type>jar</type>
+			                  <overWrite>true</overWrite>
+			                  <outputDirectory>${project.build.directory}/docker</outputDirectory>
+			                </artifactItem>
+			              </artifactItems>
+			            </configuration>
+			          </execution>
+			        </executions>
+			      </plugin>
 					<plugin>
 					    <groupId>org.codehaus.mojo</groupId>
 					    <artifactId>exec-maven-plugin</artifactId>
@@ -88,33 +147,36 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
 							        <workingDirectory>${project.basedir}</workingDirectory>
 							        <arguments>
 							            <argument>rmi</argument>
-							            <argument>${project.groupId}/${project.artifactId}:${project.version}</argument>
+							            <argument>${druid.image.name}</argument>
 							        </arguments>
 						        </configuration>
 					    	</execution>
 
-						    <!--
-						      Create new docker image using Dockerfile which must be present in current working directory.
-						      Tag the image using maven project version information.
-						    -->
+						    <!-- Create the docker image via a script which will also grab
+                                 the distribution tarball. -->
 						    <execution>
-						        <id>docker-build</id>
+						        <id>test-image</id>
 						        <phase>install</phase>
 						        <goals>
 						        	<goal>exec</goal>
 						        </goals>
 						        <configuration>
-							        <executable>docker</executable>
-							        <workingDirectory>${project.basedir}/docker</workingDirectory>
+							         <environmentVariables>
+										<DRUID_VERSION>${project.version}</DRUID_VERSION>
+							            <MYSQL_VERSION>${mysql.version}</MYSQL_VERSION>
+							            <MARIADB_VERSION>${mariadb.version}</MARIADB_VERSION>
+							            <KAFKA_VERSION>${apache.kafka.version}</KAFKA_VERSION>
+							            <CONFLUENT_VERSION>${confluent-version}</CONFLUENT_VERSION>
+							            <ZK_VERSION>${zookeeper.version}</ZK_VERSION>
+							            <HADOOP_VERSION>${hadoop.compile.version}</HADOOP_VERSION>
+										<MYSQL_DRIVER_CLASSNAME>com.mysql.jdbc.Driver</MYSQL_DRIVER_CLASSNAME>
+									    <IMAGE_NAME>${druid.image.name}</IMAGE_NAME>
+										<TARGET_DIR>${project.build.directory}</TARGET_DIR>
+					          		</environmentVariables>
+							        <workingDirectory>${project.basedir}</workingDirectory>
+							        <executable>bash</executable>
 							        <arguments>
-							            <argument>build</argument>
-							            <argument>-t</argument>
-							            <argument>${project.groupId}/${project.artifactId}:${project.version}</argument>
-										<argument>--build-arg</argument>
-										<argument>BASE_IMAGE=${project.groupId}/base-docker:${project.version}</argument>
-										<argument>--build-arg</argument>
-										<argument>DRUID_TARBALL=../../../distribution/target/apache-druid-${project.version}-bin.tar.gz</argument>
-							            <argument>.</argument>
+							            <argument>build-image.sh</argument>
 							          </arguments>
 						      </configuration>
 						    </execution>

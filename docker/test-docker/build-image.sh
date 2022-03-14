@@ -24,26 +24,34 @@ set -e
 # Enable for tracing
 set -x
 
-if [ $# -lt 1 ]; then
-	echo "Usage: $0 <druid-version>" 2>&1
-	exit 1
-fi
-
 # Fail on unset environment variables
 set -u
 
-export DRUID_VERSION=$1
+# Print environment for debugging
+env
 
-rm -Rf target/docker
-mkdir -p target/docker
-cp -r docker/* target/docker
+SCRIPT_DIR=$(cd $(dirname $0) && pwd)
 
-# Grab the distribution. Rename it so that the build script
-# doesn't have to mess with versions (much).
-cp ../../distribution/target/apache-druid-$DRUID_VERSION-bin.tar.gz target/docker/
-cd target/docker
+# Maven should have created the docker dir with the needed
+# dependency jars. If doing this by hand, run Maven once to
+# populate these jars.
+if [ ! -d $TARGET_DIR/docker]; then
+	echo "$TARGET_DIR/docker does not exist, should contain dependency jars" 1>&2
+	exit 1
+fi
+cp -r docker/* $TARGET_DIR/docker
+cd $TARGET_DIR/docker
 
-# TODO: Rename base image to test-base.
-docker build -t org.apache.druid/test:$DRUID_VERSION \
+# Grab the distribution.
+DISTRIB_FILE=apache-druid-$DRUID_VERSION-bin.tar.gz
+if [ ! -f $DISTRIB_FILE ]; then
+	cp $PARENT_DIR/distribution/target/$DISTRIB_FILE .
+fi
+
+docker build -t $IMAGE_NAME \
 	--build-arg DRUID_VERSION=$DRUID_VERSION \
+	--build-arg MYSQL_VERSION=$MYSQL_VERSION \
+	--build-arg CONFLUENT_VERSION=$CONFLUENT_VERSION \
+	--build-arg HADOOP_VERSION=$HADOOP_VERSION \
+	--build-arg MYSQL_DRIVER_CLASSNAME=$MYSQL_DRIVER_CLASSNAME \
 	.
