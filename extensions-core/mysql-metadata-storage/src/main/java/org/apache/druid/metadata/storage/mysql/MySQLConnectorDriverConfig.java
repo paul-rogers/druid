@@ -20,6 +20,7 @@
 package org.apache.druid.metadata.storage.mysql;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Strings;
 
 import java.util.Objects;
 
@@ -27,6 +28,15 @@ public class MySQLConnectorDriverConfig
 {
   @JsonProperty
   private String driverClassName = "com.mysql.jdbc.Driver";
+
+  public static MySQLConnectorDriverConfig create(String driverClassName)
+  {
+    MySQLConnectorDriverConfig config = new MySQLConnectorDriverConfig();
+    if (!Strings.isNullOrEmpty(driverClassName)) {
+      config.driverClassName = driverClassName;
+    }
+    return config;
+  }
 
   @JsonProperty
   public String getDriverClassName()

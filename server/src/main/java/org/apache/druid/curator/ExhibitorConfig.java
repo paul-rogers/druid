@@ -48,6 +48,15 @@ public class ExhibitorConfig
   @Min(0)
   private int pollingMs = 10000;
 
+  public static ExhibitorConfig create(List<String> hosts)
+  {
+    ExhibitorConfig config = new ExhibitorConfig();
+    if (hosts != null) {
+      config.hosts = hosts;
+    }
+    return config;
+  }
+
   public List<String> getHosts()
   {
     return hosts;
@@ -72,5 +81,4 @@ public class ExhibitorConfig
   {
     return pollingMs;
   }
-
 }

@@ -68,15 +68,8 @@ public class CuratorModule implements Module
     JsonConfigProvider.bind(binder, EXHIBITOR_CONFIG_PREFIX, ExhibitorConfig.class);
   }
 
-  @Provides
-  @LazySingleton
-  @SuppressForbidden(reason = "System#err")
-  public CuratorFramework makeCurator(ZkEnablementConfig zkEnablementConfig, CuratorConfig config, EnsembleProvider ensembleProvider, Lifecycle lifecycle)
+  public static CuratorFramework createCurator(CuratorConfig config, EnsembleProvider ensembleProvider)
   {
-    if (!zkEnablementConfig.isEnabled()) {
-      throw new RuntimeException("Zookeeper is disabled, Can't create CuratorFramework.");
-    }
-
     final CuratorFrameworkFactory.Builder builder = CuratorFrameworkFactory.builder();
     if (!Strings.isNullOrEmpty(config.getZkUser()) && !Strings.isNullOrEmpty(config.getZkPwd())) {
       builder.authorization(
@@ -87,7 +80,7 @@ public class CuratorModule implements Module
 
     RetryPolicy retryPolicy = new BoundedExponentialBackoffRetry(BASE_SLEEP_TIME_MS, MAX_SLEEP_TIME_MS, MAX_RETRIES);
 
-    final CuratorFramework framework = builder
+    return builder
         .ensembleProvider(ensembleProvider)
         .sessionTimeoutMs(config.getZkSessionTimeoutMs())
         .connectionTimeoutMs(config.getZkConnectionTimeoutMs())
@@ -95,6 +88,18 @@ public class CuratorModule implements Module
         .compressionProvider(new PotentiallyGzippedCompressionProvider(config.getEnableCompression()))
         .aclProvider(config.getEnableAcl() ? new SecuredACLProvider() : new DefaultACLProvider())
         .build();
+  }
+
+  @Provides
+  @LazySingleton
+  @SuppressForbidden(reason = "System#err")
+  public CuratorFramework makeCurator(ZkEnablementConfig zkEnablementConfig, CuratorConfig config, EnsembleProvider ensembleProvider, Lifecycle lifecycle)
+  {
+    if (!zkEnablementConfig.isEnabled()) {
+      throw new RuntimeException("Zookeeper is disabled, Can't create CuratorFramework.");
+    }
+
+    final CuratorFramework framework = createCurator(config, ensembleProvider);
 
     framework.getUnhandledErrorListenable().addListener((message, e) -> {
       log.error(e, "Unhandled error in Curator, stopping server.");
@@ -123,9 +128,7 @@ public class CuratorModule implements Module
     return framework;
   }
 
-  @Provides
-  @LazySingleton
-  public EnsembleProvider makeEnsembleProvider(CuratorConfig config, ExhibitorConfig exConfig)
+  public static EnsembleProvider createEnsembleProvider(CuratorConfig config, ExhibitorConfig exConfig)
   {
     if (exConfig.getHosts().isEmpty()) {
       return new FixedEnsembleProvider(config.getZkHosts());
@@ -155,7 +158,14 @@ public class CuratorModule implements Module
     };
   }
 
-  private Exhibitors.BackupConnectionStringProvider newBackupProvider(final String zkHosts)
+  @Provides
+  @LazySingleton
+  public EnsembleProvider makeEnsembleProvider(CuratorConfig config, ExhibitorConfig exConfig)
+  {
+    return createEnsembleProvider(config, exConfig);
+  }
+
+  private static Exhibitors.BackupConnectionStringProvider newBackupProvider(final String zkHosts)
   {
     return () -> zkHosts;
   }

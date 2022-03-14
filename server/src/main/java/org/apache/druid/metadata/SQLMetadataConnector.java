@@ -122,7 +122,7 @@ public abstract class SQLMetadataConnector implements MetadataStorageConnector
    */
   public abstract String getQuoteString();
 
-  public String getValidationQuery()
+  public static String getValidationQuery()
   {
     return "SELECT 1";
   }
@@ -646,10 +646,8 @@ public abstract class SQLMetadataConnector implements MetadataStorageConnector
     return config.get();
   }
 
-  protected BasicDataSource getDatasource()
+  protected static BasicDataSource makeDatasource(MetadataStorageConnectorConfig connectorConfig)
   {
-    MetadataStorageConnectorConfig connectorConfig = getConfig();
-
     BasicDataSource dataSource;
 
     try {
@@ -673,6 +671,11 @@ public abstract class SQLMetadataConnector implements MetadataStorageConnector
     dataSource.setTestOnBorrow(true);
 
     return dataSource;
+  }
+
+  protected BasicDataSource getDatasource()
+  {
+    return makeDatasource(getConfig());
   }
 
   protected final <T> T inReadOnlyTransaction(

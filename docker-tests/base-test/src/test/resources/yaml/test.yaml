@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#version: "2.2"
-networks:
-  druid-it-net:
-    name: druid-it-net
-    ipam:
-      config:
-        - subnet: 172.172.172.0/24
-
-services:
-  zookeeper:
-    extends:
-      file: ../../docker/docker-compose.base.yml
-      service: zookeeper
-      
-  metadata:
-    extends:
-      file: ../../docker/docker-compose.base.yml
-      service: metadata
-      
-  kafka:
-    extends:
-      file: ../../docker/docker-compose.base.yml
-      service: kafka
+# Definition of a simple test "cluster"
+# See https://yaml.org/spec/1.2.2 for more about YAML
+name: example
+include: foo.yaml
+dockerHost: localhost
+zk:
+  #hosts: [ 172.172.172.4 ]
+  service: zookeeper
+  containerPort: 2181
+metastore:
+  service: metastore
+  connectURI: "jdbc:mysql://<host>:<port>/druid"
+  containerPort: 3306
+  user: "druid"
+  password: "driud"
+kafka:
+  containerPort: 9092
+  hostPort: 9093
