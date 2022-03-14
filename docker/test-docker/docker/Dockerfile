@@ -15,24 +15,45 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG DRUID_VERSION
+# Builds the Druid image for testing. Does not include dependent
+# tools: those reside in their own images.
 
-FROM org.apache.druid/base-docker:$DRUID_VERSION
+# This Dockerfile prefers to use the COPY command over ADD.
+# See: https://phoenixnap.com/kb/docker-add-vs-copy
+
+ARG JDK_VERSION=8-slim-buster
+
+# The FROM image provides Java on top of Debian, and
+# thus provides bash, apt-get, etc.
+# See https://hub.docker.com/_/openjdk
+
+FROM openjdk:$JDK_VERSION
 
 ARG DRUID_VERSION
 ENV DRUID_VERSION=$DRUID_VERSION
+ARG CONFLUENT_VERSION
+ENV CONFLUENT_VERSION=$CONFLUENT_VERSION
+ARG MYSQL_VERSION
+ENV MYSQL_VERSION=$MYSQL_VERSION
+ARG MYSQL_DRIVER_CLASSNAME=com.mysql.jdbc.Driver
+ENV MYSQL_DRIVER_CLASSNAME=$MYSQL_DRIVER_CLASSNAME
 
 # Populate build artifacts
 
 COPY apache-druid-${DRUID_VERSION}-bin.tar.gz /usr/local/
 COPY test-setup.sh /root/
+COPY druid.sh /usr/local
 #COPY ../target/shared/test-data /test-data
 
 # Do the setup tasks
 
 RUN bash /root/test-setup.sh
 
-# Start in the Druid directory. Note: if running a non-Druid
-# service, the launch may want to cd elsewhere.
+# Fill in dependencies. The names are at the mercy of the
+# upstream providers.
+COPY kafka-protobuf-provider-${CONFLUENT_VERSION}.jar /usr/local/druid/lib
+COPY mysql-connector-java-${MYSQL_VERSION}.jar /usr/local/druid/lib
+
+# Start in the Druid directory.
 
 WORKDIR /usr/local/druid

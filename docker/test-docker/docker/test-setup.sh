@@ -28,10 +28,9 @@ set -x
 # For debugging: verify environment
 env
 
-if [ -z "$DRUID_VERSION" ]; then
-	echo "DRUID_VERSION is not set" 2>&1
-	exit 1
-fi
+# Druid system user
+
+adduser --system --group druid
 
 # Install Druid, owned by user:group druid:druid
 # The original Druid directory contains only
@@ -41,28 +40,16 @@ fi
 DRUID_HOME=/usr/local/druid
 cd /usr/local/
 
-# TODO: Skip this once base uses the correct name
-mv druid druid-lib
-
 tar -xzf apache-druid-${DRUID_VERSION}-bin.tar.gz
 rm apache-druid-${DRUID_VERSION}-bin.tar.gz
+chown -R druid:druid apache-druid-${DRUID_VERSION}
 
 # Leave the versioned directory, create a symlink to $DRUID_HOME.
-chown -R druid:druid apache-druid-${DRUID_VERSION}
 ln -s apache-druid-${DRUID_VERSION} $DRUID_HOME
-
-# Merge libs provided by the base image
-mv druid-lib/lib/* druid/lib
-
-# Remove step-by-step. Will fail if the base adds more items
-# that this script does not yet handle.
-rmdir druid-lib/lib
-# TODO: Remove this line
-rmdir druid-lib/extensions
-rmdir druid-lib
 
 # Convenience script to run Druid for tools.
 # Expands the env vars into the script for stability.
+# Maybe not needed now?
 cat > run-druid.sh << EOF
 #! /bin/bash
 
@@ -75,20 +62,6 @@ java -cp "${DRUID_HOME}/lib/*" \\
 EOF
 chmod a+x run-druid.sh
 
-# TODO: Temporary
-ln -s /start-mysql.sh start-mysql.sh
-
-# Initialize metadata
-
-./start-mysql.sh
-
-./run-druid.sh \
-	org.apache.druid.cli.Main tools metadata-init \
-	--connectURI="jdbc:mysql://localhost:3306/druid" \
-	--user=druid --password=diurd
-
-service mysql stop
-
 # Add Druid-related environment info. Only need those defined here:
 # Docker provides those defined at build time.
 
@@ -96,8 +69,15 @@ cat >> druid-env.sh << EOF
 export DRUID_HOME=$DRUID_HOME
 EOF
 
-# TODO: Temporary
 cat >> /root/.bashrc << EOF
 source /usr/local/druid-env.sh
 EOF
+cat >> /home/druid/.bashrc << EOF
+source /usr/local/druid-env.sh
+EOF
 
+# Clean up time
+# Should be nothing to clean...
+
+rm -rf /tmp/*
+rm -rf /var/tmp/*
