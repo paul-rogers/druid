@@ -33,7 +33,9 @@
     </parent>
 
 	<modules>
+		<module>test-base</module>
 		<module>high-availability</module>
+		<module>base-test</module>
 	</modules>
 
     <repositories>
@@ -418,6 +420,7 @@
             <version>${project.parent.version}</version>
             <scope>test</scope>
         </dependency>
+		<!-- See https://maven.apache.org/plugins/maven-jar-plugin/examples/create-test-jar.html -->
         <dependency>
             <groupId>org.apache.druid</groupId>
             <artifactId>druid-integration-tests</artifactId>

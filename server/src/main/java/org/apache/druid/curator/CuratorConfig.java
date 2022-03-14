@@ -56,6 +56,13 @@ public class CuratorConfig
   @JsonProperty("authScheme")
   private String authScheme = "digest";
 
+  public static CuratorConfig create(String hosts)
+  {
+    CuratorConfig config = new CuratorConfig();
+    config.zkHosts = hosts;
+    return config;
+  }
+
   public String getZkHosts()
   {
     return zkHosts;
