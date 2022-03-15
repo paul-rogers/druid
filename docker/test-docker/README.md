@@ -1,7 +1,14 @@
 # Druid Test Docker Image
 
-This project builds the Docker image for Druid (only) for integration tests.
-The Docker compose files use "official" images for dependencies.
+This project builds the Docker image for Druid for integration tests.
+The Docker compose files use "official" images for dependencies such
+as ZooKeeper, MySQL and Kafka. The image contains the Druid distribution,
+unpacked, along with the MySQL and Kafka dependencies. Docker Compose is
+used to pass configuration specific to each service.
+
+The image here is distinct from the
+["retail" image](https://druid.apache.org/docs/latest/tutorials/docker.html)
+used for getting started.
 
 ## Build Process
 
@@ -148,68 +155,158 @@ The Druid test image adds the following to the base image:
 * Druid-related environment variables in `/etc/profile.d/druid-env.sh`
 * Test data (TBD)
 * Script to run Druid: `/usr/local/run-druid.sh`
+* Extra libraries (Kafka, MySQL) placed in the Druid `lib` directory.
 
-### Added Later
+The specific "bill of materials" follows. `DRUID_HOME` is the location of
+the Druid install and is set to `/usr/local/druid`.
 
-The above provides the Druid software. To run we use `docker-compose` to
-fill in the operational bits:
+| Variable or Item | Source | Destination |
+| -------- | ------ | ----- |
+| Druid build | `distribution/target` | `$DRUID_HOME` |
+| MySQL Connector | Maven repo | `$DRUID_HOME/lib` |
+| Kafka Protobuf | Maven repo | `$DRUID_HOME/lib` |
+| Druid launch script | `docker/launch.sh` / `/usr/local/launch.sh` |
+| Env-var-to-config script | `docker/druid.sh` | `/usr/local/druid.sh` |
 
-* Data directories
-* Log directory
-* Configuration files
+Environment variables defind for both users `root` and `druid`. Most of
+these are from the container build process. `DRUID_HOME` is useful at
+runtime.
 
-These are provided via a "shared" directory mounted into the container.
-The shared directory is build in the `target` folder for each test.
+| Name | Description |
+| ---- | ----------- |
+| `DRUID_HOME` | Location of the Druid install |
+| `DRUID_VERSION` | Druid version used to build the image |
+| `JAVA_HOME` | Java location |
+| `JAVA_VERSION` | Java version |
+| `MYSQL_VERSION` | MySQL version (DB, connector) (not actually used) |
+| `MYSQL_DRIVER_CLASSNAME` | Name of the MySQL driver (not actually used) |
+| `CONFLUENT_VERSION` | Kafka Protobuf library version (not actually used) |
 
-------
+## Configuration
 
-Old version
+At runtime, two additional sources of information are needed:
 
-This project builds the Docker image for integration test as the second part of
-a two-part process. See ``../base-image/README.md` for information on the first part.
+* Shared directory (see next section)
+* Configuration via environment variables.
 
-This stage adds artifacts from the build process including the Druid distribution
-tarball itself.
+Configuration is an extended form of that used by the
+[production Docker image](https://druid.apache.org/docs/latest/tutorials/docker.html):
+we pass in a large number of environment variables of two kinds:
 
+* General configuration (capitalized)
+* Druid configuration file settings (lower case)
 
-## Manual Test Runs
+We use `docker-compose` to gather up the variables.
 
-The build process is optimized for development speed. While you can run a full build,
-doing so is tedious and wasteful. Instead, do the following.
+These are provided via a `shared` directory mounted into the container.
+The shared directory is built in the `target` folder for each test.
 
-### Build the Base Image (Once)
+The `launch.sh` script fills in a number of implicit configuration items:
 
-* Build the base image. Do this once, then only when external dependencies change.
+| Item | Description |
+| ---- | ----------- |
+| Heap dump path | Set to `${SHARED}/logs/<instance>` |
+| Log4J config | Optional at `${SHARED}/conf/log4j.xml` |
+| Hadoop config | Optional at `${SHARED}/hadoop-xml` |
+| Extra classpath | `DRUID_CLASSPATH` |
+| Java Options | `COMMON_DRUID_JAVA_OPTS` <br/>
+SERVICE_DRUID_JAVA_OPTS |
+| Debug settings | `DEBUG_OPTS` |
+| Extra libraries | Optional at `${SHARED}/lib` |
 
-```bash
-cd $DRUID_DEV/docker/base-image
-mvn -P base-image install
+### General Environment Variables
+
+The required environment variables include:
+
+| Name | Description |
+| `DRUID_SERVICE` | Name of the Druid service to run. |
+| `INSTANCE_NAME` | Number/name of an instance when running more than one of
+the same kind of service |
+| `COMMON_DRUID_JAVA_OPTS` | Java options common to all services. |
+| `SERVICE_DRUID_JAVA_OPTS` | Java options for the specific service. |
+| `DEBUG_OPTS` | Options to enable debugging. |
+| `DRUID_CLASSPATH` | Additional test-specific class path entries.
+(See also `$SHARED/lib`.) |
+
+### Service Config Environment Variables
+
+The various `*.env` files provide Druid configuration encoded as environment
+variables. Example:
+
+```text
+druid_lookup_numLookupLoadingThreads=1
+druid_server_http_numThreads=20
 ```
 
-### On Each Druid Build
+These are defined in a hierarchy:
 
-* Do a distribution build of Druid:
+* `common.env` - settings common to all services. Acts as defaults.
+* `<service>.env` - settings specific to a single service.
+* `docker-compose.yaml` - test-specific settings.
+* `auth-common.env` - enables security and authorization for the cluster.
+  Add this to tests which test security.
 
-```bash
-cd $DRUID_DEV
-mvn clean package -P dist,skip-static-checks,skip-tests -Dmaven.javadoc.skip=true -T1.0C
+The `launch.sh` script converts these variables to config files in
+`/tmp/conf/druid`. Those files are then added to the class path.
+
+## Shared Directory
+
+The image assumes a "shared" directory passes in additional configuration
+information, and exports logs and other items for inspection.
+
+* Location in the container: `/shared`
+* Location on the host: `<project>/target/shared`
+
+This means that each test group has a distinct shared directory,
+populated as needed for that test.
+
+Input items:
+
+| Item | Description |
+| ---- | ----------- |
+| `conf` | `log4j.xml` config (optional) |
+| `hadoop-xml` | Hadoop configuration (optional) |
+| `hadoop-dependencies` | Hadoop dependencies (optional) |
+| `lib` | Extra Druid class path items (optional) |
+
+Output items:
+
+| Item | Description |
+| ---- | ----------- |
+| `logs` | Log files from each service |
+| `tasklogs` | Indexer task logs |
+| `kafka` | Kafka persistence |
+| `db` | MySQL database |
+| `druid` | Druid persistence, etc. |
+
+## Entry Point
+
+The container launches the `launch.sh` script which:
+
+* Converts environment variables to config files.
+* Assembles the Java command line arguments, including those
+  explained above, and the just-generated config files.
+* Launches Java as "pid 1" so it will receive signals.
+
+Middle Manager launches Peon processes which must be reaped.
+Add [the following option](https://docs.docker.com/compose/compose-file/compose-file-v2/#init)
+to the Docker Compose configuration for this service:
+
+```text
+   init: true
 ```
 
-* Build the test image. Do this each time you build Druid as above.
+## Service Names
 
-```bash
-cd $DRUID_DEV/docker/test-image
-mvn -P test-image install
-```
+The Docker Compose file set up an "overlay" network to connect the containers.
+Each is known via a host name taken from the service name. Thus "zookeeper" is
+the name of the ZK service and of the container that runs ZK. Use these names
+in configuration within each container.
 
-The above step is a bit tedious: you have to wait for `mvn` to grind through things you
-don't care about. To go faster, use:
 
-```bash
-cd $DRUID_DEV/docker/test-image
-./build-image.sh <version>
-```
 
-Remember to specify the current Maven version. (All Maven does for us is to invoke this
-script with the current version, which is why we can do the task by hand faster.)
+### Host Ports
 
+Outside of the application network, containers are accessible only via the
+host ports defined in the Docker Compose files. Thus, ZK is known as `localhost:2181`
+to tests and other code running outside of Docker.

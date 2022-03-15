@@ -16,5 +16,5 @@
 
 . cluster-env.sh
 
-cd docker
+cd druid-cluster
 docker-compose down docker-compose-test.yml

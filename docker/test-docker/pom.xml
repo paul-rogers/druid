@@ -125,6 +125,14 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
 			                  <overWrite>true</overWrite>
 			                  <outputDirectory>${project.build.directory}/docker</outputDirectory>
 			                </artifactItem>
+			                <artifactItem>
+							    <groupId>org.apache.druid.extensions</groupId>
+							    <artifactId>druid-testing-tools</artifactId>
+							    <version>${project.version}</version>
+			                  <type>jar</type>
+			                  <overWrite>true</overWrite>
+			                  <outputDirectory>${project.build.directory}/docker</outputDirectory>
+			                </artifactItem>
 			              </artifactItems>
 			            </configuration>
 			          </execution>

@@ -24,15 +24,33 @@ networks:
 services:
   zookeeper:
     extends:
-      file: ../../docker/docker-compose.base.yml
+      file: ../../compose/dependencies.yaml
       service: zookeeper
-      
+
   metadata:
     extends:
-      file: ../../docker/docker-compose.base.yml
+      file: ../../compose/dependencies.yaml
       service: metadata
-      
-  kafka:
-    extends:
-      file: ../../docker/docker-compose.base.yml
-      service: kafka
+
+#  kafka:
+#    extends:
+#      file: ../../compose/dependencies.yaml
+#      service: kafka
+
+  router:
+    image: org.apache.druid/test:${DRUID_VERSION}
+    container_name: router
+    networks:
+      druid-it-net:
+        ipv4_address: 172.172.172.70
+    ports:
+      - 5004:5004
+      - 8888:8888
+      - 9088:9088
+    volumes:
+      - ${SHARED_DIR}:/shared
+    env_file:
+      - ../../compose/environment-configs/common.env
+      - ../../compose/environment-configs/router.env
+    depends_on:
+      - zookeeper

@@ -30,27 +30,16 @@ env
 
 # Druid system user
 
-adduser --system --group druid
+adduser --system --group --no-create-home druid
 
-# Install Druid, owned by user:group druid:druid
-# The original Druid directory contains only
-# libraries. No extensions should be present: those
-# should be added in this step.
-
-DRUID_HOME=/usr/local/druid
-cd /usr/local/
-
-tar -xzf apache-druid-${DRUID_VERSION}-bin.tar.gz
-rm apache-druid-${DRUID_VERSION}-bin.tar.gz
-chown -R druid:druid apache-druid-${DRUID_VERSION}
-
-# Leave the versioned directory, create a symlink to $DRUID_HOME.
-ln -s apache-druid-${DRUID_VERSION} $DRUID_HOME
+cd /
+chmod +x launch.sh
+chown druid:druid launch.sh druid.sh
 
 # Convenience script to run Druid for tools.
 # Expands the env vars into the script for stability.
 # Maybe not needed now?
-cat > run-druid.sh << EOF
+cat > /run-druid.sh << EOF
 #! /bin/bash
 
 java -cp "${DRUID_HOME}/lib/*" \\
@@ -60,21 +49,28 @@ java -cp "${DRUID_HOME}/lib/*" \\
 	-Ddruid.metadata.mysql.driver.driverClassName=$MYSQL_DRIVER_CLASSNAME \\
 	\$*
 EOF
-chmod a+x run-druid.sh
+chmod a+x /run-druid.sh
 
-# Add Druid-related environment info. Only need those defined here:
-# Docker provides those defined at build time.
+# Install Druid, owned by user:group druid:druid
+# The original Druid directory contains only
+# libraries. No extensions should be present: those
+# should be added in this step.
 
-cat >> druid-env.sh << EOF
-export DRUID_HOME=$DRUID_HOME
-EOF
+cd /usr/local/
 
-cat >> /root/.bashrc << EOF
-source /usr/local/druid-env.sh
-EOF
-cat >> /home/druid/.bashrc << EOF
-source /usr/local/druid-env.sh
-EOF
+tar -xzf apache-druid-${DRUID_VERSION}-bin.tar.gz
+rm apache-druid-${DRUID_VERSION}-bin.tar.gz
+
+ls -l /tmp/druid
+# Add extra libraries and extensions.
+mv /tmp/druid/lib/* apache-druid-${DRUID_VERSION}/lib
+mv /tmp/druid/extensions/* apache-druid-${DRUID_VERSION}/extensions
+
+# The whole shebang is owned by druid.
+chown -R druid:druid apache-druid-${DRUID_VERSION}
+
+# Leave the versioned directory, create a symlink to $DRUID_HOME.
+ln -s apache-druid-${DRUID_VERSION} $DRUID_HOME
 
 # Clean up time
 # Should be nothing to clean...
