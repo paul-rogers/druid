@@ -38,22 +38,27 @@ ENV MYSQL_VERSION=$MYSQL_VERSION
 ARG MYSQL_DRIVER_CLASSNAME=com.mysql.jdbc.Driver
 ENV MYSQL_DRIVER_CLASSNAME=$MYSQL_DRIVER_CLASSNAME
 
+ENV DRUID_HOME=/usr/local/druid
+
 # Populate build artifacts
 
 COPY apache-druid-${DRUID_VERSION}-bin.tar.gz /usr/local/
-COPY test-setup.sh /root/
-COPY druid.sh /usr/local
-#COPY ../target/shared/test-data /test-data
+COPY druid-testing-tools-${DRUID_VERSION}.jar /tmp/druid/extensions/druid-testing-tools/
+COPY kafka-protobuf-provider-${CONFLUENT_VERSION}.jar /tmp/druid/lib/
+COPY mysql-connector-java-${MYSQL_VERSION}.jar /tmp/druid/lib/
+COPY test-setup.sh /
+COPY druid.sh /
+COPY launch.sh /
 
 # Do the setup tasks
 
-RUN bash /root/test-setup.sh
+RUN bash /test-setup.sh
 
 # Fill in dependencies. The names are at the mercy of the
 # upstream providers.
-COPY kafka-protobuf-provider-${CONFLUENT_VERSION}.jar /usr/local/druid/lib
-COPY mysql-connector-java-${MYSQL_VERSION}.jar /usr/local/druid/lib
 
 # Start in the Druid directory.
 
-WORKDIR /usr/local/druid
+USER druid:druid
+WORKDIR /
+ENTRYPOINT [ "bash", "/launch.sh" ]

@@ -11,8 +11,9 @@ export OVERRIDE_ENV=
 export DRUID_VERSION=0.23.0-SNAPSHOT
 
 mkdir -p $SHARED_DIR/logs
+mkdir -p $SHARED_DIR/tasklogs
 mkdir -p $SHARED_DIR/db
 mkdir -p $SHARED_DIR/kafka
 
-cd docker
-docker-compose -f docker-compose.test.yml up -d
+cd druid-cluster
+docker-compose -f docker-compose.test.yaml up -d

@@ -22,5 +22,5 @@ export DRUID_VERSION=$1
 
 . cluster-env.sh
 
-cd docker
+cd druid-cluster
 docker-compose up docker-compose-test.yml
