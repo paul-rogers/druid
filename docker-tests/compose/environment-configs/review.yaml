@@ -1,0 +1,123 @@
+services:
+
+# TODO: Remove
+  druid-overlord-two:
+    image: org.apache.druid/test:${DRUID_VERSION}
+    container_name: druid-overlord-two
+    hostname: druid-overlord-two
+    networks:
+      druid-it-net:
+        ipv4_address: 172.172.172.11
+    ports:
+      - 8590:8090
+      - 8790:8290
+      - 6009:5009
+    privileged: true
+    volumes:
+      - ${HOME}/shared:/shared
+      - ./service-supervisords/druid.conf:/usr/lib/druid/conf/druid.conf
+    env_file:
+      - environment-configs/common
+      - environment-configs/overlord
+      - ${OVERRIDE_ENV}
+
+# TODO: Review the following
+  druid-coordinator-two:
+    image: org.apache.druid/test:${DRUID_VERSION}
+    container_name: druid-coordinator-two
+    hostname: druid-coordinator-two
+    networks:
+      druid-it-net:
+        ipv4_address: 172.172.172.21
+    ports:
+      - 8581:8081
+      - 8781:8281
+      - 6006:5006
+    privileged: true
+    volumes:
+      - ${HOME}/shared:/shared
+      - ./service-supervisords/druid.conf:/usr/lib/druid/conf/druid.conf
+    env_file:
+      - ./environment-configs/common
+      - ./environment-configs/coordinator
+      - ${OVERRIDE_ENV}
+
+
+### TODO Review the following
+  druid-router:
+    image: org.apache.druid/test:${DRUID_VERSION}
+    container_name: druid-router
+    hostname: druid-router
+    networks:
+      druid-it-net:
+        ipv4_address: 172.172.172.70
+    ports:
+      - 5004:5004
+      - 8888:8888
+      - 9088:9088
+    privileged: true
+    volumes:
+      - ${HOME}/shared:/shared
+      - ./service-supervisords/druid.conf:/usr/lib/druid/conf/druid.conf
+    env_file:
+      - ./environment-configs/common
+      - ./environment-configs/router
+      - ${OVERRIDE_ENV}
+
+  druid-router-permissive-tls:
+    image: org.apache.druid/test:${DRUID_VERSION}
+    container_name: druid-router-permissive-tls
+    networks:
+      druid-it-net:
+        ipv4_address: 172.172.172.71
+    ports:
+      - 5001:5001
+      - 8889:8889
+      - 9089:9089
+    privileged: true
+    volumes:
+      - ${HOME}/shared:/shared
+      - ./service-supervisords/druid.conf:/usr/lib/druid/conf/druid.conf
+    env_file:
+      - ./environment-configs/common
+      - ./environment-configs/router-permissive-tls
+      - ${OVERRIDE_ENV}
+
+  druid-router-no-client-auth-tls:
+    image: org.apache.druid/test:${DRUID_VERSION}
+    container_name: druid-router-no-client-auth-tls
+    networks:
+      druid-it-net:
+        ipv4_address: 172.172.172.72
+    ports:
+      - 5002:5002
+      - 8890:8890
+      - 9090:9090
+    privileged: true
+    volumes:
+      - ${HOME}/shared:/shared
+      - ./service-supervisords/druid.conf:/usr/lib/druid/conf/druid.conf
+    env_file:
+      - ./environment-configs/common
+      - ./environment-configs/router-no-client-auth-tls
+      - ${OVERRIDE_ENV}
+
+  druid-router-custom-check-tls:
+    image: org.apache.druid/test:${DRUID_VERSION}
+    container_name: druid-router-custom-check-tls
+    networks:
+      druid-it-net:
+        ipv4_address: 172.172.172.73
+    ports:
+      - 5003:5003
+      - 8891:8891
+      - 9091:9091
+    privileged: true
+    volumes:
+      - ${HOME}/shared:/shared
+      - ./service-supervisords/druid.conf:/usr/lib/druid/conf/druid.conf
+    env_file:
+      - ./environment-configs/common
+      - ./environment-configs/router-custom-check-tls
+      - ${OVERRIDE_ENV}
+

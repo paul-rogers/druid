@@ -189,14 +189,14 @@ public abstract class SQLMetadataConnector implements MetadataStorageConnector
             public Void withHandle(Handle handle)
             {
               if (!tableExists(handle, tableName)) {
-                log.info("Creating table[%s]", tableName);
+                log.info("Creating table [%s]", tableName);
                 final Batch batch = handle.createBatch();
                 for (String s : sql) {
                   batch.add(s);
                 }
                 batch.execute();
               } else {
-                log.info("Table[%s] already exists", tableName);
+                log.info("Table [%s] already exists", tableName);
               }
               return null;
             }

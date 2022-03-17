@@ -12,6 +12,14 @@ used for getting started.
 
 ## Build Process
 
+Assuming `DRUID_DEV` points to your Druid build directory,
+to build the image (only):
+
+```bash
+cd $DRUID_DEV/docker-tests/test-image
+mvn -P druid-image install
+```
+
 Building of the image occurs in four steps:
 
 * The Maven `pom.xml` file gathers versions and other information from the build.
@@ -34,7 +42,7 @@ A normal `mvn clean` won't remove the Docker image. Because that is often not
 what you want. Instead, do:
 
 ```bash
-mvn clean -P base-image -P test-image
+mvn clean -P druid-image
 ```
 
 ### `target/docker`
@@ -59,6 +67,14 @@ into the image.
 
 ## Debugging
 
+Modern Docker seems to hide the output of commands, which is a hassle to debug
+a build. Oddly, the details appear for a failed build, but not for success.
+Use the followig to see at least some output:
+
+```bash
+export DOCKER_BUILDKIT=0
+```
+
 Once the base container is built, you can run it, log in and poke around. First
 identify the name. See the last line of the container build:
 
@@ -74,6 +90,13 @@ docker images
 
 ```bash
 docker run --rm -it --entrypoint bash org.apache.druid/test:<version>
+```
+
+Quite a few environment variables are provided by Docker and the setup scripts
+to see them, use:
+
+```bash
+env
 ```
 
 ### Manual Image Builds
@@ -151,6 +174,7 @@ See individual tests for test-specific details.
 
 The Druid test image adds the following to the base image:
 
+* A Debian base image with the target JDK installed.
 * Druid in `/usr/local/druid`
 * Druid-related environment variables in `/etc/profile.d/druid-env.sh`
 * Test data (TBD)
@@ -210,9 +234,13 @@ The `launch.sh` script fills in a number of implicit configuration items:
 | Hadoop config | Optional at `${SHARED}/hadoop-xml` |
 | Extra classpath | `DRUID_CLASSPATH` |
 | Java Options | `COMMON_DRUID_JAVA_OPTS` <br/>
-SERVICE_DRUID_JAVA_OPTS |
+`SERVICE_DRUID_JAVA_OPTS` |
 | Debug settings | `DEBUG_OPTS` |
 | Extra libraries | Optional at `${SHARED}/lib` |
+| Extra resources | Optional at `${SHARED}/resources` |
+
+Extra resources is the place to put things like a custom `log4j2.xml`
+file.
 
 ### General Environment Variables
 
@@ -220,10 +248,10 @@ The required environment variables include:
 
 | Name | Description |
 | `DRUID_SERVICE` | Name of the Druid service to run. |
-| `INSTANCE_NAME` | Number/name of an instance when running more than one of
+| `DRUID_INSTANCE` | Number/name of an instance when running more than one of
 the same kind of service |
-| `COMMON_DRUID_JAVA_OPTS` | Java options common to all services. |
-| `SERVICE_DRUID_JAVA_OPTS` | Java options for the specific service. |
+| `DRUID_COMMON_JAVA_OPTS` | Java options common to all services. |
+| `DRUID_SERVICE_JAVA_OPTS` | Java options for the specific service. |
 | `DEBUG_OPTS` | Options to enable debugging. |
 | `DRUID_CLASSPATH` | Additional test-specific class path entries.
 (See also `$SHARED/lib`.) |
@@ -279,6 +307,16 @@ Output items:
 | `db` | MySQL database |
 | `druid` | Druid persistence, etc. |
 
+### Third-Party Logs
+
+The three third-party containers are configured to log to the `/shared`
+directory rather than to Docker:
+
+* Kafka: `/shared/logs/kafka.log`
+* ZooKeeper: `/shared/logs/zookeeper.log`
+* MySQL: `/shared/logs/mysql.log`
+
+
 ## Entry Point
 
 The container launches the `launch.sh` script which:
@@ -303,10 +341,117 @@ Each is known via a host name taken from the service name. Thus "zookeeper" is
 the name of the ZK service and of the container that runs ZK. Use these names
 in configuration within each container.
 
-
-
 ### Host Ports
 
 Outside of the application network, containers are accessible only via the
 host ports defined in the Docker Compose files. Thus, ZK is known as `localhost:2181`
 to tests and other code running outside of Docker.
+
+## Docker Compose
+
+We use Docker Compose to launch Druid clusters. Each test defines its own cluster
+depending on what is to be tested. Since a large amount of the definition is
+common, we use inheritance to simplify cluster definition. The base definitions
+are in `compose`:
+
+* `common.env` - roughly equivalent to the `_common` configuration area in Druid:
+  contains definitions common to all Druid services. Services can override any
+  of the definitions.
+* `<service>.env` - base definitions for each service, assume it runs stand-alone.
+  Adjust if test cluster runs multiple instances.
+* `auth.env` - Additional definitions to create a secure cluster. Also requires that
+  the client certificates be created.
+
+The set of defind environment variables starts with the
+`druid/conf/single-server/micro-quickstart` settings. It would be great to generate
+these files directly from the latest quickstart files. For now, it is a manual
+process to keep the definitions in sync.
+
+### Define a Test Cluster
+
+To define a test cluster, do the following:
+
+* Define the overlay network.
+* Extend the third-party services required (at least ZK and MySQL).
+* Extend each Druid service needed. Add a `depends_on` for `zookeeper` and,
+  for the Coordinator and Overlord, `metadata`.
+* If you need multiple instances of the same service, extend that service
+  twice, and define distinct names and port numbers.
+* Add any test-specific environment configuration required.
+
+## Exploring the Test Cluster
+
+When run in Docker Compose, the endpoints known to Druid nodes differ from
+those needed by a client sitting outside the cluster. We could provide an
+explicit mapping. Better is to use the
+[Router](https://druid.apache.org/docs/latest/design/router.html#router-as-management-proxy)
+to proxy requests. Fortunately, the Druid Console already does this.
+
+## History
+
+This revision of the integration test Docker scripts is based on a prior
+integration test version, which is, in turn, based on
+the build used for the public Docker image used in the Druid tutorial. If you are familiar
+with the prior structure, here are some of the notable changes.
+
+* Use of "official" images for third-party dependencies, rather than adding them
+  to the Druid image. (Results in *far* faster image builds.)
+* This project splits the prior `druid-integration-tests` project into several parts. This
+  project holds the Druid Docker image, while sibling projects hold the cluster definition
+  and test for each test group.
+  This allows the projects to better utilize the standard Maven build phases, and allows
+  better partial build support.
+* The prior approach built the Docker image in the `pre-integration-test` phase. Here, since
+  the project is separate, we can use the Maven `install` phase.
+* The prior structure ran *before* the Druid `distribution` module, hence the Druid artifacts
+  were not available, and the scripts did its own build, which could end up polluting the
+  Maven build cache. This version runs after `distribution` so it can reuse the actual build
+  artifacts.
+* The `pom.xml` file in this project does some of the work that that `build_run_cluster.sh`
+  previously did, such as passing Maven versions into Docker.
+* The work from the prior Dockerfile and `base-setup.sh` are combined into the revised
+  `base-setup.sh` here so that the work is done in the target container.
+* Since the prior approach was "all-in-one", it would pass test configuration options into
+  the container build process so that the container is specific to the test options. This
+  project attempts to create a generic container and instead handle test-specific options
+  at container run time.
+* The detailed launch commands formerly in the Dockerfile now reside in
+  `$DRUID_HOME/launch.sh`.
+* The prior version used a much-extended version of the public launch script. Those
+  extensions moved into `launch.sh` with the eventual goal of using the same launch
+  scripts in both cases.
+* The various `generate_*_cert.sh` scripts wrote into the source directory. The revised
+  scripts write into `target/shared/tls`.
+* The shared directory previously was in `~/shared`, but that places the directory outside
+  of the Maven build tree. The new location is `$DRUID_DEV/docker/base-docker/target/shared`.
+  As a result, the directory is removed and rebuild on each Maven build. The old location was
+  removed via scripts, but the new one is very clearly a Maven artifact, and thus to be
+  removed on a Maven `clean` operation.
+* The prior approach had security enabled for all tests, which makes debugging hard.
+  This version makes security optional, it should be enabled for just a security test.
+* The orginal design was based on TestNG. Revised tests are based on JUnit.
+* The original tests had "test groups" within the single directory. This version splits
+  the former groups into projects, so each can have its own tailored cluster definition.
+* Prior images would set up MySQL inline in the container by starting the MySQL engine.
+  This led to some redundancy (all images would do the same thing) and also some lost
+  work (since the DBs in each container are not those used when running.) Here, MySQL
+  is in its own image. Clients can update MySQL as needed using JDBC.
+* Prior code used Supervisor to launch tasks. This version uses Docker directly and
+  runs one process per container (except for Middle Manager, which runs Peons.)
+
+## Future Work
+
+The "public" and "integration test" versions of the Docker images have diverged significantly,
+which makes it harder to "test what we ship." Differences include:
+
+* Different base image
+* Different ways to set up dependencies.
+* Different paths within the container.
+* Different launch scripts.
+* The test images place Druid in `/usr/local`, the public images in `/opt`.
+
+The tests do want to do things beyond what the "public" image does. However, this should
+not require a fork of the builds. To address this issue:
+
+* Extend this project to create a base common to the "public" and integration test images.
+* Extend the integration test image to build on top of the public image.
