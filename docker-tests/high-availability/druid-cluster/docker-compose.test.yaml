@@ -38,19 +38,68 @@ services:
 #      service: kafka
 
   router:
+    extends:
+      file: ../../compose/druid.yaml
+      service: router
+    depends_on:
+      - zookeeper
+
+  coordinator:
+    extends:
+      file: ../../compose/druid.yaml
+      service: coordinator
+    depends_on:
+      - zookeeper
+      - metadata
+
+  overlord:
+    extends:
+      file: ../../compose/druid.yaml
+      service: overlord
+    depends_on:
+      - zookeeper
+      - metadata
+
+  broker:
+    extends:
+      file: ../../compose/druid.yaml
+      service: broker
+    depends_on:
+      - zookeeper
+
+  historical:
+    extends:
+      file: ../../compose/druid.yaml
+      service: historical
+    depends_on:
+      - zookeeper
+
+  indexer:
+    extends:
+      file: ../../compose/druid.yaml
+      service: indexer
+    depends_on:
+      - zookeeper
+
+  custom-node-role:
     image: org.apache.druid/test:${DRUID_VERSION}
-    container_name: router
+    container_name: custom-node-role
     networks:
       druid-it-net:
-        ipv4_address: 172.172.172.70
+        ipv4_address: 172.172.172.90
     ports:
-      - 5004:5004
-      - 8888:8888
-      - 9088:9088
+      - 50011:50011
+      - 9301:9301
+      - 9501:9501
+      - 5010:8000
     volumes:
       - ${SHARED_DIR}:/shared
     env_file:
       - ../../compose/environment-configs/common.env
-      - ../../compose/environment-configs/router.env
-    depends_on:
-      - zookeeper
+    environment:
+      - DRUID_INTEGRATION_TEST_GROUP=${DRUID_INTEGRATION_TEST_GROUP}
+      - DRUID_SERVICE=custom-node-role
+      - SERVICE_DRUID_JAVA_OPTS=-Xmx64m -Xms64m
+      - druid_host=druid-custom-node-role
+      - druid_auth_basic_common_cacheDirectory=/tmp/authCache/custom_node_role
+      - druid_server_https_crlPath=/tls/revocations.crl

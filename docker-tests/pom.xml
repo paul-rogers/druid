@@ -33,6 +33,7 @@
     </parent>
 
 	<modules>
+        <module>test-image</module>
 		<module>test-base</module>
 		<module>high-availability</module>
 		<module>base-test</module>
