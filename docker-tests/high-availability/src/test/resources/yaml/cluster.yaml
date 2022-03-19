@@ -32,23 +32,34 @@ kafka:
     - containerPort: 9092
       hostPort: 9093
 druid:
-  overlord:
-    instances:
-      - containerPort: 8090
   coordinator:
     instances:
-      - containerPort: 8081
-  historical:
+      - tag: one
+        containerPort: 8081
+      - tag: two
+        containerPort: 8081
+        hostPort: 18081
+  overlord:
     instances:
-      - containerPort: 8083
-  middlemanager:
-    instances:
-      - containerPort: 8091
+      - tag: one
+        containerPort: 8090
+      - tag: two
+        containerPort: 8090
+        hostPort: 18090
   broker:
     instances:
       - containerPort: 8082
   router:
     instances:
       - containerPort: 8888
+  custom-node-role:
+    instances:
+      - containerPort: 9301
+#   historical:
+#     instances:
+#       - containerPort: 8083
+#   middlemanager:
+#     instances:
+#       - containerPort: 8091
 properties:
     druid.test.config.dockerIp: localhost

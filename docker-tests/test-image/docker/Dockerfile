@@ -43,7 +43,9 @@ ENV DRUID_HOME=/usr/local/druid
 # Populate build artifacts
 
 COPY apache-druid-${DRUID_VERSION}-bin.tar.gz /usr/local/
-COPY druid-testing-tools-${DRUID_VERSION}.jar /tmp/druid/extensions/druid-testing-tools/
+# TODO: Rename back:
+#COPY druid-testing-tools-${DRUID_VERSION}.jar /tmp/druid/extensions/druid-testing-tools/
+COPY testing-tools-ex-${DRUID_VERSION}.jar /tmp/druid/extensions/testing-tools-ex/
 COPY kafka-protobuf-provider-${CONFLUENT_VERSION}.jar /tmp/druid/lib/
 COPY mysql-connector-java-${MYSQL_VERSION}.jar /tmp/druid/lib/
 COPY test-setup.sh /
