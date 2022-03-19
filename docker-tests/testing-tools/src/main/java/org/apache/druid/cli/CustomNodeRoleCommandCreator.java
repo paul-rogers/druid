@@ -17,26 +17,16 @@
  * under the License.
  */
 
-package org.apache.druid.test;
+package org.apache.druid.cli;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import org.apache.druid.testing2.config.ClusterConfig;
-import org.apache.druid.testing2.config.TestConfigs;
-import org.junit.Test;
+import io.airlift.airline.Cli;
 
-import java.io.IOException;
-
-/**
- * Sanity check of an example YAML config file using the Java
- * deserialization classes.
- */
-public class TestClusterConfig
+public class CustomNodeRoleCommandCreator implements CliCommandCreator
 {
-  @Test
-  public void testYaml() throws JsonParseException, JsonMappingException, IOException
+  @SuppressWarnings({ "rawtypes", "unchecked" })
+  @Override
+  public void addCommands(Cli.CliBuilder builder)
   {
-    ClusterConfig obj = TestConfigs.loadFromResource("/yaml/test.yaml");
-    System.out.println(obj);
+    builder.withGroup("server").withCommands(CliCustomNodeRole.class);
   }
 }

@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.testing.utils;
+package org.apache.druid.testing2.utils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.dockerjava.api.DockerClient;
@@ -38,6 +38,7 @@ import org.apache.druid.java.util.http.client.response.StatusResponseHolder;
 import org.apache.druid.server.coordinator.CoordinatorDynamicConfig;
 import org.apache.druid.testing.IntegrationTestingConfig;
 import org.apache.druid.testing.guice.TestClient;
+import org.apache.druid.testing.utils.ITRetryUtil;
 import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
@@ -52,14 +53,14 @@ import java.util.Optional;
 
 public class DruidClusterAdminClient
 {
-  public static final String COORDINATOR_DOCKER_CONTAINER_NAME = "/druid-coordinator";
-  public static final String COORDINATOR_TWO_DOCKER_CONTAINER_NAME = "/druid-coordinator-two";
-  public static final String HISTORICAL_DOCKER_CONTAINER_NAME = "/druid-historical";
-  public static final String OVERLORD_DOCKER_CONTAINER_NAME = "/druid-overlord";
-  public static final String OVERLORD_TWO_DOCKER_CONTAINER_NAME = "/druid-overlord-two";
-  public static final String BROKER_DOCKER_CONTAINER_NAME = "/druid-broker";
-  public static final String ROUTER_DOCKER_CONTAINER_NAME = "/druid-router";
-  public static final String MIDDLEMANAGER_DOCKER_CONTAINER_NAME = "/druid-middlemanager";
+  public static final String COORDINATOR_DOCKER_CONTAINER_NAME = "/coordinator";
+  public static final String COORDINATOR_TWO_DOCKER_CONTAINER_NAME = "/coordinator-two";
+  public static final String HISTORICAL_DOCKER_CONTAINER_NAME = "/historical";
+  public static final String OVERLORD_DOCKER_CONTAINER_NAME = "/overlord";
+  public static final String OVERLORD_TWO_DOCKER_CONTAINER_NAME = "/overlord-two";
+  public static final String BROKER_DOCKER_CONTAINER_NAME = "/broker";
+  public static final String ROUTER_DOCKER_CONTAINER_NAME = "/router";
+  public static final String MIDDLEMANAGER_DOCKER_CONTAINER_NAME = "/middlemanager";
 
   private static final Logger LOG = new Logger(DruidClusterAdminClient.class);
 

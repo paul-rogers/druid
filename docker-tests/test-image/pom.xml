@@ -127,7 +127,7 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
 			                </artifactItem>
 			                <artifactItem>
 							    <groupId>org.apache.druid.extensions</groupId>
-							    <artifactId>druid-testing-tools</artifactId>
+							    <artifactId>testing-tools-ex</artifactId>
 							    <version>${project.version}</version>
 			                  <type>jar</type>
 			                  <overWrite>true</overWrite>

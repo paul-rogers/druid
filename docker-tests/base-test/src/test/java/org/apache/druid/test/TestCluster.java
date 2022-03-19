@@ -19,11 +19,11 @@
 
 package org.apache.druid.test;
 
-import org.apache.druid.testing.cluster.KafkaClient;
-import org.apache.druid.testing.cluster.MetastoreClient;
-import org.apache.druid.testing.cluster.ZooKeeperClient;
-import org.apache.druid.testing.config.ClusterConfig;
-import org.apache.druid.testing.config.TestConfigs;
+import org.apache.druid.testing2.cluster.KafkaClient;
+import org.apache.druid.testing2.cluster.MetastoreClient;
+import org.apache.druid.testing2.cluster.ZooKeeperClient;
+import org.apache.druid.testing2.config.ClusterConfig;
+import org.apache.druid.testing2.config.TestConfigs;
 import org.junit.Test;
 
 /**

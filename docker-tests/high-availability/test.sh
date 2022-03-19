@@ -21,4 +21,4 @@ mkdir -p $SHARED_DIR/resources
 cp ../assets/log4j2.xml $SHARED_DIR/resources
 
 cd druid-cluster
-docker-compose -f docker-compose.test.yaml up -d
+docker-compose up -d

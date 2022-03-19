@@ -33,10 +33,10 @@
     </parent>
 
 	<modules>
+        <module>testing-tools</module>
         <module>test-image</module>
-		<module>test-base</module>
-		<module>high-availability</module>
 		<module>base-test</module>
+		<module>high-availability</module>
 	</modules>
 
     <repositories>
@@ -50,7 +50,6 @@
         <hadoop.integ.libs>"org.apache.hadoop:hadoop-client:${hadoop.compile.version}", "org.apache.hadoop:hadoop-azure:${hadoop.compile.version}"</hadoop.integ.libs>
         <hadoop.s3.impl>org.apache.hadoop.fs.s3native.NativeS3FileSystem</hadoop.s3.impl>
     </properties>
-
 
     <dependencies>
         <dependency>

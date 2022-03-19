@@ -29,9 +29,9 @@ version: "2.2"
 #
 # See https://docs.docker.com/compose/networking/
 # Key things to know:
-# * The containsrs communicate using the Compose network
-# * Containers use service name as the nost, container port as port
-# * Ports are also exposed to the host: "container:host", use the
+# * The containers communicate using the Compose network.
+# * Containers use service name as the host, container port as port
+# * Ports are also exposed to the host: "host:container", use the
 #   host port to connect from the local machine (outside of a container).
 #
 # TODO: The static IPs should not be required. Remove?
@@ -168,4 +168,3 @@ services:
     env_file:
       - environment-configs/common.env
       - environment-configs/router.env
-
