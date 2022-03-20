@@ -92,7 +92,7 @@ public class ZKConfig extends ServiceConfig
   {
     List<String> hosts = new ArrayList<>();
     for (ServiceInstance instance : instances) {
-      hosts.add(resolveHost(instance.resolveHost(resolveService()), instance.resolveContainerPort()));
+      hosts.add(resolveHost(instance.resolveContainerHost(resolveService()), instance.resolveContainerPort()));
     }
     return String.join(",", hosts);
   }

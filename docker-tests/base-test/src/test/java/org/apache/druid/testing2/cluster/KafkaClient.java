@@ -38,10 +38,7 @@ public class KafkaClient
   public KafkaClient(ClusterConfig config)
   {
     this.clusterConfig = config;
-    this.config = config.kafka();
-    if (this.config == null) {
-      throw new ISE("Kafka not configured");
-    }
+    this.config = config.requireKafka();
   }
 
   public void open()

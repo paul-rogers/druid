@@ -51,4 +51,14 @@ public class KafkaConfig extends ServiceConfig
   {
     return StringUtils.format("%s:%d", host, port);
   }
+
+  public String resoveService()
+  {
+    return service == null ? "kafka" : service;
+  }
+
+  public String resolveContainerHost()
+  {
+    return instance().resolveContainerHost(resolveService());
+  }
 }

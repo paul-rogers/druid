@@ -21,7 +21,6 @@ package org.apache.druid.testing2.cluster;
 
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.metadata.MetadataStorageConnectorConfig;
-import org.apache.druid.metadata.SQLMetadataConnector;
 import org.apache.druid.metadata.storage.mysql.MySQLConnector;
 import org.apache.druid.metadata.storage.mysql.MySQLConnectorDriverConfig;
 import org.apache.druid.metadata.storage.mysql.MySQLConnectorSslConfig;
@@ -41,6 +40,10 @@ import java.sql.SQLException;
  */
 public class MetastoreClient
 {
+  // See SQLMetadataConnector.getValidationQuery()
+  // That instance isn't available here, so we punt.
+  public static String VALIDATION_QUERY = "SELECT 1";
+
   private final ClusterConfig clusterConfig;
   private final MetastoreConfig config;
   private DBI dbi;
@@ -49,44 +52,42 @@ public class MetastoreClient
   public MetastoreClient(ClusterConfig config)
   {
     this.clusterConfig = config;
-    this.config = config.metastore();
-    if (this.config == null) {
-      throw new ISE("Metastore not configured");
-    }
-  }
-
-  public void open()
-  {
+    this.config = config.requireMetastore();
     prepare();
     validate();
   }
 
-  public void prepare()
+  private void prepare()
   {
     // This approach is rather overkill and is MySQL-specific.
     // It does have the advantage of exercising the actual Druid code.
     MetadataStorageConnectorConfig msConfig = clusterConfig.toMetadataConfig();
     MySQLConnectorDriverConfig driverConfig = config.toDriverConfig();
     MySQLConnectorSslConfig sslConfig = new MySQLConnectorSslConfig();
-    dbi = MySQLConnector.createDBI(msConfig, driverConfig, sslConfig);
+    dbi = MySQLConnector.createDBI(msConfig, driverConfig, sslConfig, VALIDATION_QUERY);
     handle = dbi.open();
   }
 
-  public void validate()
+  private void validate()
   {
-    try {
-      boolean ok = connection().prepareStatement(SQLMetadataConnector.getValidationQuery()).execute();
-      if (!ok) {
-        throw new ISE("Metadata store validation failed");
-      }
-    } catch (SQLException e) {
-      throw new ISE(e, "Metadata store validation failed");
+    boolean ok = execute(VALIDATION_QUERY);
+    if (!ok) {
+      throw new ISE("Metadata store validation failed");
     }
   }
 
   public Connection connection()
   {
     return handle.getConnection();
+  }
+
+  public boolean execute(String sql)
+  {
+    try {
+      return connection().prepareStatement(sql).execute();
+    } catch (SQLException e) {
+      throw new ISE(e, "Metadata query failed");
+    }
   }
 
   public void close()

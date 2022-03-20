@@ -22,7 +22,6 @@ package org.apache.druid.test;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import org.apache.druid.testing2.config.ClusterConfig;
-import org.apache.druid.testing2.config.TestConfigs;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -36,7 +35,7 @@ public class TestClusterConfig
   @Test
   public void testYaml() throws JsonParseException, JsonMappingException, IOException
   {
-    ClusterConfig obj = TestConfigs.loadFromResource("/yaml/test.yaml");
+    ClusterConfig obj = ClusterConfig.loadFromResource("/yaml/test.yaml");
     System.out.println(obj);
   }
 }

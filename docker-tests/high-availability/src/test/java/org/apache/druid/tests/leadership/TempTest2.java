@@ -10,9 +10,9 @@ import org.apache.druid.java.util.http.client.response.StatusResponseHandler;
 import org.apache.druid.java.util.http.client.response.StatusResponseHolder;
 import org.apache.druid.testing.IntegrationTestingConfig;
 import org.apache.druid.testing.guice.TestClient;
-import org.apache.druid.testing.utils.DruidClusterAdminClient;
+import org.apache.druid.testing2.utils.DruidClusterAdminClient;
 import org.apache.druid.testing.utils.SqlTestQueryHelper;
-import org.apache.druid.testing2.config.GuiceConfig;
+import org.apache.druid.testing2.config.Initializer;
 import org.apache.druid.tests.indexer.AbstractIndexerTest;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
@@ -28,7 +28,7 @@ public class TempTest2
   private static final String SYSTEM_QUERIES_RESOURCE = "/queries/high_availability_sys.json";
   private static final int NUM_LEADERSHIP_SWAPS = 3;
 
-  private static GuiceConfig guiceFixture;
+  private static Initializer initializer;
 
   @Inject
   private IntegrationTestingConfig config;
@@ -46,13 +46,12 @@ public class TempTest2
   @BeforeClass
   public static void setup()
   {
-    guiceFixture = new GuiceConfig();
+    initializer = new Initializer();
   }
 
   public TempTest2()
   {
-    guiceFixture.injector().injectMembers(this);
-    System.out.println("Woo hoo");
+    initializer.injector().injectMembers(this);
   }
 
   @Test

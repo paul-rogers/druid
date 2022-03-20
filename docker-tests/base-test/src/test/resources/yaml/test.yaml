@@ -52,3 +52,35 @@ druid:
       - containerPort: 8888
 properties:
     druid.test.config.dockerIp: localhost
+metastoreInit:
+  - sql: |
+      REPLACE INTO druid_segments (
+        id, dataSource, created_date, start, end, partitioned, version, used, payload
+      )
+      VALUES (
+        'twitterstream_2013-01-01T00:00:00.000Z_2013-01-02T00:00:00.000Z_2013-01-02T04:13:41.980Z_v9',
+        'twitterstream',
+        '2013-05-13T01:08:18.192Z',
+        '2013-01-01T00:00:00.000Z',
+        '2013-01-02T00:00:00.000Z',
+        0,
+        '2013-01-02T04:13:41.980Z_v9',
+        1,
+        '{"dataSource": "twitterstream",
+          "interval": "2013-01-01T00:00:00.000Z/2013-01-02T00:00:00.000Z",
+          "version": "2013-01-02T04:13:41.980Z_v9",
+          "loadSpec": {
+            "type": "s3_zip",
+            "bucket": "static.druid.io",
+            "key": "data/segments/twitterstream/2013-01-01T00:00:00.000Z_2013-01-02T00:00:00.000Z/2013-01-02T04:13:41.980Z_v9/0/index.zip"
+          },
+          "dimensions": "has_links,first_hashtag,user_time_zone,user_location,has_mention,user_lang,rt_name,user_name,
+            is_retweet,is_viral,has_geo,url_domain,user_mention_name,reply_to_name",
+          "metrics": "count,tweet_length,num_followers,num_links,num_mentions,num_hashtags,num_favorites,
+            user_total_tweets",
+          "shardSpec": {"type": "none"},
+          "binaryVersion": 9,
+          "size": 445235220,
+          "identifier": "twitterstream_2013-01-01T00:00:00.000Z_2013-01-02T00:00:00.000Z_2013-01-02T04:13:41.980Z_v9"
+        }'
+      )
