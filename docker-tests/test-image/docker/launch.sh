@@ -30,6 +30,11 @@ cd /
 #/tls/generate-server-certs-and-keystores.sh
 . /druid.sh
 
+# The image contains both the MySQL and MariaDB JDBC drivers.
+# The MySQL driver is selected by the Docker Compose file.
+# Set  druid.metadata.mysql.driver.driverClassName to the preferred
+# driver.
+
 # Create druid service config files with all the config variables
 setupConfig
 

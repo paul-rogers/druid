@@ -54,7 +54,7 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
     <properties>
        <druid.image.name>${project.groupId}/test:${project.version}</druid.image.name>
        <confluent-version>5.5.1</confluent-version>
-       <mariadb.version>5.5.1</mariadb.version>
+       <mariadb.version>2.7.3</mariadb.version>
     </properties>
 
     <repositories>
@@ -67,17 +67,22 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
     </repositories>
 
     <dependencies>
+        <!-- Dependencies placed in the image. -->
         <dependency>
             <groupId>org.apache.druid</groupId>
             <artifactId>distribution</artifactId>
             <version>${project.parent.version}</version>
   			<type>pom</type>
         </dependency>
-        <!-- Dependencies placed in the image. -->
 		<dependency>
 		    <groupId>mysql</groupId>
 		    <artifactId>mysql-connector-java</artifactId>
 		    <version>${mysql.version}</version>
+		</dependency>
+		<dependency>
+		    <groupId>org.mariadb.jdbc</groupId>
+		    <artifactId>mariadb-java-client</artifactId>
+		    <version>${mariadb.version}</version>
 		</dependency>
 		<dependency>
 		    <groupId>io.confluent</groupId>

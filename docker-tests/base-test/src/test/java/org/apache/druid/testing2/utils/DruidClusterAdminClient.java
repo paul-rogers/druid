@@ -53,10 +53,10 @@ import java.util.Optional;
 
 public class DruidClusterAdminClient
 {
-  public static final String COORDINATOR_DOCKER_CONTAINER_NAME = "/coordinator";
+  public static final String COORDINATOR_DOCKER_CONTAINER_NAME = "/coordinator-one";
   public static final String COORDINATOR_TWO_DOCKER_CONTAINER_NAME = "/coordinator-two";
   public static final String HISTORICAL_DOCKER_CONTAINER_NAME = "/historical";
-  public static final String OVERLORD_DOCKER_CONTAINER_NAME = "/overlord";
+  public static final String OVERLORD_DOCKER_CONTAINER_NAME = "/overlord-one";
   public static final String OVERLORD_TWO_DOCKER_CONTAINER_NAME = "/overlord-two";
   public static final String BROKER_DOCKER_CONTAINER_NAME = "/broker";
   public static final String ROUTER_DOCKER_CONTAINER_NAME = "/router";

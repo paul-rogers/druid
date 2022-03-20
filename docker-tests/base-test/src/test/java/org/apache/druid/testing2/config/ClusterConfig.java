@@ -20,6 +20,8 @@
 package org.apache.druid.testing2.config;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.base.Strings;
 import org.apache.druid.curator.CuratorConfig;
 import org.apache.druid.curator.ExhibitorConfig;
@@ -27,7 +29,11 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.metadata.MetadataStorageConnectorConfig;
 import org.apache.druid.testing.IntegrationTestingConfig;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -63,6 +69,38 @@ public class ClusterConfig
   private Map<String, DruidConfig> druidServices;
   @JsonProperty("properties")
   private Properties properties;
+  @JsonProperty("metastoreInit")
+  private List<MetastoreStmt> metastoreInit;
+
+  public static ClusterConfig loadFromFile(String filePath)
+  {
+    return loadFromFile(new File(filePath));
+  }
+
+  public static ClusterConfig loadFromFile(File configFile)
+  {
+    ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+    try {
+      return mapper.readValue(configFile, ClusterConfig.class);
+    }
+    catch (IOException e) {
+      throw new ISE(e, "Failed to load config file: " + configFile.toString());
+    }
+  }
+
+  public static ClusterConfig loadFromResource(String resource)
+  {
+    ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+    try (InputStream is = TestConfigs.class.getResourceAsStream(resource)) {
+      if (is == null) {
+        throw new ISE("Config resource not found: " + resource);
+      }
+      return mapper.readValue(is, ClusterConfig.class);
+    }
+    catch (IOException e) {
+      throw new ISE(e, "Failed to load config resource: " + resource);
+    }
+  }
 
   @JsonProperty("name")
   public String name()
@@ -106,6 +144,12 @@ public class ClusterConfig
     return properties;
   }
 
+  @JsonProperty("metastoreInit")
+  public List<MetastoreStmt> metastoreInit()
+  {
+    return metastoreInit;
+  }
+
   public Properties resolveProperties()
   {
     return properties == null ? new Properties() : properties;
@@ -127,9 +171,29 @@ public class ClusterConfig
     return druidServices;
   }
 
+  public MetastoreConfig requireMetastore()
+  {
+    if (metastore == null) {
+      throw new ISE("Please specify the Metastore configuration");
+    }
+    return metastore;
+  }
+
+  public KafkaConfig requireKafka()
+  {
+    if (kafka == null) {
+      throw new ISE("Please specify the Kafka configuration");
+    }
+    return kafka;
+  }
+
   public DruidConfig druidService(String serviceKey)
   {
-    return requireDruid().get(serviceKey);
+    DruidConfig service = requireDruid().get(serviceKey);
+    if (service != null) {
+      service.setServiceKey(serviceKey);
+    }
+    return service;
   }
 
   public DruidConfig requireService(String serviceKey)
@@ -217,9 +281,11 @@ public class ClusterConfig
     return new IntegrationTestingConfigShim();
   }
 
+  /**
+   * Adapter to the "legacy" cluster configuration used by tests.
+   */
   private class IntegrationTestingConfigShim implements IntegrationTestingConfig
   {
-
     @Override
     public String getZookeeperHosts()
     {
@@ -233,9 +299,21 @@ public class ClusterConfig
     }
 
     @Override
+    public String getKafkaInternalHost()
+    {
+      return requireKafka().resolveContainerHost();
+    }
+
+    @Override
     public String getBrokerHost()
     {
       return dockerHost;
+    }
+
+    @Override
+    public String getBrokerInternalHost()
+    {
+      return requireBroker().resolveContainerHost();
     }
 
     @Override
@@ -245,9 +323,29 @@ public class ClusterConfig
     }
 
     @Override
+    public String getRouterInternalHost()
+    {
+      return requireRouter().resolveContainerHost();
+    }
+
+    @Override
     public String getCoordinatorHost()
     {
       return dockerHost;
+    }
+
+    @Override
+    public String getCoordinatorInternalHost()
+    {
+      DruidConfig config = requireCoordinator();
+      return config.resolveContainerHost(config.tagOrDefault("one"));
+    }
+
+    @Override
+    public String getCoordinatorTwoInternalHost()
+    {
+      DruidConfig config = requireCoordinator();
+      return config.resolveContainerHost(config.requireInstance("two"));
     }
 
     @Override
@@ -269,15 +367,41 @@ public class ClusterConfig
     }
 
     @Override
+    public String getOverlordInternalHost()
+    {
+      DruidConfig config = requireOverlord();
+      return config.resolveContainerHost(config.tagOrDefault("one"));
+    }
+
+    @Override
+    public String getOverlordTwoInternalHost()
+    {
+      DruidConfig config = requireOverlord();
+      return config.resolveContainerHost(config.requireInstance("two"));
+    }
+
+    @Override
     public String getMiddleManagerHost()
     {
       return dockerHost;
     }
 
     @Override
+    public String getMiddleManagerInternalHost()
+    {
+      return requireMiddleManager().resolveContainerHost();
+    }
+
+    @Override
     public String getHistoricalHost()
     {
       return dockerHost;
+    }
+
+    @Override
+    public String getHistoricalInternalHost()
+    {
+      return requireHistorical().resolveContainerHost();
     }
 
     @Override

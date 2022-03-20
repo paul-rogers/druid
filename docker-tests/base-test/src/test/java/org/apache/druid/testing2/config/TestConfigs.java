@@ -22,51 +22,19 @@ package org.apache.druid.testing2.config;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import org.apache.druid.java.util.common.ISE;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 
 public class TestConfigs
 {
   public static String toYaml(Object obj)
   {
-    ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+    ObjectMapper mapper = new ObjectMapper(
+        new YAMLFactory()
+          .enable(YAMLGenerator.Feature.MINIMIZE_QUOTES));
     try {
       return mapper.writeValueAsString(obj);
     } catch (JsonProcessingException e) {
       return "<conversion failed>";
-    }
-  }
-
-  public static ClusterConfig loadFromFile(String filePath)
-  {
-    return loadFromFile(new File(filePath));
-  }
-
-  public static ClusterConfig loadFromFile(File configFile)
-  {
-    ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-    try {
-      return mapper.readValue(configFile, ClusterConfig.class);
-    }
-    catch (IOException e) {
-      throw new ISE(e, "Failed to load config file: " + configFile.toString());
-    }
-  }
-
-  public static ClusterConfig loadFromResource(String resource)
-  {
-    ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-    try (InputStream is = TestConfigs.class.getResourceAsStream(resource)) {
-      if (is == null) {
-        throw new ISE("Config resource not found: " + resource);
-      }
-      return mapper.readValue(is, ClusterConfig.class);
-    }
-    catch (IOException e) {
-      throw new ISE(e, "Failed to load config resource: " + resource);
     }
   }
 }

@@ -60,7 +60,7 @@ public class MySQLConnector extends SQLMetadataConnector
   )
   {
     super(config, dbTables);
-    this.dbi = createDBI(config.get(), driverConfig, connectorSslConfig);
+    this.dbi = createDBI(config.get(), driverConfig, connectorSslConfig, getValidationQuery());
 
     if (driverConfig.getDriverClassName().contains("mysql")) {
       myTransientExceptionClass = tryLoadDriverClass(MYSQL_TRANSIENT_EXCEPTION_CLASS_NAME, false);
@@ -69,12 +69,12 @@ public class MySQLConnector extends SQLMetadataConnector
     }
   }
 
-  public static DBI createDBI(MetadataStorageConnectorConfig config, MySQLConnectorDriverConfig driverConfig, MySQLConnectorSslConfig connectorSslConfig)
+  public static DBI createDBI(MetadataStorageConnectorConfig config, MySQLConnectorDriverConfig driverConfig, MySQLConnectorSslConfig connectorSslConfig, String validationQuery)
   {
     log.info("Loading \"MySQL\" metadata connector driver %s", driverConfig.getDriverClassName());
     tryLoadDriverClass(driverConfig.getDriverClassName(), true);
 
-    final BasicDataSource datasource = makeDatasource(config);
+    final BasicDataSource datasource = makeDatasource(config, validationQuery);
     // MySQL driver is classloader isolated as part of the extension
     // so we need to help JDBC find the driver
     datasource.setDriverClassLoader(MySQLConnector.class.getClassLoader());

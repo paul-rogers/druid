@@ -35,6 +35,8 @@ ARG CONFLUENT_VERSION
 ENV CONFLUENT_VERSION=$CONFLUENT_VERSION
 ARG MYSQL_VERSION
 ENV MYSQL_VERSION=$MYSQL_VERSION
+ARG MARIADB_VERSION
+ENV MARIADB_VERSION=$MARIADB_VERSION
 ARG MYSQL_DRIVER_CLASSNAME=com.mysql.jdbc.Driver
 ENV MYSQL_DRIVER_CLASSNAME=$MYSQL_DRIVER_CLASSNAME
 
@@ -48,6 +50,7 @@ COPY apache-druid-${DRUID_VERSION}-bin.tar.gz /usr/local/
 COPY testing-tools-ex-${DRUID_VERSION}.jar /tmp/druid/extensions/testing-tools-ex/
 COPY kafka-protobuf-provider-${CONFLUENT_VERSION}.jar /tmp/druid/lib/
 COPY mysql-connector-java-${MYSQL_VERSION}.jar /tmp/druid/lib/
+COPY mariadb-java-client-${MARIADB_VERSION}.jar /tmp/druid/lib/
 COPY test-setup.sh /
 COPY druid.sh /
 COPY launch.sh /

@@ -9,6 +9,7 @@ import java.util.List;
 
 public class DruidConfig extends ServiceConfig
 {
+  private String serviceKey;
 
   @JsonCreator
   public DruidConfig(
@@ -17,6 +18,13 @@ public class DruidConfig extends ServiceConfig
   )
   {
     super(service, instances);
+  }
+
+  protected void setServiceKey(String key)
+  {
+    if (serviceKey == null) {
+      serviceKey = key;
+    }
   }
 
   public String resolveUrl(String dockerHost)
@@ -46,16 +54,28 @@ public class DruidConfig extends ServiceConfig
             instanceName));
   }
 
+  @Override
+  public String resolveService()
+  {
+    String resolved = super.resolveService();
+    return resolved == null ? serviceKey : resolved;
+  }
+
   public String resolveUrl(String dockerHost, String instanceName)
   {
     return resolveUrl(dockerHost, requireInstance(instanceName));
+  }
+
+  public String resolveContainerHost(ServiceInstance instance)
+  {
+    return instance.resolveContainerHost(resolveService());
   }
 
   public String resolveUrl(String dockerHost, ServiceInstance instance)
   {
     return StringUtils.format(
         "http://%s:%d",
-        instance.resolveHost(dockerHost),
+        dockerHost,
         instance.resolveHostPort());
   }
 
@@ -63,5 +83,17 @@ public class DruidConfig extends ServiceConfig
   {
     ServiceInstance taggedInstance = findInstance(tag);
     return taggedInstance == null ? instance() : taggedInstance;
+  }
+
+  public String resolveContainerHost()
+  {
+    ServiceInstance instance = instance();
+    if (instances.size() > 1) {
+      throw new ISE(
+          StringUtils.format("Service %s has %d hosts, default is ambiguous",
+              resolveService(),
+              instances.size()));
+    }
+    return instance.resolveContainerHost(resolveService());
   }
 }

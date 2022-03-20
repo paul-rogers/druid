@@ -65,9 +65,16 @@ public class ServiceInstance
     return hostPort;
   }
 
-  public String resolveHost(String service)
+  public String resolveContainerHost(String service)
   {
-    return host != null ? host : service;
+    if (host != null) {
+      return host;
+    }
+    String result = service;
+    if (tag != null) {
+      result += "-" + tag;
+    }
+    return result;
   }
 
   public String resolveContainer(String service)
@@ -95,5 +102,11 @@ public class ServiceInstance
       throw new ISE("Must provide containerPort, hostPort or both");
     }
     return containerPort;
+  }
+
+  @Override
+  public String toString()
+  {
+    return TestConfigs.toYaml(this);
   }
 }

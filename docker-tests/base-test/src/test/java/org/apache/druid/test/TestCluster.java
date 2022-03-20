@@ -36,7 +36,7 @@ public class TestCluster
   @Test
   public void testZk()
   {
-    ClusterConfig config = TestConfigs.loadFromResource("/yaml/test.yaml");
+    ClusterConfig config = ClusterConfig.loadFromResource("/yaml/test.yaml");
     ZooKeeperClient client = new ZooKeeperClient(config);
     client.open();
     client.close();
@@ -45,16 +45,15 @@ public class TestCluster
   @Test
   public void testMetastore()
   {
-    ClusterConfig config = TestConfigs.loadFromResource("/yaml/test.yaml");
+    ClusterConfig config = ClusterConfig.loadFromResource("/yaml/test.yaml");
     MetastoreClient client = new MetastoreClient(config);
-    client.open();
     client.close();
   }
 
   @Test
   public void testKafka()
   {
-    ClusterConfig config = TestConfigs.loadFromResource("/yaml/test.yaml");
+    ClusterConfig config = ClusterConfig.loadFromResource("/yaml/test.yaml");
     KafkaClient client = new KafkaClient(config);
     client.open();
     client.close();

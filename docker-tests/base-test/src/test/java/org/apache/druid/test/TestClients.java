@@ -3,7 +3,7 @@ package org.apache.druid.test;
 import com.google.inject.Injector;
 import org.apache.druid.sql.http.SqlQuery;
 import org.apache.druid.testing.clients.SqlResourceTestClient;
-import org.apache.druid.testing2.config.GuiceConfig;
+import org.apache.druid.testing2.config.Initializer;
 import org.apache.druid.testing2.utils.DruidClusterAdminClient;
 import org.junit.Test;
 
@@ -19,7 +19,7 @@ public class TestClients
   @Test
   public void testAdminClient()
   {
-    GuiceConfig guiceConfig = new GuiceConfig();
+    Initializer guiceConfig = new Initializer();
     Injector injector = guiceConfig.injector();
     DruidClusterAdminClient druidClusterAdminClient = injector.getInstance(DruidClusterAdminClient.class);
   }
@@ -27,7 +27,7 @@ public class TestClients
   @Test
   public void testQueryClient()
   {
-    GuiceConfig guiceConfig = new GuiceConfig();
+    Initializer guiceConfig = new Initializer();
     Injector injector = guiceConfig.injector();
     SqlResourceTestClient client = injector.getInstance(SqlResourceTestClient.class);
     String url = "http://localhost:8082/druid/v2/sql";
