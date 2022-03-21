@@ -93,7 +93,7 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
 
    <profiles>
         <profile>
-            <id>druid-image</id>
+            <id>test-image</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
