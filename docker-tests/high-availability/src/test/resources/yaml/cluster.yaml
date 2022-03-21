@@ -61,6 +61,11 @@ druid:
 # Properties to be set in the Properties object used in
 # Guice configuration in lieu of the server-side runtime.properties
 # file.
+#
+# druid.global.http.numMaxThreads avoids creating 20 Netty threads.
+# We only ever use 1.
+# druid.test.config.dockerIp is used by some older test code. Remove
+# it when that code is updated.
 properties:
   druid.global.http.numMaxThreads: 3
   druid.test.config.dockerIp: localhost
