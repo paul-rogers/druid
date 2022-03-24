@@ -19,11 +19,14 @@
 
 package org.apache.druid.testing2.config;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.base.Strings;
 import org.apache.druid.curator.CuratorConfig;
+import org.apache.druid.curator.CuratorModule;
 import org.apache.druid.curator.ExhibitorConfig;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.metadata.MetadataStorageConnectorConfig;
@@ -32,9 +35,12 @@ import org.apache.druid.testing.IntegrationTestingConfig;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 
 /**
@@ -53,12 +59,13 @@ public class ClusterConfig
   public static final String MIDDLEMANAGER = "middlemanager";
   public static final String INDEXER = "indexer";
 
-  @JsonProperty("name")
-  private String name;
-  @JsonProperty("dockerHost")
-  private String dockerHost;
+  private boolean isResource;
+  private String basePath;
+
+  @JsonProperty("proxyHost")
+  private String proxyHost;
   @JsonProperty("include")
-  private String include;
+  private List<String> include;
   @JsonProperty("zk")
   private ZKConfig zk;
   @JsonProperty("metastore")
@@ -68,9 +75,35 @@ public class ClusterConfig
   @JsonProperty("druid")
   private Map<String, DruidConfig> druidServices;
   @JsonProperty("properties")
-  private Properties properties;
+  private Map<String, Object> properties;
   @JsonProperty("metastoreInit")
   private List<MetastoreStmt> metastoreInit;
+
+  public ClusterConfig()
+  {
+  }
+
+  public ClusterConfig(ClusterConfig from)
+  {
+    this.isResource = from.isResource;
+    this.basePath = from.basePath;
+    this.proxyHost = from.proxyHost;
+    if (from.include != null) {
+      this.include = new ArrayList<>(from.include);
+    }
+    this.zk = from.zk;
+    this.metastore = from.metastore;
+    this.kafka = from.kafka;
+    if (from.druidServices != null) {
+      this.druidServices = new HashMap<>(from.druidServices);
+    }
+    if (from.properties != null) {
+      this.properties = new HashMap<>(from.properties);
+    }
+    if (from.metastoreInit != null) {
+      this.metastoreInit = new ArrayList<>(from.metastoreInit);
+    }
+  }
 
   public static ClusterConfig loadFromFile(String filePath)
   {
@@ -81,7 +114,10 @@ public class ClusterConfig
   {
     ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
     try {
-      return mapper.readValue(configFile, ClusterConfig.class);
+      ClusterConfig config = mapper.readValue(configFile, ClusterConfig.class);
+      config.isResource = false;
+      config.basePath = configFile.getParent();
+      return config;
     }
     catch (IOException e) {
       throw new ISE(e, "Failed to load config file: " + configFile.toString());
@@ -95,72 +131,97 @@ public class ClusterConfig
       if (is == null) {
         throw new ISE("Config resource not found: " + resource);
       }
-      return mapper.readValue(is, ClusterConfig.class);
+      ClusterConfig config = mapper.readValue(is, ClusterConfig.class);
+      config.isResource = true;
+      return config;
     }
     catch (IOException e) {
       throw new ISE(e, "Failed to load config resource: " + resource);
     }
   }
 
-  @JsonProperty("name")
-  public String name()
+  public ClusterConfig resolveIncludes()
   {
-    return name;
+    if (include == null || include.isEmpty()) {
+      return this;
+    }
+    ClusterConfig included = null;
+    for (String entry : include) {
+      ClusterConfig child = loadInclude(entry);
+      if (included == null) {
+        included = child;
+      } else {
+        included = included.merge(child);
+      }
+    }
+    return included.merge(this);
   }
 
-  @JsonProperty("dockerHost")
-  public String dockerHost()
+  private ClusterConfig loadInclude(String includeName)
   {
-    return dockerHost;
+    if (isResource) {
+      return loadFromResource(includeName);
+    } else {
+      File file = new File(new File(basePath), includeName);
+      return loadFromFile(file);
+    }
+  }
+
+  @JsonProperty("proxyHost")
+  @JsonInclude(Include.NON_NULL)
+  public String proxyHost()
+  {
+    return proxyHost;
   }
 
   @JsonProperty("include")
-  public String include()
+  @JsonInclude(Include.NON_NULL)
+  public List<String> include()
   {
     return include;
   }
 
   @JsonProperty("zk")
+  @JsonInclude(Include.NON_NULL)
   public ZKConfig zk()
   {
     return zk;
   }
 
   @JsonProperty("metastore")
+  @JsonInclude(Include.NON_NULL)
   public MetastoreConfig metastore()
   {
     return metastore;
   }
 
   @JsonProperty("kafka")
+  @JsonInclude(Include.NON_NULL)
   public KafkaConfig kafka()
   {
     return kafka;
   }
 
   @JsonProperty("properties")
-  public Properties properties()
+  @JsonInclude(Include.NON_NULL)
+  public Map<String, Object> properties()
   {
     return properties;
   }
 
   @JsonProperty("metastoreInit")
+  @JsonInclude(Include.NON_NULL)
   public List<MetastoreStmt> metastoreInit()
   {
     return metastoreInit;
   }
 
-  public Properties resolveProperties()
+  public String resolveProxyHost()
   {
-    return properties == null ? new Properties() : properties;
-  }
-
-  public String resolveDockerHost()
-  {
-    if (Strings.isNullOrEmpty(dockerHost)) {
+    if (Strings.isNullOrEmpty(proxyHost)) {
       return "localhost";
     }
-    return dockerHost;
+    return proxyHost;
   }
 
   public Map<String, DruidConfig> requireDruid()
@@ -247,7 +308,7 @@ public class ClusterConfig
       throw new ISE("ZooKeeper not configured");
     }
     // TODO: Add a builder for other properties
-    return CuratorConfig.create(zk.resolveDockerHosts(resolveDockerHost()));
+    return CuratorConfig.create(zk.resolveDockerHosts(resolveProxyHost()));
   }
 
   public ExhibitorConfig toExhibitorConfig()
@@ -261,24 +322,70 @@ public class ClusterConfig
     if (metastore == null) {
       throw new ISE("Metastore not configured");
     }
-    return metastore.toMetadataConfig(resolveDockerHost());
+    return metastore.toMetadataConfig(resolveProxyHost());
   }
 
   /**
    * Convert the config in this structure the the properties
    * structure
-   * @return
    */
   public Properties toProperties()
   {
     Properties properties = new Properties();
-    properties.put("druid.test.config.dockerIp", "localhost");
+    properties.put("druid.test.config.dockerIp", resolveProxyHost());
+    /*
+     * We will use this instead of druid server's CuratorConfig, because CuratorConfig in
+     * a test cluster environment sees zookeeper at localhost even if zookeeper is elsewhere.
+     * We'll take the zookeeper host from the configuration file instead.
+     */
+    properties.put(
+        CuratorModule.CURATOR_CONFIG_PREFIX + ".zkHosts",
+        zk.resolveDockerHosts(proxyHost));
+    if (this.properties != null) {
+      for (Entry<String, Object> entry : this.properties.entrySet()) {
+        properties.put(entry.getKey(), entry.getValue().toString());
+      }
+    }
     return properties;
   }
 
   public IntegrationTestingConfig toIntegrationTestingConfig()
   {
     return new IntegrationTestingConfigShim();
+  }
+
+  public ClusterConfig merge(ClusterConfig overrides)
+  {
+    ClusterConfig merged = new ClusterConfig(this);
+    if (overrides.proxyHost != null) {
+      merged.proxyHost = overrides.proxyHost;
+    }
+    // Includes are already considered.
+    if (overrides.zk != null) {
+      merged.zk = overrides.zk;
+    }
+    if (overrides.metastore != null) {
+      merged.metastore = overrides.metastore;
+    }
+    if (overrides.kafka != null) {
+      merged.kafka = overrides.kafka;
+    }
+    if (merged.druidServices == null) {
+      merged.druidServices = overrides.druidServices;
+    } else if (overrides.druidServices != null) {
+      merged.druidServices.putAll(overrides.druidServices);
+    }
+    if (merged.properties == null) {
+      merged.properties = overrides.properties;
+    } else if (overrides.properties != null) {
+      merged.properties.putAll(overrides.properties);
+    }
+    if (merged.metastoreInit == null) {
+      merged.metastoreInit = overrides.metastoreInit;
+    } else if (overrides.metastoreInit != null) {
+      merged.metastoreInit.addAll(overrides.metastoreInit);
+    }
+    return merged;
   }
 
   /**
@@ -289,13 +396,13 @@ public class ClusterConfig
     @Override
     public String getZookeeperHosts()
     {
-      return zk.resolveDockerHosts(dockerHost);
+      return zk.resolveDockerHosts(proxyHost);
     }
 
     @Override
     public String getKafkaHost()
     {
-      return dockerHost;
+      return resolveProxyHost();
     }
 
     @Override
@@ -307,108 +414,108 @@ public class ClusterConfig
     @Override
     public String getBrokerHost()
     {
-      return dockerHost;
+      return resolveProxyHost();
     }
 
     @Override
     public String getBrokerInternalHost()
     {
-      return requireBroker().resolveContainerHost();
+      return requireBroker().resolveHost();
     }
 
     @Override
     public String getRouterHost()
     {
-      return dockerHost;
+      return resolveProxyHost();
     }
 
     @Override
     public String getRouterInternalHost()
     {
-      return requireRouter().resolveContainerHost();
+      return requireRouter().resolveHost();
     }
 
     @Override
     public String getCoordinatorHost()
     {
-      return dockerHost;
+      return resolveProxyHost();
     }
 
     @Override
     public String getCoordinatorInternalHost()
     {
       DruidConfig config = requireCoordinator();
-      return config.resolveContainerHost(config.tagOrDefault("one"));
+      return config.resolveHost(config.tagOrDefault("one"));
     }
 
     @Override
     public String getCoordinatorTwoInternalHost()
     {
       DruidConfig config = requireCoordinator();
-      return config.resolveContainerHost(config.requireInstance("two"));
+      return config.resolveHost(config.requireInstance("two"));
     }
 
     @Override
     public String getCoordinatorTwoHost()
     {
-      return dockerHost;
+      return resolveProxyHost();
     }
 
     @Override
     public String getOverlordHost()
     {
-      return dockerHost;
+      return resolveProxyHost();
     }
 
     @Override
     public String getOverlordTwoHost()
     {
-      return dockerHost;
+      return resolveProxyHost();
     }
 
     @Override
     public String getOverlordInternalHost()
     {
       DruidConfig config = requireOverlord();
-      return config.resolveContainerHost(config.tagOrDefault("one"));
+      return config.resolveHost(config.tagOrDefault("one"));
     }
 
     @Override
     public String getOverlordTwoInternalHost()
     {
       DruidConfig config = requireOverlord();
-      return config.resolveContainerHost(config.requireInstance("two"));
+      return config.resolveHost(config.requireInstance("two"));
     }
 
     @Override
     public String getMiddleManagerHost()
     {
-      return dockerHost;
+      return resolveProxyHost();
     }
 
     @Override
     public String getMiddleManagerInternalHost()
     {
-      return requireMiddleManager().resolveContainerHost();
+      return requireMiddleManager().resolveHost();
     }
 
     @Override
     public String getHistoricalHost()
     {
-      return dockerHost;
+      return resolveProxyHost();
     }
 
     @Override
     public String getHistoricalInternalHost()
     {
-      return requireHistorical().resolveContainerHost();
+      return requireHistorical().resolveHost();
     }
 
     @Override
     public String getCoordinatorUrl()
     {
       DruidConfig config = requireCoordinator();
-      return config.resolveUrl(dockerHost, config.tagOrDefault("one"));
+      return config.resolveUrl(resolveProxyHost(), config.tagOrDefault("one"));
     }
 
     @Override
@@ -420,7 +527,7 @@ public class ClusterConfig
     @Override
     public String getCoordinatorTwoUrl()
     {
-      return requireCoordinator().resolveUrl(dockerHost, "two");
+      return requireCoordinator().resolveUrl(resolveProxyHost(), "two");
     }
 
     @Override
@@ -432,7 +539,7 @@ public class ClusterConfig
     @Override
     public String getOverlordUrl()
     {
-      return requireOverlord().resolveUrl(dockerHost);
+      return requireOverlord().resolveUrl(resolveProxyHost());
     }
 
     @Override
@@ -444,7 +551,7 @@ public class ClusterConfig
     @Override
     public String getOverlordTwoUrl()
     {
-      return requireOverlord().resolveUrl(dockerHost, "two");
+      return requireOverlord().resolveUrl(resolveProxyHost(), "two");
     }
 
     @Override
@@ -460,7 +567,7 @@ public class ClusterConfig
       if (indexer == null) {
         indexer = requireMiddleManager();
       }
-      return indexer.resolveUrl(dockerHost);
+      return indexer.resolveUrl(resolveProxyHost());
     }
 
     @Override
@@ -472,14 +579,14 @@ public class ClusterConfig
     @Override
     public String getRouterUrl()
     {
-      return requireRouter().resolveUrl(dockerHost);
+      return requireRouter().resolveUrl(resolveProxyHost());
     }
 
     @Override
     public String getRouterTLSUrl()
     {
       DruidConfig config = requireRouter();
-      return config.resolveUrl(dockerHost, config.tagOrDefault("tls"));
+      return config.resolveUrl(resolveProxyHost(), config.tagOrDefault("tls"));
     }
 
     @Override
@@ -521,20 +628,20 @@ public class ClusterConfig
     @Override
     public String getBrokerUrl()
     {
-      return requireBroker().resolveUrl(dockerHost);
+      return requireBroker().resolveUrl(resolveProxyHost());
     }
 
     @Override
     public String getBrokerTLSUrl()
     {
       DruidConfig config = requireBroker();
-      return config.resolveUrl(dockerHost, config.tagOrDefault("tls"));
+      return config.resolveUrl(resolveProxyHost(), config.tagOrDefault("tls"));
     }
 
     @Override
     public String getHistoricalUrl()
     {
-      return requireHistorical().resolveUrl(dockerHost);
+      return requireHistorical().resolveUrl(resolveProxyHost());
     }
 
     @Override
@@ -643,6 +750,12 @@ public class ClusterConfig
     public boolean isDocker()
     {
       return true;
+    }
+
+    @Override
+    public String getDockerHost()
+    {
+      return resolveProxyHost();
     }
   }
 }

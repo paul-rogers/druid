@@ -19,8 +19,9 @@
 
 package org.apache.druid.tests.leadership;
 
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import org.apache.druid.cli.CliCustomNodeRole;
 import org.apache.druid.common.config.NullHandling;
@@ -38,36 +39,28 @@ import org.apache.druid.java.util.http.client.response.StatusResponseHandler;
 import org.apache.druid.java.util.http.client.response.StatusResponseHolder;
 import org.apache.druid.testing.IntegrationTestingConfig;
 import org.apache.druid.testing.clients.CoordinatorResourceTestClient;
-import org.apache.druid.testing.guice.DruidTestModuleFactory;
 import org.apache.druid.testing.guice.TestClient;
-import org.apache.druid.testing.utils.DruidClusterAdminClient;
-import org.apache.druid.testing.utils.ITRetryUtil;
 import org.apache.druid.testing.utils.SqlTestQueryHelper;
-import org.apache.druid.tests.TestNGGroup;
+import org.apache.druid.testing2.config.Initializer;
+import org.apache.druid.testing2.utils.DruidClusterAdminClient;
 import org.apache.druid.tests.indexer.AbstractIndexerTest;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
-import org.testng.Assert;
-import org.testng.annotations.Guice;
-import org.testng.annotations.Test;
+import org.junit.Assert;
+import org.junit.Test;
 
+import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
-@Test(groups = TestNGGroup.HIGH_AVAILABILTY)
-@Guice(moduleFactory = DruidTestModuleFactory.class)
 public class ITHighAvailabilityTest
 {
   private static final Logger LOG = new Logger(ITHighAvailabilityTest.class);
   private static final String SYSTEM_QUERIES_RESOURCE = "/queries/high_availability_sys.json";
   private static final int NUM_LEADERSHIP_SWAPS = 3;
-
-  private static final int NUM_RETRIES = 120;
-  private static final long RETRY_DELAY = TimeUnit.SECONDS.toMillis(5);
 
   @Inject
   private IntegrationTestingConfig config;
@@ -93,6 +86,14 @@ public class ITHighAvailabilityTest
   @Inject
   @TestClient
   HttpClient httpClient;
+
+  public ITHighAvailabilityTest()
+  {
+    Initializer
+      .builder()
+      .test(this)
+      .build();
+  }
 
   @Test
   public void testLeadershipChanges() throws Exception
@@ -127,57 +128,42 @@ public class ITHighAvailabilityTest
   @Test
   public void testDiscoveryAndSelfDiscovery()
   {
-    ITRetryUtil.retryUntil(
-        () -> {
-          try {
-            List<DruidNodeDiscovery> disco = ImmutableList.of(
-                druidNodeDiscovery.getForNodeRole(NodeRole.COORDINATOR),
-                druidNodeDiscovery.getForNodeRole(NodeRole.OVERLORD),
-                druidNodeDiscovery.getForNodeRole(NodeRole.HISTORICAL),
-                druidNodeDiscovery.getForNodeRole(NodeRole.MIDDLE_MANAGER),
-                druidNodeDiscovery.getForNodeRole(NodeRole.INDEXER),
-                druidNodeDiscovery.getForNodeRole(NodeRole.BROKER),
-                druidNodeDiscovery.getForNodeRole(NodeRole.ROUTER)
-            );
+    // The cluster used here has an abbreviated set of services.
+    verifyRoleDiscovery(NodeRole.BROKER, 1);
+    verifyRoleDiscovery(NodeRole.COORDINATOR, 2);
+    verifyRoleDiscovery(NodeRole.OVERLORD, 2);
+    verifyRoleDiscovery(NodeRole.ROUTER, 1);
+  }
 
-            int servicesDiscovered = 0;
-            for (DruidNodeDiscovery nodeRole : disco) {
-              Collection<DiscoveryDruidNode> nodes = nodeRole.getAllNodes();
-              servicesDiscovered += testSelfDiscovery(nodes);
-            }
-            return servicesDiscovered > 5;
-          }
-          catch (Throwable t) {
-            return false;
-          }
-        },
-        true,
-        RETRY_DELAY,
-        NUM_RETRIES,
-        "Standard services discovered"
-    );
+  @Test
+  public void adHocTest() throws JsonParseException, JsonMappingException, IOException
+  {
+    File file = new File("/tmp/test2.json");
+    DiscoveryDruidNode node = this.jsonMapper.readValue(file, DiscoveryDruidNode.class);
+    System.out.println(node);
+  }
+
+  public void verifyRoleDiscovery(NodeRole role, int expectedCount)
+  {
+    // No need for generic retry. If the host is up, it will be in ZK.
+    // Internally the code gives discovery 30 seconds to get its act together.
+    // This is plenty if the cluster is up before we start this test.
+    // Retrying won't buy us anything here: if the node is down, it
+    // will stay down.
+    DruidNodeDiscovery discovered = druidNodeDiscovery.getForNodeRole(role);
+    try {
+      int count = testSelfDiscovery(discovered.getAllNodes());
+      Assert.assertEquals(expectedCount, count);
+    }
+    catch (MalformedURLException | ExecutionException | InterruptedException e) {
+      Assert.fail("Node discovery failed: " + e.getMessage());
+    }
   }
 
   @Test
   public void testCustomDiscovery()
   {
-    ITRetryUtil.retryUntil(
-        () -> {
-          try {
-            DruidNodeDiscovery customDisco =
-                druidNodeDiscovery.getForNodeRole(new NodeRole(CliCustomNodeRole.SERVICE_NAME));
-            int count = testSelfDiscovery(customDisco.getAllNodes());
-            return count > 0;
-          }
-          catch (Throwable t) {
-            return false;
-          }
-        },
-        true,
-        RETRY_DELAY,
-        NUM_RETRIES,
-        "Custom service discovered"
-    );
+    verifyRoleDiscovery(new NodeRole(CliCustomNodeRole.SERVICE_NAME), 1);
   }
 
   private int testSelfDiscovery(Collection<DiscoveryDruidNode> nodes)

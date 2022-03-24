@@ -35,7 +35,8 @@ public class TestClusterConfig
   @Test
   public void testYaml() throws JsonParseException, JsonMappingException, IOException
   {
-    ClusterConfig obj = ClusterConfig.loadFromResource("/yaml/test.yaml");
-    System.out.println(obj);
+    ClusterConfig config = ClusterConfig.loadFromResource("/yaml/test.yaml");
+    config = config.resolveIncludes();
+    System.out.println(config);
   }
 }

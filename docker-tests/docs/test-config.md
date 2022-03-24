@@ -139,6 +139,7 @@ Merging occurs as follows:
 * Services: newer values replace all older settings for that service.
 * Metastore init: newer values add more queries to any list defined
   by an earlier file.
+* Properties: newer values replace values defined by earlier files.
 
 ### `proxyHost`
 
@@ -154,6 +155,150 @@ the proxy host is the host running the Kubernetes proxy service.
 There is no proxy host for clusters running directly on a machine.
 
 If the proxy host is omitted for Docker, `localhost` is assumed.
+
+### `zk`
+
+```yaml
+zk:
+  <service object>
+```
+
+Specifies the ZooKeeper instances.
+
+### `startTimeoutSecs`
+
+```yaml
+startTimeoutSecs: <secs>
+```
+
+Specifies the amount of time to wait for ZK to become available when using the
+test client. Optional.
+
+### `metastore`
+
+```yaml
+metastore:
+  <service object>
+```
+
+Describes the Druid "metadata storage" (metastore) typically
+hosted in the offical MySql container. See `MetastoreConfig` for
+configuration options.
+
+#### `driver`
+
+```yaml
+driver: <full class name>
+```
+
+The Driver to use to work with the metastore. The driver must be
+available on the tests's class path.
+
+#### `connectURI`
+
+```yaml:
+connectURI: <url>
+```
+
+The JDBC connetion URL. Example:
+
+```text
+jdbc:mysql://<host>:<port>/druid
+```
+
+The config system supports two special fields: the `host` and `port`.
+A string of form `<host>` will be replaced by the resolved host name
+(proxy hot for Docker) and `<port>` with the resolved port number.
+
+#### `user`
+
+```yaml
+user: <user name>
+```
+
+The MySQL user name.
+
+
+#### `password`
+
+```yaml
+user: <password>
+```
+
+The MySQL password.
+
+#### `properties`
+
+```yaml
+properties:
+  <key>: <value>
+```
+
+Optional map of additional key/value pairs to pass to the JDBC driver.
+
+### `kafka`
+
+```yaml
+zk:
+  <service object>
+```
+
+### `druid`
+
+```yaml
+druid:
+  <service>:
+    <service object>
+```
+
+### `properties`
+
+```yaml
+properties:
+  <key>: <value>
+```
+
+Optional set of properties to use to configuration the Druid components loaded
+by tests. This is the test-specific form of the standard Druid `common.runtime.properties`
+and `runtime.properties` files.  Because the test run as a client, the server
+files are not available, and might not even make sense. (The client is not
+a "service", for example.) Technically, the properties listed here are added to
+Guice as the one and only `Properties` object.
+
+Typically most components work using the default values. Tests are free to change
+any of these values for a given test scenario. At present, the properties are
+the same for all tests within a Maven module, but we could extend the
+`ClusterConfig.Builder` class to allow test-specific settings if needed.
+
+The "JSON configuration" mechanism wants all properties to be strings. YAML
+will deserialize number-like properties as numbers. To avoid confusion, all
+properties are converted to strings before being passed to Druid.
+
+When using inheritance, later properties override earlier properties.
+
+### `metastoreInit`
+
+```yaml
+metastoreInit:
+  - sql: |
+      <sql query>
+```
+
+A set of MySQL statements to be run against the
+metadata storage before the test starts. Queries run in the
+order specified. Ensure each is idempotent to
+allow running tests multiple times against the same target directory.
+
+To be kind to readers, please format the statements across multiple lines.
+The code will compress out extra spaces before submitting the query so
+that JSON payloads are as compact as possible.
+
+The `sql` keyword is the only one supported at present. The idea is that
+there may need to be context for some queries in some tests. (To be
+enhance as query conversion proceeds.)
+
+When using inheritance, the set of queries is the union of all queries
+in all configuration files.
 
 ### Service Instance Object
 
@@ -226,102 +371,3 @@ Each service requires at least one instance. If more than one, then
 each instance must define a `tag` that is a suffix that distinguishes
 the instances.
 
-### `zk`
-
-```yaml
-zk:
-  <service object>
-```
-
-Specifies the ZooKeeper instances.
-
-### `startTimeoutSecs`
-
-```yaml
-startTimeoutSecs: <secs>
-```
-
-Specifies the amount of time to wait for ZK to become available when using the
-test client. Optional.
-
-### `metastore`
-
-```yaml
-metastore:
-  <service object>
-```
-
-Describes the Druid "metadata storage" (metastore) typically
-hosted in the offical MySql container. See `MetastoreConfig` for
-configuration options.
-
-#### `driver`
-
-```yaml
-driver: <full class name>
-```
-
-The Driver to use to work with the metastore. The driver must be
-available on the tests's class path.
-
-#### `user`
-
-```yaml
-user: <user name>
-```
-
-The MySQL user name.
-
-
-#### `password`
-
-```yaml
-user: <password>
-```
-
-The MySQL password.
-
-#### `properties`
-
-```yaml
-properties:
-  <key>: <value>
-```
-
-Optional map of additional key/value pairs to pass to the JDBC driver.
-
-### `kafka`
-
-```yaml
-zk:
-  <service object>
-```
-
-## `druid`
-
-```yaml
-druid:
-  <service>:
-    <service object>
-```
-
-## `metastoreInit`
-
-```yaml
-metastoreInit:
-  - sql: |
-      <sql query>
-```
-
-A set of MySQL statements to be run against the
-metadata storage before the test starts. Queries run in the
-order specified. Ensure each is idempotent to
-allow running tests multiple times against the same target directory.
-
-To be kind to readers, please format the statements across multiple lines.
-The code will compress out extra spaces before submitting the query so
-that JSON payloads are as compact as possible.
-
-The `sql` keyword is the only one supported at present. The idea is that
-there may need to be context for some queries in some tests. (To be
-enhance as query conversion proceeds.)

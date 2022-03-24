@@ -23,7 +23,7 @@ import org.apache.druid.testing2.cluster.KafkaClient;
 import org.apache.druid.testing2.cluster.MetastoreClient;
 import org.apache.druid.testing2.cluster.ZooKeeperClient;
 import org.apache.druid.testing2.config.ClusterConfig;
-import org.apache.druid.testing2.config.TestConfigs;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -34,15 +34,16 @@ import org.junit.Test;
 public class TestCluster
 {
   @Test
+  @Ignore("manual check")
   public void testZk()
   {
     ClusterConfig config = ClusterConfig.loadFromResource("/yaml/test.yaml");
     ZooKeeperClient client = new ZooKeeperClient(config);
-    client.open();
     client.close();
   }
 
   @Test
+  @Ignore("manual check")
   public void testMetastore()
   {
     ClusterConfig config = ClusterConfig.loadFromResource("/yaml/test.yaml");
@@ -51,6 +52,7 @@ public class TestCluster
   }
 
   @Test
+  @Ignore("manual check")
   public void testKafka()
   {
     ClusterConfig config = ClusterConfig.loadFromResource("/yaml/test.yaml");

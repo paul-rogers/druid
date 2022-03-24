@@ -85,7 +85,8 @@ public class MetastoreClient
   {
     try {
       return connection().prepareStatement(sql).execute();
-    } catch (SQLException e) {
+    }
+    catch (SQLException e) {
       throw new ISE(e, "Metadata query failed");
     }
   }

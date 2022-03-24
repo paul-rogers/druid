@@ -50,7 +50,7 @@ public class KafkaClient
   {
     if (admin == null) {
       final Map<String, Object> props = new HashMap<>();
-      props.put("bootstrap.servers", config.resolveDockerBootstrap(clusterConfig.resolveDockerHost()));
+      props.put("bootstrap.servers", config.resolveDockerBootstrap(clusterConfig.resolveProxyHost()));
       admin = Admin.create(props);
     }
     return admin;
@@ -63,7 +63,8 @@ public class KafkaClient
       if (result.nodes().get().isEmpty()) {
         throw new ISE("No nodes found in Kafka cluster");
       }
-    } catch (InterruptedException | ExecutionException e) {
+    }
+    catch (InterruptedException | ExecutionException e) {
       throw new ISE(e, "Could not connect to Kafka");
     }
   }
