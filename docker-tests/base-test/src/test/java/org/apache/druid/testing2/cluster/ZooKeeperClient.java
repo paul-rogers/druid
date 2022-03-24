@@ -46,18 +46,11 @@ public class ZooKeeperClient
     if (this.config == null) {
       throw new ISE("ZooKeeper not configured");
     }
-  }
-
-  /**
-   * Ensure ZK is ready.
-   */
-  public void open()
-  {
     prepare();
     awaitReady();
   }
 
-  public void prepare()
+  private void prepare()
   {
     CuratorConfig curatorConfig = clusterConfig.toCuratorConfig();
     ExhibitorConfig exhibitorConfig = clusterConfig.toExhibitorConfig();
@@ -65,15 +58,17 @@ public class ZooKeeperClient
     curatorFramework = CuratorModule.createCurator(curatorConfig, ensembleProvider);
   }
 
-  public void awaitReady()
+  private void awaitReady()
   {
     int timeoutSec = config.startTimeoutSecs();
     if (timeoutSec == 0) {
       timeoutSec = 5;
     }
     try {
+      curatorFramework.start();
       curatorFramework.blockUntilConnected(timeoutSec, TimeUnit.SECONDS);
-    } catch (InterruptedException e) {
+    }
+    catch (InterruptedException e) {
       throw new ISE("ZooKeeper timed out waiting for connect");
     }
   }

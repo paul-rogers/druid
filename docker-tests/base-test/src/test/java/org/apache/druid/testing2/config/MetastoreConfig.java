@@ -20,6 +20,8 @@
 package org.apache.druid.testing2.config;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Strings;
 import org.apache.druid.metadata.MetadataStorageConnectorConfig;
@@ -76,30 +78,35 @@ public class MetastoreConfig extends ServiceConfig
   }
 
   @JsonProperty("driver")
+  @JsonInclude(Include.NON_NULL)
   public String driver()
   {
     return driver;
   }
 
   @JsonProperty("connectURI")
+  @JsonInclude(Include.NON_NULL)
   public String connectURI()
   {
     return connectURI;
   }
 
   @JsonProperty("user")
+  @JsonInclude(Include.NON_NULL)
   public String user()
   {
     return user;
   }
 
   @JsonProperty("password")
+  @JsonInclude(Include.NON_NULL)
   public String password()
   {
     return password;
   }
 
   @JsonProperty("properties")
+  @JsonInclude(Include.NON_NULL)
   public Map<String, Object> properties()
   {
     return properties;
@@ -116,12 +123,12 @@ public class MetastoreConfig extends ServiceConfig
 
   public String resolveDockerConnectURI(String dockerHost)
   {
-    return resolveConnectURI(dockerHost, instance().resolveHostPort());
+    return resolveConnectURI(dockerHost, instance().resolveProxyPort());
   }
 
   public String resolveClusterConnectURI(String dockerHost)
   {
-    return resolveConnectURI(dockerHost, instance().resolveHostPort());
+    return resolveConnectURI(dockerHost, instance().resolveProxyPort());
   }
 
   private String resolveConnectURI(String host, int port)

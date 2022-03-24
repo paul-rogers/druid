@@ -51,7 +51,8 @@ public class MetadataStorageConnectorConfig
   @JsonProperty("dbcp")
   private Properties dbcpProperties;
 
-  public static MetadataStorageConnectorConfig create(String connectUri, String user, String password, Map<String, Object> properties) {
+  public static MetadataStorageConnectorConfig create(String connectUri, String user, String password, Map<String, Object> properties)
+  {
     MetadataStorageConnectorConfig config = new MetadataStorageConnectorConfig();
     if (connectUri != null) {
       config.connectURI = connectUri;

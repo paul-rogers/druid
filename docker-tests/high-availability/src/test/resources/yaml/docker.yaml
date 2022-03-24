@@ -15,59 +15,46 @@
 
 # Definition of the high-availability test cluster.
 # See https://yaml.org/spec/1.2.2 for more about YAML
-name: high-availability
-include: notyet.yaml
-dockerHost: localhost
-zk:
-  instances:
-    - containerPort: 2181
-metastore:
-  connectURI: "jdbc:mysql://<host>:<port>/druid"
-  user: "druid"
-  password: "diurd"
-  instances:
-    - containerPort: 3306
-kafka:
-  instances:
-    - containerPort: 9092
-      hostPort: 9093
+include:
+  - /yaml/zk-metastore.yaml
 
 # This test does not use ingest or query workers.
 druid:
   coordinator:
     instances:
       - tag: one
-        containerPort: 8081
+        port: 8081
       - tag: two
-        containerPort: 8081
-        hostPort: 18081
+        port: 8081
+        proxyPort: 18081
   overlord:
     instances:
       - tag: one
-        containerPort: 8090
+        port: 8090
       - tag: two
-        containerPort: 8090
-        hostPort: 18090
+        port: 8090
+        proxyPort: 18090
   broker:
     instances:
-      - containerPort: 8082
+      - port: 8082
   router:
     instances:
-      - containerPort: 8888
+      - port: 8888
   custom-node-role:
     instances:
-      - containerPort: 9301
+      - port: 9301
 
 # Properties to be set in the Properties object used in
 # Guice configuration in lieu of the server-side runtime.properties
 # file.
 #
-# druid.global.http.numMaxThreads avoids creating 20 Netty threads.
+# druid.global.http.numMaxThreads avoids creating 40+ Netty threads.
 # We only ever use 1.
 # druid.test.config.dockerIp is used by some older test code. Remove
 # it when that code is updated.
 properties:
   druid.global.http.numMaxThreads: 3
+  druid.broker.http.numMaxThreads: 3
   druid.test.config.dockerIp: localhost
 
 # Metastore initialization queries.

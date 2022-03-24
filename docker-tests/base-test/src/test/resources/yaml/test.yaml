@@ -13,43 +13,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Definition of a simple test "cluster"
+# Definition of a simple dummy "cluster" for use in
+# testing the configuration mechanism itself.
 # See https://yaml.org/spec/1.2.2 for more about YAML
-name: example
-include: foo.yaml
-dockerHost: localhost
-zk:
-  instances:
-    - containerPort: 2181
-metastore:
-  connectURI: "jdbc:mysql://<host>:<port>/druid"
-  user: "druid"
-  password: "diurd"
-  instances:
-    - containerPort: 3306
-kafka:
-  instances:
-    - containerPort: 9092
-      hostPort: 9093
+include:
+  - /yaml/zk-metastore.yaml
+  - /yaml/kafka.yaml
+
 druid:
   overlord:
     instances:
-      - containerPort: 8090
+      - port: 8090
   coordinator:
     instances:
-      - containerPort: 8081
+      - port: 8081
   historical:
     instances:
-      - containerPort: 8083
+      - port: 8083
   middlemanager:
     instances:
-      - containerPort: 8091
+      - port: 8091
   broker:
     instances:
-      - containerPort: 8082
+      - port: 8082
   router:
     instances:
-      - containerPort: 8888
+      - port: 8888
 properties:
     druid.test.config.dockerIp: localhost
 metastoreInit:

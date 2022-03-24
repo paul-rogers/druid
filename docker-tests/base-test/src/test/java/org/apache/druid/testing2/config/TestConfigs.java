@@ -24,8 +24,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 
+/**
+ * Utility functions related to test configuration.
+ */
 public class TestConfigs
 {
+  /**
+   * Converts a YAML-aware object to a YAML string, primarily
+   * for use in @{code toString()} methods.
+   */
   public static String toYaml(Object obj)
   {
     ObjectMapper mapper = new ObjectMapper(
@@ -33,7 +40,8 @@ public class TestConfigs
           .enable(YAMLGenerator.Feature.MINIMIZE_QUOTES));
     try {
       return mapper.writeValueAsString(obj);
-    } catch (JsonProcessingException e) {
+    }
+    catch (JsonProcessingException e) {
       return "<conversion failed>";
     }
   }

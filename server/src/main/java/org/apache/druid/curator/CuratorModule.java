@@ -48,7 +48,7 @@ import java.util.List;
 
 public class CuratorModule implements Module
 {
-  static final String CURATOR_CONFIG_PREFIX = "druid.zk.service";
+  public static final String CURATOR_CONFIG_PREFIX = "druid.zk.service";
 
   static final String EXHIBITOR_CONFIG_PREFIX = "druid.exhibitor.service";
 

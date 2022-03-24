@@ -83,7 +83,7 @@ public class ZKConfig extends ServiceConfig
   {
     List<String> hosts = new ArrayList<>();
     for (ServiceInstance instance : instances) {
-      hosts.add(resolveHost(dockerHost, instance.resolveHostPort()));
+      hosts.add(resolveHost(dockerHost, instance.resolveProxyPort()));
     }
     return String.join(",", hosts);
   }
@@ -92,7 +92,7 @@ public class ZKConfig extends ServiceConfig
   {
     List<String> hosts = new ArrayList<>();
     for (ServiceInstance instance : instances) {
-      hosts.add(resolveHost(instance.resolveContainerHost(resolveService()), instance.resolveContainerPort()));
+      hosts.add(resolveHost(instance.resolveHost(resolveService()), instance.resolvePort()));
     }
     return String.join(",", hosts);
   }

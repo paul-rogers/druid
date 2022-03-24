@@ -39,12 +39,12 @@ public class KafkaConfig extends ServiceConfig
   public String resolveDockerBootstrap(String dockerHost)
   {
     // Handles just one host at present
-    return resolveBootstrap(dockerHost, instance().resolveHostPort());
+    return resolveBootstrap(dockerHost, instance().resolveProxyPort());
   }
 
   public String resolveClusterBootstrap()
   {
-    return resolveBootstrap(service(), instance().resolveContainerPort());
+    return resolveBootstrap(service(), instance().resolvePort());
   }
 
   private String resolveBootstrap(String host, int port)
@@ -59,6 +59,6 @@ public class KafkaConfig extends ServiceConfig
 
   public String resolveContainerHost()
   {
-    return instance().resolveContainerHost(resolveService());
+    return instance().resolveHost(resolveService());
   }
 }
