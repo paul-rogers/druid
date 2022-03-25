@@ -59,6 +59,8 @@ public class ClusterConfig
   public static final String MIDDLEMANAGER = "middlemanager";
   public static final String INDEXER = "indexer";
 
+  public static final int DEFAULT_READY_TIMEOUT_SEC = 60;
+
   private boolean isResource;
   private String basePath;
 
@@ -66,6 +68,8 @@ public class ClusterConfig
   private String proxyHost;
   @JsonProperty("include")
   private List<String> include;
+  @JsonProperty("readyTimeoutSec")
+  private int readyTimeoutSec;
   @JsonProperty("zk")
   private ZKConfig zk;
   @JsonProperty("metastore")
@@ -167,6 +171,13 @@ public class ClusterConfig
     }
   }
 
+  @JsonProperty("readyTimeoutSec")
+  @JsonInclude(Include.NON_DEFAULT)
+  public int readyTimeoutSec()
+  {
+    return readyTimeoutSec;
+  }
+
   @JsonProperty("proxyHost")
   @JsonInclude(Include.NON_NULL)
   public String proxyHost()
@@ -214,6 +225,11 @@ public class ClusterConfig
   public List<MetastoreStmt> metastoreInit()
   {
     return metastoreInit;
+  }
+
+  public int resolveReadyTimeoutSec()
+  {
+    return readyTimeoutSec > 0 ? readyTimeoutSec : DEFAULT_READY_TIMEOUT_SEC;
   }
 
   public String resolveProxyHost()
@@ -296,6 +312,11 @@ public class ClusterConfig
     return requireService(HISTORICAL);
   }
 
+  public String routerUrl()
+  {
+    return requireRouter().resolveUrl(resolveProxyHost());
+  }
+
   @Override
   public String toString()
   {
@@ -357,6 +378,9 @@ public class ClusterConfig
   public ClusterConfig merge(ClusterConfig overrides)
   {
     ClusterConfig merged = new ClusterConfig(this);
+    if (overrides.readyTimeoutSec != 0) {
+      merged.readyTimeoutSec = overrides.readyTimeoutSec;
+    }
     if (overrides.proxyHost != null) {
       merged.proxyHost = overrides.proxyHost;
     }
@@ -579,7 +603,7 @@ public class ClusterConfig
     @Override
     public String getRouterUrl()
     {
-      return requireRouter().resolveUrl(resolveProxyHost());
+      return routerUrl();
     }
 
     @Override

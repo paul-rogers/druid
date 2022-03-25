@@ -36,21 +36,24 @@ SCRIPT_DIR=$(cd $(dirname $0) && pwd)
 # dependency jars. If doing this by hand, run Maven once to
 # populate these jars.
 if [ ! -d $TARGET_DIR/docker]; then
-	echo "$TARGET_DIR/docker does not exist, should contain dependency jars" 1>&2
+	echo "$TARGET_DIR/docker does not exist. It should contain dependency jars" 1>&2
 	exit 1
 fi
+mkdir -p $TARGET_DIR/docker
 cp -r docker/* $TARGET_DIR/docker
 cd $TARGET_DIR/docker
 
 # Grab the distribution.
 DISTRIB_FILE=apache-druid-$DRUID_VERSION-bin.tar.gz
-if [ ! -f $DISTRIB_FILE ]; then
-	cp $PARENT_DIR/distribution/target/$DISTRIB_FILE .
+SOURCE_FILE=$PARENT_DIR/distribution/target/$DISTRIB_FILE
+if [[ ! -f $DISTRIB_FILE || $SOURCE_FILE -nt $DISTRIB_FILE ]]; then
+	cp $SOURCE_FILE .
 fi
 
 docker build -t $IMAGE_NAME \
 	--build-arg DRUID_VERSION=$DRUID_VERSION \
 	--build-arg MYSQL_VERSION=$MYSQL_VERSION \
+	--build-arg MARIADB_VERSION=$MARIADB_VERSION \
 	--build-arg CONFLUENT_VERSION=$CONFLUENT_VERSION \
 	--build-arg HADOOP_VERSION=$HADOOP_VERSION \
 	--build-arg MYSQL_DRIVER_CLASSNAME=$MYSQL_DRIVER_CLASSNAME \

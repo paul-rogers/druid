@@ -25,6 +25,8 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Represents a Druid service (of one or more instances) running
@@ -164,5 +166,22 @@ public class DruidConfig extends ServiceConfig
               instances.size()));
     }
     return instance.resolveHost(resolveService());
+  }
+
+  public ServiceInstance findHost(String host)
+  {
+    Pattern p = Pattern.compile("https?://(.*):(\\d+)");
+    Matcher m = p.matcher(host);
+    if (!m.matches()) {
+      return null;
+    }
+    String hostName = m.group(1);
+    int port = Integer.parseInt(m.group(2));
+    for (ServiceInstance instance : instances) {
+      if (instance.resolveHost(resolveService()).equals(hostName) && instance.resolvePort() == port) {
+        return instance;
+      }
+    }
+    return null;
   }
 }

@@ -67,7 +67,7 @@ public class ServiceConfig
     return instances;
   }
 
-  protected ServiceInstance instance()
+  public ServiceInstance instance()
   {
     return requireInstances().get(0);
   }

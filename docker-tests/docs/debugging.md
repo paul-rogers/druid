@@ -158,3 +158,21 @@ in the usual way.
 <<Add information about debugging Druid in the containers>>
 
 See individual tests for test-specific details.
+
+## Typical Issues
+
+For the most part, you can stop and restart the Druid services as often
+as you like and Druid will just work. There are a few combinations that
+can lead to trouble, however.
+
+* Services won's start: When doing a new build, stop the existing cluster
+  before doing the build. The build removes and rebuilds the shared
+  directory: services can't survive that.
+* Metastore failure: The metastore container will recreate the DB on
+  each restart. This will fail if your shared directory already contains
+  a DB. Do a `rm -r target/shared/db` before restarting the DB container.
+* Coordinator fails with DB errors. The Coordinator will create the Druid
+  tables when it starts. This means the DB has to be created. If the DB
+  is removed after the Coordinator starts (to fix the above issue, say)
+  then you have to restart the Coordinator so it can create the needed
+  tables.

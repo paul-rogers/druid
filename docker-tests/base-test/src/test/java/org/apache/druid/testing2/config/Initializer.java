@@ -60,6 +60,7 @@ import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.testing.IntegrationTestingConfig;
 import org.apache.druid.testing.guice.TestClient;
+import org.apache.druid.testing2.cluster.ClusterClient;
 import org.apache.druid.testing2.cluster.MetastoreClient;
 
 import java.util.HashSet;
@@ -156,6 +157,8 @@ public class Initializer
     private String configName;
     private Object test;
     private List<Module> modules;
+    private boolean validateCluster;
+    private int timeoutMs;
 
     public Builder configName(String name)
     {
@@ -175,9 +178,29 @@ public class Initializer
       return this;
     }
 
+    public Builder validateCluster()
+    {
+      this.validateCluster = true;
+      return this;
+    }
+
+    public Builder withTimeout(int timeoutMs)
+    {
+      this.timeoutMs = timeoutMs;
+      return this;
+    }
+
     public Initializer build()
     {
-      return new Initializer(this);
+      Initializer initializer = new Initializer(this);
+      if (validateCluster) {
+        ClusterClient client = initializer.clusterClient();
+        if (timeoutMs == 0) {
+          timeoutMs = initializer.clusterConfig().resolveReadyTimeoutSec() * 1000;
+        }
+        client.validate(timeoutMs);
+      }
+      return initializer;
     }
   }
 
@@ -186,6 +209,7 @@ public class Initializer
   private final Injector injector;
   private final Lifecycle lifecycle;
   private MetastoreClient metastoreClient;
+  private ClusterClient clusterClient;
 
   private Initializer(Builder builder)
   {
@@ -195,7 +219,8 @@ public class Initializer
     if (builder.test != null) {
       this.injector.injectMembers(builder.test);
     }
-    lifecycle = GuiceRunnable.initLifecycle(injector, log);
+    this.lifecycle = GuiceRunnable.initLifecycle(injector, log);
+    this.clusterClient = this.injector.getInstance(ClusterClient.class);
     prepareDB();
   }
 
@@ -232,6 +257,7 @@ public class Initializer
           // Use the test-provided properties rather than the usual files
           binder.bind(Properties.class).toInstance(clusterConfig.toProperties());
           binder.bind(DruidSecondaryModule.class);
+          binder.bind(ClusterConfig.class).toInstance(clusterConfig);
         },
         // From GuiceInjectors
         new DruidGuiceExtensions(),
@@ -312,6 +338,11 @@ public class Initializer
       metastoreClient = new MetastoreClient(clusterConfig);
     }
     return metastoreClient;
+  }
+
+  public ClusterClient clusterClient()
+  {
+    return clusterClient;
   }
 
   public void close()

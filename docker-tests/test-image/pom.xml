@@ -123,6 +123,14 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
 			                  <outputDirectory>${project.build.directory}/docker</outputDirectory>
 			                </artifactItem>
 			                <artifactItem>
+							    <groupId>org.mariadb.jdbc</groupId>
+							    <artifactId>mariadb-java-client</artifactId>
+							    <version>${mariadb.version}</version>
+			                  <type>jar</type>
+			                  <overWrite>true</overWrite>
+			                  <outputDirectory>${project.build.directory}/docker</outputDirectory>
+			                </artifactItem>
+			                <artifactItem>
 							    <groupId>io.confluent</groupId>
 							    <artifactId>kafka-protobuf-provider</artifactId>
 							    <version>${confluent-version}</version>
@@ -185,6 +193,9 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
 										<MYSQL_DRIVER_CLASSNAME>com.mysql.jdbc.Driver</MYSQL_DRIVER_CLASSNAME>
 									    <IMAGE_NAME>${druid.image.name}</IMAGE_NAME>
 										<TARGET_DIR>${project.build.directory}</TARGET_DIR>
+									    <!-- Maven has no good way to get the root directory, so
+                                             this is as close as we can get. -->
+										<PARENT_DIR>${project.basedir}/../..</PARENT_DIR>
 					          		</environmentVariables>
 							        <workingDirectory>${project.basedir}</workingDirectory>
 							        <executable>bash</executable>
