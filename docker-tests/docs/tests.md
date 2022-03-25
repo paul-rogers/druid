@@ -82,21 +82,62 @@ public class MyTest
   private SomeObject myObject;
   ...
 
-  @BeforeClass
-  public static void setup()
-  {
-    initializer = new Initializer();
-  }
-
   public MyTest()
   {
-    initializer.injector().injectMembers(this);
+    Initializer
+      .builder()
+      .test(this)
+      .validateCluster()
+      .build();
   }
 ```
 
 Here's what happens:
 
-* JUnit calls `setup()` once per test class.
+* JUnit calls the constructor once per test class.
 * The `Initializer` loads the configuration and creates the Guice injector.
+* The `validateCluster()` causes initialization to check the health of
+  each service prior to starting the tests.
 * The constructor uses the staic initializer to inject dependencies into itself.
 * The test is now configured just as it would be from TestNG, and is ready to run.
+
+The initializer loads the basic set of Druid modules to run the basic client
+code. Tests may wish to load additional modules specific to that test. To
+do that, pass the list of such modules to the `modules()` method on the
+builder.
+
+## `ClusterConfig`
+
+The `ClusterConfig` class is the Java representation of the
+[test configuration](test-config.md). The instance is available from the
+`Initializer` and by Guice injection.
+
+It is a Jackson-serialized class, in this
+case, from YAML. There are two sets of methods: `foo()` and `resolveFoo()`.
+You don't want the `foo()` methods unless you are Jackson. You want the
+`resolveFoo()` methods which use the various inheriance rules to work
+out a value.
+
+Remember that each host has two names and two ports:
+
+* The external (or "proxy") host and port, as seen by the machine running
+  the tests.
+* The internal host and port, as seen by the service itself running
+  in the Docker cluster.
+
+The various [config files](test-config.md) provide configurations for
+the Docker, K8s and local cluster cases. This means that `resolveProxyHost()`
+will resolve to the proxy for Docker, but the acutal host for a local cluster.
+
+## `ClusterClient`
+
+The integration tests make many REST calls to the Druid cluster. The tests
+contain much copy/paste code to make these calls. The `ClusterClient` class
+is intended to gather up these calls so we have a single implementation
+rather than many copies. Add methods as needed for additional APIs.
+
+The cluster client is "test aware": it uses the information in
+`ClusterConfig` to know how to send the requested API. The methods handle
+JSON deserialization, so tests can focus simply on making a call and
+checking the results.
+

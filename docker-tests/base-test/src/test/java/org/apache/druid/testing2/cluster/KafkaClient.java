@@ -29,6 +29,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+/**
+ * Simple Kafka client for a test cluster.
+ * <p>
+ * At present, this client contains just enough functionality to validate
+ * that Kafka is up. It can be expanded to gather Kafka code currently
+ * copy/pasted in tests.
+ */
 public class KafkaClient
 {
   private final ClusterConfig clusterConfig;

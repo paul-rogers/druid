@@ -23,7 +23,10 @@ import com.google.inject.Injector;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.druid.sql.http.SqlQuery;
 import org.apache.druid.testing.clients.SqlResourceTestClient;
+import org.apache.druid.testing2.cluster.KafkaClient;
+import org.apache.druid.testing2.cluster.MetastoreClient;
 import org.apache.druid.testing2.cluster.ZooKeeperClient;
+import org.apache.druid.testing2.config.ClusterConfig;
 import org.apache.druid.testing2.config.Initializer;
 import org.apache.druid.testing2.utils.DruidClusterAdminClient;
 import org.junit.Ignore;
@@ -35,6 +38,10 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+/**
+ * Ad-hoc tests to exercise the various test-specific
+ * clients.
+ */
 public class TestClients
 {
 
@@ -65,6 +72,25 @@ public class TestClients
 
   @Test
   @Ignore("manual check")
+  public void testMetastore()
+  {
+    ClusterConfig config = ClusterConfig.loadFromResource("/yaml/test.yaml");
+    MetastoreClient client = new MetastoreClient(config);
+    client.close();
+  }
+
+  @Test
+  @Ignore("manual check")
+  public void testKafka()
+  {
+    ClusterConfig config = ClusterConfig.loadFromResource("/yaml/test.yaml");
+    KafkaClient client = new KafkaClient(config);
+    client.open();
+    client.close();
+  }
+
+  @Test
+  @Ignore("manual check")
   public void testZkClient() throws Exception
   {
     Initializer guiceConfig = Initializer.builder().configName("test").build();
@@ -75,5 +101,6 @@ public class TestClients
       List<String> members = curator.getChildren().forPath("/druid/internal-discovery/" + node);
       System.out.println("Role: " + node + ", members: " + members.toString());
     }
+    client.close();
   }
 }

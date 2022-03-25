@@ -42,6 +42,14 @@ Then, this module is a collection of sub-modules:
   tests which use the same Cluster configuration. A new group is created
   when test need a novel cluster configuration.
 
+## `org.apache.druid.testing2`
+
+The `org.apache.druid.testing2` is temporary: it holds code from the
+`integration-tests` `org.apache.druid.testing` package adapted to work
+in the revised environment. Some classes have the same name in both
+places. The goal is to merge the `testing2` package back into
+`testing` at some future point when the tests are all upgraded.
+
 ## Profiles
 
 Integration test artifacts are build only if you specifically request them
@@ -129,4 +137,3 @@ build if you are impatient, you can actually remove Maven from the build path fo
 the image and tests by using a script to do what `exec-maven-plugin` does. You just
 have to be sure to set the needed environment variables to the proper values.
 Once you do that, creating an image, or launching a cluster, is quite fast.
-

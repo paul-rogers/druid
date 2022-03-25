@@ -19,14 +19,14 @@
 
 package org.apache.druid.testing2.cli;
 
-import io.airlift.airline.Cli;
+import com.github.rvesse.airline.builder.CliBuilder;
 import org.apache.druid.cli.CliCommandCreator;
 
 public class CustomNodeRoleCommandCreator implements CliCommandCreator
 {
   @SuppressWarnings({ "rawtypes", "unchecked" })
   @Override
-  public void addCommands(Cli.CliBuilder builder)
+  public void addCommands(CliBuilder builder)
   {
     builder.withGroup("server").withCommands(CliCustomNodeRole.class);
   }

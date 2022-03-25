@@ -37,6 +37,10 @@ import java.sql.SQLException;
  * <p>
  * Used to verify that the DB is up and available. The JDBC
  * connection can be used to query the metadata DB for tests.
+ * <p>
+ * Also handles running metastore setup queries on test
+ * startup. Write such queries to be idempotent: REPLACE
+ * rather than INSERT, for example.
  */
 public class MetastoreClient
 {

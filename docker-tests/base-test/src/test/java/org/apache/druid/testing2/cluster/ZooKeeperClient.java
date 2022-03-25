@@ -32,6 +32,9 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Test oriented ZooKeeper client.
+ * <p>
+ * Currently contains just enough functionality to verify that
+ * ZK is ready.
  */
 public class ZooKeeperClient
 {

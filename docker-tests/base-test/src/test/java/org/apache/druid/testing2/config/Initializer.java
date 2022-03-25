@@ -152,6 +152,10 @@ public class Initializer
     }
   }
 
+  /**
+   * Class used by test to identify test-specific options, load configuration
+   * and "inject themselves" with dependencies.
+   */
   public static class Builder
   {
     private String configName;

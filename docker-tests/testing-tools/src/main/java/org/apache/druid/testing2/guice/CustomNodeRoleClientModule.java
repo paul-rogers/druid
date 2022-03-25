@@ -21,9 +21,7 @@ package org.apache.druid.testing2.guice;
 
 import com.fasterxml.jackson.databind.Module;
 import com.google.inject.Binder;
-import org.apache.druid.discovery.NodeRoles;
 import org.apache.druid.initialization.DruidModule;
-import org.apache.druid.testing2.cli.CliCustomNodeRole;
 
 import java.util.Collections;
 import java.util.List;
@@ -38,7 +36,8 @@ public class CustomNodeRoleClientModule implements DruidModule
   @Override
   public void configure(Binder binder)
   {
-    NodeRoles.addRole(binder, CliCustomNodeRole.NODE_ROLE);
+    // Not yet. Pending PR #12222
+    // NodeRoles.addRole(binder, CliCustomNodeRole.NODE_ROLE);
   }
 
   @Override

@@ -128,39 +128,39 @@ Returns the serialized JSON of segments to load and drop for each Historical pro
 #### Segment Loading by Datasource
 
 Note that all _interval_ query parameters are ISO 8601 strings (e.g., 2016-06-27/2016-06-28).
-Also note that these APIs only guarantees that the segments are available at the time of the call.
+Also note that these APIs only guarantees that the segments are available at the time of the call. 
 Segments can still become missing because of historical process failures or any other reasons afterward.
 
 ##### GET
 
 * `/druid/coordinator/v1/datasources/{dataSourceName}/loadstatus?forceMetadataRefresh={boolean}&interval={myInterval}`
 
-Returns the percentage of segments actually loaded in the cluster versus segments that should be loaded in the cluster for the given
-datasource over the given interval (or last 2 weeks if interval is not given). `forceMetadataRefresh` is required to be set.
-Setting `forceMetadataRefresh` to true will force the coordinator to poll latest segment metadata from the metadata store
-(Note: `forceMetadataRefresh=true` refreshes Coordinator's metadata cache of all datasources. This can be a heavy operation in terms
+Returns the percentage of segments actually loaded in the cluster versus segments that should be loaded in the cluster for the given 
+datasource over the given interval (or last 2 weeks if interval is not given). `forceMetadataRefresh` is required to be set. 
+Setting `forceMetadataRefresh` to true will force the coordinator to poll latest segment metadata from the metadata store 
+(Note: `forceMetadataRefresh=true` refreshes Coordinator's metadata cache of all datasources. This can be a heavy operation in terms 
 of the load on the metadata store but can be necessary to make sure that we verify all the latest segments' load status)
-Setting `forceMetadataRefresh` to false will use the metadata cached on the coordinator from the last force/periodic refresh.
+Setting `forceMetadataRefresh` to false will use the metadata cached on the coordinator from the last force/periodic refresh. 
 If no used segments are found for the given inputs, this API returns `204 No Content`
 
  * `/druid/coordinator/v1/datasources/{dataSourceName}/loadstatus?simple&forceMetadataRefresh={boolean}&interval={myInterval}`
 
-Returns the number of segments left to load until segments that should be loaded in the cluster are available for the given datasource
-over the given interval (or last 2 weeks if interval is not given). This does not include segment replication counts. `forceMetadataRefresh` is required to be set.
-Setting `forceMetadataRefresh` to true will force the coordinator to poll latest segment metadata from the metadata store
-(Note: `forceMetadataRefresh=true` refreshes Coordinator's metadata cache of all datasources. This can be a heavy operation in terms
+Returns the number of segments left to load until segments that should be loaded in the cluster are available for the given datasource 
+over the given interval (or last 2 weeks if interval is not given). This does not include segment replication counts. `forceMetadataRefresh` is required to be set. 
+Setting `forceMetadataRefresh` to true will force the coordinator to poll latest segment metadata from the metadata store 
+(Note: `forceMetadataRefresh=true` refreshes Coordinator's metadata cache of all datasources. This can be a heavy operation in terms 
 of the load on the metadata store but can be necessary to make sure that we verify all the latest segments' load status)
-Setting `forceMetadataRefresh` to false will use the metadata cached on the coordinator from the last force/periodic refresh.
-If no used segments are found for the given inputs, this API returns `204 No Content`
+Setting `forceMetadataRefresh` to false will use the metadata cached on the coordinator from the last force/periodic refresh. 
+If no used segments are found for the given inputs, this API returns `204 No Content` 
 
 * `/druid/coordinator/v1/datasources/{dataSourceName}/loadstatus?full&forceMetadataRefresh={boolean}&interval={myInterval}`
 
-Returns the number of segments left to load in each tier until segments that should be loaded in the cluster are all available for the given datasource
-over the given interval (or last 2 weeks if interval is not given). This includes segment replication counts. `forceMetadataRefresh` is required to be set.
-Setting `forceMetadataRefresh` to true will force the coordinator to poll latest segment metadata from the metadata store
-(Note: `forceMetadataRefresh=true` refreshes Coordinator's metadata cache of all datasources. This can be a heavy operation in terms
+Returns the number of segments left to load in each tier until segments that should be loaded in the cluster are all available for the given datasource 
+over the given interval (or last 2 weeks if interval is not given). This includes segment replication counts. `forceMetadataRefresh` is required to be set. 
+Setting `forceMetadataRefresh` to true will force the coordinator to poll latest segment metadata from the metadata store 
+(Note: `forceMetadataRefresh=true` refreshes Coordinator's metadata cache of all datasources. This can be a heavy operation in terms 
 of the load on the metadata store but can be necessary to make sure that we verify all the latest segments' load status)
-Setting `forceMetadataRefresh` to false will use the metadata cached on the coordinator from the last force/periodic refresh.
+Setting `forceMetadataRefresh` to false will use the metadata cached on the coordinator from the last force/periodic refresh. 
 You can pass the optional query parameter `computeUsingClusterView` to factor in the available cluster services when calculating
 the segments left to load. See [Coordinator Segment Loading](#coordinator-segment-loading) for details.
 If no used segments are found for the given inputs, this API returns `204 No Content`
@@ -464,15 +464,15 @@ Update overlord dynamic worker configuration.
 
 * `/druid/coordinator/v1/compaction/progress?dataSource={dataSource}`
 
-Returns the total size of segments awaiting compaction for the given dataSource.
-This is only valid for dataSource which has compaction enabled.
+Returns the total size of segments awaiting compaction for the given dataSource. 
+This is only valid for dataSource which has compaction enabled. 
 
 ##### GET
 
 * `/druid/coordinator/v1/compaction/status`
 
 Returns the status and statistics from the auto compaction run of all dataSources which have auto compaction enabled in the latest run.
-The response payload includes a list of `latestStatus` objects. Each `latestStatus` represents the status for a dataSource (which has/had auto compaction enabled).
+The response payload includes a list of `latestStatus` objects. Each `latestStatus` represents the status for a dataSource (which has/had auto compaction enabled). 
 The `latestStatus` object has the following keys:
 * `dataSource`: name of the datasource for this status information
 * `scheduleStatus`: auto compaction scheduling status. Possible values are `NOT_ENABLED` and `RUNNING`. Returns `RUNNING ` if the dataSource has an active auto compaction config submitted otherwise, `NOT_ENABLED`
@@ -490,7 +490,7 @@ The `latestStatus` object has the following keys:
 
 * `/druid/coordinator/v1/compaction/status?dataSource={dataSource}`
 
-Similar to the API `/druid/coordinator/v1/compaction/status` above but filters response to only return information for the {dataSource} given.
+Similar to the API `/druid/coordinator/v1/compaction/status` above but filters response to only return information for the {dataSource} given. 
 Note that {dataSource} given must have/had auto compaction enabled.
 
 #### Compaction Configuration
@@ -929,31 +929,16 @@ The endpoint for submitting queries. Accepts an option `?pretty` that pretty pri
 
 * `/druid/v2/candidates/`
 
-Returns segment information lists including server locations for the given query.
+Returns segment information lists including server locations for the given query..
 
 ### Router
 
 #### GET
 
-* `/druid/router/v1/brokers`
-
-Returns a list of the brokers registered within the cluster.
-
-* `/druid/router/v1/cluster`
-
-Returns a map of the servers registered within the cluster. Servers are keyed
-by service (broker, coordinator, etc.) with a list of instances of that type.
-The format is similar to
-`/druid/coordinator/v1/cluster`, except that roles are in alphabetical
-order, and are always in the form of a nested list.
-
 > Note: Much of this information is available in a simpler, easier-to-use form through the Druid SQL
 > [`INFORMATION_SCHEMA.TABLES`](../querying/sql-metadata-tables.md#tables-table),
 > [`INFORMATION_SCHEMA.COLUMNS`](../querying/sql-metadata-tables.md#columns-table), and
 > [`sys.segments`](../querying/sql-metadata-tables.md#segments-table) tables.
-
-You can use the `cluster` endpoint to diagnose issues if the SQL functionality is not
-available due to misconfiguration or similar problems.
 
 * `/druid/v2/datasources`
 

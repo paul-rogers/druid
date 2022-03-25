@@ -69,6 +69,10 @@ public class ClusterClient
     return config;
   }
 
+  /**
+   * Return the configuration object for the leader for
+   * the given service.
+   */
   public ServiceInstance leader(DruidConfig service)
   {
     if (service.instances().size() == 1) {
@@ -78,6 +82,9 @@ public class ClusterClient
     return service.findHost(leader);
   }
 
+  /**
+   * Returns the leader URL for the given service.
+   */
   public String getLeader(String service)
   {
     String url = StringUtils.format(
@@ -88,11 +95,23 @@ public class ClusterClient
     return get(url).getContent();
   }
 
+  /**
+   * Checks if a node is healthy, given the service and instance.
+   *
+   * @return `true` if the message returns `true`, `false` if the
+   * message fails (indicating the node is not healthy.)
+   */
   public boolean isHealthy(DruidConfig service, ServiceInstance instance)
   {
     return isHealthy(service.resolveUrl(config.resolveProxyHost(), instance));
   }
 
+  /**
+   * Checks if a node is healty given the URL for that node.
+   *
+   * @return `true` if the message returns `true`, `false` if the
+   * message fails (indicating the node is not healthy.)
+   */
   public boolean isHealthy(String serviceUrl)
   {
     String url = StringUtils.format(
@@ -102,6 +121,9 @@ public class ClusterClient
     return getAs(url, Boolean.class);
   }
 
+  /**
+   * Returns the URL for the lead coordinator.
+   */
   public String leadCoordinatorUrl()
   {
     DruidConfig coord = config.requireCoordinator();
@@ -109,6 +131,9 @@ public class ClusterClient
     return coord.resolveUrl(config.resolveProxyHost(), leader);
   }
 
+  /**
+   * Calls the `/v1/cluster` endpoint on the lead coordinator.
+   */
   public Map<String, Object> coordinatorCluster()
   {
     String url = StringUtils.format(
@@ -118,6 +143,9 @@ public class ClusterClient
     return getAs(url, JacksonUtils.TYPE_REFERENCE_MAP_STRING_OBJECT);
   }
 
+  /**
+   * Calls the `/v1/cluster` endpoint on the router.
+   */
   public Map<String, Object> routerCluster()
   {
     String url = StringUtils.format(
@@ -127,6 +155,9 @@ public class ClusterClient
     return getAs(url, JacksonUtils.TYPE_REFERENCE_MAP_STRING_OBJECT);
   }
 
+  /**
+   * Low-level HTTP get for the given URL.
+   */
   public StatusResponseHolder get(String url)
   {
     try {
@@ -150,6 +181,9 @@ public class ClusterClient
     }
   }
 
+  /**
+   * Issue a GET command and deserialize the JSON result to the given class.
+   */
   public <T> T getAs(String url, Class<T> clazz)
   {
     StatusResponseHolder response = get(url);
@@ -161,6 +195,9 @@ public class ClusterClient
     }
   }
 
+  /**
+   * Issue a GET command and deserialize the JSON result to the given type reference.
+   */
   public <T> T getAs(String url, TypeReference<T> typeRef)
   {
     StatusResponseHolder response = get(url);
@@ -172,6 +209,9 @@ public class ClusterClient
     }
   }
 
+  /**
+   * Call the `/status/selfDiscovered` given a node URL.
+   */
   public boolean selfDiscovered(String nodeUrl)
   {
     String url = StringUtils.format(
@@ -187,6 +227,12 @@ public class ClusterClient
     return true;
   }
 
+  /**
+   * Validates the cluster by waiting for each service declared in the
+   * test configuration to report that it is healthy. By doing this at the
+   * start of the test, individual tests don't have to retry to handle the
+   * race condition that otherwise occurs between cluster and test startup.
+   */
   public void validate(int timeoutMs)
   {
     for (Entry<String, DruidConfig> entry : config.requireDruid().entrySet()) {
@@ -198,6 +244,9 @@ public class ClusterClient
     }
   }
 
+  /**
+   * Validate an instance by waiting for it to report that it is healthy.
+   */
   private void validateInstance(String name, DruidConfig service, ServiceInstance instance, int timeoutMs)
   {
     long startTime = System.currentTimeMillis();
