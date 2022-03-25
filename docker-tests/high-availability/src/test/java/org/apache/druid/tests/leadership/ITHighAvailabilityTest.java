@@ -30,31 +30,32 @@ import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeDiscovery;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.http.client.HttpClient;
-import org.apache.druid.java.util.http.client.Request;
-import org.apache.druid.java.util.http.client.response.StatusResponseHandler;
-import org.apache.druid.java.util.http.client.response.StatusResponseHolder;
 import org.apache.druid.testing.IntegrationTestingConfig;
 import org.apache.druid.testing.clients.CoordinatorResourceTestClient;
 import org.apache.druid.testing.guice.TestClient;
 import org.apache.druid.testing.utils.SqlTestQueryHelper;
+import org.apache.druid.testing2.cluster.ClusterClient;
 import org.apache.druid.testing2.config.Initializer;
 import org.apache.druid.testing2.utils.DruidClusterAdminClient;
 import org.apache.druid.tests.indexer.AbstractIndexerTest;
-import org.jboss.netty.handler.codec.http.HttpMethod;
-import org.jboss.netty.handler.codec.http.HttpResponseStatus;
-import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class ITHighAvailabilityTest
 {
@@ -87,11 +88,15 @@ public class ITHighAvailabilityTest
   @TestClient
   HttpClient httpClient;
 
+  @Inject
+  ClusterClient clusterClient;
+
   public ITHighAvailabilityTest()
   {
     Initializer
       .builder()
       .test(this)
+      .validateCluster()
       .build();
   }
 
@@ -107,8 +112,8 @@ public class ITHighAvailabilityTest
       String overlordLeader = getLeader("indexer");
 
       // we expect leadership swap to happen
-      Assert.assertNotEquals(previousCoordinatorLeader, coordinatorLeader);
-      Assert.assertNotEquals(previousOverlordLeader, overlordLeader);
+      assertNotEquals(previousCoordinatorLeader, coordinatorLeader);
+      assertNotEquals(previousOverlordLeader, overlordLeader);
 
       previousCoordinatorLeader = coordinatorLeader;
       previousOverlordLeader = overlordLeader;
@@ -153,10 +158,10 @@ public class ITHighAvailabilityTest
     DruidNodeDiscovery discovered = druidNodeDiscovery.getForNodeRole(role);
     try {
       int count = testSelfDiscovery(discovered.getAllNodes());
-      Assert.assertEquals(expectedCount, count);
+      assertEquals(expectedCount, count);
     }
     catch (MalformedURLException | ExecutionException | InterruptedException e) {
-      Assert.fail("Node discovery failed: " + e.getMessage());
+      fail("Node discovery failed: " + e.getMessage());
     }
   }
 
@@ -164,6 +169,8 @@ public class ITHighAvailabilityTest
   public void testCustomDiscovery()
   {
     verifyRoleDiscovery(new NodeRole(CliCustomNodeRole.SERVICE_NAME), 1);
+    verifyRouterCluster();
+    verifyCoordinatorCluster();
   }
 
   private int testSelfDiscovery(Collection<DiscoveryDruidNode> nodes)
@@ -172,19 +179,14 @@ public class ITHighAvailabilityTest
     int count = 0;
 
     for (DiscoveryDruidNode node : nodes) {
-      final String location = StringUtils.format(
-          "http://%s:%s/status/selfDiscovered",
+      final String nodeUrl = StringUtils.format(
+          "http://%s:%s",
           config.isDocker() ? config.getDockerHost() : node.getDruidNode().getHost(),
           node.getDruidNode().getPlaintextPort()
       );
-      LOG.info("testing self discovery %s", location);
-      StatusResponseHolder response = httpClient.go(
-          new Request(HttpMethod.GET, new URL(location)),
-          StatusResponseHandler.getInstance()
-      ).get();
-      LOG.info("%s responded with %s", location, response.getStatus().getCode());
-      Assert.assertEquals(response.getStatus(), HttpResponseStatus.OK);
-      count++;
+      if (clusterClient.selfDiscovered(nodeUrl)) {
+        count++;
+      }
     }
     return count;
   }
@@ -214,52 +216,30 @@ public class ITHighAvailabilityTest
 
   private String getLeader(String service)
   {
-    try {
-      StatusResponseHolder response = httpClient.go(
-          new Request(
-              HttpMethod.GET,
-              new URL(StringUtils.format(
-                  "%s/druid/%s/v1/leader",
-                  config.getRouterUrl(),
-                  service
-              ))
-          ),
-          StatusResponseHandler.getInstance()
-      ).get();
-
-      if (!response.getStatus().equals(HttpResponseStatus.OK)) {
-        throw new ISE(
-            "Error while fetching leader from[%s] status[%s] content[%s]",
-            config.getRouterUrl(),
-            response.getStatus(),
-            response.getContent()
-        );
-      }
-      return response.getContent();
-    }
-    catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+    return clusterClient.getLeader(service);
   }
 
-  private static String fillTemplate(IntegrationTestingConfig config, String template, String overlordLeader, String coordinatorLeader)
+  private String fillTemplate(IntegrationTestingConfig config, String template, String overlordLeader, String coordinatorLeader)
   {
     /*
       {"host":"%%BROKER%%","server_type":"broker", "is_leader": %%NON_LEADER%%},
       {"host":"%%COORDINATOR_ONE%%","server_type":"coordinator", "is_leader": %%COORDINATOR_ONE_LEADER%%},
       {"host":"%%COORDINATOR_TWO%%","server_type":"coordinator", "is_leader": %%COORDINATOR_TWO_LEADER%%},
+      {"host":"%%CUSTOM_ROLE%%","server_type":"custom-node-role", "is_leader": %%NON_LEADER%%}
       {"host":"%%OVERLORD_ONE%%","server_type":"overlord", "is_leader": %%OVERLORD_ONE_LEADER%%},
       {"host":"%%OVERLORD_TWO%%","server_type":"overlord", "is_leader": %%OVERLORD_TWO_LEADER%%},
-      {"host":"%%ROUTER%%","server_type":"router", "is_leader": %%NON_LEADER%%}
+      {"host":"%%ROUTER%%","server_type":"router", "is_leader": %%NON_LEADER%%},
      */
     String working = template;
 
+    String customNode = clusterClient.config().druidService(CliCustomNodeRole.SERVICE_NAME).resolveHost();
     working = StringUtils.replace(working, "%%OVERLORD_ONE%%", config.getOverlordInternalHost());
     working = StringUtils.replace(working, "%%OVERLORD_TWO%%", config.getOverlordTwoInternalHost());
     working = StringUtils.replace(working, "%%COORDINATOR_ONE%%", config.getCoordinatorInternalHost());
     working = StringUtils.replace(working, "%%COORDINATOR_TWO%%", config.getCoordinatorTwoInternalHost());
     working = StringUtils.replace(working, "%%BROKER%%", config.getBrokerInternalHost());
     working = StringUtils.replace(working, "%%ROUTER%%", config.getRouterInternalHost());
+    working = StringUtils.replace(working, "%%CUSTOM_ROLE%%", customNode);
     if (isOverlordOneLeader(config, overlordLeader)) {
       working = StringUtils.replace(working, "%%OVERLORD_ONE_LEADER%%", "1");
       working = StringUtils.replace(working, "%%OVERLORD_TWO_LEADER%%", "0");
@@ -295,5 +275,33 @@ public class ITHighAvailabilityTest
   private static String transformHost(String host)
   {
     return StringUtils.format("%s:", host);
+  }
+
+  private void verifyCoordinatorCluster()
+  {
+    // Verify the basics: 5 service types, one of which is the custom node role.
+    // One of the two-node services has a size of 2.
+    // This endpoint includes an entry for historicals, even if none are running.
+    Map<String, Object> results = clusterClient.coordinatorCluster();
+    assertEquals(6, results.size());
+    assertNotNull(results.get(CliCustomNodeRole.SERVICE_NAME));
+    @SuppressWarnings("unchecked")
+    List<Object> coordNodes = (List<Object>) results.get(NodeRole.COORDINATOR.getJsonName());
+    assertEquals(2, coordNodes.size());
+    @SuppressWarnings("unchecked")
+    List<Object> histNodes = (List<Object>) results.get(NodeRole.HISTORICAL.getJsonName());
+    assertTrue(histNodes.isEmpty());
+  }
+
+  private void verifyRouterCluster()
+  {
+    // Verify the basics: 5 service types, one of which is the custom node role.
+    // One of the two-node services has a size of 2.
+    Map<String, Object> results = clusterClient.routerCluster();
+    assertEquals(5, results.size());
+    assertNotNull(results.get(CliCustomNodeRole.SERVICE_NAME));
+    @SuppressWarnings("unchecked")
+    List<Object> coordNodes = (List<Object>) results.get(NodeRole.COORDINATOR.getJsonName());
+    assertEquals(2, coordNodes.size());
   }
 }

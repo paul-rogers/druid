@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.cli;
+package org.apache.druid.testing2.cli;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +29,7 @@ import com.google.inject.Module;
 import com.google.inject.name.Names;
 import com.google.inject.servlet.GuiceFilter;
 import io.airlift.airline.Command;
+import org.apache.druid.cli.ServerRunnable;
 import org.apache.druid.client.coordinator.CoordinatorClient;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.Jerseys;
@@ -66,6 +67,7 @@ public class CliCustomNodeRole extends ServerRunnable
   public static final String SERVICE_NAME = "custom-node-role";
   public static final int PORT = 9301;
   public static final int TLS_PORT = 9501;
+  public static final NodeRole NODE_ROLE = new NodeRole(CliCustomNodeRole.SERVICE_NAME);
 
   public CliCustomNodeRole()
   {
@@ -75,7 +77,7 @@ public class CliCustomNodeRole extends ServerRunnable
   @Override
   protected Set<NodeRole> getNodeRoles(Properties properties)
   {
-    return ImmutableSet.of(new NodeRole(CliCustomNodeRole.SERVICE_NAME));
+    return ImmutableSet.of(NODE_ROLE);
   }
 
   @Override
@@ -83,7 +85,7 @@ public class CliCustomNodeRole extends ServerRunnable
   {
     return ImmutableList.of(
         binder -> {
-          LOG.info("starting up");
+          LOG.info("starting up custom node role");
           binder.bindConstant().annotatedWith(Names.named("serviceName")).to(CliCustomNodeRole.SERVICE_NAME);
           binder.bindConstant().annotatedWith(Names.named("servicePort")).to(CliCustomNodeRole.PORT);
           binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(CliCustomNodeRole.TLS_PORT);
@@ -99,12 +101,11 @@ public class CliCustomNodeRole extends ServerRunnable
           );
           Jerseys.addResource(binder, SelfDiscoveryResource.class);
           LifecycleModule.registerKey(binder, Key.get(SelfDiscoveryResource.class));
-
-        }
+      }
     );
   }
 
-  // ugly mimic of other jetty initializers
+  // ugly mimic of other Jetty initializers
   private static class CustomJettyServiceInitializer implements JettyServerInitializer
   {
     private static List<String> UNSECURED_PATHS = ImmutableList.of(

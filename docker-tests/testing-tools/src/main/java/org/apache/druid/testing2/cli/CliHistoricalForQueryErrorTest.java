@@ -17,11 +17,12 @@
  * under the License.
  */
 
-package org.apache.druid.cli;
+package org.apache.druid.testing2.cli;
 
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import io.airlift.airline.Command;
+import org.apache.druid.cli.CliHistorical;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.QuerySegmentWalker;

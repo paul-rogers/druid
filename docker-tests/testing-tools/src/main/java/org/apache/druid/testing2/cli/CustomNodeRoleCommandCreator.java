@@ -17,23 +17,17 @@
  * under the License.
  */
 
-package org.apache.druid.query.metadata.metadata;
+package org.apache.druid.testing2.cli;
 
-/**
- */
-public class NoneColumnIncluderator implements ColumnIncluderator
+import io.airlift.airline.Cli;
+import org.apache.druid.cli.CliCommandCreator;
+
+public class CustomNodeRoleCommandCreator implements CliCommandCreator
 {
-  private static final byte[] NONE_CACHE_PREFIX = new byte[]{0x0};
-
+  @SuppressWarnings({ "rawtypes", "unchecked" })
   @Override
-  public boolean include(String columnName)
+  public void addCommands(Cli.CliBuilder builder)
   {
-    return false;
-  }
-
-  @Override
-  public byte[] getCacheKey()
-  {
-    return NONE_CACHE_PREFIX;
+    builder.withGroup("server").withCommands(CliCustomNodeRole.class);
   }
 }

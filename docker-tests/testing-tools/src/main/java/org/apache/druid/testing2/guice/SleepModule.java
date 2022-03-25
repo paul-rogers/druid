@@ -17,10 +17,11 @@
  * under the License.
  */
 
-package org.apache.druid.guice;
+package org.apache.druid.testing2.guice;
 
 import com.fasterxml.jackson.databind.Module;
 import com.google.inject.Binder;
+import org.apache.druid.guice.ExpressionModule;
 import org.apache.druid.initialization.DruidModule;
 import org.apache.druid.query.expressions.SleepExprMacro;
 import org.apache.druid.query.sql.SleepOperatorConversion;

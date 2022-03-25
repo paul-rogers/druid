@@ -17,15 +17,33 @@
  * under the License.
  */
 
-package org.apache.druid.cli;
+package org.apache.druid.testing2.guice;
 
-import io.airlift.airline.Cli.CliBuilder;
+import com.fasterxml.jackson.databind.Module;
+import com.google.inject.Binder;
+import org.apache.druid.discovery.NodeRoles;
+import org.apache.druid.initialization.DruidModule;
+import org.apache.druid.testing2.cli.CliCustomNodeRole;
 
-public class QueryRetryTestCommandCreator implements CliCommandCreator
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Super-simple "client" for the custom node role which defines
+ * the node role so that REST APIs and the system tables are
+ * aware of this role.
+ */
+public class CustomNodeRoleClientModule implements DruidModule
 {
   @Override
-  public void addCommands(CliBuilder builder)
+  public void configure(Binder binder)
   {
-    builder.withGroup("server").withCommands(CliHistoricalForQueryErrorTest.class);
+    NodeRoles.addRole(binder, CliCustomNodeRole.NODE_ROLE);
+  }
+
+  @Override
+  public List<? extends Module> getJacksonModules()
+  {
+    return Collections.emptyList();
   }
 }
