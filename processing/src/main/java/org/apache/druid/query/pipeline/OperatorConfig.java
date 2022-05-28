@@ -31,7 +31,7 @@ public class OperatorConfig
 {
   public static boolean enabled()
   {
-    return true;
+    return false;
   }
 
   public static boolean enabledFor(Query<?> query)
@@ -53,7 +53,7 @@ public class OperatorConfig
   }
 
   public static void setupContext(Query<?> query, ResponseContext responseContext) {
-    if (!enabled()) {
+    if (!enabledFor(query)) {
       return;
     }
     FragmentContext fragmentContext = new FragmentContextImpl(

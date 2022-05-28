@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.pipeline;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -81,7 +82,9 @@ public class ScanQueryOperator implements Operator
       } else {
         limit = baseLimit;
       }
-      final StorageAdapter adapter = segment.asStorageAdapter();
+      // TODO: Revert this test-only hack
+      //final StorageAdapter adapter = segment.asStorageAdapter();
+      final StorageAdapter adapter = new MockStorageAdapter();
       if (adapter == null) {
         throw new ISE(
             "Null storage adapter found. Probably trying to issue a query against a segment being memory unmapped."
@@ -177,6 +180,11 @@ public class ScanQueryOperator implements Operator
       closeCursorReader();
       ResponseContext responseContext = context.responseContext();
       responseContext.add(ResponseContext.Key.NUM_SCANNED_ROWS, rowCount);
+      try {
+        iter.close();
+      } catch (IOException e) {
+        // Ignore
+      }
     }
 
     /**

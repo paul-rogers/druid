@@ -35,6 +35,7 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
+import org.apache.druid.query.pipeline.MockStorageAdapter;
 import org.apache.druid.segment.BaseObjectColumnValueSelector;
 import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.StorageAdapter;
@@ -77,7 +78,9 @@ public class ScanQueryEngine
     final boolean hasTimeout = QueryContexts.hasTimeout(query);
     final long timeoutAt = (long) responseContext.get(ResponseContext.Key.TIMEOUT_AT);
     final long start = System.currentTimeMillis();
-    final StorageAdapter adapter = segment.asStorageAdapter();
+    // TODO: Revert this testing hack
+    //final StorageAdapter adapter = segment.asStorageAdapter();
+    final StorageAdapter adapter = new MockStorageAdapter();
 
     if (adapter == null) {
       throw new ISE(

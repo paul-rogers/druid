@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.pipeline;
 
+import java.io.IOException;
 import java.util.Iterator;
 
 import org.apache.druid.java.util.common.guava.Sequence;
@@ -30,7 +31,7 @@ import com.google.common.base.Preconditions;
 /**
  * Iterator over a sequence.
  */
-public class SequenceIterator<T> implements Iterator<T>
+public class SequenceIterator<T> implements Iterator<T>, AutoCloseable
 {
   private Yielder<T> yielder;
 
@@ -64,5 +65,14 @@ public class SequenceIterator<T> implements Iterator<T>
     T value = yielder.get();
     yielder = yielder.next(null);
     return value;
+  }
+
+  @Override
+  public void close() throws IOException
+  {
+    if (yielder != null) {
+      yielder.close();
+      yielder = null;
+    }
   }
 }

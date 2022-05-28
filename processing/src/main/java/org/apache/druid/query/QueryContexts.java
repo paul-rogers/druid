@@ -68,6 +68,7 @@ public class QueryContexts
   public static final String ENABLE_DEBUG = "debug";
   public static final String BY_SEGMENT_KEY = "bySegment";
   public static final String BROKER_SERVICE_NAME = "brokerService";
+  public static final String PERF_TEST_KEY = "perfTest";
 
   public static final boolean DEFAULT_BY_SEGMENT = false;
   public static final boolean DEFAULT_POPULATE_CACHE = true;
@@ -431,6 +432,11 @@ public class QueryContexts
   public static String getBrokerServiceName(Map<String, Object> queryContext)
   {
     return queryContext == null ? null : (String) queryContext.get(BROKER_SERVICE_NAME);
+  }
+
+  public static boolean isPerfTest(Map<String, Object> queryContext)
+  {
+    return parseBoolean(queryContext, PERF_TEST_KEY, false);
   }
 
   static <T> long parseLong(Query<T> query, String key, long defaultValue)

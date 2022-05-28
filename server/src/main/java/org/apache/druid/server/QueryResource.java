@@ -55,6 +55,12 @@ import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.query.TruncatedResponseContextException;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.pipeline.FragmentContext;
+import org.apache.druid.query.pipeline.FragmentContextImpl;
+import org.apache.druid.query.pipeline.Operator;
+import org.apache.druid.query.pipeline.Operators;
+import org.apache.druid.query.pipeline.Operators.OperatorWrapperSequence;
+import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.server.metrics.QueryCountStatsProvider;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthConfig;
@@ -81,6 +87,8 @@ import javax.ws.rs.core.StreamingOutput;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
@@ -187,6 +195,7 @@ public class QueryResource implements QueryCountStatsProvider
 
     final String currThreadName = Thread.currentThread().getName();
     try {
+      long startTime = System.currentTimeMillis();
       queryLifecycle.initialize(readQuery(req, in, ioReaderWriter));
       query = queryLifecycle.getQuery();
       final String queryId = query.getId();
@@ -219,6 +228,41 @@ public class QueryResource implements QueryCountStatsProvider
         queryLifecycle.emitLogsAndMetrics(null, req.getRemoteAddr(), -1);
         successfulQueryCount.incrementAndGet();
         return Response.notModified().build();
+      }
+      if (QueryContexts.isPerfTest(query.getContext())) {
+        long batchCount = 0;
+        long rowCount = 0;
+        if (results instanceof OperatorWrapperSequence) {
+          Operator op = Operators.toOperator(results);
+          FragmentContext fragContext = new FragmentContextImpl(
+              query,
+              responseContext);
+          for (Object obj : Operators.toIterable(op, fragContext)) {
+            ScanResultValue scanResult = (ScanResultValue) obj;
+            batchCount++;
+            rowCount += scanResult.rowCount();
+          }
+          op.close(true);
+        } else {
+          Yielder<?> y = Yielders.each(results);
+          while (true) {
+            if (y.isDone()) {
+              y.close();
+              break;
+            }
+            ScanResultValue scanResult = (ScanResultValue) y.get();
+            batchCount++;
+            rowCount += scanResult.rowCount();
+            y = y.next(null);
+          }
+        }
+        long runTime = System.currentTimeMillis() - startTime;
+        List<Object> output = new ArrayList<>();
+        output.add(batchCount);
+        output.add(rowCount);
+        output.add(runTime);
+//        log.info("Performance results: batches: %d, rows: %d, time: %d ms", batchCount, rowCount, runTime);
+        return Response.ok().entity(output).build();
       }
 
       final Yielder<?> yielder = Yielders.each(results);
