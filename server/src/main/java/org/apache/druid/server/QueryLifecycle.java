@@ -45,6 +45,7 @@ import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryToolChestWarehouse;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.queryng.fragment.FragmentContextFactory;
 import org.apache.druid.server.QueryResource.ResourceIOReaderWriter;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
@@ -91,6 +92,7 @@ public class QueryLifecycle
   private final AuthorizerMapper authorizerMapper;
   private final DefaultQueryConfig defaultQueryConfig;
   private final AuthConfig authConfig;
+  private final FragmentContextFactory fragmentContextFactory;
   private final long startMs;
   private final long startNs;
 
@@ -110,6 +112,7 @@ public class QueryLifecycle
       final AuthorizerMapper authorizerMapper,
       final DefaultQueryConfig defaultQueryConfig,
       final AuthConfig authConfig,
+      final FragmentContextFactory fragmentContextFactory,
       final long startMs,
       final long startNs
   )
@@ -122,10 +125,10 @@ public class QueryLifecycle
     this.authorizerMapper = authorizerMapper;
     this.defaultQueryConfig = defaultQueryConfig;
     this.authConfig = authConfig;
+    this.fragmentContextFactory = fragmentContextFactory;
     this.startMs = startMs;
     this.startNs = startNs;
   }
-
 
   /**
    * For callers who have already authorized their query, and where simplicity is desired over flexibility. This method
@@ -156,7 +159,7 @@ public class QueryLifecycle
       }
 
       final QueryLifecycle.QueryResponse queryResponse = execute();
-      results = queryResponse.getResults();
+      results = (Sequence<T>) queryResponse.getResults();
     }
     catch (Throwable e) {
       emitLogsAndMetrics(e, null, -1);
@@ -181,8 +184,7 @@ public class QueryLifecycle
    *
    * @param baseQuery the query
    */
-  @SuppressWarnings("unchecked")
-  public void initialize(final Query baseQuery)
+  public void initialize(final Query<?> baseQuery)
   {
     transition(State.NEW, State.INITIALIZED);
 
@@ -263,8 +265,10 @@ public class QueryLifecycle
 
     final ResponseContext responseContext = DirectDruidClient.makeResponseContextForQuery();
 
-    final Sequence res = QueryPlus.wrap(baseQuery)
+    final Sequence<?> res = QueryPlus.wrap(baseQuery)
                                   .withIdentity(authenticationResult.getIdentity())
+                                  .withFragmentContext(
+                                      fragmentContextFactory.create(baseQuery, responseContext))
                                   .run(texasRanger, responseContext);
 
     return new QueryResponse(res == null ? Sequences.empty() : res, responseContext);
@@ -300,7 +304,7 @@ public class QueryLifecycle
     try {
       final long queryTimeNs = System.nanoTime() - startNs;
 
-      QueryMetrics queryMetrics = DruidMetrics.makeRequestMetrics(
+      QueryMetrics<?> queryMetrics = DruidMetrics.makeRequestMetrics(
           queryMetricsFactory,
           toolChest,
           baseQuery,
@@ -426,16 +430,16 @@ public class QueryLifecycle
 
   public static class QueryResponse
   {
-    private final Sequence results;
+    private final Sequence<?> results;
     private final ResponseContext responseContext;
 
-    private QueryResponse(final Sequence results, final ResponseContext responseContext)
+    private QueryResponse(final Sequence<?> results, final ResponseContext responseContext)
     {
       this.results = results;
       this.responseContext = responseContext;
     }
 
-    public Sequence getResults()
+    public Sequence<?> getResults()
     {
       return results;
     }

@@ -35,6 +35,7 @@ import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryToolChestWarehouse;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
+import org.apache.druid.queryng.fragment.NullFragmentContextFactory;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.Action;
@@ -109,6 +110,7 @@ public class QueryLifecycleTest
         authzMapper,
         queryConfig,
         authConfig,
+        new NullFragmentContextFactory(),
         millis,
         nanos
     );

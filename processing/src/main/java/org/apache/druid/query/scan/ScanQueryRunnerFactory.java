@@ -46,6 +46,8 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.spec.MultipleSpecificSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
+import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.planner.ScanPlanner;
 import org.apache.druid.segment.Segment;
 import org.joda.time.Interval;
 
@@ -87,8 +89,18 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
       final Iterable<QueryRunner<ScanResultValue>> queryRunners
   )
   {
-    // in single thread and in Jetty thread instead of processing thread
+    // In single thread and in Jetty thread instead of processing thread
     return (queryPlus, responseContext) -> {
+      if (Operators.enabledFor(queryPlus)) {
+        Sequence<ScanResultValue> results = ScanPlanner.runMerge(
+            queryPlus,
+            queryRunners,
+            responseContext);
+        if (results != null) {
+          return results;
+        }
+      }
+
       ScanQuery query = (ScanQuery) queryPlus.getQuery();
       ScanQuery.verifyOrderByForNativeExecution(query);
 
@@ -361,11 +373,14 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
     @Override
     public Sequence<ScanResultValue> run(QueryPlus<ScanResultValue> queryPlus, ResponseContext responseContext)
     {
+      if (Operators.enabledFor(queryPlus)) {
+        return ScanPlanner.runScan(queryPlus, segment, responseContext);
+      }
+
       Query<ScanResultValue> query = queryPlus.getQuery();
       if (!(query instanceof ScanQuery)) {
         throw new ISE("Got a [%s] which isn't a %s", query.getClass(), ScanQuery.class);
       }
-
       ScanQuery.verifyOrderByForNativeExecution((ScanQuery) query);
 
       // it happens in unit tests

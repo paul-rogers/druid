@@ -35,6 +35,8 @@ import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
+import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.planner.ScanPlanner;
 import org.apache.druid.segment.VirtualColumn;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
@@ -66,6 +68,9 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
   public QueryRunner<ScanResultValue> mergeResults(final QueryRunner<ScanResultValue> runner)
   {
     return (queryPlus, responseContext) -> {
+      if (Operators.enabledFor(queryPlus)) {
+        return ScanPlanner.runLimitAndOffset(queryPlus, runner, responseContext, scanQueryConfig);
+      }
       final ScanQuery originalQuery = ((ScanQuery) (queryPlus.getQuery()));
       ScanQuery.verifyOrderByForNativeExecution(originalQuery);
 
