@@ -28,10 +28,10 @@ import java.util.Map;
 */
 public class DefaultQueryRunnerFactoryConglomerate implements QueryRunnerFactoryConglomerate
 {
-  private final Map<Class<? extends Query>, QueryRunnerFactory> factories;
+  private final Map<Class<? extends Query<?>>, QueryRunnerFactory> factories;
 
   @Inject
-  public DefaultQueryRunnerFactoryConglomerate(Map<Class<? extends Query>, QueryRunnerFactory> factories)
+  public DefaultQueryRunnerFactoryConglomerate(Map<Class<? extends Query<?>>, QueryRunnerFactory> factories)
   {
     // Accesses to IdentityHashMap should be faster than to HashMap or ImmutableMap.
     // Class doesn't override Object.equals().

@@ -168,7 +168,8 @@ public final class QueryPlus<T>
 
   /**
    * Returns the same QueryPlus object with the fragment context added. The fragment
-   * context enables this query to use the "Next Gen" query engine.
+   * context enables this query to use the "Next Gen" query engine. The context
+   * may be null, which indicates to use the "classic" rather than "NG" engine.
    */
   public QueryPlus<T> withFragmentContext(FragmentContext fragmentContext)
   {

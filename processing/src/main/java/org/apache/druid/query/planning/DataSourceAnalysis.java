@@ -213,7 +213,7 @@ public class DataSourceAnalysis
   }
 
   /**
-   * Returns the bottommost (i.e. innermost) {@link Query} from a possible stack of outer queries at the root of
+   * Returns the bottom-most (i.e. innermost) {@link Query} from a possible stack of outer queries at the root of
    * the datasource tree. This is the query that will be applied to the base datasource plus any joinables that might
    * be present.
    *

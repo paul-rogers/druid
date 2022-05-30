@@ -92,7 +92,7 @@ public class JoinableFactoryWrapper
       final Query<?> query
   )
   {
-    // compute column correlations here and RHS correlated values
+    // Compute column correlations here and RHS correlated values
     return JvmUtils.safeAccumulateThreadCpuTime(
         cpuTimeAccumulator,
         () -> {
@@ -191,7 +191,6 @@ public class JoinableFactoryWrapper
     }
     return Optional.of(keyBuilder.build());
   }
-
 
   /**
    * Converts any join clauses to filters that can be converted, and returns the rest as-is.

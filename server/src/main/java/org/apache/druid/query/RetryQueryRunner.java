@@ -137,9 +137,9 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
 
   private List<SegmentDescriptor> getMissingSegments(QueryPlus<T> queryPlus, final ResponseContext context)
   {
-    // Sanity check before retrieving missingSegments from responseContext.
+    // Sanity check before retrieving missing segments from the response context.
     // The missingSegments in the responseContext is only valid when all servers have responded to the broker.
-    // The remainingResponses MUST be not null but 0 in the responseContext at this point.
+    // The remainingResponses MUST be not null but 0 in the response context at this point.
     final ConcurrentHashMap<String, Integer> idToRemainingResponses =
         Preconditions.checkNotNull(
             context.getRemainingResponses(),
@@ -149,7 +149,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
 
     final int remainingResponses = Preconditions.checkNotNull(
         idToRemainingResponses.get(queryPlus.getQuery().getMostSpecificId()),
-        "Number of remaining responses for query[%s]",
+        "Number of remaining responses for query [%s]",
         queryPlus.getQuery().getMostSpecificId()
     );
     if (remainingResponses > 0) {
@@ -224,7 +224,7 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
           return false;
         } else if (retryCount >= maxNumRetries) {
           if (!QueryContexts.allowReturnPartialResults(queryPlus.getQuery(), config.isReturnPartialResults())) {
-            throw new SegmentMissingException("No results found for segments[%s]", missingSegments);
+            throw new SegmentMissingException("No results found for segments [%s]", missingSegments);
           } else {
             return false;
           }

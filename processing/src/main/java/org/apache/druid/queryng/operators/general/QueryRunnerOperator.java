@@ -28,6 +28,14 @@ import org.apache.druid.queryng.operators.Operators;
 
 import java.util.Iterator;
 
+/**
+ * Operator which wraps a query runner. When used in the interim
+ * "shim" architecture, this operator allows a query runner to be
+ * the input (upstream) to some other (downstream) operator. The
+ * upstream query runner may give rise to its own operator. In that
+ * case, at runtime, the sequence wrapper for that operator is
+ * optimized away, leaving just the two operators.
+ */
 public class QueryRunnerOperator<T> implements Operator
 {
   private final QueryRunner<T> runner;

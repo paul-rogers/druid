@@ -149,6 +149,11 @@ public class ScanPlanner
     // TODO(paul): The original code applies a limit. Yet, when
     // run, the stack shows two limits one top of one another,
     // so the limit here seems unnecessary.
+    // That is, we are doing a concat operation. It does not matter
+    // if the limit is applied in the concat, or the next operator
+    // along: in either case, we'll stop reading from upstream when the
+    // limit is hit.
+    //
     // ScanQuery query = (ScanQuery) queryPlus.getQuery();
     // if (query.isLimited()) {
     //   op = new ScanResultLimitOperator(

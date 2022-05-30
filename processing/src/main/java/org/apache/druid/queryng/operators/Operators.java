@@ -19,6 +19,7 @@
 
 package org.apache.druid.queryng.operators;
 
+import org.apache.druid.java.util.common.guava.Accumulators;
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
@@ -28,17 +29,36 @@ import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.general.QueryRunnerOperator;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
+/**
+ * Utility functions related to operators.
+ */
 public class Operators
 {
   public static final String CONTEXT_VAR = "queryng";
 
+  /**
+   * Determine if the Query NG (operator-based) engine is enabled for the
+   * given query (given as a QueryPlus). Query NG is enabled if the QueryPlus
+   * includes the fragment context needed by the Query NG engine.
+   */
   public static boolean enabledFor(final QueryPlus<?> queryPlus)
   {
     return queryPlus.fragmentContext() != null;
   }
 
+  /**
+   * Determine if Query NG should be enabled for the given query;
+   * that is, if the query should have a fragment context attached.
+   * At present, Query NG is enabled if the query is a scan query and
+   * the query has the "queryng" context variable set. The caller
+   * should already have checked if the Query NG engine is enabled
+   * globally. If Query NG is enabled for a query, then the caller
+   * will attach a fragment context to the query's QueryPlus.
+   */
   public static boolean isEnabled(Query<?> query)
   {
     // Query has to be of the currently-supported type
@@ -73,6 +93,7 @@ public class Operators
   public static class OperatorWrapperSequence<T> extends BaseSequence<T, Iterator<T>>
   {
     private final Operator op;
+    private final FragmentContext context;
 
     public OperatorWrapperSequence(Operator op, FragmentContext context)
     {
@@ -92,11 +113,22 @@ public class Operators
         }
       });
       this.op = op;
+      this.context = context;
     }
 
     public Operator unwrap()
     {
       return op;
+    }
+
+    /**
+     * This will materialize the entire sequence from the wrapped
+     * operator.  Use at your own risk.
+     */
+    @Override
+    public List<T> toList()
+    {
+      return Operators.toList(op, context);
     }
   }
 
@@ -123,8 +155,30 @@ public class Operators
     return new SequenceOperator(sequence);
   }
 
+  /**
+   * Create an operator which wraps a query runner which allows a query runner
+   * to be an input to an operator. The runner, and its sequence, will be optimized
+   * away at runtime if both the upstream and downstream items are both operators,
+   * but the shim is left in place if the upstream is actually a query runner.
+   */
   public static <T> QueryRunnerOperator<T> toOperator(QueryRunner<T> runner, QueryPlus<T> query)
   {
     return new QueryRunnerOperator<T>(runner, query);
+  }
+
+  /**
+   * This will materialize the entire sequence from the wrapped
+   * operator.  Use at your own risk.
+   */
+  @SuppressWarnings("unchecked")
+  public static <T> List<T> toList(Operator op, FragmentContext context)
+  {
+    List<T> results = new ArrayList<>();
+    Iterator<Object> iter = op.open(context);
+    while (iter.hasNext()) {
+      results.add((T) iter.next());
+    }
+    op.close(true);
+    return results;
   }
 }

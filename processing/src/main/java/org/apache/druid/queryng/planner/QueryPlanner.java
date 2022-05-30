@@ -260,16 +260,12 @@ public class QueryPlanner
     );
     final Query<T> query = queryPlus.getQuery();
     final String newName = query.getType() + "_" + query.getDataSource() + "_" + query.getIntervals();
-    Operator op = Operators.toOperator(
-        base,
-        queryPlus);
+    Operator op = Operators.toOperator(base, queryPlus);
     final boolean setName = input.getQuery().getContextBoolean(
         SpecificSegmentQueryRunner.CTX_SET_THREAD_NAME,
         true);
     if (setName) {
-      op = new ThreadLabelOperator(
-          newName,
-          op);
+      op = new ThreadLabelOperator(newName, op);
     }
     return toSequence(
         op,
@@ -312,7 +308,7 @@ public class QueryPlanner
         responseContext);
   }
 
-  public static <T> Sequence<T> runSeqmentLock(
+  public static <T> Sequence<T> runSegmentLock(
       final SegmentReference segment,
       final SegmentDescriptor descriptor,
       final QueryPlus<T> queryPlus,

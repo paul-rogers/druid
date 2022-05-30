@@ -218,7 +218,7 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
             // Uh oh... mismatch in expected and actual field count. I don't think this should happen, so let's
             // throw an exception. If this really does happen, and there's a good reason for it, then we should remap
             // the result row here.
-            throw new ISE("Mismatch in expected[%d] vs actual[%s] field count", fields.size(), row.size());
+            throw new ISE("Mismatch in expected [%d] vs actual [%s] field count", fields.size(), row.size());
           }
         };
         break;

@@ -235,7 +235,7 @@ public class ScanQueryOperator implements Operator
     this.segmentId = segment.getId().toString();
     this.columns = defineColumns(query);
     List<Interval> intervals = query.getQuerySegmentSpec().getIntervals();
-    Preconditions.checkArgument(intervals.size() == 1, "Can only handle a single interval, got[%s]", intervals);
+    Preconditions.checkArgument(intervals.size() == 1, "Can only handle a single interval, got [%s]", intervals);
     this.filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
     this.isLegacy = Preconditions.checkNotNull(query.isLegacy(), "Expected non-null 'legacy' parameter");
     this.batchSize = query.getBatchSize();

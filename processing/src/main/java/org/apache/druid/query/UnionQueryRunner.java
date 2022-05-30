@@ -107,7 +107,7 @@ public class UnionQueryRunner<T> implements QueryRunner<T>
 
   /**
    * Appends and returns the name and the position of the individual datasource in the union with the parent query id
-   * if preseent
+   * if present
    *
    * @param parentSubqueryId The subquery Id of the parent query which is generating this subquery
    * @param dataSourceName   Name of the datasource for which the UnionRunner is running

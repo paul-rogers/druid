@@ -159,7 +159,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
             ((SinkQueryRunners<ScanResultValue>) queryRunners).runnerIntervalMappingIterator()
                                                               .forEachRemaining(intervalsAndRunnersOrdered::add);
           } else {
-            throw new ISE("Number of segment descriptors does not equal number of "
+            throw new ISE("Number of segment descriptors does not equal the number of "
                           + "query runners...something went wrong!");
           }
 
@@ -307,7 +307,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
     } else {
       throw new UOE(
           "Time-ordering on scan queries is only supported for queries with segment specs "
-          + "of type MultipleSpecificSegmentSpec or SpecificSegmentSpec...a [%s] was received instead.",
+          + "of type MultipleSpecificSegmentSpec or SpecificSegmentSpec. A [%s] was received instead.",
           spec.getClass().getSimpleName()
       );
     }
@@ -322,8 +322,8 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
   )
   {
     // Starting from the innermost Sequences.map:
-    // (1) Deaggregate each ScanResultValue returned by the query runners
-    // (2) Combine the deaggregated ScanResultValues into a single sequence
+    // (1) Disaggregate each ScanResultValue returned by the query runners
+    // (2) Combine the disaggregated ScanResultValues into a single sequence
     // (3) Create a sequence of results from each runner in the group and flatmerge based on timestamp
     // (4) Create a sequence of results from each runner group
     // (5) Join all the results into a single sequence
