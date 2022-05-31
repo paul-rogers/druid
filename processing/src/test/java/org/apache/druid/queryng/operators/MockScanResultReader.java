@@ -24,19 +24,21 @@ import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.joda.time.Interval;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
-public class MockScanResultReader implements IterableOperator
+public class MockScanResultReader implements IterableOperator<ScanResultValue>
 {
   public String segmentId = "mock-segment";
-  private final List<String> columns;
+  protected final List<String> columns;
   public ResultFormat resultFormat;
   private final int targetCount;
   private final int batchSize;
@@ -53,7 +55,29 @@ public class MockScanResultReader implements IterableOperator
    */
   public State state = State.START;
 
-  public MockScanResultReader(int columnCount, int targetCount, int batchSize, Interval interval)
+  public MockScanResultReader(
+      FragmentBuilder builder,
+      int columnCount,
+      int targetCount,
+      int batchSize,
+      Interval interval)
+  {
+    this(
+        builder,
+        columnCount,
+        targetCount,
+        batchSize,
+        interval,
+        ResultFormat.RESULT_FORMAT_COMPACTED_LIST);
+  }
+
+  public MockScanResultReader(
+      FragmentBuilder builder,
+      int columnCount,
+      int targetCount,
+      int batchSize,
+      Interval interval,
+      ResultFormat resultFormat)
   {
     this.columns = new ArrayList<>(columnCount);
     if (columnCount > 0) {
@@ -64,17 +88,18 @@ public class MockScanResultReader implements IterableOperator
     }
     this.targetCount = targetCount;
     this.batchSize = batchSize;
-    this.resultFormat = ResultFormat.RESULT_FORMAT_COMPACTED_LIST;
+    this.resultFormat = resultFormat;
     if (targetCount == 0) {
       this.msPerRow = 0;
     } else {
       this.msPerRow = Math.toIntExact(interval.toDurationMillis() / targetCount);
     }
     this.nextTs = interval.getStartMillis();
+    builder.register(this);
   }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
+  public Iterator<ScanResultValue> open()
   {
     state = State.RUN;
     return this;
@@ -88,9 +113,21 @@ public class MockScanResultReader implements IterableOperator
   }
 
   @Override
-  public Object next()
+  public ScanResultValue next()
   {
     int n = Math.min(targetCount - rowCount, batchSize);
+    Object batch;
+    if (resultFormat == ResultFormat.RESULT_FORMAT_COMPACTED_LIST) {
+      batch = compactBatch(n);
+    } else {
+      batch = listBatch(n);
+    }
+    batchCount++;
+    return new ScanResultValue(segmentId, columns, batch);
+  }
+
+  private Object compactBatch(int n)
+  {
     List<List<Object>> batch = new ArrayList<>(n);
     for (int i = 0; i < n; i++) {
       List<Object> values = new ArrayList<>(columns.size());
@@ -104,8 +141,25 @@ public class MockScanResultReader implements IterableOperator
       rowCount++;
       nextTs += msPerRow;
     }
-    batchCount++;
-    return new ScanResultValue(segmentId, columns, batch);
+    return batch;
+  }
+
+  private Object listBatch(int n)
+  {
+    List<Map<String, Object>> batch = new ArrayList<>(n);
+    for (int i = 0; i < n; i++) {
+      Map<String, Object> values = new HashMap<>(columns.size());
+      if (!columns.isEmpty()) {
+        values.put(ColumnHolder.TIME_COLUMN_NAME, nextTs);
+      }
+      for (int j = 1; j < columns.size(); j++) {
+        values.put(columns.get(j), StringUtils.format("Value %d.%d", rowCount, j));
+      }
+      batch.add(values);
+      rowCount++;
+      nextTs += msPerRow;
+    }
+    return batch;
   }
 
   @Override

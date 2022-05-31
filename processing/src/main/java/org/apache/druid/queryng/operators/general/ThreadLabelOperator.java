@@ -19,50 +19,43 @@
 
 package org.apache.druid.queryng.operators.general;
 
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.operators.Operator;
-
-import java.util.Iterator;
+import org.apache.druid.queryng.operators.WrappingOperator;
 
 /**
  * Operator which relabels its thread during its execution.
  *
  * @see {@link org.apache.druid.query.spec.SpecificSegmentQueryRunner}
  */
-public class ThreadLabelOperator implements Operator
+public class ThreadLabelOperator<T> extends WrappingOperator<T>
 {
   private final String label;
-  private final Operator child;
   private String originalLabel;
 
-  public ThreadLabelOperator(final String label, final Operator child)
+  public ThreadLabelOperator(
+      final FragmentBuilder builder,
+      final String label,
+      final Operator<T> child)
   {
+    super(builder, child);
     this.label = label;
-    this.child = child;
   }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
+  public void onOpen()
   {
     final Thread currThread = Thread.currentThread();
     originalLabel = currThread.getName();
     currThread.setName(label);
-    return child.open(context);
   }
 
   @Override
-  public void close(boolean cascade)
+  public void onClose()
   {
-    try {
-      if (cascade) {
-        child.close(cascade);
-      }
-    }
-    finally {
-      if (originalLabel != null) {
-        Thread.currentThread().setName(originalLabel);
-        originalLabel = null;
-      }
+    if (originalLabel != null) {
+      Thread.currentThread().setName(originalLabel);
+      originalLabel = null;
     }
   }
 }

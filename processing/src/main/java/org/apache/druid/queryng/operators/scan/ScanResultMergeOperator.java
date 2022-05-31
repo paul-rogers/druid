@@ -23,7 +23,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.Ordering;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
@@ -42,20 +42,23 @@ import java.util.PriorityQueue;
  * @see {@link org.apache.druid.java.util.common.guava.MergeSequence}
  * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory#nWayMergeAndLimit}
 */
-public class ScanResultMergeOperator implements IterableOperator
+public class ScanResultMergeOperator implements IterableOperator<ScanResultValue>
 {
-  public static ScanResultMergeOperator forQuery(ScanQuery query, List<Operator> children)
+  public static ScanResultMergeOperator forQuery(
+      FragmentBuilder builder,
+      ScanQuery query,
+      List<Operator<ScanResultValue>> children)
   {
-    return new ScanResultMergeOperator(query.getResultOrdering(), children);
+    return new ScanResultMergeOperator(builder, query.getResultOrdering(), children);
   }
 
   private static class Entry
   {
-    final Operator child;
-    final Iterator<Object> childIter;
+    final Operator<ScanResultValue> child;
+    final Iterator<ScanResultValue> childIter;
     ScanResultValue row;
 
-    public Entry(Operator child, Iterator<Object> childIter, ScanResultValue row)
+    public Entry(Operator<ScanResultValue> child, Iterator<ScanResultValue> childIter, ScanResultValue row)
     {
       this.child = child;
       this.childIter = childIter;
@@ -63,10 +66,13 @@ public class ScanResultMergeOperator implements IterableOperator
     }
   }
 
-  private final List<Operator> children;
+  private final List<Operator<ScanResultValue>> children;
   private final PriorityQueue<Entry> pQueue;
 
-  public ScanResultMergeOperator(Ordering<ScanResultValue> ordering, List<Operator> children)
+  public ScanResultMergeOperator(
+      FragmentBuilder builder,
+      Ordering<ScanResultValue> ordering,
+      List<Operator<ScanResultValue>> children)
   {
     this.children = children;
     this.pQueue = new PriorityQueue<>(
@@ -75,15 +81,16 @@ public class ScanResultMergeOperator implements IterableOperator
             (Function<Entry, ScanResultValue>) input -> input.row
         )
     );
+    builder.register(this);
   }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
+  public Iterator<ScanResultValue> open()
   {
-    for (Operator child : children) {
-      Iterator<Object> childIter = child.open(context);
+    for (Operator<ScanResultValue> child : children) {
+      Iterator<ScanResultValue> childIter = child.open();
       if (childIter.hasNext()) {
-        pQueue.add(new Entry(child, childIter, (ScanResultValue) childIter.next()));
+        pQueue.add(new Entry(child, childIter, childIter.next()));
       } else {
         child.close(true);
       }
@@ -98,10 +105,10 @@ public class ScanResultMergeOperator implements IterableOperator
   }
 
   @Override
-  public Object next()
+  public ScanResultValue next()
   {
     Entry entry = pQueue.remove();
-    Object row = entry.row;
+    ScanResultValue row = entry.row;
     if (entry.childIter.hasNext()) {
       entry.row = (ScanResultValue) entry.childIter.next();
       pQueue.add(entry);

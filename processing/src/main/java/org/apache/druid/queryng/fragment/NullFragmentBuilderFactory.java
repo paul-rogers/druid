@@ -25,10 +25,10 @@ import org.apache.druid.query.context.ResponseContext;
 /**
  * Do-nothing version for testing. Tests do not (yet) use the NG engine.
  */
-public class NullFragmentContextFactory implements FragmentContextFactory
+public class NullFragmentBuilderFactory implements FragmentBuilderFactory
 {
   @Override
-  public FragmentContext create(Query<?> query, ResponseContext responseContext)
+  public FragmentBuilder create(Query<?> query, ResponseContext responseContext)
   {
     return null;
   }

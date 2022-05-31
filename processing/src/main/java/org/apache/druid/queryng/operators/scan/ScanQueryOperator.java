@@ -29,6 +29,7 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.SequenceIterator;
@@ -55,14 +56,14 @@ import java.util.Set;
  *
  * @see {@link org.apache.druid.query.scan.ScanQueryEngine}
  */
-public class ScanQueryOperator implements Operator
+public class ScanQueryOperator implements Operator<ScanResultValue>
 {
   static final String LEGACY_TIMESTAMP_KEY = "timestamp";
 
   /**
    * Manages the run state for this operator.
    */
-  private class Impl implements Iterator<Object>
+  private class Impl implements Iterator<ScanResultValue>
   {
     private final FragmentContext context;
     private final SequenceIterator<Cursor> iter;
@@ -195,7 +196,7 @@ public class ScanQueryOperator implements Operator
      * timeout limit.
      */
     @Override
-    public Object next()
+    public ScanResultValue next()
     {
       context.checkTimeout();
       List<?> result = (List<?>) cursorReader.next();
@@ -219,6 +220,7 @@ public class ScanQueryOperator implements Operator
     GLOBAL
   }
 
+  protected final FragmentContext context;
   private final ScanQuery query;
   private final Segment segment;
   private final String segmentId;
@@ -228,8 +230,12 @@ public class ScanQueryOperator implements Operator
   private final int batchSize;
   private Impl impl;
 
-  public ScanQueryOperator(final ScanQuery query, final Segment segment)
+  public ScanQueryOperator(
+      FragmentBuilder builder,
+      final ScanQuery query,
+      final Segment segment)
   {
+    this.context = builder.context();
     this.query = query;
     this.segment = segment;
     this.segmentId = segment.getId().toString();
@@ -239,6 +245,7 @@ public class ScanQueryOperator implements Operator
     this.filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
     this.isLegacy = Preconditions.checkNotNull(query.isLegacy(), "Expected non-null 'legacy' parameter");
     this.batchSize = query.getBatchSize();
+    builder.register(this);
   }
 
   /**
@@ -303,7 +310,7 @@ public class ScanQueryOperator implements Operator
   }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
+  public Iterator<ScanResultValue> open()
   {
     impl = new Impl(context);
     return impl;

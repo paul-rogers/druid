@@ -24,60 +24,39 @@ import org.apache.druid.query.BySegmentQueryRunner;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
-import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operators.Operator.IterableOperator;
-
-import java.util.Iterator;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 
 /**
- * Operators that applies {@link QueryToolChest#makePostComputeManipulatorFn(Query, MetricManipulationFn)} to the
- * result stream. It is expected to be the operator in the pipeline, after results are fully merged.
+ * Operator that applies a function to each input item to produce the output item.
+ *
+ * Generalization of {@link QueryToolChest#makePostComputeManipulatorFn(Query, MetricManipulationFn)} to the
+ * result stream. When used in this role, the operator is expected to be the operator in the pipeline,
+ * after results are fully merged.
  * <p>
- * Note that despite the type parameter "T", this runner may not actually return sequences with type T. This most
+ * Note that, when used in the above role,  despite the type parameter "T", this runner may not actually
+ * return sequences with type T. This most
  * commonly happens when an upstream {@link BySegmentQueryRunner} changes the result stream to type
  * {@code Result<BySegmentResultValue<T>>}, in which case this class will retain the structure, but call the finalizer
  * function on each result in the by-segment list (which may change their type from T to something else).
  *
  * @see {@link org.apache.druid.query.FinalizeResultsQueryRunner}
  */
-public class TransformOperator implements IterableOperator
+public class TransformOperator<IN, OUT> extends MappingOperator<IN, OUT>
 {
-  private final Function<Object, Object> transformFn;
-  private final Operator child;
-  private Iterator<Object> childIter;
+  private final Function<IN, OUT> transformFn;
 
-  @SuppressWarnings("unchecked")
-  public TransformOperator(final Function<?, ?> transformFn, final Operator child)
+  public TransformOperator(
+      FragmentBuilder builder,
+      final Function<IN, OUT> transformFn,
+      final Operator<IN> input)
   {
-    this.transformFn = (Function<Object, Object>) transformFn;
-    this.child = child;
+    super(builder, input);
+    this.transformFn = transformFn;
   }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
+  public OUT next()
   {
-    childIter = child.open(context);
-    return this;
-  }
-
-  @Override
-  public boolean hasNext()
-  {
-    return childIter != null && childIter.hasNext();
-  }
-
-  @Override
-  public Object next()
-  {
-    return transformFn.apply(childIter.next());
-  }
-
-  @Override
-  public void close(boolean cascade)
-  {
-    if (cascade) {
-      child.close(cascade);
-    }
-    childIter = null;
+    return transformFn.apply(inputIter.next());
   }
 }

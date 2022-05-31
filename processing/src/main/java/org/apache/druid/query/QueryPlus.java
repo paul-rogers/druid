@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.druid.guice.annotations.PublicApi;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 
 import javax.annotation.Nullable;
 
@@ -47,18 +47,18 @@ public final class QueryPlus<T>
   private final Query<T> query;
   private final QueryMetrics<?> queryMetrics;
   private final String identity;
-  private final FragmentContext fragmentContext;
+  private final FragmentBuilder fragmentBuilder;
 
   private QueryPlus(
       Query<T> query,
       QueryMetrics<?> queryMetrics,
       String identity,
-      FragmentContext fragmentContext)
+      FragmentBuilder fragmentBuilder)
   {
     this.query = query;
     this.queryMetrics = queryMetrics;
     this.identity = identity;
-    this.fragmentContext = fragmentContext;
+    this.fragmentBuilder = fragmentBuilder;
   }
 
   public Query<T> getQuery()
@@ -78,7 +78,7 @@ public final class QueryPlus<T>
    */
   public QueryPlus<T> withIdentity(String identity)
   {
-    return new QueryPlus<>(query, queryMetrics, identity, fragmentContext);
+    return new QueryPlus<>(query, queryMetrics, identity, fragmentBuilder);
   }
 
   /**
@@ -102,7 +102,7 @@ public final class QueryPlus<T>
         metrics.identity(identity);
       }
 
-      return new QueryPlus<>(query, metrics, identity, fragmentContext);
+      return new QueryPlus<>(query, metrics, identity, fragmentBuilder);
     }
   }
 
@@ -127,7 +127,7 @@ public final class QueryPlus<T>
     if (queryMetrics == null) {
       return this;
     } else {
-      return new QueryPlus<>(query, null, identity, fragmentContext);
+      return new QueryPlus<>(query, null, identity, fragmentBuilder);
     }
   }
 
@@ -140,7 +140,7 @@ public final class QueryPlus<T>
         query.withOverriddenContext(ImmutableMap.of(QueryContexts.MAX_QUEUED_BYTES_KEY, maxQueuedBytes)),
         queryMetrics,
         identity,
-        fragmentContext
+        fragmentBuilder
     );
   }
 
@@ -149,7 +149,7 @@ public final class QueryPlus<T>
    */
   public <U> QueryPlus<U> withQuery(Query<U> replacementQuery)
   {
-    return new QueryPlus<>(replacementQuery, queryMetrics, identity, fragmentContext);
+    return new QueryPlus<>(replacementQuery, queryMetrics, identity, fragmentBuilder);
   }
 
   public Sequence<T> run(QuerySegmentWalker walker, ResponseContext context)
@@ -163,21 +163,21 @@ public final class QueryPlus<T>
         query.optimizeForSegment(optimizationContext),
         queryMetrics,
         identity,
-        fragmentContext);
+        fragmentBuilder);
   }
 
   /**
-   * Returns the same QueryPlus object with the fragment context added. The fragment
-   * context enables this query to use the "Next Gen" query engine. The context
+   * Returns the same QueryPlus object with the fragment builder added. The fragment
+   * builder enables this query to use the "Next Gen" query engine. The builder
    * may be null, which indicates to use the "classic" rather than "NG" engine.
    */
-  public QueryPlus<T> withFragmentContext(FragmentContext fragmentContext)
+  public QueryPlus<T> withFragmentBuilder(FragmentBuilder fragmentBuilder)
   {
-    return new QueryPlus<>(query, queryMetrics, identity, fragmentContext);
+    return new QueryPlus<>(query, queryMetrics, identity, fragmentBuilder);
   }
 
-  public FragmentContext fragmentContext()
+  public FragmentBuilder fragmentBuilder()
   {
-    return fragmentContext;
+    return fragmentBuilder;
   }
 }

@@ -22,6 +22,7 @@ package org.apache.druid.queryng.operators.general;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 
@@ -35,24 +36,27 @@ import java.util.List;
  *
  * @see {@link org.apache.druid.query.ReportTimelineMissingSegmentQueryRunner}
  */
-public class MissingSegmentsOperator implements Operator
+public class MissingSegmentsOperator<T> implements Operator<T>
 {
   private static final Logger LOG = new Logger(MissingSegmentsOperator.class);
 
   private final List<SegmentDescriptor> descriptors;
+  protected final FragmentContext context;
 
-  public MissingSegmentsOperator(SegmentDescriptor descriptor)
+  public MissingSegmentsOperator(FragmentBuilder builder, SegmentDescriptor descriptor)
   {
-    this(Collections.singletonList(descriptor));
+    this(builder, Collections.singletonList(descriptor));
   }
 
-  public MissingSegmentsOperator(List<SegmentDescriptor> descriptors)
+  public MissingSegmentsOperator(FragmentBuilder builder, List<SegmentDescriptor> descriptors)
   {
+    this.context = builder.context();
     this.descriptors = descriptors;
+    builder.register(this);
   }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
+  public Iterator<T> open()
   {
     LOG.debug("Reporting a missing segments[%s] for query[%s]", descriptors, context.queryId());
     context.responseContext().add(ResponseContext.Keys.MISSING_SEGMENTS, descriptors);

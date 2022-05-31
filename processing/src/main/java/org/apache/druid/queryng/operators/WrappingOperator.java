@@ -21,61 +21,57 @@ package org.apache.druid.queryng.operators;
 
 import com.google.common.base.Preconditions;
 import org.apache.druid.queryng.fragment.FragmentBuilder;
-import org.apache.druid.queryng.operators.Operator.IterableOperator;
+import org.apache.druid.queryng.fragment.FragmentContext;
 
 import java.util.Iterator;
-import java.util.function.Function;
 
-public class MockOperator<T> implements IterableOperator<T>
+/**
+ * Operator which "wraps" another operator where the only behavior of
+ * interest is at the start or end of the run. The iterator from the
+ * input is the iterator for the output.
+ */
+public abstract class WrappingOperator<T> implements Operator<T>
 {
-  public final int targetCount;
-  private final Function<Integer, T> generator;
-  private int rowPosn;
-  public State state = State.START;
+  protected final FragmentContext context;
+  private final Operator<T> input;
+  protected State state = State.START;
 
-  public MockOperator(
-      FragmentBuilder builder,
-      int rowCount,
-      Function<Integer, T> generator)
+  public WrappingOperator(FragmentBuilder builder, Operator<T> input)
   {
-    this.targetCount = rowCount;
-    this.generator = generator;
+    this.context = builder.context();
+    this.input = input;
     builder.register(this);
-  }
-
-  public static MockOperator<Integer> ints(FragmentBuilder builder, int rowCount)
-  {
-    return new MockOperator<Integer>(builder, rowCount, rid -> rid);
-  }
-
-  public static MockOperator<String> strings(FragmentBuilder builder, int rowCount)
-  {
-    return new MockOperator<String>(builder, rowCount, rid -> "Mock row " + Integer.toString(rid));
   }
 
   @Override
   public Iterator<T> open()
   {
     Preconditions.checkState(state == State.START);
+    Iterator<T> inputIter = input.open();
     state = State.RUN;
-    return this;
-  }
-
-  @Override
-  public boolean hasNext()
-  {
-    return rowPosn < targetCount;
-  }
-
-  @Override
-  public T next()
-  {
-    return generator.apply(rowPosn++);
+    onOpen();
+    return inputIter;
   }
 
   @Override
   public void close(boolean cascade)
   {
-    state = State.CLOSED;
+    try {
+      if (state == State.RUN && cascade) {
+        input.close(cascade);
+      }
+    }
+    finally {
+      onClose();
+      state = State.CLOSED;
+    }
+  }
+
+  protected void onOpen()
+  {
+  }
+
+  protected void onClose()
+  {
   }
 }

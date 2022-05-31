@@ -2942,7 +2942,7 @@ public class KafkaIndexTaskTest extends SeekableStreamIndexTaskTestBase
   private QueryRunnerFactoryConglomerate makeTimeseriesAndScanConglomerate()
   {
     return new DefaultQueryRunnerFactoryConglomerate(
-        ImmutableMap.<Class<? extends Query>, QueryRunnerFactory>builder()
+        ImmutableMap.<Class<? extends Query<?>>, QueryRunnerFactory>builder()
             .put(
                 TimeseriesQuery.class,
                 new TimeseriesQueryRunnerFactory(

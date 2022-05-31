@@ -21,10 +21,10 @@ package org.apache.druid.queryng.fragment;
 
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.queryng.operators.Operator;
 
 /**
- * Manages the operators within a fragment and provides fragment-level context.
+ * Provides fragment-level context to operators within a single
+ * fragment.
  */
 public interface FragmentContext
 {
@@ -32,14 +32,9 @@ public interface FragmentContext
 
   enum State
   {
-    RUN, SUCEEDED, FAILED
+    START, RUN, FAILED, CLOSED
   }
 
-  /**
-   * Add an operator dynamically. The operator will be closed
-   * at query completion.
-   */
-  void register(Operator op);
   State state();
   String queryId();
   ResponseContext responseContext();
@@ -55,11 +50,14 @@ public interface FragmentContext
   void missingSegment(SegmentDescriptor descriptor);
 
   /**
-   * Closes all registered operators. To be called only at the root
-   * level by the mechanism that manages the overall query fragment.
+   * Reports the exception, if any, that terminated the fragment.
+   * Should be non-null only if the state is {@code FAILED}.
    */
-  void close(boolean succeeded);
+  Exception exception();
 
+  /**
+   * A simple fragment context for testing.
+   */
   static FragmentContext defaultContext()
   {
     return new FragmentContextImpl(

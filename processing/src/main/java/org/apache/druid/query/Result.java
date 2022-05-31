@@ -79,7 +79,8 @@ public class Result<T> implements Comparable<Result<T>>
       return false;
     }
 
-    Result result = (Result) o;
+    @SuppressWarnings("unchecked")
+    Result<T> result = (Result<T>) o;
 
     if (timestamp != null && result.timestamp != null) {
       if (!timestamp.isEqual(result.timestamp)

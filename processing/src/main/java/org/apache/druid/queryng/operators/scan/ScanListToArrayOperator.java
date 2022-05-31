@@ -17,36 +17,45 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.operators.general;
+package org.apache.druid.queryng.operators.scan;
 
 import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 
-public abstract class LimitOperator<T> extends MappingOperator<T, T>
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Converts individual scan query rows with the
+ * {@link org.apache.druid.query.scan.ScanQuery.ResultFormat.RESULT_FORMAT_LIST
+ * ResultFormat.RESULT_FORMAT_LIST} format into an object array with fields
+ * in the order given by the output schema.
+ *
+ * @See {@link org.apache.druid.query.scan.ScanQueryQueryToolChest.resultsAsArrays
+ * ScanQueryQueryToolChest.resultsAsArrays}
+ */
+public class ScanListToArrayOperator extends MappingOperator<Map<String, Object>, Object[]>
 {
-  public static final long UNLIMITED = Long.MAX_VALUE;
+  private final List<String> fields;
 
-  protected final long limit;
-  protected long rowCount;
-  protected int batchCount;
-
-  public LimitOperator(FragmentBuilder builder, long limit, Operator<T> input)
+  public ScanListToArrayOperator(
+      FragmentBuilder builder,
+      Operator<Map<String, Object>> input,
+      List<String> fields)
   {
     super(builder, input);
-    this.limit = limit;
+    this.fields = fields;
   }
 
   @Override
-  public boolean hasNext()
+  public Object[] next()
   {
-    return rowCount < limit && super.hasNext();
-  }
-
-  @Override
-  public T next()
-  {
-    rowCount++;
-    return inputIter.next();
+    Map<String, Object> row = inputIter.next();
+    final Object[] rowArray = new Object[fields.size()];
+    for (int i = 0; i < fields.size(); i++) {
+      rowArray[i] = row.get(fields.get(i));
+    }
+    return rowArray;
   }
 }

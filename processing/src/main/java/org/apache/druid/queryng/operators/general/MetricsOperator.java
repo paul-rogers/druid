@@ -19,15 +19,15 @@
 
 package org.apache.druid.queryng.operators.general;
 
-import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.queryng.Timer;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.WrappingOperator;
 
-import java.util.Iterator;
 import java.util.function.ObjLongConsumer;
 
 /**
@@ -37,7 +37,7 @@ import java.util.function.ObjLongConsumer;
  *
  * @see {@link org.apache.druid.query.MetricsEmittingQueryRunner}
  */
-public class MetricsOperator implements Operator
+public class MetricsOperator<T> extends WrappingOperator<T>
 {
   private static final Logger log = new Logger(MetricsOperator.class);
 
@@ -45,47 +45,33 @@ public class MetricsOperator implements Operator
   private final ServiceEmitter emitter;
   private final QueryMetrics<?> queryMetrics;
   private final ObjLongConsumer<? super QueryMetrics<?>> reportMetric;
-  private final Operator child;
   private final Timer runTimer = Timer.create();
-  private FragmentContext context;
-  private State state = State.START;
 
   public MetricsOperator(
+      FragmentBuilder builder,
       final ServiceEmitter emitter,
       final QueryMetrics<?> queryMetrics,
       final ObjLongConsumer<? super QueryMetrics<?>> reportMetric,
       final Timer waitTimer,
-      final Operator child
+      final Operator<T> child
   )
   {
+    super(builder, child);
     this.emitter = emitter;
     this.queryMetrics = queryMetrics;
     this.reportMetric = reportMetric;
     this.waitTimer = waitTimer;
-    this.child = child;
   }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
+  public void onOpen()
   {
-    Preconditions.checkState(state == State.START);
-    this.context = context;
-    state = State.RUN;
     runTimer.start();
-    return child.open(context);
   }
 
   @Override
-  public void close(boolean cascade)
+  public void onClose()
   {
-    if (state != State.RUN) {
-      state = State.CLOSED;
-      return;
-    }
-    state = State.CLOSED;
-    if (cascade) {
-      child.close(cascade);
-    }
     if (context.state() == FragmentContext.State.FAILED) {
       queryMetrics.status("failed");
     }

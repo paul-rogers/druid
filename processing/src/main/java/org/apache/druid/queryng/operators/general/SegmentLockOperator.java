@@ -21,6 +21,7 @@ package org.apache.druid.queryng.operators.general;
 
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.segment.SegmentReference;
@@ -45,33 +46,37 @@ import java.util.Optional;
  * @see {@link org.apache.druid.query.ReferenceCountingSegmentQueryRunner}
  * @see {@link org.apache.druid.query.spec.SpecificSegmentQueryRunner}
  */
-public class SegmentLockOperator implements Operator
+public class SegmentLockOperator<T> implements Operator<T>
 {
   private static final Logger LOG = new Logger(SegmentLockOperator.class);
 
   private final SegmentReference segment;
   private final SegmentDescriptor descriptor;
-  private final Operator child;
+  private final Operator<T> child;
+  private final FragmentContext context;
   private Closeable lock;
 
   public SegmentLockOperator(
+      FragmentBuilder builder,
       SegmentReference segment,
       SegmentDescriptor descriptor,
-      Operator child
+      Operator<T> child
   )
   {
     this.segment = segment;
     this.descriptor = descriptor;
     this.child = child;
+    this.context = builder.context();
+    builder.register(this);
   }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
+  public Iterator<T> open()
   {
     Optional<Closeable> maybeLock = segment.acquireReferences();
     if (maybeLock.isPresent()) {
       lock = maybeLock.get();
-      return child.open(context);
+      return child.open();
     } else {
       LOG.debug("Reporting a missing segment [%s] for query [%s]", descriptor, context.queryId());
       context.missingSegment(descriptor);

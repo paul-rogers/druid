@@ -19,8 +19,6 @@
 
 package org.apache.druid.queryng.operators;
 
-import org.apache.druid.queryng.fragment.FragmentContext;
-
 import java.util.Iterator;
 
 /**
@@ -97,13 +95,15 @@ import java.util.Iterator;
  * method returns the iterator of the child, avoiding the overhead of pass-through
  * calls for each data batch. The wrapper operator will not sit on the data
  * path, only on the control (open/close) path.
+ *
+ * @param <T> the type of the object (row, batch) returned by {@link #next()}.
  */
-public interface Operator
+public interface Operator<T>
 {
   /**
    * Convenience interface for an operator which is its own iterator.
    */
-  interface IterableOperator extends Operator, Iterator<Object>
+  interface IterableOperator<T> extends Operator<T>, Iterator<T>
   {
   }
 
@@ -123,7 +123,7 @@ public interface Operator
    * in the {@code open()} call for simple operators,or later, on demand, for more
    * complex operators such as in a merge or union.
    */
-  Iterator<Object> open(FragmentContext context);
+  Iterator<T> open();
 
   /**
    * Called at two distinct times. An operator may choose to close a child

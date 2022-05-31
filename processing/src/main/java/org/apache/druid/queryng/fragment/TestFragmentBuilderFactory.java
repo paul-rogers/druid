@@ -5,13 +5,13 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.queryng.config.QueryNGConfig;
 
-public class TestFragmentContextFactory implements FragmentContextFactory
+public class TestFragmentBuilderFactory implements FragmentBuilderFactory
 {
   private static final String ENABLED_KEY = QueryNGConfig.CONFIG_ROOT + ".enabled";
   private static final boolean enabled = Boolean.parseBoolean(System.getProperty(ENABLED_KEY));
 
   @Override
-  public FragmentContext create(Query<?> query, ResponseContext responseContext)
+  public FragmentBuilder create(Query<?> query, ResponseContext responseContext)
   {
     if (!enabled) {
       return null;
@@ -19,6 +19,6 @@ public class TestFragmentContextFactory implements FragmentContextFactory
     if (!(query instanceof ScanQuery)) {
       return null;
     }
-    return new FragmentContextImpl(query, responseContext);
+    return new FragmentBuilderImpl(query.getId(), 0, responseContext);
   }
 }

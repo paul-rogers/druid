@@ -19,12 +19,11 @@
 
 package org.apache.druid.queryng.operators.general;
 
-import com.google.common.collect.Lists;
 import org.apache.druid.query.BySegmentResultValueClass;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.Result;
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
 import org.joda.time.DateTime;
@@ -51,32 +50,34 @@ import java.util.function.Supplier;
  *
  * @see {@link org.apache.druid.query.BySegmentQueryRunner}
  */
-public class BySegmentOperator implements Operator
+public class BySegmentOperator<T> implements Operator<Result<T>>
 {
   private final String segmentId;
   private final DateTime timestamp;
   private final Interval interval;
-  private final Supplier<Operator> inputSupplier;
+  private final Supplier<Operator<T>> inputSupplier;
 
   public BySegmentOperator(
+      final FragmentBuilder builder,
       final String segmentId,
       final DateTime timestamp,
       final Interval interval,
-      final Supplier<Operator> inputSupplier
+      final Supplier<Operator<T>> inputSupplier
   )
   {
     this.segmentId = segmentId;
     this.timestamp = timestamp;
     this.interval = interval;
     this.inputSupplier = inputSupplier;
+    builder.register(this);
   }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
+  public Iterator<Result<T>> open()
   {
     // Read the entire input result set into a list
-    Operator child = inputSupplier.get();
-    List<Object> results = Lists.newArrayList(Operators.toIterable(child, context));
+    Operator<T> child = inputSupplier.get();
+    List<T> results = Operators.toList(child);
 
     // The child is now done, close it.
     child.close(true);
@@ -90,7 +91,8 @@ public class BySegmentOperator implements Operator
     // Put into the result object then return an iterator over a list
     // with just that object. Note the intermediate Object result keeps
     // the type system happy.
-    Object result = new Result<>(
+    @SuppressWarnings("unchecked")
+    Result<T> result = (Result<T>) new Result<>(
         timestamp,
         new BySegmentResultValueClass<>(
             results,

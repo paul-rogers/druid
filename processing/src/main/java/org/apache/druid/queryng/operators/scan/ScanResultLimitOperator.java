@@ -22,6 +22,7 @@ package org.apache.druid.queryng.operators.scan;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import org.apache.druid.query.scan.ScanResultValue;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.general.LimitOperator;
 
@@ -46,21 +47,26 @@ import java.util.List;
  *
  * @see {@link org.apache.druid.query.scan.ScanQueryLimitRowIterator}
  */
-public class ScanResultLimitOperator extends LimitOperator
+public class ScanResultLimitOperator extends LimitOperator<ScanResultValue>
 {
   private final boolean grouped;
   private final int batchSize;
 
   @VisibleForTesting
-  public ScanResultLimitOperator(long limit, boolean grouped, int batchSize, Operator child)
+  public ScanResultLimitOperator(
+      FragmentBuilder builder,
+      long limit,
+      boolean grouped,
+      int batchSize,
+      Operator<ScanResultValue> child)
   {
-    super(limit, child);
+    super(builder, limit, child);
     this.grouped = grouped;
     this.batchSize = batchSize;
   }
 
   @Override
-  public Object next()
+  public ScanResultValue next()
   {
     batchCount++;
     if (grouped) {
@@ -86,7 +92,7 @@ public class ScanResultLimitOperator extends LimitOperator
     }
   }
 
-  private Object ungroupedNext()
+  private ScanResultValue ungroupedNext()
   {
     // Perform single-event ScanResultValue batching at the outer level.  Each scan result value from the yielder
     // in this case will only have one event so there's no need to iterate through events.

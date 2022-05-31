@@ -21,12 +21,11 @@ package org.apache.druid.queryng.operators.general;
 
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.QueryMetrics;
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
-import org.apache.druid.queryng.operators.Operator.IterableOperator;
 import org.apache.druid.utils.JvmUtils;
 
-import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -35,33 +34,23 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * @see {@link org.apache.druid.query.CPUTimeMetricQueryRunner}
  */
-public class CpuMetricOperator implements IterableOperator
+public class CpuMetricOperator<T> extends MappingOperator<T, T>
 {
   private final AtomicLong cpuTimeAccumulator;
-  private final Operator child;
   private final QueryMetrics<?> queryMetrics;
   private final ServiceEmitter emitter;
-  private FragmentContext context;
-  private Iterator<Object> childIter;
-  private State state = State.START;
 
   public CpuMetricOperator(
+      final FragmentBuilder builder,
       final AtomicLong cpuTimeAccumulator,
       final QueryMetrics<?> queryMetrics,
       final ServiceEmitter emitter,
-      final Operator child)
+      final Operator<T> child)
   {
+    super(builder, child);
     this.cpuTimeAccumulator = cpuTimeAccumulator == null ? new AtomicLong(0L) : cpuTimeAccumulator;
     this.queryMetrics = queryMetrics;
     this.emitter = emitter;
-    this.child = child;
-  }
-
-  @Override
-  public Iterator<Object> open(FragmentContext context)
-  {
-    childIter = child.open(context);
-    return this;
   }
 
   @Override
@@ -69,7 +58,7 @@ public class CpuMetricOperator implements IterableOperator
   {
     final long startRun = JvmUtils.getCurrentThreadCpuTime();
     try {
-      return childIter != null && childIter.hasNext();
+      return super.hasNext();
     }
     finally {
       cpuTimeAccumulator.addAndGet(JvmUtils.getCurrentThreadCpuTime() - startRun);
@@ -77,11 +66,11 @@ public class CpuMetricOperator implements IterableOperator
   }
 
   @Override
-  public Object next()
+  public T next()
   {
     final long startRun = JvmUtils.getCurrentThreadCpuTime();
     try {
-      return childIter.next();
+      return inputIter.next();
     }
     finally {
       cpuTimeAccumulator.addAndGet(JvmUtils.getCurrentThreadCpuTime() - startRun);
@@ -95,10 +84,7 @@ public class CpuMetricOperator implements IterableOperator
       state = State.CLOSED;
       return;
     }
-    if (childIter != null && cascade) {
-      child.close(cascade);
-    }
-    childIter = null;
+    super.close(cascade);
     final long cpuTimeNs = cpuTimeAccumulator.get();
     if (cpuTimeNs > 0) {
       context.responseContext().addCpuNanos(cpuTimeNs);

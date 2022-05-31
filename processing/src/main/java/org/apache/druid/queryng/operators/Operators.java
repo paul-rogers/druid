@@ -19,17 +19,16 @@
 
 package org.apache.druid.queryng.operators;
 
-import org.apache.druid.java.util.common.guava.Accumulators;
+import com.google.common.collect.Lists;
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.scan.ScanQuery;
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.operators.general.QueryRunnerOperator;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -47,7 +46,7 @@ public class Operators
    */
   public static boolean enabledFor(final QueryPlus<?> queryPlus)
   {
-    return queryPlus.fragmentContext() != null;
+    return queryPlus.fragmentBuilder() != null;
   }
 
   /**
@@ -72,13 +71,24 @@ public class Operators
    * Convenience function to open the operator and return its
    * iterator as an {@code Iterable}.
    */
-  public static Iterable<Object> toIterable(Operator op, FragmentContext context)
+  public static <T> Iterable<T> toIterable(Operator<T> op)
   {
-    return new Iterable<Object>() {
+    return new Iterable<T>() {
       @Override
-      public Iterator<Object> iterator()
+      public Iterator<T> iterator()
       {
-        return op.open(context);
+        return op.open();
+      }
+    };
+  }
+
+  public static <T> Iterable<T> toIterable(Iterator<T> iter)
+  {
+    return new Iterable<T>() {
+      @Override
+      public Iterator<T> iterator()
+      {
+        return iter;
       }
     };
   }
@@ -92,18 +102,16 @@ public class Operators
    */
   public static class OperatorWrapperSequence<T> extends BaseSequence<T, Iterator<T>>
   {
-    private final Operator op;
-    private final FragmentContext context;
+    private final Operator<T> op;
 
-    public OperatorWrapperSequence(Operator op, FragmentContext context)
+    public OperatorWrapperSequence(Operator<T> op)
     {
       super(new BaseSequence.IteratorMaker<T, Iterator<T>>()
       {
-        @SuppressWarnings("unchecked")
         @Override
         public Iterator<T> make()
         {
-          return (Iterator<T>) op.open(context);
+          return (Iterator<T>) op.open();
         }
 
         @Override
@@ -113,10 +121,9 @@ public class Operators
         }
       });
       this.op = op;
-      this.context = context;
     }
 
-    public Operator unwrap()
+    public Operator<T> unwrap()
     {
       return op;
     }
@@ -128,7 +135,7 @@ public class Operators
     @Override
     public List<T> toList()
     {
-      return Operators.toList(op, context);
+      return Operators.toList(op);
     }
   }
 
@@ -136,9 +143,9 @@ public class Operators
    * Converts a stand-alone operator to a sequence outside the context of a fragment
    * runner. The sequence starts and closes the operator.
    */
-  public static <T> Sequence<T> toSequence(Operator op, FragmentContext context)
+  public static <T> Sequence<T> toSequence(Operator<T> op)
   {
-    return new OperatorWrapperSequence<>(op, context);
+    return new OperatorWrapperSequence<>(op);
   }
 
   /**
@@ -147,12 +154,12 @@ public class Operators
    * If the input sequence is a wrapper around an operator, then
    * (clumsily) unwraps that operator and returns it directly.
    */
-  public static Operator toOperator(Sequence<?> sequence)
+  public static <T> Operator<T> toOperator(FragmentBuilder builder, Sequence<T> sequence)
   {
     if (sequence instanceof OperatorWrapperSequence) {
-      return ((OperatorWrapperSequence<?>) sequence).unwrap();
+      return ((OperatorWrapperSequence<T>) sequence).unwrap();
     }
-    return new SequenceOperator(sequence);
+    return new SequenceOperator<T>(builder, sequence);
   }
 
   /**
@@ -170,14 +177,9 @@ public class Operators
    * This will materialize the entire sequence from the wrapped
    * operator.  Use at your own risk.
    */
-  @SuppressWarnings("unchecked")
-  public static <T> List<T> toList(Operator op, FragmentContext context)
+  public static <T> List<T> toList(Operator<T> op)
   {
-    List<T> results = new ArrayList<>();
-    Iterator<Object> iter = op.open(context);
-    while (iter.hasNext()) {
-      results.add((T) iter.next());
-    }
+    List<T> results = Lists.newArrayList(Operators.toIterable(op));
     op.close(true);
     return results;
   }

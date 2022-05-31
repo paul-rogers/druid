@@ -20,7 +20,7 @@
 package org.apache.druid.queryng.operators.scan;
 
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
@@ -33,27 +33,31 @@ import java.util.List;
  *
  * @see {@link org.apache.druid.query.scan.ScanQueryOffsetSequence}
  */
-public class ScanResultOffsetOperator implements IterableOperator
+public class ScanResultOffsetOperator implements IterableOperator<ScanResultValue>
 {
-  private final Operator input;
+  private final Operator<ScanResultValue> input;
   private final long offset;
-  private Iterator<Object> inputIter;
+  private Iterator<ScanResultValue> inputIter;
   private long rowCount;
   @SuppressWarnings("unused")
   private int batchCount;
   private ScanResultValue lookAhead;
   private boolean done;
 
-  public ScanResultOffsetOperator(long offset, Operator input)
+  public ScanResultOffsetOperator(
+      FragmentBuilder builder,
+      long offset,
+      Operator<ScanResultValue> input)
   {
     this.offset = offset;
     this.input = input;
+    builder.register(this);
   }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
+  public Iterator<ScanResultValue> open()
   {
-    inputIter = input.open(context);
+    inputIter = input.open();
     return this;
   }
 
@@ -71,7 +75,7 @@ public class ScanResultOffsetOperator implements IterableOperator
   }
 
   @Override
-  public Object next()
+  public ScanResultValue next()
   {
     if (lookAhead != null) {
       ScanResultValue result = lookAhead;

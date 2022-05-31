@@ -20,7 +20,7 @@
 package org.apache.druid.queryng.operators.general;
 
 import com.google.common.base.Preconditions;
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
@@ -34,30 +34,31 @@ import java.util.List;
  *
  * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory#mergeRunners}
  */
-public class ConcatOperator implements IterableOperator
+public class ConcatOperator<T> implements IterableOperator<T>
 {
-  public static Operator concatOrNot(List<Operator> children)
+  public static <T> Operator<T> concatOrNot(
+      FragmentBuilder builder,
+      List<Operator<T>> children)
   {
     if (children.size() > 1) {
-      return new ConcatOperator(children);
+      return new ConcatOperator<>(builder, children);
     }
     return children.get(0);
   }
 
-  private final Iterator<Operator> childIter;
-  private FragmentContext context;
-  private Operator current;
-  private Iterator<Object> currentIter;
+  private final Iterator<Operator<T>> childIter;
+  private Operator<T> current;
+  private Iterator<T> currentIter;
 
-  public ConcatOperator(List<Operator> children)
+  public ConcatOperator(FragmentBuilder builder, List<Operator<T>> children)
   {
     childIter = children.iterator();
+    builder.register(this);
   }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
+  public Iterator<T> open()
   {
-    this.context = context;
     return this;
   }
 
@@ -77,12 +78,12 @@ public class ConcatOperator implements IterableOperator
         return false;
       }
       current = childIter.next();
-      currentIter = current.open(context);
+      currentIter = current.open();
     }
   }
 
   @Override
-  public Object next()
+  public T next()
   {
     Preconditions.checkState(currentIter != null, "Missing call to hasNext()?");
     return currentIter.next();

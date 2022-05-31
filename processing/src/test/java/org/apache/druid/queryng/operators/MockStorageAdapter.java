@@ -88,7 +88,7 @@ public class MockStorageAdapter implements StorageAdapter
   }
 
   @Override
-  public Comparable getMinValue(String column)
+  public Comparable<?> getMinValue(String column)
   {
     switch (column) {
       case "__time":
@@ -102,7 +102,7 @@ public class MockStorageAdapter implements StorageAdapter
   }
 
   @Override
-  public Comparable getMaxValue(String column)
+  public Comparable<?> getMaxValue(String column)
   {
     switch (column) {
       case "__time":

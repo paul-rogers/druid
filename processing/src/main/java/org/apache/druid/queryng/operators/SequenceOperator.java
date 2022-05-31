@@ -23,7 +23,7 @@ import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Yielder;
 import org.apache.druid.java.util.common.guava.YieldingAccumulator;
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
 import java.io.IOException;
@@ -38,29 +38,30 @@ import java.util.Iterator;
  * from the sequence. The <code>close()</code> call will close the yielder
  * for the sequence, which should release any resources held by the sequence.
  *
- * @param <T>
+ * @param <T> The type of the item (row, batch) returned by the sequence
+ * and thus returned by the operator.
  */
-public class SequenceOperator implements IterableOperator
+public class SequenceOperator<T> implements IterableOperator<T>
 {
-  private final Sequence<Object> sequence;
-  private Yielder<Object> yielder;
+  private final Sequence<T> sequence;
+  private Yielder<T> yielder;
 
-  @SuppressWarnings("unchecked")
-  public SequenceOperator(Sequence<?> sequence)
+  public SequenceOperator(FragmentBuilder builder, Sequence<T> sequence)
   {
-    this.sequence = (Sequence<Object>) sequence;
+    this.sequence = sequence;
+    builder.register(this);
   }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
+  public Iterator<T> open()
   {
     Preconditions.checkState(yielder == null);
     yielder = sequence.toYielder(
         null,
-        new YieldingAccumulator<Object, Object>()
+        new YieldingAccumulator<T, T>()
         {
           @Override
-          public Object accumulate(Object accumulated, Object in)
+          public T accumulate(T accumulated, T in)
           {
             yield();
             return in;
@@ -77,10 +78,10 @@ public class SequenceOperator implements IterableOperator
   }
 
   @Override
-  public Object next()
+  public T next()
   {
     Preconditions.checkState(yielder != null);
-    Object value = yielder.get();
+    T value = yielder.get();
     yielder = yielder.next(null);
     return value;
   }

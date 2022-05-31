@@ -21,36 +21,23 @@ package org.apache.druid.queryng.operators;
 
 import com.google.common.base.Preconditions;
 import org.apache.druid.queryng.fragment.FragmentBuilder;
-import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
+import java.util.Collections;
 import java.util.Iterator;
-import java.util.function.Function;
 
-public class MockOperator<T> implements IterableOperator<T>
+/**
+ * World's simplest operator: does absolutely nothing
+ * (other than check that the protocol is followed.) Used in
+ * tests when we want an empty input, and for a fragment that
+ * somehow ended up with no operators.
+ */
+public class NullOperator<T> implements Operator<T>
 {
-  public final int targetCount;
-  private final Function<Integer, T> generator;
-  private int rowPosn;
   public State state = State.START;
 
-  public MockOperator(
-      FragmentBuilder builder,
-      int rowCount,
-      Function<Integer, T> generator)
+  public NullOperator(FragmentBuilder builder)
   {
-    this.targetCount = rowCount;
-    this.generator = generator;
     builder.register(this);
-  }
-
-  public static MockOperator<Integer> ints(FragmentBuilder builder, int rowCount)
-  {
-    return new MockOperator<Integer>(builder, rowCount, rid -> rid);
-  }
-
-  public static MockOperator<String> strings(FragmentBuilder builder, int rowCount)
-  {
-    return new MockOperator<String>(builder, rowCount, rid -> "Mock row " + Integer.toString(rid));
   }
 
   @Override
@@ -58,19 +45,7 @@ public class MockOperator<T> implements IterableOperator<T>
   {
     Preconditions.checkState(state == State.START);
     state = State.RUN;
-    return this;
-  }
-
-  @Override
-  public boolean hasNext()
-  {
-    return rowPosn < targetCount;
-  }
-
-  @Override
-  public T next()
-  {
-    return generator.apply(rowPosn++);
+    return Collections.emptyIterator();
   }
 
   @Override

@@ -32,10 +32,12 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryConfig;
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.fragment.FragmentContextImpl;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.general.ConcatOperator;
+import org.apache.druid.queryng.operators.scan.ScanBatchToRowOperator;
+import org.apache.druid.queryng.operators.scan.ScanCompactListToArrayOperator;
+import org.apache.druid.queryng.operators.scan.ScanListToArrayOperator;
 import org.apache.druid.queryng.operators.scan.ScanQueryOperator;
 import org.apache.druid.queryng.operators.scan.ScanResultLimitOperator;
 import org.apache.druid.queryng.operators.scan.ScanResultOffsetOperator;
@@ -43,6 +45,7 @@ import org.apache.druid.segment.Segment;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Scan-specific parts of the hybrid query planner.
@@ -103,12 +106,13 @@ public class ScanPlanner
           queryToRun.withOverriddenContext(ImmutableMap.of(ScanQuery.CTX_KEY_OUTERMOST, false));
     }
     QueryPlus<ScanResultValue> historicalQueryPlus = queryPlus.withQuery(historicalQuery);
-    Operator inputOp = Operators.toOperator(
+    Operator<ScanResultValue> inputOp = Operators.toOperator(
         input,
         historicalQueryPlus);
     if (hasLimit) {
       final ScanQuery limitedQuery = (ScanQuery) historicalQuery;
       ScanResultLimitOperator op = new ScanResultLimitOperator(
+          queryPlus.fragmentBuilder(),
           limitedQuery.getScanRowsLimit(),
           isGrouped(queryToRun),
           limitedQuery.getBatchSize(),
@@ -118,12 +122,13 @@ public class ScanPlanner
     }
     if (hasOffset) {
       ScanResultOffsetOperator op = new ScanResultOffsetOperator(
+          queryPlus.fragmentBuilder(),
           queryToRun.getScanRowsOffset(),
           inputOp
           );
       inputOp = op;
     }
-    return QueryPlanner.toSequence(inputOp, historicalQueryPlus, responseContext);
+    return Operators.toSequence(inputOp);
   }
 
   private static boolean isGrouped(ScanQuery query)
@@ -141,11 +146,13 @@ public class ScanPlanner
       final Iterable<QueryRunner<ScanResultValue>> queryRunners,
       final ResponseContext responseContext)
   {
-    List<Operator> inputs = new ArrayList<>();
+    List<Operator<ScanResultValue>> inputs = new ArrayList<>();
     for (QueryRunner<ScanResultValue> qr : queryRunners) {
       inputs.add(Operators.toOperator(qr, queryPlus));
     }
-    Operator op = ConcatOperator.concatOrNot(inputs);
+    Operator<ScanResultValue> op = ConcatOperator.concatOrNot(
+        queryPlus.fragmentBuilder(),
+        inputs);
     // TODO(paul): The original code applies a limit. Yet, when
     // run, the stack shows two limits one top of one another,
     // so the limit here seems unnecessary.
@@ -163,10 +170,7 @@ public class ScanPlanner
     //       op
     //       );
     // }
-    return QueryPlanner.toSequence(
-        op,
-        queryPlus,
-        responseContext);
+    return Operators.toSequence(op);
   }
 
   /**
@@ -218,7 +222,42 @@ public class ScanPlanner
     }
     // TODO (paul): Set the timeout at the overall fragment context level.
     return Operators.toSequence(
-        new ScanQueryOperator(query, segment),
-        queryPlus.fragmentContext());
+        new ScanQueryOperator(
+            queryPlus.fragmentBuilder(),
+            query,
+            segment));
+  }
+
+  public static Sequence<Object[]> resultsAsArrays(
+      QueryPlus<ScanResultValue> queryPlus,
+      final List<String> fields,
+      final Sequence<ScanResultValue> resultSequence)
+  {
+    Operator<ScanResultValue> inputOp = Operators.toOperator(
+        queryPlus.fragmentBuilder(),
+        resultSequence);
+    Operator<Object[]> outputOp;
+    ScanQuery query = (ScanQuery) queryPlus.getQuery();
+    switch (query.getResultFormat()) {
+      case RESULT_FORMAT_LIST:
+        outputOp = new ScanListToArrayOperator(
+            queryPlus.fragmentBuilder(),
+            new ScanBatchToRowOperator<Map<String, Object>>(
+                queryPlus.fragmentBuilder(),
+                inputOp),
+            fields);
+        break;
+      case RESULT_FORMAT_COMPACTED_LIST:
+        outputOp = new ScanCompactListToArrayOperator(
+            queryPlus.fragmentBuilder(),
+            new ScanBatchToRowOperator<List<Object>>(
+                queryPlus.fragmentBuilder(),
+                inputOp),
+            fields);
+        break;
+      default:
+        throw new UOE("Unsupported resultFormat for array-based results: %s", query.getResultFormat());
+    }
+    return Operators.toSequence(outputOp);
   }
 }

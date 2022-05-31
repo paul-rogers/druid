@@ -21,7 +21,6 @@ package org.apache.druid.queryng.fragment;
 
 import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
@@ -33,14 +32,15 @@ import java.util.List;
 public class FragmentContextImpl implements FragmentContext
 {
   private final long timeoutMs;
-  private final List<Operator> operators = new ArrayList<>();
-  private State state = State.RUN;
+  protected final List<Operator<?>> operators = new ArrayList<>();
   private final ResponseContext responseContext;
   private final String queryId;
   private final long startTimeMillis;
   private final long timeoutAt;
+  protected State state = State.START;
+  private Exception exception;
 
-  public FragmentContextImpl(
+  protected FragmentContextImpl(
       final String queryId,
       long timeoutMs,
       final ResponseContext responseContext)
@@ -56,20 +56,16 @@ public class FragmentContextImpl implements FragmentContext
     }
   }
 
-  /**
-   * Temporary simplified form.
-   */
-  public FragmentContextImpl(
-      final Query<?> query,
-      final ResponseContext responseContext)
-  {
-    this(query.getId(), 0, responseContext);
-  }
-
   @Override
   public State state()
   {
     return state;
+  }
+
+  @Override
+  public Exception exception()
+  {
+    return exception;
   }
 
   @Override
@@ -84,9 +80,10 @@ public class FragmentContextImpl implements FragmentContext
     return responseContext;
   }
 
-  public void completed(boolean success)
+  public void failed(Exception exception)
   {
-    state = success ? State.SUCEEDED : State.FAILED;
+    this.exception = exception;
+    this.state = State.FAILED;
   }
 
   @Override
@@ -112,12 +109,6 @@ public class FragmentContextImpl implements FragmentContext
   }
 
   @Override
-  public void register(Operator op)
-  {
-    operators.add(op);
-  }
-
-  @Override
   public void missingSegment(SegmentDescriptor descriptor)
   {
     responseContext.add(ResponseContext.Keys.MISSING_SEGMENTS, descriptor);
@@ -129,15 +120,16 @@ public class FragmentContextImpl implements FragmentContext
    * the {@code close()} call. Errors are collected, but all operators are closed
    * regardless of exceptions.
    */
-  @Override
-  public void close(boolean succeeded)
+  protected void close()
   {
-    if (state != State.RUN) {
+    if (state == State.START) {
+      state = State.CLOSED;
+    }
+    if (state == State.CLOSED) {
       return;
     }
-    state = succeeded ? State.SUCEEDED : State.FAILED;
     List<Exception> exceptions = new ArrayList<>();
-    for (Operator op : operators) {
+    for (Operator<?> op : operators) {
       try {
         op.close(false);
       }
@@ -147,5 +139,6 @@ public class FragmentContextImpl implements FragmentContext
     }
     // TODO: Do something with the exceptions
     recordRunTime();
+    state = State.CLOSED;
   }
 }

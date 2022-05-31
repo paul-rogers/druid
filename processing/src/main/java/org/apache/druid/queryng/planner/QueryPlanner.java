@@ -45,6 +45,7 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
 import org.apache.druid.queryng.Timer;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.TransformOperator;
@@ -102,19 +103,9 @@ import java.util.function.ObjLongConsumer;
  */
 public class QueryPlanner
 {
-  protected static <T> Sequence<T> toSequence(
-      final Operator op,
-      final QueryPlus<?> query,
-      final ResponseContext responseContext)
+  protected static <T> Operator<T> concat(FragmentBuilder builder, List<Operator<T>> children)
   {
-    return Operators.toSequence(
-        op,
-        query.fragmentContext());
-  }
-
-  protected static Operator concat(List<Operator> children)
-  {
-    return ConcatOperator.concatOrNot(children);
+    return ConcatOperator.concatOrNot(builder, children);
   }
 
   /**
@@ -122,7 +113,7 @@ public class QueryPlanner
    */
   public static <T> Sequence<T> runCpuTimeMetric(
       final QueryRunner<T> delegate,
-      QueryToolChest<T, ? extends Query<T>> queryToolChest,
+      final QueryToolChest<T, ? extends Query<T>> queryToolChest,
       final AtomicLong cpuTimeAccumulator,
       final ServiceEmitter emitter,
       final boolean report,
@@ -135,18 +126,16 @@ public class QueryPlanner
     if (!report) {
       return delegate.run(queryWithMetrics, responseContext);
     }
-    Operator inputOp = Operators.toOperator(
+    Operator<T> inputOp = Operators.toOperator(
         delegate,
         queryWithMetrics);
-    CpuMetricOperator op = new CpuMetricOperator(
+    CpuMetricOperator<T> op = new CpuMetricOperator<T>(
+        queryPlus.fragmentBuilder(),
         cpuTimeAccumulator,
         queryWithMetrics.getQueryMetrics(),
         emitter,
         inputOp);
-    return toSequence(
-        op,
-        queryWithMetrics,
-        responseContext);
+    return Operators.toSequence(op);
   }
 
   /**
@@ -220,16 +209,15 @@ public class QueryPlanner
     }
 
     QueryPlus<T> queryPlusToRun = queryPlus.withQuery(queryToRun);
-    Operator inputOp = Operators.toOperator(
+    Operator<T> inputOp = Operators.toOperator(
         baseRunner,
         queryPlusToRun);
-    TransformOperator op = new TransformOperator(
-        finalizerFn,
+    @SuppressWarnings("unchecked")
+    TransformOperator<T, T> op = new TransformOperator<>(
+        queryPlus.fragmentBuilder(),
+        (Function<T, T>) finalizerFn,
         inputOp);
-    return toSequence(
-        op,
-        queryPlusToRun,
-        responseContext);
+    return Operators.toSequence(op);
   }
 
   /**
@@ -260,17 +248,17 @@ public class QueryPlanner
     );
     final Query<T> query = queryPlus.getQuery();
     final String newName = query.getType() + "_" + query.getDataSource() + "_" + query.getIntervals();
-    Operator op = Operators.toOperator(base, queryPlus);
+    Operator<T> op = Operators.toOperator(base, queryPlus);
     final boolean setName = input.getQuery().getContextBoolean(
         SpecificSegmentQueryRunner.CTX_SET_THREAD_NAME,
         true);
     if (setName) {
-      op = new ThreadLabelOperator(newName, op);
+      op = new ThreadLabelOperator<T>(
+          queryPlus.fragmentBuilder(),
+          newName,
+          op);
     }
-    return toSequence(
-        op,
-        queryPlus,
-        responseContext);
+    return Operators.toSequence(op);
   }
 
   public static <T> Sequence<T> runMetrics(
@@ -293,19 +281,17 @@ public class QueryPlanner
     if (queryMetrics == null) {
       return queryRunner.run(queryWithMetrics, responseContext);
     }
-    Operator inputOp = Operators.toOperator(
+    Operator<T> inputOp = Operators.toOperator(
         queryRunner,
         queryWithMetrics);
-    MetricsOperator op = new MetricsOperator(
+    MetricsOperator<T> op = new MetricsOperator<>(
+        queryPlus.fragmentBuilder(),
         emitter,
         queryMetrics,
         reportMetric,
         creationTimeNs == 0 ? null : Timer.createAt(creationTimeNs),
         inputOp);
-    return toSequence(
-        op,
-        queryWithMetrics,
-        responseContext);
+    return Operators.toSequence(op);
   }
 
   public static <T> Sequence<T> runSegmentLock(
@@ -315,13 +301,14 @@ public class QueryPlanner
       final QueryRunnerFactory<T, Query<T>> factory,
       ResponseContext responseContext)
   {
-    Operator inputOp = Operators.toOperator(
+    Operator<T> inputOp = Operators.toOperator(
         factory.createRunner(segment),
         queryPlus);
-    SegmentLockOperator op = new SegmentLockOperator(segment, descriptor, inputOp);
-    return toSequence(
-        op,
-        queryPlus,
-        responseContext);
+    SegmentLockOperator<T> op = new SegmentLockOperator<>(
+        queryPlus.fragmentBuilder(),
+        segment,
+        descriptor,
+        inputOp);
+    return Operators.toSequence(op);
   }
 }

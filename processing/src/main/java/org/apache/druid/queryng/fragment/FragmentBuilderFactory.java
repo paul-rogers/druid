@@ -24,10 +24,10 @@ import org.apache.druid.query.context.ResponseContext;
 
 import javax.annotation.Nullable;
 
-public interface FragmentContextFactory
+public interface FragmentBuilderFactory
 {
   @Nullable
-  FragmentContext create(
+  FragmentBuilder create(
       Query<?> query,
       ResponseContext responseContext);
 }

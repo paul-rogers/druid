@@ -20,31 +20,53 @@
 package org.apache.druid.queryng.operators;
 
 import com.google.common.base.Preconditions;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
-import java.util.Collections;
 import java.util.Iterator;
 
 /**
- * World's simplest operator: does absolutely nothing
- * (other than check that the protocol is followed.) Used in
- * tests when we want an empty input.
+ * Base class for operators that do a simple mapping of their input
+ * to their output. Handles the busy-work of managing the (single)
+ * input operator.
  */
-public class NullOperator implements Operator
+public abstract class MappingOperator<IN, OUT> implements IterableOperator<OUT>
 {
-  public State state = State.START;
+  protected final FragmentContext context;
+  private final Operator<IN> input;
+  protected Iterator<IN> inputIter;
+  protected State state = State.START;
+
+  public MappingOperator(FragmentBuilder builder, Operator<IN> input)
+  {
+    this.context = builder.context();
+    this.input = input;
+    builder.register(this);
+  }
 
   @Override
-  public Iterator<Object> open(FragmentContext context)
+  public Iterator<OUT> open()
   {
     Preconditions.checkState(state == State.START);
+    inputIter = input.open();
     state = State.RUN;
-    return Collections.emptyIterator();
+    return this;
   }
 
   @Override
   public void close(boolean cascade)
   {
+    if (state == State.RUN && cascade) {
+      input.close(cascade);
+    }
+    inputIter = null;
     state = State.CLOSED;
+  }
+
+  @Override
+  public boolean hasNext()
+  {
+    return state == State.RUN && inputIter.hasNext();
   }
 }

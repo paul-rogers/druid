@@ -86,7 +86,7 @@ import org.apache.druid.query.expression.LookupExprMacro;
 import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.query.lookup.LookupExtractorFactoryContainerProvider;
 import org.apache.druid.query.lookup.LookupSerdeModule;
-import org.apache.druid.queryng.fragment.TestFragmentContextFactory;
+import org.apache.druid.queryng.fragment.TestFragmentBuilderFactory;
 import org.apache.druid.segment.IndexBuilder;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.TestHelper;
@@ -829,7 +829,7 @@ public class CalciteTests
         new AuthConfig(),
         TEST_AUTHORIZER_MAPPER,
         Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of())),
-        new TestFragmentContextFactory()
+        new TestFragmentBuilderFactory()
     );
   }
 

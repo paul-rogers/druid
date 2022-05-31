@@ -43,6 +43,7 @@ import org.apache.druid.math.expr.Evals;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.filter.BoundDimFilter;
 import org.apache.druid.query.filter.DimFilter;
@@ -56,6 +57,7 @@ import org.apache.druid.segment.data.ComparableList;
 import org.apache.druid.segment.data.ComparableStringArray;
 import org.apache.druid.server.QueryLifecycle;
 import org.apache.druid.server.QueryLifecycleFactory;
+import org.apache.druid.server.QueryLifecycle.QueryResponse;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.sql.calcite.planner.Calcites;
@@ -163,7 +165,6 @@ public class NativeQueryMaker implements QueryMaker
       }
     }
 
-
     final List<String> rowOrder;
     if (query instanceof TimeseriesQuery && !druidQuery.getGrouping().getDimensions().isEmpty()) {
       // Hack for timeseries queries: when generating them, DruidQuery.toTimeseriesQuery translates a dimension
@@ -220,12 +221,15 @@ public class NativeQueryMaker implements QueryMaker
     // otherwise it won't yet be initialized. (A bummer, since ideally, we'd verify the toolChest exists and can do
     // array-based results before starting the query; but in practice we don't expect this to happen since we keep
     // tight control over which query types we generate in the SQL layer. They all support array-based results.)
-    final Sequence<T> results = queryLifecycle.runSimple(query, authenticationResult, authorizationResult);
+    final QueryResponse<T> response = queryLifecycle.runSimpleWithResponse(query, authenticationResult, authorizationResult);
+    final Sequence<T> results = response.getResults();
 
     //noinspection unchecked
+    @SuppressWarnings("unchecked")
     final QueryToolChest<T, Query<T>> toolChest = queryLifecycle.getToolChest();
     final List<String> resultArrayFields = toolChest.resultArraySignature(query).getColumnNames();
-    final Sequence<Object[]> resultArrays = toolChest.resultsAsArrays(query, results);
+    QueryPlus<T> queryPlus = QueryPlus.wrap(query).withFragmentContext(response.fragmentContext());
+    final Sequence<Object[]> resultArrays = toolChest.resultsAsArrays(queryPlus, results);
 
     return mapResultSequence(resultArrays, resultArrayFields, newFields, newTypes);
   }
@@ -251,7 +255,7 @@ public class NativeQueryMaker implements QueryMaker
       final int idx = originalFieldsLookup.getInt(newField);
       if (idx < 0) {
         throw new ISE(
-            "newField[%s] not contained in originalFields[%s]",
+            "newField [%s] not contained in originalFields [%s]",
             newField,
             String.join(", ", originalFields)
         );
@@ -382,7 +386,6 @@ public class NativeQueryMaker implements QueryMaker
 
     return coercedValue;
   }
-
 
   private static Object maybeCoerceArrayToList(Object value, boolean mustCoerce)
   {

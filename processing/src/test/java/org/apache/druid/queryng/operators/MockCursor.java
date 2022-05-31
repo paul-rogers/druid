@@ -73,7 +73,7 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
     }
   }
 
-  private class MockStringColumn implements ColumnValueSelector
+  private class MockStringColumn implements ColumnValueSelector<String>
   {
     @Override
     public long getLong()
@@ -105,13 +105,13 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
     }
 
     @Override
-    public Object getObject()
+    public String getObject()
     {
       return "string value";
     }
 
     @Override
-    public Class classOfObject()
+    public Class<String> classOfObject()
     {
       return String.class;
     }
@@ -147,7 +147,7 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
   }
 
   @Override
-  public ColumnValueSelector makeColumnValueSelector(String columnName)
+  public ColumnValueSelector<?> makeColumnValueSelector(String columnName)
   {
     switch (columnName) {
       case "__time":

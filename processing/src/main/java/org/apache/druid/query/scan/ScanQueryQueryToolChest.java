@@ -32,6 +32,7 @@ import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.GenericQueryMetricsFactory;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryMetrics;
+import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
@@ -234,5 +235,18 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
           return Sequences.simple(arrays);
         }
     );
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
+  public Sequence<Object[]> resultsAsArrays(QueryPlus<ScanResultValue> queryPlus, Sequence<ScanResultValue> resultSequence)
+  {
+    ScanQuery query = (ScanQuery) queryPlus.getQuery();
+    if (Operators.enabledFor(queryPlus)) {
+       final List<String> fields = resultArraySignature(query).getColumnNames();
+      return ScanPlanner.resultsAsArrays(queryPlus, fields, resultSequence);
+    } else {
+      return resultsAsArrays(query, resultSequence);
+    }
   }
 }

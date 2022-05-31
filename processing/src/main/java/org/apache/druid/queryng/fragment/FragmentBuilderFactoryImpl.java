@@ -32,18 +32,18 @@ import javax.inject.Inject;
  * take the existence of the fragment context as their indication to use
  * the NG engine, else stick with the "classic" engine.
  */
-public class FragmentContextFactoryImpl implements FragmentContextFactory
+public class FragmentBuilderFactoryImpl implements FragmentBuilderFactory
 {
   private final QueryNGConfig config;
 
   @Inject
-  public FragmentContextFactoryImpl(QueryNGConfig config)
+  public FragmentBuilderFactoryImpl(QueryNGConfig config)
   {
     this.config = config;
   }
 
   @Override
-  public FragmentContext create(
+  public FragmentBuilder create(
       final Query<?> query,
       final ResponseContext responseContext)
   {
@@ -55,8 +55,8 @@ public class FragmentContextFactoryImpl implements FragmentContextFactory
     if (!Operators.isEnabled(query)) {
       return null;
     }
-    // Only then do we create a fragment context which, implicitly,
+    // Only then do we create a fragment builder which, implicitly,
     // enables the NG engine.
-    return new FragmentContextImpl(query, responseContext);
+    return new FragmentBuilderImpl(query.getId(), 0, responseContext);
   }
 }

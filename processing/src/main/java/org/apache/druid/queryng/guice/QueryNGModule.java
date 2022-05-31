@@ -24,8 +24,8 @@ import com.google.inject.Module;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.queryng.config.QueryNGConfig;
-import org.apache.druid.queryng.fragment.FragmentContextFactory;
-import org.apache.druid.queryng.fragment.FragmentContextFactoryImpl;
+import org.apache.druid.queryng.fragment.FragmentBuilderFactory;
+import org.apache.druid.queryng.fragment.FragmentBuilderFactoryImpl;
 
 /**
  * Configure the "shim" version of the NG query engine which entails
@@ -41,8 +41,8 @@ public class QueryNGModule implements Module
   {
     JsonConfigProvider.bind(binder, QueryNGConfig.CONFIG_ROOT, QueryNGConfig.class);
     binder
-      .bind(FragmentContextFactory.class)
-      .to(FragmentContextFactoryImpl.class)
+      .bind(FragmentBuilderFactory.class)
+      .to(FragmentBuilderFactoryImpl.class)
       .in(LazySingleton.class);
   }
 }

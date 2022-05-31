@@ -45,7 +45,11 @@ import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryToolChestWarehouse;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.queryng.fragment.FragmentContextFactory;
+import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentBuilderFactory;
+import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.WrappingOperator;
 import org.apache.druid.server.QueryResource.ResourceIOReaderWriter;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
@@ -92,7 +96,7 @@ public class QueryLifecycle
   private final AuthorizerMapper authorizerMapper;
   private final DefaultQueryConfig defaultQueryConfig;
   private final AuthConfig authConfig;
-  private final FragmentContextFactory fragmentContextFactory;
+  private final FragmentBuilderFactory fragmentContextFactory;
   private final long startMs;
   private final long startNs;
 
@@ -112,7 +116,7 @@ public class QueryLifecycle
       final AuthorizerMapper authorizerMapper,
       final DefaultQueryConfig defaultQueryConfig,
       final AuthConfig authConfig,
-      final FragmentContextFactory fragmentContextFactory,
+      final FragmentBuilderFactory fragmentContextFactory,
       final long startMs,
       final long startNs
   )
@@ -141,8 +145,16 @@ public class QueryLifecycle
    *
    * @return results
    */
-  @SuppressWarnings("unchecked")
   public <T> Sequence<T> runSimple(
+      final Query<T> query,
+      final AuthenticationResult authenticationResult,
+      final Access authorizationResult
+  )
+  {
+    return runSimpleWithResponse(query, authenticationResult, authorizationResult).getResults();
+  }
+
+  public <T> QueryResponse<T> runSimpleWithResponse(
       final Query<T> query,
       final AuthenticationResult authenticationResult,
       final Access authorizationResult
@@ -150,7 +162,7 @@ public class QueryLifecycle
   {
     initialize(query);
 
-    final Sequence<T> results;
+    final QueryResponse<T> queryResponse;
 
     try {
       preAuthorized(authenticationResult, authorizationResult);
@@ -158,25 +170,37 @@ public class QueryLifecycle
         throw new ISE("Unauthorized");
       }
 
-      final QueryLifecycle.QueryResponse queryResponse = execute();
-      results = (Sequence<T>) queryResponse.getResults();
+      queryResponse = execute();
     }
     catch (Throwable e) {
       emitLogsAndMetrics(e, null, -1);
       throw e;
     }
 
-    return Sequences.wrap(
-        results,
-        new SequenceWrapper()
-        {
-          @Override
-          public void after(final boolean isDone, final Throwable thrown)
+    if (queryResponse.fragmentContext() == null) {
+      Sequence<T> wrapped = Sequences.wrap(
+          queryResponse.getResults(),
+          new SequenceWrapper()
           {
-            emitLogsAndMetrics(thrown, null, -1);
+            @Override
+            public void after(final boolean isDone, final Throwable thrown)
+            {
+              emitLogsAndMetrics(thrown, null, -1);
+            }
           }
+      );
+      return queryResponse.withSequence(wrapped);
+    } else {
+      Operator<T> inputOp = Operators.toOperator(queryResponse.getResults());
+      WrappingOperator<T> op = new WrappingOperator<T>(inputOp) {
+        @Override
+        protected void onClose() {
+          emitLogsAndMetrics(context.exception(), null, -1);
         }
-    );
+      };
+      return queryResponse.withSequence(
+          Operators.toSequence(op, queryResponse.fragmentContext()));
+    }
   }
 
   /**
@@ -259,19 +283,23 @@ public class QueryLifecycle
    *
    * @return result sequence and response context
    */
-  public QueryResponse execute()
+  public <T> QueryResponse<T> execute()
   {
     transition(State.AUTHORIZED, State.EXECUTING);
 
     final ResponseContext responseContext = DirectDruidClient.makeResponseContextForQuery();
 
-    final Sequence<?> res = QueryPlus.wrap(baseQuery)
+    final FragmentContext fragmentContext = fragmentContextFactory.create(baseQuery, responseContext);
+    @SuppressWarnings("unchecked")
+    final Sequence<T> res = (Sequence<T>) QueryPlus.wrap(baseQuery)
                                   .withIdentity(authenticationResult.getIdentity())
-                                  .withFragmentContext(
-                                      fragmentContextFactory.create(baseQuery, responseContext))
+                                  .withFragmentContext(fragmentContext)
                                   .run(texasRanger, responseContext);
 
-    return new QueryResponse(res == null ? Sequences.empty() : res, responseContext);
+    return new QueryResponse<T>(
+        res == null ? Sequences.empty() : res,
+        responseContext,
+        fragmentContext);
   }
 
   /**
@@ -428,18 +456,34 @@ public class QueryLifecycle
     DONE
   }
 
-  public static class QueryResponse
+  public static class QueryResponse<T>
   {
-    private final Sequence<?> results;
+    private final Sequence<T> results;
     private final ResponseContext responseContext;
 
-    private QueryResponse(final Sequence<?> results, final ResponseContext responseContext)
+    /**
+     * Fragment context is included because the SQL layer adds another
+     * operator on top of the sequence returned here, and that operator
+     * (if enabled), needs visibility to the fragment context.
+     */
+    private final FragmentContext fragmentContext;
+
+    private QueryResponse(
+        final Sequence<T> results,
+        final ResponseContext responseContext,
+        final FragmentContext fragmentContext)
     {
       this.results = results;
       this.responseContext = responseContext;
+      this.fragmentContext = fragmentContext;
     }
 
-    public Sequence<?> getResults()
+    private QueryResponse<T> withSequence(final Sequence<T> results)
+    {
+      return new QueryResponse<T>(results, responseContext, fragmentContext);
+    }
+
+    public Sequence<T> getResults()
     {
       return results;
     }
@@ -447,6 +491,11 @@ public class QueryLifecycle
     public ResponseContext getResponseContext()
     {
       return responseContext;
+    }
+
+    public FragmentContext fragmentContext()
+    {
+      return fragmentContext;
     }
   }
 }

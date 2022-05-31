@@ -17,36 +17,51 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.operators.general;
+package org.apache.druid.queryng.operators.scan;
 
+import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 
-public abstract class LimitOperator<T> extends MappingOperator<T, T>
+import java.util.Iterator;
+
+/**
+ * Converts an input operator which returns scan query "batches" to individual map records.
+ * The record type is assumed to be one of the valid
+ * {@link org.apache.druid.query.scan.ScanQuery.ResultFormat
+ * ResultFormat} types.
+ */
+public class ScanBatchToRowOperator<T> extends MappingOperator<ScanResultValue, T>
 {
-  public static final long UNLIMITED = Long.MAX_VALUE;
+  private Iterator<Object> batchIter;
 
-  protected final long limit;
-  protected long rowCount;
-  protected int batchCount;
-
-  public LimitOperator(FragmentBuilder builder, long limit, Operator<T> input)
+  public ScanBatchToRowOperator(FragmentBuilder builder, Operator<ScanResultValue> input)
   {
     super(builder, input);
-    this.limit = limit;
   }
 
   @Override
   public boolean hasNext()
   {
-    return rowCount < limit && super.hasNext();
+    while (true) {
+      if (batchIter == null) {
+        if (!super.hasNext()) {
+          return false;
+        }
+        batchIter = inputIter.next().getRows().iterator();
+      }
+      if (batchIter.hasNext()) {
+        return true;
+      }
+      batchIter = null;
+    }
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   public T next()
   {
-    rowCount++;
-    return inputIter.next();
+    return (T) batchIter.next();
   }
 }
