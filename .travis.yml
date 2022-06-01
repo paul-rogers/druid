@@ -82,7 +82,7 @@ jobs:
       # the Druid services that did not exit normally.
       # Run though install to ensure the test tools are installed, and the docker
       # image is built. The tests only need verify.
-      script: ${MVN} install -P dist,test-image,docker-tests -rf :it-tools ${MAVEN_SKIP} -DskipUTs=true
+      script: ${MVN} install -P dist,test-image,docker-tests -rf :distribution ${MAVEN_SKIP} -DskipUTs=true
       after_failure:
         - docker-tests/check-results.sh 
       
