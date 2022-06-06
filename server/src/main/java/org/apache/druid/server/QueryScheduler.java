@@ -62,11 +62,19 @@ import java.util.Set;
  */
 public class QueryScheduler implements QueryWatcher
 {
+  /**
+   * Opaque token that represents a lease of query resources.
+   * The grantee is responsible for calling {@link #release()} at
+   * query completion: success or failure.
+   */
   public interface LaneToken
   {
     void release();
   }
 
+  /**
+   * Private implementation of the resource lease based on bulkheads.
+   */
   private class LaneTokenImpl implements LaneToken
   {
     final List<Bulkhead> lanes;
@@ -83,9 +91,11 @@ public class QueryScheduler implements QueryWatcher
       lanes.clear();
     }
   }
+
   private static final Logger LOGGER = new Logger(QueryScheduler.class);
   public static final int UNAVAILABLE = -1;
   public static final String TOTAL = "total";
+
   private final int totalCapacity;
   private final QueryPrioritizationStrategy prioritizationStrategy;
   private final QueryLaningStrategy laningStrategy;
