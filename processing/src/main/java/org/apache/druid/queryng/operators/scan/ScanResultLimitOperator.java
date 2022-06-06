@@ -22,7 +22,7 @@ package org.apache.druid.queryng.operators.scan;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.general.LimitOperator;
 
@@ -54,13 +54,13 @@ public class ScanResultLimitOperator extends LimitOperator<ScanResultValue>
 
   @VisibleForTesting
   public ScanResultLimitOperator(
-      FragmentBuilder builder,
+      FragmentContext context,
       long limit,
       boolean grouped,
       int batchSize,
       Operator<ScanResultValue> child)
   {
-    super(builder, limit, child);
+    super(context, limit, child);
     this.grouped = grouped;
     this.batchSize = batchSize;
   }

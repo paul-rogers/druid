@@ -24,7 +24,7 @@ import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.joda.time.Interval;
@@ -56,14 +56,14 @@ public class MockScanResultReader implements IterableOperator<ScanResultValue>
   public State state = State.START;
 
   public MockScanResultReader(
-      FragmentBuilder builder,
+      FragmentContext context,
       int columnCount,
       int targetCount,
       int batchSize,
       Interval interval)
   {
     this(
-        builder,
+        context,
         columnCount,
         targetCount,
         batchSize,
@@ -72,7 +72,7 @@ public class MockScanResultReader implements IterableOperator<ScanResultValue>
   }
 
   public MockScanResultReader(
-      FragmentBuilder builder,
+      FragmentContext context,
       int columnCount,
       int targetCount,
       int batchSize,
@@ -95,7 +95,7 @@ public class MockScanResultReader implements IterableOperator<ScanResultValue>
       this.msPerRow = Math.toIntExact(interval.toDurationMillis() / targetCount);
     }
     this.nextTs = interval.getStartMillis();
-    builder.register(this);
+    context.register(this);
   }
 
   @Override

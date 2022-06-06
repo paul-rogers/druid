@@ -19,25 +19,23 @@
 
 package org.apache.druid.queryng.fragment;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.queryng.fragment.FragmentContext.State;
-import org.apache.druid.queryng.operators.NullOperator;
+import org.apache.druid.queryng.fragment.FragmentHandleImpl.FragmentOperatorHandle;
+import org.apache.druid.queryng.fragment.FragmentHandleImpl.FragmentSequenceHandle;
+import org.apache.druid.queryng.fragment.FragmentHandleImpl.EmptyFragmentHandle;
 import org.apache.druid.queryng.operators.Operator;
 
 import java.util.Iterator;
-import java.util.List;
 
 /**
  * Constructs a fragment by registering a set of operators. Used during the
  * transition when query runners create operators dynamically.
  *
- * Also provides an API to start the fragment running either by using
- * a sequence or a root operator to fetch rows.
+ * Provides a "handle" to further construct the DAG for code that does not
+ * have access to this class, and provides a way to run the DAG given a
+ * root node (which must be one of the registered operators.)
  */
 public class FragmentBuilderImpl implements FragmentBuilder
 {
@@ -59,90 +57,58 @@ public class FragmentBuilderImpl implements FragmentBuilder
   @Override
   public void register(Operator<?> op)
   {
-    Preconditions.checkState(context.state == State.START);
-    context.operators.add(op);
-  }
-
-  @SuppressWarnings("unchecked")
-  @Override
-  public <T> ResultIterator<T> open()
-  {
-    if (context.state != State.START) {
-      throw new ISE("Fragment is already opened()");
-    }
-    Operator<T> rootOp;
-    if (context.operators.size() == 0) {
-      // Rather silly "DAG": does nothing.
-      rootOp = new NullOperator<T>(this);
-    } else {
-      rootOp = (Operator<T>) context.operators.get(context.operators.size() - 1);
-    }
-    return open(rootOp);
-  }
-
-  @Override
-  public <T> ResultIterator<T> open(Operator<T> rootOp)
-  {
-    return new ResultIteratorImpl<T>(context, rootOp);
-  }
-
-  @Override
-  public <T> Sequence<T> toSequence()
-  {
-    return toSequence(open());
-  }
-
-  @Override
-  public <T> Sequence<T> toSequence(Operator<T> rootOp)
-  {
-    return toSequence(open(rootOp));
-  }
-
-  private <T> Sequence<T> toSequence(ResultIterator<T> rootOp)
-  {
-    return new BaseSequence<T, Iterator<T>>(
-        new BaseSequence.IteratorMaker<T, Iterator<T>>()
-        {
-          @Override
-          public Iterator<T> make()
-          {
-            return rootOp;
-          }
-
-          @Override
-          public void cleanup(Iterator<T> iterFromMake)
-          {
-            rootOp.close();
-          }
-        }
-    );
-  }
-
-  @Override
-  public <T> List<T> toList()
-  {
-    return toList(open());
-  }
-
-  @Override
-  public <T> List<T> toList(Operator<T> rootOp)
-  {
-    return toList(open(rootOp));
-  }
-
-  private <T> List<T> toList(ResultIterator<T> rootOp)
-  {
-    try {
-      return Lists.newArrayList(rootOp);
-    }
-    finally {
-      rootOp.close();
-    }
+    context.register(op);
   }
 
   @Override
   public FragmentContext context()
   {
     return context;
+  }
+
+  @Override
+  public <T> FragmentHandle<T> emptyHandle()
+  {
+    return new EmptyFragmentHandle<T>(this);
+  }
+
+  @Override
+  public <T> FragmentHandle<T> handle(Operator<T> rootOp)
+  {
+    return new FragmentOperatorHandle<T>(this, rootOp);
+  }
+
+  @Override
+  public <T> FragmentHandle<T> handle(Sequence<T> rootOp)
+  {
+    return new FragmentSequenceHandle<T>(this, rootOp);
+  }
+
+  @Override
+  public <T> FragmentRun<T> run(Operator<T> rootOp)
+  {
+    return new FragmentRunImpl<T>(context, rootOp);
+  }
+
+  @Override
+  public <T> Sequence<T> runAsSequence(Operator<T> rootOp)
+  {
+    final FragmentRun<T> run = run(rootOp);
+    return new BaseSequence<T, Iterator<T>>(
+        new BaseSequence.IteratorMaker<T, Iterator<T>>()
+        {
+          @Override
+          public Iterator<T> make()
+          {
+            return run.iterator();
+          }
+
+          @Override
+          public void cleanup(Iterator<T> iterFromMake)
+          {
+            run.close();
+          }
+        }
+    );
   }
 }

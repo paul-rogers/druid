@@ -29,7 +29,6 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.SequenceIterator;
@@ -231,11 +230,11 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
   private Impl impl;
 
   public ScanQueryOperator(
-      FragmentBuilder builder,
+      final FragmentContext context,
       final ScanQuery query,
       final Segment segment)
   {
-    this.context = builder.context();
+    this.context = context;
     this.query = query;
     this.segment = segment;
     this.segmentId = segment.getId().toString();
@@ -245,7 +244,7 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
     this.filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
     this.isLegacy = Preconditions.checkNotNull(query.isLegacy(), "Expected non-null 'legacy' parameter");
     this.batchSize = query.getBatchSize();
-    builder.register(this);
+    context.register(this);
   }
 
   /**

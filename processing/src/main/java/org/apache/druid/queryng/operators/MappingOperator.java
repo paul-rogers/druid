@@ -20,7 +20,6 @@
 package org.apache.druid.queryng.operators;
 
 import com.google.common.base.Preconditions;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
@@ -38,11 +37,11 @@ public abstract class MappingOperator<IN, OUT> implements IterableOperator<OUT>
   protected Iterator<IN> inputIter;
   protected State state = State.START;
 
-  public MappingOperator(FragmentBuilder builder, Operator<IN> input)
+  public MappingOperator(FragmentContext context, Operator<IN> input)
   {
-    this.context = builder.context();
+    this.context = context;
     this.input = input;
-    builder.register(this);
+    context.register(this);
   }
 
   @Override

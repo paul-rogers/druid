@@ -17,60 +17,63 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.operators;
+package org.apache.druid.queryng.fragment;
 
 import com.google.common.base.Preconditions;
-import org.apache.druid.queryng.fragment.FragmentContext;
+import com.google.common.collect.Lists;
+import org.apache.druid.queryng.fragment.FragmentContext.State;
+import org.apache.druid.queryng.operators.Operator;
 
 import java.util.Iterator;
+import java.util.List;
 
-/**
- * Operator which "wraps" another operator where the only behavior of
- * interest is at the start or end of the run. The iterator from the
- * input is the iterator for the output.
- */
-public abstract class WrappingOperator<T> implements Operator<T>
+public class FragmentRunImpl<T> implements FragmentRun<T>
 {
-  protected final FragmentContext context;
-  private final Operator<T> input;
-  protected State state = State.START;
+  private final FragmentContextImpl context;
+  private Iterator<T> rootIter;
 
-  public WrappingOperator(FragmentContext context, Operator<T> input)
+  public FragmentRunImpl(FragmentContextImpl context, Operator<T> root)
   {
+    Preconditions.checkState(context.state == State.START);
     this.context = context;
-    this.input = input;
-    context.register(this);
+    try {
+      rootIter = root.open();
+      context.state = State.RUN;
+    }
+    catch (Exception e) {
+      context.failed(e);
+      context.state = State.FAILED;
+      throw e;
+    }
   }
 
   @Override
-  public Iterator<T> open()
+  public Iterator<T> iterator()
   {
-    Preconditions.checkState(state == State.START);
-    Iterator<T> inputIter = input.open();
-    state = State.RUN;
-    onOpen();
-    return inputIter;
+    Preconditions.checkState(context.state == State.RUN);
+    return rootIter;
   }
 
   @Override
-  public void close(boolean cascade)
+  public FragmentContext context()
+  {
+    return context;
+  }
+
+  @Override
+  public List<T> toList()
   {
     try {
-      if (state == State.RUN && cascade) {
-        input.close(cascade);
-      }
+      return Lists.newArrayList(this);
     }
     finally {
-      onClose();
-      state = State.CLOSED;
+      close();
     }
   }
 
-  protected void onOpen()
+  @Override
+  public void close()
   {
-  }
-
-  protected void onClose()
-  {
+    context.close();
   }
 }

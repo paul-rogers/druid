@@ -23,7 +23,7 @@ import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Yielder;
 import org.apache.druid.java.util.common.guava.YieldingAccumulator;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
 import java.io.IOException;
@@ -46,10 +46,10 @@ public class SequenceOperator<T> implements IterableOperator<T>
   private final Sequence<T> sequence;
   private Yielder<T> yielder;
 
-  public SequenceOperator(FragmentBuilder builder, Sequence<T> sequence)
+  public SequenceOperator(FragmentContext context, Sequence<T> sequence)
   {
     this.sequence = sequence;
-    builder.register(this);
+    context.register(this);
   }
 
   @Override

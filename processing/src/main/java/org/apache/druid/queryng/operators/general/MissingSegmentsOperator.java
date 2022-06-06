@@ -22,7 +22,6 @@ package org.apache.druid.queryng.operators.general;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 
@@ -43,16 +42,16 @@ public class MissingSegmentsOperator<T> implements Operator<T>
   private final List<SegmentDescriptor> descriptors;
   protected final FragmentContext context;
 
-  public MissingSegmentsOperator(FragmentBuilder builder, SegmentDescriptor descriptor)
+  public MissingSegmentsOperator(FragmentContext context, SegmentDescriptor descriptor)
   {
-    this(builder, Collections.singletonList(descriptor));
+    this(context, Collections.singletonList(descriptor));
   }
 
-  public MissingSegmentsOperator(FragmentBuilder builder, List<SegmentDescriptor> descriptors)
+  public MissingSegmentsOperator(FragmentContext context, List<SegmentDescriptor> descriptors)
   {
-    this.context = builder.context();
+    this.context = context;
     this.descriptors = descriptors;
-    builder.register(this);
+    context.register(this);
   }
 
   @Override

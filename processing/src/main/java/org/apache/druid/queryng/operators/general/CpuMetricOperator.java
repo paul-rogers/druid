@@ -21,7 +21,7 @@ package org.apache.druid.queryng.operators.general;
 
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.QueryMetrics;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.utils.JvmUtils;
@@ -41,13 +41,13 @@ public class CpuMetricOperator<T> extends MappingOperator<T, T>
   private final ServiceEmitter emitter;
 
   public CpuMetricOperator(
-      final FragmentBuilder builder,
+      final FragmentContext context,
       final AtomicLong cpuTimeAccumulator,
       final QueryMetrics<?> queryMetrics,
       final ServiceEmitter emitter,
       final Operator<T> child)
   {
-    super(builder, child);
+    super(context, child);
     this.cpuTimeAccumulator = cpuTimeAccumulator == null ? new AtomicLong(0L) : cpuTimeAccumulator;
     this.queryMetrics = queryMetrics;
     this.emitter = emitter;

@@ -45,7 +45,7 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
 import org.apache.druid.queryng.Timer;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.TransformOperator;
@@ -103,9 +103,9 @@ import java.util.function.ObjLongConsumer;
  */
 public class QueryPlanner
 {
-  protected static <T> Operator<T> concat(FragmentBuilder builder, List<Operator<T>> children)
+  protected static <T> Operator<T> concat(FragmentContext context, List<Operator<T>> children)
   {
-    return ConcatOperator.concatOrNot(builder, children);
+    return ConcatOperator.concatOrNot(context, children);
   }
 
   /**
@@ -130,7 +130,7 @@ public class QueryPlanner
         delegate,
         queryWithMetrics);
     CpuMetricOperator<T> op = new CpuMetricOperator<T>(
-        queryPlus.fragmentBuilder(),
+        queryPlus.fragmentBuilder().context(),
         cpuTimeAccumulator,
         queryWithMetrics.getQueryMetrics(),
         emitter,
@@ -214,7 +214,7 @@ public class QueryPlanner
         queryPlusToRun);
     @SuppressWarnings("unchecked")
     TransformOperator<T, T> op = new TransformOperator<>(
-        queryPlus.fragmentBuilder(),
+        queryPlus.fragmentBuilder().context(),
         (Function<T, T>) finalizerFn,
         inputOp);
     return Operators.toSequence(op);
@@ -254,7 +254,7 @@ public class QueryPlanner
         true);
     if (setName) {
       op = new ThreadLabelOperator<T>(
-          queryPlus.fragmentBuilder(),
+          queryPlus.fragmentBuilder().context(),
           newName,
           op);
     }
@@ -285,7 +285,7 @@ public class QueryPlanner
         queryRunner,
         queryWithMetrics);
     MetricsOperator<T> op = new MetricsOperator<>(
-        queryPlus.fragmentBuilder(),
+        queryPlus.fragmentBuilder().context(),
         emitter,
         queryMetrics,
         reportMetric,
@@ -305,7 +305,7 @@ public class QueryPlanner
         factory.createRunner(segment),
         queryPlus);
     SegmentLockOperator<T> op = new SegmentLockOperator<>(
-        queryPlus.fragmentBuilder(),
+        queryPlus.fragmentBuilder().context(),
         segment,
         descriptor,
         inputOp);

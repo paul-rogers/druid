@@ -26,7 +26,7 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.scan.ScanQuery;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.DAGBuilder;
 import org.apache.druid.queryng.operators.general.QueryRunnerOperator;
 
 import java.util.Iterator;
@@ -154,12 +154,20 @@ public class Operators
    * If the input sequence is a wrapper around an operator, then
    * (clumsily) unwraps that operator and returns it directly.
    */
-  public static <T> Operator<T> toOperator(FragmentBuilder builder, Sequence<T> sequence)
+  public static <T> Operator<T> toOperator(DAGBuilder builder, Sequence<T> sequence)
   {
     if (sequence instanceof OperatorWrapperSequence) {
       return ((OperatorWrapperSequence<T>) sequence).unwrap();
     }
-    return new SequenceOperator<T>(builder, sequence);
+    return new SequenceOperator<T>(builder.context(), sequence);
+  }
+
+  public static <T> Operator<T> unwrapOperator(Sequence<T> sequence)
+  {
+    if (sequence instanceof OperatorWrapperSequence) {
+      return ((OperatorWrapperSequence<T>) sequence).unwrap();
+    }
+    return null;
   }
 
   /**

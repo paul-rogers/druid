@@ -23,7 +23,7 @@ import org.apache.druid.query.BySegmentResultValueClass;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.Result;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
 import org.joda.time.DateTime;
@@ -58,7 +58,7 @@ public class BySegmentOperator<T> implements Operator<Result<T>>
   private final Supplier<Operator<T>> inputSupplier;
 
   public BySegmentOperator(
-      final FragmentBuilder builder,
+      final FragmentContext context,
       final String segmentId,
       final DateTime timestamp,
       final Interval interval,
@@ -69,7 +69,7 @@ public class BySegmentOperator<T> implements Operator<Result<T>>
     this.timestamp = timestamp;
     this.interval = interval;
     this.inputSupplier = inputSupplier;
-    builder.register(this);
+    context.register(this);
   }
 
   @Override

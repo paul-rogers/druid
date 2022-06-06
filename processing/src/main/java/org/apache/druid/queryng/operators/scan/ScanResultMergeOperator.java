@@ -23,7 +23,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.Ordering;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
@@ -45,11 +45,11 @@ import java.util.PriorityQueue;
 public class ScanResultMergeOperator implements IterableOperator<ScanResultValue>
 {
   public static ScanResultMergeOperator forQuery(
-      FragmentBuilder builder,
+      FragmentContext context,
       ScanQuery query,
       List<Operator<ScanResultValue>> children)
   {
-    return new ScanResultMergeOperator(builder, query.getResultOrdering(), children);
+    return new ScanResultMergeOperator(context, query.getResultOrdering(), children);
   }
 
   private static class Entry
@@ -70,7 +70,7 @@ public class ScanResultMergeOperator implements IterableOperator<ScanResultValue
   private final PriorityQueue<Entry> pQueue;
 
   public ScanResultMergeOperator(
-      FragmentBuilder builder,
+      FragmentContext context,
       Ordering<ScanResultValue> ordering,
       List<Operator<ScanResultValue>> children)
   {
@@ -81,7 +81,7 @@ public class ScanResultMergeOperator implements IterableOperator<ScanResultValue
             (Function<Entry, ScanResultValue>) input -> input.row
         )
     );
-    builder.register(this);
+    context.register(this);
   }
 
   @Override

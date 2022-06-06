@@ -26,7 +26,7 @@ import org.apache.druid.query.context.ResponseContext;
  * Provides fragment-level context to operators within a single
  * fragment.
  */
-public interface FragmentContext
+public interface FragmentContext extends DAGBuilder
 {
   long NO_TIMEOUT = -1;
 

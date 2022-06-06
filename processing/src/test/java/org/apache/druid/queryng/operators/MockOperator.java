@@ -20,7 +20,7 @@
 package org.apache.druid.queryng.operators;
 
 import com.google.common.base.Preconditions;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
 import java.util.Iterator;
@@ -34,23 +34,23 @@ public class MockOperator<T> implements IterableOperator<T>
   public State state = State.START;
 
   public MockOperator(
-      FragmentBuilder builder,
+      FragmentContext context,
       int rowCount,
       Function<Integer, T> generator)
   {
     this.targetCount = rowCount;
     this.generator = generator;
-    builder.register(this);
+    context.register(this);
   }
 
-  public static MockOperator<Integer> ints(FragmentBuilder builder, int rowCount)
+  public static MockOperator<Integer> ints(FragmentContext context, int rowCount)
   {
-    return new MockOperator<Integer>(builder, rowCount, rid -> rid);
+    return new MockOperator<Integer>(context, rowCount, rid -> rid);
   }
 
-  public static MockOperator<String> strings(FragmentBuilder builder, int rowCount)
+  public static MockOperator<String> strings(FragmentContext context, int rowCount)
   {
-    return new MockOperator<String>(builder, rowCount, rid -> "Mock row " + Integer.toString(rid));
+    return new MockOperator<String>(context, rowCount, rid -> "Mock row " + Integer.toString(rid));
   }
 
   @Override

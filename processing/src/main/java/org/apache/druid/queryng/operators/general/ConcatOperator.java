@@ -20,7 +20,7 @@
 package org.apache.druid.queryng.operators.general;
 
 import com.google.common.base.Preconditions;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
@@ -37,11 +37,11 @@ import java.util.List;
 public class ConcatOperator<T> implements IterableOperator<T>
 {
   public static <T> Operator<T> concatOrNot(
-      FragmentBuilder builder,
+      FragmentContext context,
       List<Operator<T>> children)
   {
     if (children.size() > 1) {
-      return new ConcatOperator<>(builder, children);
+      return new ConcatOperator<>(context, children);
     }
     return children.get(0);
   }
@@ -50,10 +50,10 @@ public class ConcatOperator<T> implements IterableOperator<T>
   private Operator<T> current;
   private Iterator<T> currentIter;
 
-  public ConcatOperator(FragmentBuilder builder, List<Operator<T>> children)
+  public ConcatOperator(FragmentContext context, List<Operator<T>> children)
   {
     childIter = children.iterator();
-    builder.register(this);
+    context.register(this);
   }
 
   @Override

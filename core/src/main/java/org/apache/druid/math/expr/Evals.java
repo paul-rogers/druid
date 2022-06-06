@@ -20,9 +20,9 @@
 package org.apache.druid.math.expr;
 
 import org.apache.druid.common.config.NullHandling;
-import org.apache.druid.java.util.common.logger.Logger;
 
 import javax.annotation.Nullable;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -30,8 +30,6 @@ import java.util.List;
  */
 public class Evals
 {
-  private static final Logger log = new Logger(Evals.class);
-
   public static boolean isAllConstants(Expr... exprs)
   {
     return isAllConstants(Arrays.asList(exprs));

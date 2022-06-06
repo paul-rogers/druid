@@ -19,7 +19,7 @@
 
 package org.apache.druid.queryng.operators.general;
 
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 
@@ -31,9 +31,9 @@ public abstract class LimitOperator<T> extends MappingOperator<T, T>
   protected long rowCount;
   protected int batchCount;
 
-  public LimitOperator(FragmentBuilder builder, long limit, Operator<T> input)
+  public LimitOperator(FragmentContext context, long limit, Operator<T> input)
   {
-    super(builder, input);
+    super(context, input);
     this.limit = limit;
   }
 

@@ -19,7 +19,7 @@
 
 package org.apache.druid.queryng.operators.general;
 
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.WrappingOperator;
 
@@ -34,11 +34,11 @@ public class ThreadLabelOperator<T> extends WrappingOperator<T>
   private String originalLabel;
 
   public ThreadLabelOperator(
-      final FragmentBuilder builder,
+      final FragmentContext context,
       final String label,
       final Operator<T> child)
   {
-    super(builder, child);
+    super(context, child);
     this.label = label;
   }
 

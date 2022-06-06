@@ -20,13 +20,12 @@
 package org.apache.druid.queryng.operators;
 
 import org.apache.druid.java.util.common.guava.Sequence;
-import org.apache.druid.java.util.common.guava.SequenceTestHelper;
 import org.apache.druid.queryng.fragment.FragmentBuilder;
-import org.apache.druid.queryng.fragment.FragmentBuilder.ResultIterator;
+import org.apache.druid.queryng.fragment.FragmentHandle;
+import org.apache.druid.queryng.fragment.FragmentRun;
 import org.junit.Test;
 
-import java.io.IOException;
-import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -43,97 +42,28 @@ public class MockOperatorTest
   public void testMockStringOperator()
   {
     FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<String> op = MockOperator.strings(builder, 2);
-    ResultIterator<String> iter = builder.open();
-    assertTrue(iter.hasNext());
-    assertEquals("Mock row 0", iter.next());
-    assertTrue(iter.hasNext());
-    assertEquals("Mock row 1", iter.next());
-    assertFalse(iter.hasNext());
-    iter.close();
+    MockOperator<String> op = MockOperator.strings(builder.context(), 2);
+    FragmentHandle<String> handle = builder.handle(op);
+    try (FragmentRun<String> run = handle.run()) {
+      Iterator<String> iter = run.iterator();
+      assertTrue(iter.hasNext());
+      assertEquals("Mock row 0", iter.next());
+      assertTrue(iter.hasNext());
+      assertEquals("Mock row 1", iter.next());
+      assertFalse(iter.hasNext());
+    }
     assertEquals(Operator.State.CLOSED, op.state);
   }
 
   @Test
   public void testMockIntOperator()
   {
+    // Test using the toList feature.
     FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder, 2);
-    ResultIterator<Integer> iter = builder.open();
-    assertTrue(iter.hasNext());
-    assertEquals(0, (int) iter.next());
-    assertTrue(iter.hasNext());
-    assertEquals(1, (int) iter.next());
-    assertFalse(iter.hasNext());
-    iter.close();
-    assertEquals(Operator.State.CLOSED, op.state);
-  }
-
-  @Test
-  public void testIterator()
-  {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder, 2);
-    int rid = 0;
-    ResultIterator<Integer> iter = builder.open();
-    for (Integer row : Operators.toIterable(iter)) {
-      assertEquals(rid++, (int) row);
-    }
-    iter.close();
-    assertEquals(Operator.State.CLOSED, op.state);
-  }
-
-  @Test
-  public void testToList() throws IOException
-  {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder, 5);
-    final List<Integer> expected = Arrays.asList(0, 1, 2, 3, 4);
-    final List<Integer> actual = builder.toList(op);
-    assertEquals(expected, actual);
-    assertEquals(Operator.State.CLOSED, op.state);
-  }
-
-  // An operator is a one-pass object, don't try sequence tests that assume
-  // the sequence is reentrant.
-  @Test
-  public void testSequenceYielder() throws IOException
-  {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder, 5);
-    final List<Integer> expected = Arrays.asList(0, 1, 2, 3, 4);
-    Sequence<Integer> seq = builder.toSequence(op);
-    SequenceTestHelper.testYield("op", 5, seq, expected);
-    assertEquals(Operator.State.CLOSED, op.state);
-  }
-
-  @Test
-  public void testSequenceAccum() throws IOException
-  {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder, 4);
-    final List<Integer> vals = Arrays.asList(0, 1, 2, 3);
-    Sequence<Integer> seq = builder.toSequence(op);
-    SequenceTestHelper.testAccumulation("op", seq, vals);
-    assertEquals(Operator.State.CLOSED, op.state);
-  }
-
-  /**
-   * Example of how the fragment context ensures dynamically-created
-   * operators are closed.
-   */
-  @Test
-  public void testRootOperator()
-  {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder, 2);
-    ResultIterator<Integer> iter = builder.open(op);
-    assertTrue(iter.hasNext());
-    assertEquals(0, (int) iter.next());
-    assertTrue(iter.hasNext());
-    assertEquals(1, (int) iter.next());
-    assertFalse(iter.hasNext());
-    iter.close();
+    MockOperator<Integer> op = MockOperator.ints(builder.context(), 2);
+    List<Integer> results = builder.run(op).toList();
+    assertEquals(0, (int) results.get(0));
+    assertEquals(1, (int) results.get(1));
     assertEquals(Operator.State.CLOSED, op.state);
   }
 
@@ -144,15 +74,32 @@ public class MockOperatorTest
   public void testSequenceOperator()
   {
     FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    Operator<String> op = MockOperator.strings(builder, 2);
+    MockOperator<String> op = MockOperator.strings(builder.context(), 2);
     Sequence<String> seq = Operators.toSequence(op);
     Operator<String> outer = Operators.toOperator(builder, seq);
-    ResultIterator<String> iter = builder.open(outer);
+    FragmentRun<String> run = builder.run(outer);
+    Iterator<String> iter = run.iterator();
     assertTrue(iter.hasNext());
     assertEquals("Mock row 0", iter.next());
     assertTrue(iter.hasNext());
     assertEquals("Mock row 1", iter.next());
     assertFalse(iter.hasNext());
-    iter.close();
+    run.close();
+    assertEquals(Operator.State.CLOSED, op.state);
+  }
+
+  @Test
+  public void testMockFilter()
+  {
+    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    MockOperator<Integer> op = MockOperator.ints(builder.context(), 4);
+    Operator<Integer> op2 = new MockFilterOperator<Integer>(
+        builder.context(),
+        op,
+        x -> x % 2 == 0);
+    List<Integer> results = builder.run(op2).toList();
+    assertEquals(0, (int) results.get(0));
+    assertEquals(2, (int) results.get(1));
+    assertEquals(Operator.State.CLOSED, op.state);
   }
 }

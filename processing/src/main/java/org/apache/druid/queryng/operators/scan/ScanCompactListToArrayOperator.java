@@ -20,7 +20,7 @@
 package org.apache.druid.queryng.operators.scan;
 
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 
@@ -40,11 +40,11 @@ public class ScanCompactListToArrayOperator extends MappingOperator<List<Object>
   private final List<String> fields;
 
   public ScanCompactListToArrayOperator(
-      FragmentBuilder builder,
+      FragmentContext context,
       Operator<List<Object>> input,
       List<String> fields)
   {
-    super(builder, input);
+    super(context, input);
     this.fields = fields;
   }
 

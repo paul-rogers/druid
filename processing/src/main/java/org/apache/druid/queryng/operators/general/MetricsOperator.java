@@ -23,7 +23,6 @@ import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.queryng.Timer;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.WrappingOperator;
@@ -48,7 +47,7 @@ public class MetricsOperator<T> extends WrappingOperator<T>
   private final Timer runTimer = Timer.create();
 
   public MetricsOperator(
-      FragmentBuilder builder,
+      final FragmentContext context,
       final ServiceEmitter emitter,
       final QueryMetrics<?> queryMetrics,
       final ObjLongConsumer<? super QueryMetrics<?>> reportMetric,
@@ -56,7 +55,7 @@ public class MetricsOperator<T> extends WrappingOperator<T>
       final Operator<T> child
   )
   {
-    super(builder, child);
+    super(context, child);
     this.emitter = emitter;
     this.queryMetrics = queryMetrics;
     this.reportMetric = reportMetric;

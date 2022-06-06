@@ -46,6 +46,8 @@ import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryToolChestWarehouse;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentHandle;
+import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentBuilderFactory;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
@@ -154,6 +156,14 @@ public class QueryLifecycle
     return runSimpleWithResponse(query, authenticationResult, authorizationResult).getResults();
   }
 
+  /**
+   * Runs the query directly when the query is part of a query chain, such as
+   * when being run from SQL.
+   *
+   * @return a {@link QueryResponse} that provides both the Sequence and
+   * operator form of the query. The Sequence form is always available; the operator
+   * form is available if operators are enabled for this particular query.
+   */
   public <T> QueryResponse<T> runSimpleWithResponse(
       final Query<T> query,
       final AuthenticationResult authenticationResult,
@@ -177,7 +187,7 @@ public class QueryLifecycle
       throw e;
     }
 
-    if (queryResponse.fragmentContext() == null) {
+    if (queryResponse.fragmentHandle() == null) {
       Sequence<T> wrapped = Sequences.wrap(
           queryResponse.getResults(),
           new SequenceWrapper()
@@ -191,15 +201,19 @@ public class QueryLifecycle
       );
       return queryResponse.withSequence(wrapped);
     } else {
-      Operator<T> inputOp = Operators.toOperator(queryResponse.getResults());
-      WrappingOperator<T> op = new WrappingOperator<T>(inputOp) {
+      // Operator version of the above.
+      // TODO: Move to an actual operator class, which will require refactoring
+      // the emitLogsAndMetrics method.
+      FragmentHandle<T> handle = queryResponse.fragmentHandle();
+      FragmentContext context = handle.context();
+      Operator<T> inputOp = handle.rootOperator();
+      WrappingOperator<T> op = new WrappingOperator<T>(context, inputOp) {
         @Override
         protected void onClose() {
           emitLogsAndMetrics(context.exception(), null, -1);
         }
       };
-      return queryResponse.withSequence(
-          Operators.toSequence(op, queryResponse.fragmentContext()));
+      return queryResponse.withRoot(op);
     }
   }
 
@@ -289,17 +303,17 @@ public class QueryLifecycle
 
     final ResponseContext responseContext = DirectDruidClient.makeResponseContextForQuery();
 
-    final FragmentContext fragmentContext = fragmentContextFactory.create(baseQuery, responseContext);
+    final FragmentBuilder fragmentBuilder = fragmentContextFactory.create(baseQuery, responseContext);
     @SuppressWarnings("unchecked")
     final Sequence<T> res = (Sequence<T>) QueryPlus.wrap(baseQuery)
                                   .withIdentity(authenticationResult.getIdentity())
-                                  .withFragmentContext(fragmentContext)
+                                  .withFragmentBuilder(fragmentBuilder)
                                   .run(texasRanger, responseContext);
 
     return new QueryResponse<T>(
-        res == null ? Sequences.empty() : res,
+        res,
         responseContext,
-        fragmentContext);
+        fragmentBuilder);
   }
 
   /**
@@ -466,21 +480,47 @@ public class QueryLifecycle
      * operator on top of the sequence returned here, and that operator
      * (if enabled), needs visibility to the fragment context.
      */
-    private final FragmentContext fragmentContext;
+    private final FragmentHandle<T> fragmentHandle;
 
     private QueryResponse(
         final Sequence<T> results,
         final ResponseContext responseContext,
-        final FragmentContext fragmentContext)
+        final FragmentBuilder fragmentBuilder)
     {
-      this.results = results;
-      this.responseContext = responseContext;
-      this.fragmentContext = fragmentContext;
+      this(
+          results == null ? Sequences.empty() : results,
+          responseContext,
+          fragmentBuilder == null || results == null
+            ? null
+            : fragmentBuilder.handle(results)
+      );
     }
 
-    private QueryResponse<T> withSequence(final Sequence<T> results)
+    private QueryResponse(
+        final Sequence<T> results,
+        final ResponseContext responseContext,
+        final FragmentHandle<T> fragmentHandle)
     {
-      return new QueryResponse<T>(results, responseContext, fragmentContext);
+      this.results = results == null ? Sequences.empty() : results;
+      this.responseContext = responseContext;
+      this.fragmentHandle = fragmentHandle;
+    }
+
+    public <U> QueryResponse<U> withSequence(final Sequence<U> results)
+    {
+      return new QueryResponse<U>(
+          results,
+          responseContext,
+          fragmentHandle == null ? null : fragmentHandle.compose(results));
+    }
+
+    public <U> QueryResponse<U> withRoot(final Operator<U> root)
+    {
+      Sequence<U> rootSeq = Operators.toSequence(root);
+      return new QueryResponse<U>(
+          rootSeq,
+          responseContext,
+          fragmentHandle.compose(rootSeq));
     }
 
     public Sequence<T> getResults()
@@ -493,9 +533,14 @@ public class QueryLifecycle
       return responseContext;
     }
 
-    public FragmentContext fragmentContext()
+    public FragmentHandle<T> fragmentHandle()
     {
-      return fragmentContext;
+      return fragmentHandle;
+    }
+
+    public FragmentBuilder fragmentBuilder()
+    {
+      return fragmentHandle == null ? null : fragmentHandle.builder();
     }
   }
 }

@@ -12907,20 +12907,20 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
         ),
         NullHandling.sqlCompatible()
         ? ImmutableList.of(
-            new Object[]{1.0f, 1.0f},
-            new Object[]{0.1f, 0.0f},
-            new Object[]{0.0f, 0.0f},
+            new Object[]{1.0D, 1.0D},
+            new Object[]{0.1D, 0.0D},
+            new Object[]{0.0D, 0.0D},
             new Object[]{null, null},
             new Object[]{null, null},
             new Object[]{null, null}
         )
         : ImmutableList.of(
-            new Object[]{1.0f, 1.0f},
-            new Object[]{0.1f, 0.0f},
-            new Object[]{0.0f, 0.0f},
-            new Object[]{0.0f, 0.0f},
-            new Object[]{0.0f, 0.0f},
-            new Object[]{0.0f, 0.0f}
+            new Object[]{1.0D, 1.0D},
+            new Object[]{0.1D, 0.0D},
+            new Object[]{0.0D, 0.0D},
+            new Object[]{0.0D, 0.0D},
+            new Object[]{0.0D, 0.0D},
+            new Object[]{0.0D, 0.0D}
         )
     );
   }

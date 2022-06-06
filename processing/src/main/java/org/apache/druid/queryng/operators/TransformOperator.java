@@ -24,7 +24,7 @@ import org.apache.druid.query.BySegmentQueryRunner;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 
 /**
  * Operator that applies a function to each input item to produce the output item.
@@ -46,11 +46,11 @@ public class TransformOperator<IN, OUT> extends MappingOperator<IN, OUT>
   private final Function<IN, OUT> transformFn;
 
   public TransformOperator(
-      FragmentBuilder builder,
+      FragmentContext context,
       final Function<IN, OUT> transformFn,
       final Operator<IN> input)
   {
-    super(builder, input);
+    super(context, input);
     this.transformFn = transformFn;
   }
 

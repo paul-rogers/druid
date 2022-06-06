@@ -17,40 +17,30 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.operators;
+package org.apache.druid.queryng.fragment;
 
-import com.google.common.base.Preconditions;
-import org.apache.druid.queryng.fragment.FragmentContext;
-
-import java.util.Collections;
-import java.util.Iterator;
+import java.util.List;
 
 /**
- * World's simplest operator: does absolutely nothing
- * (other than check that the protocol is followed.) Used in
- * tests when we want an empty input, and for a fragment that
- * somehow ended up with no operators.
+ * Runs the DAG. The fragment is opened (open is called on the root
+ * operator) upon construction. Callers can then obtain the iterator,
+ * or convert the DAG to a sequence or list. Callers <b>must</b> close
+ * this object at the end of the run.
+ *
+ * Callers should generally use only one of the access methods: obtain
+ * the iterator, a sequence, or convert the results to a list. The
+ * fragment is not reentrant: results can be obtained only once.
  */
-public class NullOperator<T> implements Operator<T>
+public interface FragmentRun<T> extends AutoCloseable, Iterable<T>
 {
-  public State state = State.START;
+  FragmentContext context();
 
-  public NullOperator(FragmentContext context)
-  {
-    context.register(this);
-  }
-
-  @Override
-  public Iterator<T> open()
-  {
-    Preconditions.checkState(state == State.START);
-    state = State.RUN;
-    return Collections.emptyIterator();
-  }
+  /**
+   * Materializes the entire result set as a list. Primarily for testing.
+   * Opens the fragment, reads results, and closes the fragment.
+   */
+  List<T> toList();
 
   @Override
-  public void close(boolean cascade)
-  {
-    state = State.CLOSED;
-  }
+  void close();
 }

@@ -21,7 +21,6 @@ package org.apache.druid.queryng.operators.general;
 
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.SegmentDescriptor;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.segment.SegmentReference;
@@ -57,7 +56,7 @@ public class SegmentLockOperator<T> implements Operator<T>
   private Closeable lock;
 
   public SegmentLockOperator(
-      FragmentBuilder builder,
+      FragmentContext context,
       SegmentReference segment,
       SegmentDescriptor descriptor,
       Operator<T> child
@@ -66,8 +65,8 @@ public class SegmentLockOperator<T> implements Operator<T>
     this.segment = segment;
     this.descriptor = descriptor;
     this.child = child;
-    this.context = builder.context();
-    builder.register(this);
+    this.context = context;
+    context.register(this);
   }
 
   @Override

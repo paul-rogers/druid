@@ -19,6 +19,7 @@
 
 package org.apache.druid.queryng.fragment;
 
+import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.QueryTimeoutException;
@@ -27,12 +28,14 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.operators.Operator;
 
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class FragmentContextImpl implements FragmentContext
 {
   private final long timeoutMs;
-  protected final List<Operator<?>> operators = new ArrayList<>();
+  protected final Deque<Operator<?>> operators = new ConcurrentLinkedDeque<>();
   private final ResponseContext responseContext;
   private final String queryId;
   private final long startTimeMillis;
@@ -57,9 +60,22 @@ public class FragmentContextImpl implements FragmentContext
   }
 
   @Override
+  public FragmentContext context()
+  {
+    return this;
+  }
+
+  @Override
   public State state()
   {
     return state;
+  }
+
+  @Override
+  public void register(Operator<?> op)
+  {
+    Preconditions.checkState(state == State.START || state == State.RUN);
+    operators.add(op);
   }
 
   @Override
@@ -129,7 +145,8 @@ public class FragmentContextImpl implements FragmentContext
       return;
     }
     List<Exception> exceptions = new ArrayList<>();
-    for (Operator<?> op : operators) {
+    Operator<?> op;
+    while ((op = operators.pollFirst()) != null) {
       try {
         op.close(false);
       }

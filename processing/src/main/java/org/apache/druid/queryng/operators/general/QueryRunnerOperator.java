@@ -22,7 +22,6 @@ package org.apache.druid.queryng.operators.general;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
@@ -49,14 +48,14 @@ public class QueryRunnerOperator<T> implements Operator<T>
     this.context = query.fragmentBuilder().context();
     this.runner = runner;
     this.query = query;
-    query.fragmentBuilder().register(this);
+    context.register(this);
   }
 
   @Override
   public Iterator<T> open()
   {
     Sequence<T> seq = runner.run(query, context.responseContext());
-    child = Operators.toOperator(seq);
+    child = Operators.toOperator(context, seq);
     return child.open();
   }
 

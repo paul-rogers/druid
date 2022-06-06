@@ -20,7 +20,7 @@
 package org.apache.druid.queryng.operators.scan;
 
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 
@@ -36,9 +36,9 @@ public class ScanBatchToRowOperator<T> extends MappingOperator<ScanResultValue, 
 {
   private Iterator<Object> batchIter;
 
-  public ScanBatchToRowOperator(FragmentBuilder builder, Operator<ScanResultValue> input)
+  public ScanBatchToRowOperator(FragmentContext context, Operator<ScanResultValue> input)
   {
-    super(builder, input);
+    super(context, input);
   }
 
   @Override

@@ -19,7 +19,7 @@
 
 package org.apache.druid.queryng.operators.scan;
 
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 
@@ -40,11 +40,11 @@ public class ScanListToArrayOperator extends MappingOperator<Map<String, Object>
   private final List<String> fields;
 
   public ScanListToArrayOperator(
-      FragmentBuilder builder,
+      FragmentContext context,
       Operator<Map<String, Object>> input,
       List<String> fields)
   {
-    super(builder, input);
+    super(context, input);
     this.fields = fields;
   }
 

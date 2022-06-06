@@ -19,32 +19,28 @@
 
 package org.apache.druid.queryng.fragment;
 
-import org.apache.druid.java.util.common.guava.Sequence;
-import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.operators.Operator;
 
 /**
- * Build a fragment dynamically. For use during the transition when query runners
- * build operators. Once built, the fragment can be run as a root operator, a
- * sequence, or materialized into a list. The fragment can be run only once.
+ * Interface passed around while building a DAG of operators:
+ * provides access to the {@link FragmentContext} which each operator
+ * may use, and a method to register operators with the fragment.
  */
-public interface FragmentBuilder extends DAGBuilder
+public interface DAGBuilder
 {
-  <T> FragmentHandle<T> emptyHandle();
-  <T> FragmentHandle<T> handle(Operator<T> rootOp);
-  <T> FragmentHandle<T> handle(Sequence<T> rootOp);
-
-  <T> FragmentRun<T> run(Operator<T> rootOp);
-  <T> Sequence<T> runAsSequence(Operator<T> rootOp);
+  FragmentContext context();
 
   /**
-   * A simple fragment builder for testing.
+   * Register an operator for this fragment. The operator will be
+   * closed automatically upon fragment completion both for the success
+   * and error cases. An operator <i>may</i> be closed earlier, if a
+   * DAG branch detects it is done during a run. Thus, every operator
+   * must handle a call to {@code close()} when the operator is already
+   * closed.
+   *
+   * Operators may be registered during a run, which is useful in the
+   * conversion from query runners as sometimes the query runner decides
+   * late what child to create.
    */
-  static FragmentBuilder defaultBuilder()
-  {
-    return new FragmentBuilderImpl(
-        "unknown",
-        FragmentContext.NO_TIMEOUT,
-        ResponseContext.createEmpty());
-  }
+  void register(Operator<?> op);
 }

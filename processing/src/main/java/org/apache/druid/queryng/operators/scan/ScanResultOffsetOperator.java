@@ -20,7 +20,7 @@
 package org.apache.druid.queryng.operators.scan;
 
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
@@ -45,13 +45,13 @@ public class ScanResultOffsetOperator implements IterableOperator<ScanResultValu
   private boolean done;
 
   public ScanResultOffsetOperator(
-      FragmentBuilder builder,
+      FragmentContext context,
       long offset,
       Operator<ScanResultValue> input)
   {
     this.offset = offset;
     this.input = input;
-    builder.register(this);
+    context.register(this);
   }
 
   @Override

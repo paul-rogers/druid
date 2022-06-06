@@ -51,6 +51,7 @@ import org.apache.druid.query.filter.OrDimFilter;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
+import org.apache.druid.queryng.planner.SqlPlanner;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.data.ComparableList;
@@ -203,6 +204,12 @@ public class NativeQueryMaker implements QueryMaker
 
   private <T> Sequence<Object[]> execute(Query<T> query, final List<String> newFields, final List<SqlTypeName> newTypes)
   {
+    QueryResponse<Object[]> response = doExecute(query, newFields, newTypes);
+    return response.getResults();
+  }
+
+  private <T> QueryResponse<Object[]> doExecute(Query<T> query, final List<String> newFields, final List<SqlTypeName> newTypes)
+  {
     Hook.QUERY_PLAN.run(query);
 
     if (query.getId() == null) {
@@ -228,10 +235,23 @@ public class NativeQueryMaker implements QueryMaker
     @SuppressWarnings("unchecked")
     final QueryToolChest<T, Query<T>> toolChest = queryLifecycle.getToolChest();
     final List<String> resultArrayFields = toolChest.resultArraySignature(query).getColumnNames();
-    QueryPlus<T> queryPlus = QueryPlus.wrap(query).withFragmentContext(response.fragmentContext());
+    QueryPlus<T> queryPlus = QueryPlus.wrap(query).withFragmentBuilder(response.fragmentBuilder());
     final Sequence<Object[]> resultArrays = toolChest.resultsAsArrays(queryPlus, results);
 
-    return mapResultSequence(resultArrays, resultArrayFields, newFields, newTypes);
+    if (response.fragmentHandle() == null) {
+      return response.withSequence(
+          mapResultSequence(resultArrays, resultArrayFields, newFields, newTypes));
+    } else {
+      return response.withRoot(
+          SqlPlanner.projectResults(
+              response.fragmentHandle().context(),
+              resultArrays,
+              plannerContext,
+              jsonMapper,
+              resultArrayFields,
+              newFields,
+              newTypes));
+    }
   }
 
   private Sequence<Object[]> mapResultSequence(
@@ -407,7 +427,7 @@ public class NativeQueryMaker implements QueryMaker
     } else if (value instanceof ComparableStringArray) {
       return Arrays.asList(((ComparableStringArray) value).getDelegate());
     } else if (value instanceof ComparableList) {
-      return ((ComparableList) value).getDelegate();
+      return ((ComparableList<?>) value).getDelegate();
     } else if (mustCoerce) {
       return null;
     }
