@@ -62,6 +62,27 @@ import java.util.Set;
  */
 public class QueryScheduler implements QueryWatcher
 {
+  public interface LaneToken
+  {
+    void release();
+  }
+
+  private class LaneTokenImpl implements LaneToken
+  {
+    final List<Bulkhead> lanes;
+
+    private LaneTokenImpl(List<Bulkhead> lanes)
+    {
+      this.lanes = lanes;
+    }
+
+    @Override
+    public void release()
+    {
+      releaseLanes(lanes);
+      lanes.clear();
+    }
+  }
   private static final Logger LOGGER = new Logger(QueryScheduler.class);
   public static final int UNAVAILABLE = -1;
   public static final String TOTAL = "total";
@@ -285,6 +306,11 @@ public class QueryScheduler implements QueryWatcher
       releaseLanes(hallPasses);
       throw ex;
     }
+  }
+
+  public LaneToken accept(Query<?> query)
+  {
+    return new LaneTokenImpl(acquireLanes(query));
   }
 
   /**

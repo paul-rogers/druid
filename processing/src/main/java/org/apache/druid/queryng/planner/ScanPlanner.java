@@ -60,9 +60,9 @@ public class ScanPlanner
    */
   public static Sequence<ScanResultValue> runLimitAndOffset(
       final QueryPlus<ScanResultValue> queryPlus,
-      QueryRunner<ScanResultValue> input,
+      final QueryRunner<ScanResultValue> input,
       final ResponseContext responseContext,
-      ScanQueryConfig scanQueryConfig)
+      final ScanQueryConfig scanQueryConfig)
   {
     // Remove "offset" and add it to the "limit" (we won't push the offset down, just apply it here, at the
     // merge at the top of the stack).

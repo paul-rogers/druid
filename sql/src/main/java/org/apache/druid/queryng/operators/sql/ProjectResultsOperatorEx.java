@@ -104,19 +104,10 @@ public class ProjectResultsOperatorEx extends MappingOperator<Object[], Object[]
 
   private Function<Object, Object> createCast(SqlTypeName sqlType)
   {
-    if (SqlTypeName.CHAR_TYPES.contains(sqlType)) {
-      return new CastToString(sqlType, jsonMapper);
-    } else if (SqlTypeName.FRACTIONAL_TYPES.contains(sqlType)) {
-      return value -> {
-        try {
-          return value == null ? null : DimensionHandlerUtils.convertObjectToDouble(value);
-        }
-        catch (Exception e) {
-          throw conversionFailed(value, sqlType);
-        }
-      };
-    }
     switch (sqlType) {
+      case CHAR:
+      case VARCHAR:
+        return new CastToString(sqlType, jsonMapper);
       case DATE:
         return value -> value == null
               ? null
@@ -167,7 +158,9 @@ public class ProjectResultsOperatorEx extends MappingOperator<Object[], Object[]
             throw conversionFailed(value, sqlType);
           }
         };
-      case DOUBLE:
+      case DOUBLE: // FRACTIONAL_TYPES - FLOAT
+      case REAL:
+      case DECIMAL:
         return value -> {
           try {
             return value == null ? null : DimensionHandlerUtils.convertObjectToDouble(value);

@@ -32,6 +32,7 @@ import org.apache.druid.query.NoopQueryRunner;
 import org.apache.druid.query.Queries;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryDataSource;
+import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
@@ -43,6 +44,8 @@ import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
+import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.planner.ServerExecutionPlanner;
 import org.apache.druid.segment.ReferenceCountingSegment;
 import org.apache.druid.segment.SegmentReference;
 import org.apache.druid.segment.filter.Filters;
@@ -164,9 +167,21 @@ public class TestClusterQuerySegmentWalker implements QuerySegmentWalker
     // the LocalQuerySegmentWalker constructor instead since this walker does not
     // mimic remote DruidServer objects to actually serve the queries.
     return (theQuery, responseContext) -> {
+      if (Operators.enabledFor(theQuery)) {
+        return ServerExecutionPlanner.testRun(
+            theQuery,
+            baseRunner,
+            responseContext,
+            specs,
+            scheduler);
+      }
       responseContext.initializeRemainingResponses();
       responseContext.addRemainingResponse(
           theQuery.getQuery().getMostSpecificId(), 0);
+      QueryPlus<T> rewritten = theQuery.withQuery(
+          Queries.withSpecificSegments(
+              theQuery.getQuery(),
+              ImmutableList.copyOf(specs)));
       if (scheduler != null) {
         Set<SegmentServerSelector> segments = new HashSet<>();
         specs.forEach(spec -> segments.add(new SegmentServerSelector(spec)));
@@ -174,17 +189,14 @@ public class TestClusterQuerySegmentWalker implements QuerySegmentWalker
             scheduler.prioritizeAndLaneQuery(theQuery, segments),
             new LazySequence<>(
                 () -> baseRunner.run(
-                    theQuery.withQuery(Queries.withSpecificSegments(
-                        theQuery.getQuery(),
-                        ImmutableList.copyOf(specs)
-                    )),
+                    rewritten,
                     responseContext
                 )
             )
         );
       } else {
         return baseRunner.run(
-            theQuery.withQuery(Queries.withSpecificSegments(theQuery.getQuery(), ImmutableList.copyOf(specs))),
+            rewritten,
             responseContext
         );
       }

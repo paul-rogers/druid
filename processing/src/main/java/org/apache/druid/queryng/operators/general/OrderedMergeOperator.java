@@ -25,14 +25,16 @@ import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
 import java.util.Iterator;
-import java.util.List;
 import java.util.PriorityQueue;
+import java.util.function.Supplier;
 
 /**
  * Perform an in-memory, n-way merge on n ordered inputs.
  * Ordering is given by an {@link Ordering} which defines
  * the set of fields to order by, and their comparison
  * functions.
+ *
+ * @see {@link org.apache.druid.query.RetryQueryRunner}
  */
 public class OrderedMergeOperator<T> implements IterableOperator<T>
 {
@@ -42,13 +44,13 @@ public class OrderedMergeOperator<T> implements IterableOperator<T>
    * for that iterator. This class caches the current value so that
    * the priority queue can perform comparisons on it.
    */
-  private static class Input<T>
+  protected static class Input<T>
   {
     private final Operator<T> input;
     private final Iterator<T> iter;
-    T currentValue;
+    private T currentValue;
 
-    private Input(Operator<T> input)
+    protected Input(Operator<T> input)
     {
       this.input = input;
       this.iter = input.open();
@@ -60,12 +62,12 @@ public class OrderedMergeOperator<T> implements IterableOperator<T>
       }
     }
 
-    private T get()
+    protected T get()
     {
       return currentValue;
     }
 
-    private boolean next()
+    protected boolean next()
     {
       if (iter.hasNext()) {
         currentValue = iter.next();
@@ -77,12 +79,12 @@ public class OrderedMergeOperator<T> implements IterableOperator<T>
       }
     }
 
-    private boolean eof()
+    protected boolean eof()
     {
       return currentValue == null;
     }
 
-    private void close(boolean cascade)
+    protected void close(boolean cascade)
     {
       if (currentValue != null) {
         currentValue = null;
@@ -91,19 +93,28 @@ public class OrderedMergeOperator<T> implements IterableOperator<T>
     }
   }
 
-  private final List<Operator<T>> inputs;
+  /**
+   * Supplier of a collection (iterable) of inputs as defined by an
+   * operator, iterator and current item. To unpack this a bit, the input
+   * to the merge is the mechanism which distributes fragments across
+   * multiple threads, waits for the response, checks for missing fragments
+   * and retries. All this is opaque to this class which just wants the
+   * final collection that should be merged. That collection is wrapped
+   * in a supplier so that it is not started until {@link #open()} time.
+   */
+  private final Supplier<Iterable<Input<T>>> inputs;
   private final PriorityQueue<Input<T>> pQueue;
 
   public OrderedMergeOperator(
       FragmentContext context,
       Ordering<? super T> ordering,
-      List<Operator<T>> inputs
+      int approxInputCount,
+      Supplier<Iterable<Input<T>>> inputs
   )
   {
     this.inputs = inputs;
-    int inputCount = inputs.size();
     this.pQueue = new PriorityQueue<>(
-        inputCount == 0 ? 1 : inputCount,
+        approxInputCount == 0 ? 1 : approxInputCount,
         ordering.onResultOf(input -> input.get())
     );
     context.register(this);
@@ -112,8 +123,7 @@ public class OrderedMergeOperator<T> implements IterableOperator<T>
   @Override
   public Iterator<T> open()
   {
-    for (Operator<T> inputOper : inputs) {
-      Input<T> input = new Input<>(inputOper);
+    for (Input<T> input : inputs.get()) {
       if (!input.eof()) {
         pQueue.add(input);
       }

@@ -17,19 +17,23 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.operators;
+package org.apache.druid.queryng.operators.general;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operators.MockOperator;
+import org.apache.druid.queryng.operators.NullOperator;
+import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.State;
-import org.apache.druid.queryng.operators.general.OrderedMergeOperator;
+import org.apache.druid.queryng.operators.general.OrderedMergeOperator.Input;
 import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -41,10 +45,13 @@ public class OrderedMergeOperatorTest
   public void testNoInputs()
   {
     FragmentContext context = FragmentContext.defaultContext();
+    Supplier<Iterable<Input<Integer>>> inputs =
+        () -> Collections.emptyList();
     Operator<Integer> op = new OrderedMergeOperator<>(
         context,
         Ordering.natural(),
-        Collections.emptyList());
+        0,
+        inputs);
     Iterator<Integer> iter = op.open();
     assertFalse(iter.hasNext());
     op.close(true);
@@ -54,12 +61,15 @@ public class OrderedMergeOperatorTest
   public void testEmptyInputs()
   {
     FragmentContext context = FragmentContext.defaultContext();
+    Supplier<Iterable<Input<Integer>>> inputs =
+        () -> Arrays.asList(
+            new Input<Integer>(new NullOperator<Integer>(context)),
+            new Input<Integer>(new NullOperator<Integer>(context)));
     Operator<Integer> op = new OrderedMergeOperator<>(
         context,
         Ordering.natural(),
-        Arrays.asList(
-            new NullOperator<Integer>(context),
-            new NullOperator<Integer>(context)));
+        2,
+        inputs);
     Iterator<Integer> iter = op.open();
     assertFalse(iter.hasNext());
     op.close(true);
@@ -69,11 +79,14 @@ public class OrderedMergeOperatorTest
   public void testOneInput()
   {
     FragmentContext context = FragmentContext.defaultContext();
+    Supplier<Iterable<Input<Integer>>> inputs =
+        () -> Arrays.asList(
+            new Input<Integer>(MockOperator.ints(context, 3)));
     Operator<Integer> op = new OrderedMergeOperator<>(
         context,
         Ordering.natural(),
-        Arrays.asList(
-            MockOperator.ints(context, 3)));
+        1,
+        inputs);
     Iterator<Integer> iter = op.open();
     List<Integer> results = Lists.newArrayList(iter);
     op.close(true);
@@ -84,12 +97,15 @@ public class OrderedMergeOperatorTest
   public void testTwoInputs()
   {
     FragmentContext context = FragmentContext.defaultContext();
+    Supplier<Iterable<Input<Integer>>> inputs =
+        () -> Arrays.asList(
+            new Input<Integer>(MockOperator.ints(context, 3)),
+            new Input<Integer>(MockOperator.ints(context, 5)));
     Operator<Integer> op = new OrderedMergeOperator<>(
         context,
         Ordering.natural(),
-        Arrays.asList(
-            MockOperator.ints(context, 3),
-            MockOperator.ints(context, 5)));
+        2,
+        inputs);
     Iterator<Integer> iter = op.open();
     List<Integer> results = Lists.newArrayList(iter);
     op.close(true);
@@ -102,10 +118,15 @@ public class OrderedMergeOperatorTest
     FragmentContext context = FragmentContext.defaultContext();
     MockOperator<Integer> input1 = MockOperator.ints(context, 2);
     MockOperator<Integer> input2 = MockOperator.ints(context, 2);
+    Supplier<Iterable<Input<Integer>>> inputs =
+        () -> Arrays.asList(
+            new Input<Integer>(input1),
+            new Input<Integer>(input2));
     Operator<Integer> op = new OrderedMergeOperator<>(
         context,
         Ordering.natural(),
-        Arrays.asList(input1, input2));
+        2,
+        inputs);
     Iterator<Integer> iter = op.open();
     List<Integer> results = Lists.newArrayList(iter);
     assertEquals(Arrays.asList(0, 0, 1, 1), results);
