@@ -19,10 +19,9 @@
 
 # Revised Integration Tests
 
-This directory builds a Docker image for Druid,
-then uses that image, along with test configuration to run tests.
-This version greatly evolves the integration tests from the earlier
-form. See the last section for details.
+This directory builds a Docker image for Druid, then uses that image, along
+with test configuration to run tests. This version greatly evolves the
+integration tests from the earlier form. See the last section for details.
 
 ## Contents
 
