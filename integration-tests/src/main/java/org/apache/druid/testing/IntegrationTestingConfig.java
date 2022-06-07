@@ -27,7 +27,7 @@ import java.util.Map;
  * there is one or two Coordinators or Overlords, zero or one of
  * everything else.
  * <p>
- * To work in Docker (and K8s) there are to methods per host:
+ * To work in Docker (and K8s) there are two methods per host:
  * {@code get<service>Host()} which returns the host as seen from
  * the test machine (meaning the proxy host), and
  * {@code get<service>InternalHost()} which returns the name of
