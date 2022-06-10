@@ -78,8 +78,7 @@ or feature is:
   a live cluster.
 
 The result should also speed up Travis builds because a single
-Maven run can produce the Druid artifacts and run all integration
-tests.
+Maven run can produce the Druid artifacts and run all integration tests.
 
 We can have the option to run the integration tests using different
 settings: one with the MariaDB connector, say, another with MySQL.
