@@ -110,7 +110,12 @@ public class SqlLifecycle
   private String sql;
   private QueryContext queryContext;
   private List<TypedValue> parameters;
+
   // init during plan
+  /**
+   * The Druid planner follows the SQL statement through the lifecycle.
+   * The planner's state is start --> validate --> (prepare | plan).
+   */
   private DruidPlanner planner;
   private PlannerContext plannerContext;
   private ValidationResult validationResult;
@@ -229,6 +234,10 @@ public class SqlLifecycle
     checkAccess(access);
   }
 
+  /**
+   * Perform the validation step on the Druid planner, leaving the planner
+   * ready to perform either prepare or plan.
+   */
   private ValidationResult validate(AuthenticationResult authenticationResult)
   {
     try {
@@ -270,9 +279,13 @@ public class SqlLifecycle
   }
 
   /**
-   * Prepare the query lifecycle for execution, without completely planning into something that is executable, but
-   * including some initial parsing and validation and any dynamic parameter type resolution, to support prepared
+   * Prepare the query lifecycle for execution, without completely planning into
+   * something that is executable, but including some initial parsing and
+   * validation and any dynamic parameter type resolution, to support prepared
    * statements via JDBC.
+   *
+   * The planner must have already performed the validation step: the planner
+   * state is reused here.
    */
   public PrepareResult prepare() throws RelConversionException
   {
@@ -303,7 +316,11 @@ public class SqlLifecycle
   /**
    * Plan the query to enable execution.
    *
-   * If successful, the lifecycle will first transition from {@link State#AUTHORIZED} to {@link State#PLANNED}.
+   * The planner must have already performed the validation step: the planner
+   * state is reused here.
+   *
+   * If successful, the lifecycle will first transition from
+   * {@link State#AUTHORIZED} to {@link State#PLANNED}.
    */
   public void plan() throws RelConversionException
   {

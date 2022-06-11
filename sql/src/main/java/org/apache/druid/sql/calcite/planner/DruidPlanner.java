@@ -98,6 +98,16 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * Druid SQL planner. Wraps the underlying Calcite planner with Druid-specific
+ * actions around resource validation and conversion of the Calcite logical
+ * plan into a Druid native query.
+ * <p>
+ * The planner is designed to use once: it makes one trip through its
+ * lifecycle defined as:
+ * <p>
+ * start --> validate --> [prepare | plan]
+ */
 public class DruidPlanner implements Closeable
 {
   public enum State
@@ -138,7 +148,8 @@ public class DruidPlanner implements Closeable
   /**
    * Validates a SQL query and populates {@link PlannerContext#getResourceActions()}.
    *
-   * @return set of {@link Resource} corresponding to any Druid datasources or views which are taking part in the query.
+   * @return set of {@link Resource} corresponding to any Druid datasources
+   * or views which are taking part in the query.
    */
   public ValidationResult validate(boolean authorizeContextParams) throws SqlParseException, ValidationException
   {
@@ -199,8 +210,7 @@ public class DruidPlanner implements Closeable
    * Prepare a SQL query for execution, including some initial parsing and validation and any dynamic parameter type
    * resolution, to support prepared statements via JDBC.
    *
-   * In some future this could perhaps re-use some of the work done by {@link #validate(boolean)}
-   * instead of repeating it, but that day is not today.
+   * Prepare reuses the validation done in `validate()` which must be called first.
    */
   public PrepareResult prepare() throws SqlParseException, ValidationException, RelConversionException
   {
@@ -229,8 +239,7 @@ public class DruidPlanner implements Closeable
    * Ideally, the query can be planned into a native Druid query, using {@link #planWithDruidConvention}, but will
    * fall-back to {@link #planWithBindableConvention} if this is not possible.
    *
-   * In some future this could perhaps re-use some of the work done by {@link #validate(boolean)}
-   * instead of repeating it, but that day is not today.
+   * Planning reuses the validation done in `validate()` which must be called first.
    */
   public PlannerResult plan() throws SqlParseException, ValidationException, RelConversionException
   {
