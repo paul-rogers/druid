@@ -23,6 +23,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -30,9 +31,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
-import org.apache.calcite.config.CalciteConnectionConfig;
-import org.apache.calcite.config.CalciteConnectionConfigImpl;
-import org.apache.calcite.config.CalciteConnectionProperty;
 import org.apache.calcite.interpreter.BindableConvention;
 import org.apache.calcite.interpreter.BindableRel;
 import org.apache.calcite.interpreter.Bindables;
@@ -41,8 +39,6 @@ import org.apache.calcite.linq4j.Enumerable;
 import org.apache.calcite.linq4j.Enumerator;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.prepare.CalciteCatalogReader;
-import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.Sort;
@@ -62,10 +58,7 @@ import org.apache.calcite.sql.SqlOrderBy;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlValidator;
-import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.calcite.tools.FrameworkConfig;
-import org.apache.calcite.tools.Frameworks;
-import org.apache.calcite.tools.Planner;
 import org.apache.calcite.tools.RelConversionException;
 import org.apache.calcite.tools.ValidationException;
 import org.apache.calcite.util.Pair;
@@ -101,21 +94,33 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class DruidPlanner implements Closeable
 {
+  public enum State
+  {
+    START, VALIDATED, PREPARED, PLANNED
+  }
+
   private static final EmittingLogger log = new EmittingLogger(DruidPlanner.class);
   private static final Pattern UNNAMED_COLUMN_PATTERN = Pattern.compile("^EXPR\\$\\d+$", Pattern.CASE_INSENSITIVE);
+  @VisibleForTesting
+  public static final String UNNAMED_INGESTION_COLUMN_ERROR =
+      "Cannot ingest expressions that do not have an alias "
+          + "or columns with names like EXPR$[digit].\n"
+          + "E.g. if you are ingesting \"func(X)\", then you can rewrite it as "
+          + "\"func(X) as myColumn\"";
 
   private final FrameworkConfig frameworkConfig;
-  private final Planner planner;
+  private final CalcitePlanner planner;
   private final PlannerContext plannerContext;
   private final QueryMakerFactory queryMakerFactory;
-
+  private State state = State.START;
+  private ParsedNodes parsed;
+  private SqlNode validatedQueryNode;
   private RexBuilder rexBuilder;
 
   DruidPlanner(
@@ -125,7 +130,7 @@ public class DruidPlanner implements Closeable
   )
   {
     this.frameworkConfig = frameworkConfig;
-    this.planner = Frameworks.getPlanner(frameworkConfig);
+    this.planner = new CalcitePlanner(frameworkConfig);
     this.plannerContext = plannerContext;
     this.queryMakerFactory = queryMakerFactory;
   }
@@ -137,80 +142,10 @@ public class DruidPlanner implements Closeable
    */
   public ValidationResult validate(boolean authorizeContextParams) throws SqlParseException, ValidationException
   {
+    Preconditions.checkState(state == State.START);
     resetPlanner();
-    final ParsedNodes parsed = ParsedNodes.create(planner.parse(plannerContext.getSql()), plannerContext.getTimeZone());
-    final SqlValidator validator = getValidator();
-    final SqlNode validatedQueryNode;
-
-    try {
-      validatedQueryNode = validator.validate(rewriteDynamicParameters(parsed.getQueryNode()));
-    }
-    catch (RuntimeException e) {
-      throw new ValidationException(e);
-    }
-
-    SqlResourceCollectorShuttle resourceCollectorShuttle = new SqlResourceCollectorShuttle(validator, plannerContext);
-    validatedQueryNode.accept(resourceCollectorShuttle);
-
-    final Set<ResourceAction> resourceActions = new HashSet<>(resourceCollectorShuttle.getResourceActions());
-
-    if (parsed.getInsertOrReplace() != null) {
-      final String targetDataSource = validateAndGetDataSourceForIngest(parsed.getInsertOrReplace());
-      resourceActions.add(new ResourceAction(new Resource(targetDataSource, ResourceType.DATASOURCE), Action.WRITE));
-    }
-    if (authorizeContextParams) {
-      plannerContext.getQueryContext().getUserParams().keySet().forEach(contextParam -> resourceActions.add(
-          new ResourceAction(new Resource(contextParam, ResourceType.QUERY_CONTEXT), Action.WRITE)
-      ));
-    }
-
-    plannerContext.setResourceActions(resourceActions);
-    return new ValidationResult(resourceActions);
-  }
-
-  /**
-   * Prepare an SQL query for execution, including some initial parsing and validation and any dynamic parameter type
-   * resolution, to support prepared statements via JDBC.
-   *
-   * In some future this could perhaps re-use some of the work done by {@link #validate(boolean)}
-   * instead of repeating it, but that day is not today.
-   */
-  public PrepareResult prepare() throws SqlParseException, ValidationException, RelConversionException
-  {
-    resetPlanner();
-
-    final ParsedNodes parsed = ParsedNodes.create(planner.parse(plannerContext.getSql()), plannerContext.getTimeZone());
-    final SqlNode validatedQueryNode = planner.validate(parsed.getQueryNode());
-    final RelRoot rootQueryRel = planner.rel(validatedQueryNode);
-
-    final SqlValidator validator = getValidator();
-    final RelDataTypeFactory typeFactory = rootQueryRel.rel.getCluster().getTypeFactory();
-    final RelDataType parameterTypes = validator.getParameterRowType(validator.validate(validatedQueryNode));
-    final RelDataType returnedRowType;
-
-    if (parsed.getExplainNode() != null) {
-      returnedRowType = getExplainStructType(typeFactory);
-    } else {
-      returnedRowType = buildQueryMaker(rootQueryRel, parsed.getInsertOrReplace()).getResultType();
-    }
-
-    return new PrepareResult(returnedRowType, parameterTypes);
-  }
-
-  /**
-   * Plan an SQL query for execution, returning a {@link PlannerResult} which can be used to actually execute the query.
-   *
-   * Ideally, the query can be planned into a native Druid query, using {@link #planWithDruidConvention}, but will
-   * fall-back to {@link #planWithBindableConvention} if this is not possible.
-   *
-   * In some future this could perhaps re-use some of the work done by {@link #validate(boolean)}
-   * instead of repeating it, but that day is not today.
-   */
-  public PlannerResult plan() throws SqlParseException, ValidationException, RelConversionException
-  {
-    resetPlanner();
-
-    final ParsedNodes parsed = ParsedNodes.create(planner.parse(plannerContext.getSql()), plannerContext.getTimeZone());
+    SqlNode root = planner.parse(plannerContext.getSql());
+    parsed = ParsedNodes.create(root, plannerContext.getTimeZone());
 
     try {
       if (parsed.getIngestionGranularity() != null) {
@@ -231,19 +166,88 @@ public class DruidPlanner implements Closeable
       );
     }
 
+    final SqlNode validatedQueryNode;
+    try {
+      validatedQueryNode = planner.validate(rewriteDynamicParameters(parsed.getQueryNode()));
+    }
+    catch (RuntimeException e) {
+      throw new ValidationException(e);
+    }
+
+    final SqlValidator validator = planner.getValidator();
+    SqlResourceCollectorShuttle resourceCollectorShuttle = new SqlResourceCollectorShuttle(validator, plannerContext);
+    validatedQueryNode.accept(resourceCollectorShuttle);
+
+    final Set<ResourceAction> resourceActions = new HashSet<>(resourceCollectorShuttle.getResourceActions());
+
+    if (parsed.getInsertOrReplace() != null) {
+      final String targetDataSource = validateAndGetDataSourceForIngest(parsed.getInsertOrReplace());
+      resourceActions.add(new ResourceAction(new Resource(targetDataSource, ResourceType.DATASOURCE), Action.WRITE));
+    }
+    if (authorizeContextParams) {
+      plannerContext.getQueryContext().getUserParams().keySet().forEach(contextParam -> resourceActions.add(
+          new ResourceAction(new Resource(contextParam, ResourceType.QUERY_CONTEXT), Action.WRITE)
+      ));
+    }
+
+    state = State.VALIDATED;
+    plannerContext.setResourceActions(resourceActions);
+    return new ValidationResult(resourceActions);
+  }
+
+  /**
+   * Prepare a SQL query for execution, including some initial parsing and validation and any dynamic parameter type
+   * resolution, to support prepared statements via JDBC.
+   *
+   * In some future this could perhaps re-use some of the work done by {@link #validate(boolean)}
+   * instead of repeating it, but that day is not today.
+   */
+  public PrepareResult prepare() throws SqlParseException, ValidationException, RelConversionException
+  {
+    Preconditions.checkState(state == State.VALIDATED);
+
+    final RelRoot rootQueryRel = planner.rel(validatedQueryNode);
+
+    final RelDataTypeFactory typeFactory = rootQueryRel.rel.getCluster().getTypeFactory();
+    final SqlValidator validator = planner.getValidator();
+    final RelDataType parameterTypes = validator.getParameterRowType(validatedQueryNode);
+    final RelDataType returnedRowType;
+
+    if (parsed.getExplainNode() != null) {
+      returnedRowType = getExplainStructType(typeFactory);
+    } else {
+      returnedRowType = buildQueryMaker(rootQueryRel, parsed.getInsertOrReplace()).getResultType();
+    }
+
+    state = State.PREPARED;
+    return new PrepareResult(returnedRowType, parameterTypes);
+  }
+
+  /**
+   * Plan an SQL query for execution, returning a {@link PlannerResult} which can be used to actually execute the query.
+   *
+   * Ideally, the query can be planned into a native Druid query, using {@link #planWithDruidConvention}, but will
+   * fall-back to {@link #planWithBindableConvention} if this is not possible.
+   *
+   * In some future this could perhaps re-use some of the work done by {@link #validate(boolean)}
+   * instead of repeating it, but that day is not today.
+   */
+  public PlannerResult plan() throws SqlParseException, ValidationException, RelConversionException
+  {
+    Preconditions.checkState(state == State.VALIDATED);
+
     // the planner's type factory is not available until after parsing
     this.rexBuilder = new RexBuilder(planner.getTypeFactory());
-    final SqlNode parameterizedQueryNode = rewriteDynamicParameters(parsed.getQueryNode());
-    final SqlNode validatedQueryNode = planner.validate(parameterizedQueryNode);
     final RelRoot rootQueryRel = planner.rel(validatedQueryNode);
 
     try {
+      state = State.PLANNED;
       return planWithDruidConvention(rootQueryRel, parsed.getExplainNode(), parsed.getInsertOrReplace());
     }
     catch (Exception e) {
       Throwable cannotPlanException = Throwables.getCauseOfType(e, RelOptPlanner.CannotPlanException.class);
       if (null == cannotPlanException) {
-        // Not a CannotPlanningException, rethrow without trying with bindable
+        // Not a CannotPlanException, rethrow without trying with bindable
         throw e;
       }
 
@@ -310,7 +314,7 @@ public class DruidPlanner implements Closeable
   ) throws ValidationException, RelConversionException
   {
     final RelRoot possiblyLimitedRoot = possiblyWrapRootWithOuterLimitFromContext(root);
-    final QueryMaker queryMaker = buildQueryMaker(root, insertOrReplace);
+    final QueryMaker queryMaker = buildQueryMaker(possiblyLimitedRoot, insertOrReplace);
     plannerContext.setQueryMaker(queryMaker);
 
     RelNode parameterized = rewriteRelDynamicParameters(possiblyLimitedRoot.rel);
@@ -333,6 +337,9 @@ public class DruidPlanner implements Closeable
                           .filter(action -> action.getAction() == Action.READ)
                           .collect(Collectors.toSet());
 
+        // TODO: This is not really a state check since there is a race condition.
+        // This can be seen as verifying that a check was done, or as redoing the
+        // check with the latest info (if the permissions are updated in between.)
         Preconditions.checkState(
             readResourceActions.isEmpty() == druidRel.getDataSourceNames().isEmpty()
             // The resources found in the plannerContext can be less than the datasources in
@@ -469,7 +476,7 @@ public class DruidPlanner implements Closeable
   /**
    * This method doesn't utilize the Calcite's internal {@link RelOptUtil#dumpPlan} since that tends to be verbose
    * and not indicative of the native Druid Queries which will get executed
-   * This method assumes that the Planner has converted the RelNodes to DruidRels, and thereby we can implictly cast it
+   * This method assumes that the Planner has converted the RelNodes to DruidRels, and thereby we can implicitly cast it
    *
    * @param rel Instance of the root {@link DruidRel} which is formed by running the planner transformations on it
    * @return A string representing an array of native queries that correspond to the given SQL query, in JSON format
@@ -596,44 +603,6 @@ public class DruidPlanner implements Closeable
   }
 
   /**
-   * Constructs an SQL validator, just like papa {@link #planner} uses.
-   */
-  private SqlValidator getValidator()
-  {
-    // this is sort of lame, planner won't cough up its validator, which is nice and seeded after validating a query,
-    // but it is private and has no accessors, so make another one so we can get the parameter types... but i suppose
-    // beats creating our own Prepare and Planner implementations
-    Preconditions.checkNotNull(planner.getTypeFactory());
-
-    final CalciteConnectionConfig connectionConfig;
-
-    if (frameworkConfig.getContext() != null) {
-      connectionConfig = frameworkConfig.getContext().unwrap(CalciteConnectionConfig.class);
-    } else {
-      Properties properties = new Properties();
-      properties.setProperty(
-          CalciteConnectionProperty.CASE_SENSITIVE.camelName(),
-          String.valueOf(PlannerFactory.PARSER_CONFIG.caseSensitive())
-      );
-      connectionConfig = new CalciteConnectionConfigImpl(properties);
-    }
-
-    Prepare.CatalogReader catalogReader = new CalciteCatalogReader(
-        CalciteSchema.from(frameworkConfig.getDefaultSchema().getParentSchema()),
-        CalciteSchema.from(frameworkConfig.getDefaultSchema()).path(null),
-        planner.getTypeFactory(),
-        connectionConfig
-    );
-
-    return SqlValidatorUtil.newValidator(
-        frameworkConfig.getOperatorTable(),
-        catalogReader,
-        planner.getTypeFactory(),
-        DruidConformance.instance()
-    );
-  }
-
-  /**
    * Uses {@link SqlParameterizerShuttle} to rewrite {@link SqlNode} to swap out any
    * {@link org.apache.calcite.sql.SqlDynamicParam} early for their {@link SqlLiteral}
    * replacement
@@ -736,10 +705,7 @@ public class DruidPlanner implements Closeable
     // Check that there are no unnamed columns in the insert.
     for (Pair<Integer, String> field : rootQueryRel.fields) {
       if (UNNAMED_COLUMN_PATTERN.matcher(field.right).matches()) {
-        throw new ValidationException("Cannot ingest expressions that do not have an alias "
-                                      + "or columns with names like EXPR$[digit]."
-                                      + "E.g. if you are ingesting \"func(X)\", then you can rewrite it as "
-                                      + "\"func(X) as myColumn\"");
+        throw new ValidationException(UNNAMED_INGESTION_COLUMN_ERROR);
       }
     }
   }
