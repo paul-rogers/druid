@@ -123,6 +123,18 @@ runs, you can move, rather than copy, the tests.
 While we are copying, copy to the `org.apache.druid.testsEx` package to
 prevent name conficts with `org.apache.druid.tests`.
 
+### Maven Configuration
+
+Create a Maven `pom.xml` file for your tests. Start by adapting an existing
+file, such as the one for `it-high-availability`. Several things to note:
+
+* Add the Surefire plugin section to *exclude* the ITs. Without this, Surefire
+  will notice that your test names with "Test" and will try to run them as
+  regular unit tests, which won't end well.
+* Add the profile section which runs the ITs via Failsafe only if the given
+  profile is enabled. This profile is the equivalent of the test group in the
+  old ITs.
+
 ### Maven Dependencies
 
 The `docker-tests/pom.xml` file includes Maven dependencies for the most
