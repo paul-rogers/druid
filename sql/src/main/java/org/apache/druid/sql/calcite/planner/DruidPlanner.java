@@ -106,7 +106,7 @@ import java.util.stream.Collectors;
  * The planner is designed to use once: it makes one trip through its
  * lifecycle defined as:
  * <p>
- * start --> validate --> [prepare | plan]
+ * start --> validate [--> prepare] --> plan
  */
 public class DruidPlanner implements Closeable
 {
@@ -131,6 +131,7 @@ public class DruidPlanner implements Closeable
   private State state = State.START;
   private ParsedNodes parsed;
   private SqlNode validatedQueryNode;
+  private RelRoot rootQueryRel;
   private RexBuilder rexBuilder;
 
   DruidPlanner(
@@ -177,7 +178,6 @@ public class DruidPlanner implements Closeable
       );
     }
 
-    final SqlNode validatedQueryNode;
     try {
       validatedQueryNode = planner.validate(rewriteDynamicParameters(parsed.getQueryNode()));
     }
@@ -212,11 +212,11 @@ public class DruidPlanner implements Closeable
    *
    * Prepare reuses the validation done in `validate()` which must be called first.
    */
-  public PrepareResult prepare() throws SqlParseException, ValidationException, RelConversionException
+  public PrepareResult prepare() throws ValidationException, RelConversionException
   {
     Preconditions.checkState(state == State.VALIDATED);
 
-    final RelRoot rootQueryRel = planner.rel(validatedQueryNode);
+    rootQueryRel = planner.rel(validatedQueryNode);
 
     final RelDataTypeFactory typeFactory = rootQueryRel.rel.getCluster().getTypeFactory();
     final SqlValidator validator = planner.getValidator();
@@ -241,16 +241,18 @@ public class DruidPlanner implements Closeable
    *
    * Planning reuses the validation done in `validate()` which must be called first.
    */
-  public PlannerResult plan() throws SqlParseException, ValidationException, RelConversionException
+  public PlannerResult plan() throws ValidationException, RelConversionException
   {
-    Preconditions.checkState(state == State.VALIDATED);
+    Preconditions.checkState(state == State.VALIDATED || state == State.PREPARED);
+    if (state == State.VALIDATED) {
+      rootQueryRel = planner.rel(validatedQueryNode);
+    }
 
     // the planner's type factory is not available until after parsing
     this.rexBuilder = new RexBuilder(planner.getTypeFactory());
-    final RelRoot rootQueryRel = planner.rel(validatedQueryNode);
+    state = State.PLANNED;
 
     try {
-      state = State.PLANNED;
       return planWithDruidConvention(rootQueryRel, parsed.getExplainNode(), parsed.getInsertOrReplace());
     }
     catch (Exception e) {

@@ -64,6 +64,8 @@ import org.apache.calcite.tools.RelConversionException;
 import org.apache.calcite.tools.ValidationException;
 import org.apache.calcite.util.Pair;
 
+import javax.annotation.Nullable;
+
 import java.io.Reader;
 import java.util.List;
 import java.util.Properties;
@@ -81,7 +83,7 @@ public class CalcitePlanner implements Planner, ViewExpander
   private final CalciteConnectionConfig connectionConfig;
 
   /** Holds the trait definitions to be registered with planner. May be null. */
-  private final List<RelTraitDef> traitDefs;
+  private @Nullable final List<RelTraitDef> traitDefs;
 
   private final SqlParser.Config parserConfig;
   private final SqlToRelConverter.Config sqlToRelConverterConfig;
@@ -102,8 +104,6 @@ public class CalcitePlanner implements Planner, ViewExpander
   // set in STATE_5_CONVERT
   private RelRoot root;
 
-  /** Creates a planner. Not a public API; call
-   * {@link org.apache.calcite.tools.Frameworks#getPlanner} instead. */
   public CalcitePlanner(FrameworkConfig config)
   {
     this.frameworkConfig = config;
@@ -152,6 +152,11 @@ public class CalcitePlanner implements Planner, ViewExpander
   public RelTraitSet getEmptyTraitSet()
   {
     return planner.emptyTraitSet();
+  }
+
+  public FrameworkConfig frameworkConfig()
+  {
+    return frameworkConfig;
   }
 
   @Override
@@ -268,7 +273,7 @@ public class CalcitePlanner implements Planner, ViewExpander
   }
 
   @Override
-  public RelRoot rel(SqlNode sql) throws RelConversionException
+  public RelRoot rel(SqlNode sql)
   {
     ensure(State.STATE_4_VALIDATED);
     assert validatedSqlNode != null;
@@ -379,7 +384,7 @@ public class CalcitePlanner implements Planner, ViewExpander
       int ruleSetIndex,
       RelTraitSet requiredOutputTraits,
       RelNode rel
-  ) throws RelConversionException
+  )
   {
     ensure(State.STATE_5_CONVERTED);
     rel.getCluster().setMetadataProvider(
