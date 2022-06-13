@@ -1,7 +1,7 @@
 package org.apache.druid.queryng.operators.general;
 
 import org.apache.druid.queryng.operators.Operator;
-import org.apache.druid.queryng.operators.general.OrderedMergeOperator.Input;
+import org.apache.druid.queryng.operators.OrderedMergeOperator.Input;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -46,12 +46,13 @@ import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
 import org.apache.druid.queryng.Timer;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operators.ConcatOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.TransformOperator;
-import org.apache.druid.queryng.operators.general.ConcatOperator;
 import org.apache.druid.queryng.operators.general.CpuMetricOperator;
 import org.apache.druid.queryng.operators.general.MetricsOperator;
+import org.apache.druid.queryng.operators.general.QueryRunnerFactoryOperator;
 import org.apache.druid.queryng.operators.general.SegmentLockOperator;
 import org.apache.druid.queryng.operators.general.ThreadLabelOperator;
 import org.apache.druid.segment.SegmentReference;
@@ -301,8 +302,10 @@ public class QueryPlanner
       final QueryRunnerFactory<T, Query<T>> factory,
       ResponseContext responseContext)
   {
-    Operator<T> inputOp = Operators.toOperator(
-        factory.createRunner(segment),
+    // The factory operator defers creating the runner until
+    // after the lock operator has obtained a segment lock.
+    Operator<T> inputOp = new QueryRunnerFactoryOperator<T>(
+        () -> factory.createRunner(segment),
         queryPlus);
     SegmentLockOperator<T> op = new SegmentLockOperator<>(
         queryPlus.fragmentBuilder().context(),

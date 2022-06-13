@@ -34,6 +34,8 @@ import org.apache.druid.java.util.common.guava.YieldingSequenceBase;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.context.ResponseContext.Keys;
+import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.planner.ServerExecutionPlanner;
 import org.apache.druid.segment.SegmentMissingException;
 
 import java.util.Collections;
@@ -98,6 +100,14 @@ public class RetryQueryRunner<T> implements QueryRunner<T>
   @Override
   public Sequence<T> run(final QueryPlus<T> queryPlus, final ResponseContext context)
   {
+    if (Operators.enabledFor(queryPlus)) {
+      return ServerExecutionPlanner.retryRun(
+          queryPlus,
+          baseRunner,
+          retryRunnerCreateFn,
+          config,
+          jsonMapper);
+    }
     // Calling baseRunner.run() (which is SpecificQueryRunnable.run()) in the RetryingSequenceIterator
     // could be better because we can minimize the chance that data servers report missing segments as
     // we construct the query distribution tree when the query processing is actually started.

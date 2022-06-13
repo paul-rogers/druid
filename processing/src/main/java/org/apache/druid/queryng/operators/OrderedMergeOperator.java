@@ -17,11 +17,10 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.operators.general;
+package org.apache.druid.queryng.operators;
 
 import com.google.common.collect.Ordering;
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
 import java.util.Iterator;
@@ -44,13 +43,13 @@ public class OrderedMergeOperator<T> implements IterableOperator<T>
    * for that iterator. This class caches the current value so that
    * the priority queue can perform comparisons on it.
    */
-  protected static class Input<T>
+  public static class Input<T>
   {
     private final Operator<T> input;
     private final Iterator<T> iter;
     private T currentValue;
 
-    protected Input(Operator<T> input)
+    public Input(Operator<T> input)
     {
       this.input = input;
       this.iter = input.open();
@@ -62,12 +61,21 @@ public class OrderedMergeOperator<T> implements IterableOperator<T>
       }
     }
 
-    protected T get()
+    public Operator<T> toOperator(FragmentContext context)
+    {
+      if (currentValue == null) {
+        return new NullOperator<T>(context);
+      } else {
+        return new PushBackOperator<T>(context, input, iter, currentValue);
+      }
+    }
+
+    public T get()
     {
       return currentValue;
     }
 
-    protected boolean next()
+    public boolean next()
     {
       if (iter.hasNext()) {
         currentValue = iter.next();
@@ -79,12 +87,12 @@ public class OrderedMergeOperator<T> implements IterableOperator<T>
       }
     }
 
-    protected boolean eof()
+    public boolean eof()
     {
       return currentValue == null;
     }
 
-    protected void close(boolean cascade)
+    public void close(boolean cascade)
     {
       if (currentValue != null) {
         currentValue = null;

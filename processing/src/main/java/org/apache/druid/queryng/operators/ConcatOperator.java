@@ -17,11 +17,10 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.operators.general;
+package org.apache.druid.queryng.operators;
 
 import com.google.common.base.Preconditions;
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
 import java.util.Iterator;

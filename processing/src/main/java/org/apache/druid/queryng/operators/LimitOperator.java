@@ -17,11 +17,9 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.operators.general;
+package org.apache.druid.queryng.operators;
 
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operators.MappingOperator;
-import org.apache.druid.queryng.operators.Operator;
 
 public abstract class LimitOperator<T> extends MappingOperator<T, T>
 {

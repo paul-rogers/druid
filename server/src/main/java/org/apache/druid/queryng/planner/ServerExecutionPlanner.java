@@ -19,6 +19,7 @@
 
 package org.apache.druid.queryng.planner;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import org.apache.druid.client.SegmentServerSelector;
 import org.apache.druid.java.util.common.guava.Sequence;
@@ -26,11 +27,14 @@ import org.apache.druid.query.Queries;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
+import org.apache.druid.query.RetryQueryRunnerConfig;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operator.RetryOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.general.QueryRunnerOperator;
 import org.apache.druid.queryng.operators.general.ResponseContextInitializationOperator;
 import org.apache.druid.queryng.operators.general.ThrottleOperator;
 import org.apache.druid.queryng.operators.general.ThrottleOperator.Throttle;
@@ -40,7 +44,9 @@ import org.apache.druid.server.QueryScheduler.LaneToken;
 import javax.annotation.Nullable;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 /**
  * Operator-based query planner for server-level functionality. Includes
@@ -114,6 +120,27 @@ public class ServerExecutionPlanner
         fragmentContext,
         op,
         queryPlus.getQuery());
+    return Operators.toSequence(op);
+  }
+
+  public static <T> Sequence<T> retryRun(
+      final QueryPlus<T> queryPlus,
+      final QueryRunner<T> baseRunner,
+      final BiFunction<Query<T>, List<SegmentDescriptor>, QueryRunner<T>> retryRunnerCreateFn,
+      final RetryQueryRunnerConfig config,
+      final ObjectMapper jsonMapper
+  )
+  {
+    Operator<T> op = new RetryOperator<T>(
+        queryPlus.fragmentBuilder().context(),
+        queryPlus,
+        new QueryRunnerOperator<T>(baseRunner, queryPlus),
+        retryRunnerCreateFn,
+        (id, rc) -> RetryOperator.getMissingSegments(id, rc, jsonMapper),
+        config.getNumTries(),
+        config.isReturnPartialResults(),
+        () -> { }
+        );
     return Operators.toSequence(op);
   }
 }

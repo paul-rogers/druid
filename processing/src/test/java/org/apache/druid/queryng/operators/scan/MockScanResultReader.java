@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.operators;
+package org.apache.druid.queryng.operators.scan;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -25,10 +25,14 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
+import org.apache.druid.queryng.operators.Operator.State;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.joda.time.Interval;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -96,6 +100,15 @@ public class MockScanResultReader implements IterableOperator<ScanResultValue>
     }
     this.nextTs = interval.getStartMillis();
     context.register(this);
+  }
+
+  public static Interval interval(int offset)
+  {
+    Duration grain = Duration.ofMinutes(1);
+    Instant base = Instant.parse("2021-10-24T00:00:00Z");
+    Duration grainOffset = grain.multipliedBy(offset);
+    Instant start = base.plus(grainOffset);
+    return new Interval(start.toEpochMilli(), start.plus(grain).toEpochMilli());
   }
 
   @Override

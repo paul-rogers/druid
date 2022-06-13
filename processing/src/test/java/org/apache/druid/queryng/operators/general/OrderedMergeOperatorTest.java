@@ -25,8 +25,9 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MockOperator;
 import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OrderedMergeOperator;
 import org.apache.druid.queryng.operators.Operator.State;
-import org.apache.druid.queryng.operators.general.OrderedMergeOperator.Input;
+import org.apache.druid.queryng.operators.OrderedMergeOperator.Input;
 import org.junit.Test;
 
 import java.util.Arrays;

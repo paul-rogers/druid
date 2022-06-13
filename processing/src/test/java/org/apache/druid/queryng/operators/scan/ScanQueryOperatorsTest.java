@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.operators;
+package org.apache.druid.queryng.operators.scan;
 
 import com.google.common.base.Strings;
 import org.apache.druid.java.util.common.StringUtils;
@@ -26,17 +26,11 @@ import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.fragment.FragmentRun;
-import org.apache.druid.queryng.operators.scan.ScanBatchToRowOperator;
-import org.apache.druid.queryng.operators.scan.ScanCompactListToArrayOperator;
-import org.apache.druid.queryng.operators.scan.ScanListToArrayOperator;
-import org.apache.druid.queryng.operators.scan.ScanResultLimitOperator;
-import org.apache.druid.queryng.operators.scan.ScanResultOffsetOperator;
+import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.segment.column.ColumnHolder;
-import org.joda.time.Interval;
 import org.junit.Test;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -48,22 +42,18 @@ import static org.junit.Assert.assertTrue;
 
 public class ScanQueryOperatorsTest
 {
-  private Interval interval(int offset)
-  {
-    Duration grain = Duration.ofMinutes(1);
-    Instant base = Instant.parse("2021-10-24T00:00:00Z");
-    Duration grainOffset = grain.multipliedBy(offset);
-    Instant start = base.plus(grainOffset);
-    return new Interval(start.toEpochMilli(), start.plus(grain).toEpochMilli());
-  }
-
   private MockScanResultReader scan(
       FragmentContext context,
       int columnCount,
       int rowCount,
       int batchSize)
   {
-    return new MockScanResultReader(context, columnCount, rowCount, batchSize, interval(0));
+    return new MockScanResultReader(
+        context,
+        columnCount,
+        rowCount,
+        batchSize,
+        MockScanResultReader.interval(0));
   }
 
   private MockScanResultReader scan(
@@ -73,7 +63,13 @@ public class ScanQueryOperatorsTest
       int batchSize,
       ResultFormat rowFormat)
   {
-    return new MockScanResultReader(context, columnCount, rowCount, batchSize, interval(0), rowFormat);
+    return new MockScanResultReader(
+        context,
+        columnCount,
+        rowCount,
+        batchSize,
+        MockScanResultReader.interval(0),
+        rowFormat);
   }
 
   // Tests for the mock reader used to power tests without the overhead

@@ -23,8 +23,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operators.LimitOperator;
 import org.apache.druid.queryng.operators.Operator;
-import org.apache.druid.queryng.operators.general.LimitOperator;
 
 import java.util.ArrayList;
 import java.util.List;
