@@ -212,7 +212,7 @@ public class DruidPlanner implements Closeable
    *
    * Prepare reuses the validation done in `validate()` which must be called first.
    */
-  public PrepareResult prepare() throws ValidationException, RelConversionException
+  public PrepareResult prepare() throws ValidationException
   {
     Preconditions.checkState(state == State.VALIDATED);
 
@@ -322,7 +322,7 @@ public class DruidPlanner implements Closeable
       final RelRoot root,
       @Nullable final SqlExplain explain,
       @Nullable final SqlInsert insertOrReplace
-  ) throws ValidationException, RelConversionException
+  ) throws ValidationException
   {
     final RelRoot possiblyLimitedRoot = possiblyWrapRootWithOuterLimitFromContext(root);
     final QueryMaker queryMaker = buildQueryMaker(possiblyLimitedRoot, insertOrReplace);
@@ -377,7 +377,7 @@ public class DruidPlanner implements Closeable
   private PlannerResult planWithBindableConvention(
       final RelRoot root,
       @Nullable final SqlExplain explain
-  ) throws RelConversionException
+  )
   {
     BindableRel bindableRel = (BindableRel) planner.transform(
         Rules.BINDABLE_CONVENTION_RULES,

@@ -267,7 +267,7 @@ public class CalcitePlanner implements Planner, ViewExpander
   }
 
   @Override
-  public final RelNode convert(SqlNode sql) throws RelConversionException
+  public final RelNode convert(SqlNode sql)
   {
     return rel(sql).rel;
   }
