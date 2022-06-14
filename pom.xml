@@ -132,8 +132,8 @@
              to skip just the unit tests (but run the integration tests by setting
              the required profile), use -DskipUts=true.
              -DskipTests will skip both ITs and UTs. -->
-        <skipUTs>${skipTests}</skipUTs>
-        <skipITs>${skipTests}</skipITs>
+        <skipUTs>false</skipUTs>
+        <skipITs>false</skipITs>
     </properties>
 
     <modules>
@@ -1939,6 +1939,9 @@
         </profile>
         <profile>
           <id>skip-tests</id>
+          <activation>
+            <activeByDefault>false</activeByDefault>
+          </activation>
           <properties>
             <skipUTs>true</skipUTs> <!-- Skip only UTs -->
             <skipITs>true</skipITs> <!-- Not really needed, ITs are behind a profile -->
