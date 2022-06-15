@@ -59,7 +59,6 @@ import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.tools.FrameworkConfig;
-import org.apache.calcite.tools.RelConversionException;
 import org.apache.calcite.tools.ValidationException;
 import org.apache.calcite.util.Pair;
 import org.apache.druid.common.utils.IdUtils;
@@ -89,6 +88,7 @@ import org.apache.druid.utils.Throwables;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
+
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -241,7 +241,7 @@ public class DruidPlanner implements Closeable
    *
    * Planning reuses the validation done in `validate()` which must be called first.
    */
-  public PlannerResult plan() throws ValidationException, RelConversionException
+  public PlannerResult plan() throws ValidationException
   {
     Preconditions.checkState(state == State.VALIDATED || state == State.PREPARED);
     if (state == State.VALIDATED) {
