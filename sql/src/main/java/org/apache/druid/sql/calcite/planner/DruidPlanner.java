@@ -51,7 +51,6 @@ import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOrderBy;
@@ -152,7 +151,9 @@ public class DruidPlanner implements Closeable
    * @return set of {@link Resource} corresponding to any Druid datasources
    * or views which are taking part in the query.
    */
-  public ValidationResult validate(boolean authorizeContextParams) throws SqlParseException, ValidationException
+  public ValidationResult validate(
+      boolean authorizeContextParams
+  ) throws SqlParseException, ValidationException
   {
     Preconditions.checkState(state == State.START);
     resetPlanner();
@@ -179,7 +180,19 @@ public class DruidPlanner implements Closeable
     }
 
     try {
-      validatedQueryNode = planner.validate(rewriteDynamicParameters(parsed.getQueryNode()));
+      // Uses {@link SqlParameterizerShuttle} to rewrite {@link SqlNode} to swap out any
+      // {@link org.apache.calcite.sql.SqlDynamicParam} early for their {@link SqlLiteral}
+      // replacement.
+      //
+      // Parameter replacement is done only if the client provides parameter values.
+      // If this is a PREPARE-only, then there will be no values even if the statement contains
+      // parameters. If this is a PLAN, then we'll catch later the case that the statement
+      // contains parameters, but no values were provided.
+      SqlNode queryNode = parsed.getQueryNode();
+      if (!plannerContext.getParameters().isEmpty()) {
+        queryNode = queryNode.accept(new SqlParameterizerShuttle(plannerContext));
+      }
+      validatedQueryNode = planner.validate(queryNode);
     }
     catch (RuntimeException e) {
       throw new ValidationException(e);
@@ -328,7 +341,17 @@ public class DruidPlanner implements Closeable
     final QueryMaker queryMaker = buildQueryMaker(possiblyLimitedRoot, insertOrReplace);
     plannerContext.setQueryMaker(queryMaker);
 
-    RelNode parameterized = rewriteRelDynamicParameters(possiblyLimitedRoot.rel);
+    // Fall-back dynamic parameter substitution using {@link RelParameterizerShuttle}
+    // in the event that {@link #rewriteDynamicParameters(SqlNode)} was unable to
+    // successfully substitute all parameter values, and will cause a failure if any
+    // dynamic a parameters are not bound. This occurs at least for DATE parameters
+    // with integer values.
+    //
+    // This check also catches the case where we did not do a parameter check earlier
+    // because no values were provided. (Values are not required in the PREPARE case
+    // but now that we're planning, we require them.)
+    RelNode parameterized = possiblyLimitedRoot.rel.accept(
+        new RelParameterizerShuttle(plannerContext));
     final DruidRel<?> druidRel = (DruidRel<?>) planner.transform(
         Rules.DRUID_CONVENTION_RULES,
         planner.getEmptyTraitSet()
@@ -368,11 +391,16 @@ public class DruidPlanner implements Closeable
   }
 
   /**
-   * Construct a {@link PlannerResult} for a fall-back 'bindable' rel, for things that are not directly translatable
-   * to native Druid queries such as system tables and just a general purpose (but definitely not optimized) fall-back.
+   * Construct a {@link PlannerResult} for a fall-back 'bindable' rel, for
+   * things that are not directly translatable to native Druid queries such
+   * as system tables and just a general purpose (but definitely not optimized)
+   * fall-back.
    *
-   * See {@link #planWithDruidConvention} which will handle things which are directly translatable
-   * to native Druid queries.
+   * See {@link #planWithDruidConvention} which will handle things which are
+   * directly translatable to native Druid queries.
+   *
+   * The bindable path handles parameter substitution of any values not
+   * bound by the earlier steps.
    */
   private PlannerResult planWithBindableConvention(
       final RelRoot root,
@@ -611,31 +639,6 @@ public class DruidPlanner implements Closeable
     }
 
     return new RelRoot(newRootRel, root.validatedRowType, root.kind, root.fields, root.collation);
-  }
-
-  /**
-   * Uses {@link SqlParameterizerShuttle} to rewrite {@link SqlNode} to swap out any
-   * {@link org.apache.calcite.sql.SqlDynamicParam} early for their {@link SqlLiteral}
-   * replacement
-   */
-  private SqlNode rewriteDynamicParameters(SqlNode parsed)
-  {
-    if (!plannerContext.getParameters().isEmpty()) {
-      SqlParameterizerShuttle sshuttle = new SqlParameterizerShuttle(plannerContext);
-      return parsed.accept(sshuttle);
-    }
-    return parsed;
-  }
-
-  /**
-   * Fall-back dynamic parameter substitution using {@link RelParameterizerShuttle} in the event that
-   * {@link #rewriteDynamicParameters(SqlNode)} was unable to successfully substitute all parameter values, and will
-   * cause a failure if any dynamic a parameters are not bound.
-   */
-  private RelNode rewriteRelDynamicParameters(RelNode rootRel)
-  {
-    RelParameterizerShuttle parameterizer = new RelParameterizerShuttle(plannerContext);
-    return rootRel.accept(parameterizer);
   }
 
   private QueryMaker buildQueryMaker(
