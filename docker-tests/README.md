@@ -70,8 +70,8 @@ By meeting these goals, you can quickly:
 * Run the test any number of times in your debugger.
 * Clean up the test artifacts.
 
-The result is that the fastest path to develop a Druid patch
-or feature is:
+The result is that the fastest path to develop a Druid patch or
+feature is:
 
 * Create a normal unit test and run it to verify your code.
 * Create an integration test that double-checks the code in
