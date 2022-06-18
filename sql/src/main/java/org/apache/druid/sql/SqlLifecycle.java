@@ -444,16 +444,20 @@ public class SqlLifecycle
 
       if (state != State.CANCELLED) {
         if (state == State.DONE) {
-          log.warn("Tried to emit logs and metrics twice for query[%s]!", sqlQueryId());
+          log.warn("Tried to emit logs and metrics twice for query [%s]!", sqlQueryId());
         }
 
         state = State.DONE;
       }
     }
 
+    final Set<ResourceAction> actions;
     if (planner != null) {
+      actions = getRequiredResourceActions();
       planner.close();
       planner = null;
+    } else {
+      actions = null;
     }
 
     final boolean success = e == null;
@@ -465,7 +469,6 @@ public class SqlLifecycle
         metricBuilder.setDimension("id", plannerContext.getSqlQueryId());
         metricBuilder.setDimension("nativeQueryIds", plannerContext.getNativeQueryIds().toString());
       }
-      Set<ResourceAction> actions = getRequiredResourceActions();
       if (actions != null) {
         metricBuilder.setDimension(
             "dataSource",
