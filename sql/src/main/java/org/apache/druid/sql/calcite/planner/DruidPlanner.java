@@ -70,6 +70,7 @@ import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.query.Query;
 import org.apache.druid.segment.DimensionHandlerUtils;
+import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
@@ -94,6 +95,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -130,6 +132,8 @@ public class DruidPlanner implements Closeable
   private State state = State.START;
   private ParsedNodes parsed;
   private SqlNode validatedQueryNode;
+  private boolean authorized;
+  private Set<ResourceAction> resourceActions;
   private RelRoot rootQueryRel;
   private RexBuilder rexBuilder;
 
@@ -151,9 +155,7 @@ public class DruidPlanner implements Closeable
    * @return set of {@link Resource} corresponding to any Druid datasources
    * or views which are taking part in the query.
    */
-  public ValidationResult validate(
-      boolean authorizeContextParams
-  ) throws SqlParseException, ValidationException
+  public void validate() throws SqlParseException, ValidationException
   {
     Preconditions.checkState(state == State.START);
     resetPlanner();
@@ -202,28 +204,29 @@ public class DruidPlanner implements Closeable
     SqlResourceCollectorShuttle resourceCollectorShuttle = new SqlResourceCollectorShuttle(validator, plannerContext);
     validatedQueryNode.accept(resourceCollectorShuttle);
 
-    final Set<ResourceAction> resourceActions = new HashSet<>(resourceCollectorShuttle.getResourceActions());
+    resourceActions = new HashSet<>(resourceCollectorShuttle.getResourceActions());
 
     if (parsed.getInsertOrReplace() != null) {
       final String targetDataSource = validateAndGetDataSourceForIngest(parsed.getInsertOrReplace());
       resourceActions.add(new ResourceAction(new Resource(targetDataSource, ResourceType.DATASOURCE), Action.WRITE));
     }
-    if (authorizeContextParams) {
-      plannerContext.getQueryContext().getUserParams().keySet().forEach(contextParam -> resourceActions.add(
-          new ResourceAction(new Resource(contextParam, ResourceType.QUERY_CONTEXT), Action.WRITE)
-      ));
-    }
 
     state = State.VALIDATED;
     plannerContext.setResourceActions(resourceActions);
-    return new ValidationResult(resourceActions);
   }
 
   /**
-   * Prepare a SQL query for execution, including some initial parsing and validation and any dynamic parameter type
-   * resolution, to support prepared statements via JDBC.
+   * Prepare a SQL query for execution, including some initial parsing and
+   * validation and any dynamic parameter type resolution, to support prepared
+   * statements via JDBC.
    *
-   * Prepare reuses the validation done in `validate()` which must be called first.
+   * Prepare reuses the validation done in {@link #validate()} which must be
+   * called first.
+   *
+   * A query can be prepared on a data source without having permissions on
+   * that data source. This odd state of affairs is necessary because
+   * {@link org.apache.druid.sql.calcite.view.DruidViewMacro} prepares
+   * a view while having no information about the user of that view.
    */
   public PrepareResult prepare() throws ValidationException
   {
@@ -247,6 +250,48 @@ public class DruidPlanner implements Closeable
   }
 
   /**
+   * Authorizes the statement. Done within the planner to enforce the authorization
+   * step within the planner's state machine.
+   *
+   * @param authorizer a function from resource actions to a {@link Access} result.
+   * @return the return value from the authorizer
+   */
+  public Access authorize(Function<Set<ResourceAction>, Access> authorizer, boolean authorizeContextParams)
+  {
+    Preconditions.checkState(state == State.VALIDATED);
+    Set<ResourceAction> actionsToCheck;
+    if (authorizeContextParams) {
+      actionsToCheck = new HashSet<>(resourceActions);
+      plannerContext.getQueryContext().getUserParams().keySet().forEach(contextParam -> actionsToCheck.add(
+          new ResourceAction(new Resource(contextParam, ResourceType.QUERY_CONTEXT), Action.WRITE)
+      ));
+    } else {
+      actionsToCheck = resourceActions;
+    }
+    Access access = authorizer.apply(Preconditions.checkNotNull(actionsToCheck));
+    plannerContext.setAuthorizationResult(access);
+
+    // Authorization is done as a flag, not a state, alas.
+    // Views do prepare without authorize, Avatica does authorize, then prepare,
+    // so the only constraint is that authorize be done after validation, before plan.
+    authorized = true;
+    return access;
+  }
+
+  /**
+   * Return the resource actions corresponding to the datasources and views which
+   * an authenticated request must be authorized for to process the
+   * query. The actions will be {@code null} if the
+   * planner has not yet advanced to the validation step. This may occur if
+   * validation fails and the caller ({@code SqlLifecycle}) accesses the resource
+   * actions as part of clean-up.
+   */
+  public Set<ResourceAction> resourceActions()
+  {
+    return resourceActions;
+  }
+
+  /**
    * Plan an SQL query for execution, returning a {@link PlannerResult} which can be used to actually execute the query.
    *
    * Ideally, the query can be planned into a native Druid query, using {@link #planWithDruidConvention}, but will
@@ -257,6 +302,7 @@ public class DruidPlanner implements Closeable
   public PlannerResult plan() throws ValidationException
   {
     Preconditions.checkState(state == State.VALIDATED || state == State.PREPARED);
+    Preconditions.checkState(authorized);
     if (state == State.VALIDATED) {
       rootQueryRel = planner.rel(validatedQueryNode);
     }
@@ -364,16 +410,13 @@ public class DruidPlanner implements Closeable
       return planExplanation(druidRel, explain, true);
     } else {
       final Supplier<Sequence<Object[]>> resultsSupplier = () -> {
+
         // sanity check
         final Set<ResourceAction> readResourceActions =
             plannerContext.getResourceActions()
                           .stream()
                           .filter(action -> action.getAction() == Action.READ)
                           .collect(Collectors.toSet());
-
-        // TODO: This is not really a state check since there is a race condition.
-        // This can be seen as verifying that a check was done, or as redoing the
-        // check with the latest info (if the permissions are updated in between.)
         Preconditions.checkState(
             readResourceActions.isEmpty() == druidRel.getDataSourceNames().isEmpty()
             // The resources found in the plannerContext can be less than the datasources in
