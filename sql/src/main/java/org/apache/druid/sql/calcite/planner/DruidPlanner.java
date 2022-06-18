@@ -259,16 +259,7 @@ public class DruidPlanner implements Closeable
   public Access authorize(Function<Set<ResourceAction>, Access> authorizer, boolean authorizeContextParams)
   {
     Preconditions.checkState(state == State.VALIDATED);
-    Set<ResourceAction> actionsToCheck;
-    if (authorizeContextParams) {
-      actionsToCheck = new HashSet<>(resourceActions);
-      plannerContext.getQueryContext().getUserParams().keySet().forEach(contextParam -> actionsToCheck.add(
-          new ResourceAction(new Resource(contextParam, ResourceType.QUERY_CONTEXT), Action.WRITE)
-      ));
-    } else {
-      actionsToCheck = resourceActions;
-    }
-    Access access = authorizer.apply(Preconditions.checkNotNull(actionsToCheck));
+    Access access = authorizer.apply(resourceActions(authorizeContextParams));
     plannerContext.setAuthorizationResult(access);
 
     // Authorization is done as a flag, not a state, alas.
@@ -286,9 +277,18 @@ public class DruidPlanner implements Closeable
    * validation fails and the caller ({@code SqlLifecycle}) accesses the resource
    * actions as part of clean-up.
    */
-  public Set<ResourceAction> resourceActions()
+  public Set<ResourceAction> resourceActions(boolean includeContext)
   {
-    return resourceActions;
+    Set<ResourceAction> actions;
+    if (includeContext) {
+      actions = new HashSet<>(resourceActions);
+      plannerContext.getQueryContext().getUserParams().keySet().forEach(contextParam -> actions.add(
+          new ResourceAction(new Resource(contextParam, ResourceType.QUERY_CONTEXT), Action.WRITE)
+      ));
+    } else {
+      actions = resourceActions;
+    }
+    return actions;
   }
 
   /**

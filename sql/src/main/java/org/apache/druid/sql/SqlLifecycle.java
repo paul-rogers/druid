@@ -389,16 +389,18 @@ public class SqlLifecycle
   public Set<ResourceAction> runAnalyzeResources(AuthenticationResult authenticationResult)
   {
     validate(authenticationResult);
-    return planner.resourceActions();
+    return getRequiredResourceActions();
   }
 
   public Set<ResourceAction> getRequiredResourceActions()
   {
-    return Preconditions.checkNotNull(planner, "validationResult").resourceActions();
+    return planner == null
+        ? null
+        : planner.resourceActions(authConfig.authorizeQueryContextParams());
   }
 
   /**
-   * Cancel all native queries associated to this lifecycle.
+   * Cancel all native queries associated with this lifecycle.
    *
    * This method is thread-safe.
    */
@@ -414,7 +416,7 @@ public class SqlLifecycle
     final CopyOnWriteArrayList<String> nativeQueryIds = plannerContext.getNativeQueryIds();
 
     for (String nativeQueryId : nativeQueryIds) {
-      log.debug("canceling native query [%s]", nativeQueryId);
+      log.debug("Canceling native query [%s]", nativeQueryId);
       queryScheduler.cancelQuery(nativeQueryId);
     }
   }
@@ -463,10 +465,11 @@ public class SqlLifecycle
         metricBuilder.setDimension("id", plannerContext.getSqlQueryId());
         metricBuilder.setDimension("nativeQueryIds", plannerContext.getNativeQueryIds().toString());
       }
-      if (planner != null && planner.resourceActions() != null) {
+      Set<ResourceAction> actions = getRequiredResourceActions();
+      if (actions != null) {
         metricBuilder.setDimension(
             "dataSource",
-            planner.resourceActions()
+            actions
                             .stream()
                             .map(action -> action.getResource().getName())
                             .collect(Collectors.toList())
@@ -541,7 +544,7 @@ public class SqlLifecycle
       }
       if (state != from) {
         throw new ISE(
-            "Cannot transition from[%s] to[%s] because current state[%s] is not [%s].",
+            "Cannot transition from [%s] to [%s] because current state [%s] is not [%s].",
             from,
             to,
             state,
