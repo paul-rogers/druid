@@ -80,8 +80,9 @@ import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.ResourceAction;
-import org.apache.druid.sql.SqlLifecycle;
+import org.apache.druid.sql.PreparedStatement;
 import org.apache.druid.sql.SqlLifecycleFactory;
+import org.apache.druid.sql.SqlRequest;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.planner.Calcites;
@@ -112,6 +113,7 @@ import org.junit.rules.ExpectedException;
 import org.junit.rules.TemporaryFolder;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -639,7 +641,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
 
   public void testQuery(
       final String sql,
-      final List<Query> expectedQueries,
+      final List<Query<?>> expectedQueries,
       final List<Object[]> expectedResults
   ) throws Exception
   {
@@ -657,7 +659,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   public void testQuery(
       final String sql,
       final Map<String, Object> context,
-      final List<Query> expectedQueries,
+      final List<Query<?>> expectedQueries,
       final List<Object[]> expectedResults
   ) throws Exception
   {
@@ -674,7 +676,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
 
   public void testQuery(
       final String sql,
-      final List<Query> expectedQueries,
+      final List<Query<?>> expectedQueries,
       final List<Object[]> expectedResults,
       final List<SqlParameter> parameters
   ) throws Exception
@@ -694,7 +696,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final PlannerConfig plannerConfig,
       final String sql,
       final AuthenticationResult authenticationResult,
-      final List<Query> expectedQueries,
+      final List<Query<?>> expectedQueries,
       final List<Object[]> expectedResults
   ) throws Exception
   {
@@ -712,7 +714,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   public void testQuery(
       final String sql,
       final Map<String, Object> context,
-      final List<Query> expectedQueries,
+      final List<Query<?>> expectedQueries,
       final ResultsVerifier expectedResultsVerifier
   ) throws Exception
   {
@@ -733,7 +735,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final Map<String, Object> queryContext,
       final String sql,
       final AuthenticationResult authenticationResult,
-      final List<Query> expectedQueries,
+      final List<Query<?>> expectedQueries,
       final List<Object[]> expectedResults
   ) throws Exception
   {
@@ -750,7 +752,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final List<SqlParameter> parameters,
       final String sql,
       final AuthenticationResult authenticationResult,
-      final List<Query> expectedQueries,
+      final List<Query<?>> expectedQueries,
       final List<Object[]> expectedResults
   ) throws Exception
   {
@@ -772,7 +774,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final List<SqlParameter> parameters,
       final String sql,
       final AuthenticationResult authenticationResult,
-      final List<Query> expectedQueries,
+      final List<Query<?>> expectedQueries,
       final ResultsVerifier expectedResultsVerifier,
       @Nullable final Consumer<ExpectedException> expectedExceptionInitializer
   ) throws Exception
@@ -798,8 +800,8 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         theQueryContext.put(QueryContexts.VECTOR_SIZE_KEY, 2); // Small vector size to ensure we use more than one.
       }
 
-      final List<Query> theQueries = new ArrayList<>();
-      for (Query query : expectedQueries) {
+      final List<Query<?>> theQueries = new ArrayList<>();
+      for (Query<?> query : expectedQueries) {
         theQueries.add(recursivelyOverrideContext(query, theQueryContext));
       }
 
@@ -857,12 +859,17 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         objectMapper
     );
 
-    return sqlLifecycleFactory.factorize().runSimple(sql, queryContext, parameters, authenticationResult).toList();
+    return sqlLifecycleFactory
+        .directStatement(
+            SqlRequest.fromSqlParameters(sql, queryContext, parameters, authenticationResult)
+        )
+        .execute()
+        .toList();
   }
 
   public void verifyResults(
       final String sql,
-      final List<Query> expectedQueries,
+      final List<Query<?>> expectedQueries,
       final List<Object[]> expectedResults,
       final List<Object[]> results
   )
@@ -872,7 +879,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
 
   public void verifyResults(
       final String sql,
-      final List<Query> expectedQueries,
+      final List<Query<?>> expectedQueries,
       final List<Object[]> results,
       final ResultsVerifier expectedResultsVerifier
   )
@@ -888,7 +895,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
 
   private void verifyQueries(
       final String sql,
-      @Nullable final List<Query> expectedQueries
+      @Nullable final List<Query<?>> expectedQueries
   )
   {
     if (expectedQueries != null) {
@@ -943,7 +950,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   public void testQueryThrows(
       final String sql,
       final Map<String, Object> queryContext,
-      final List<Query> expectedQueries,
+      final List<Query<?>> expectedQueries,
       final Consumer<ExpectedException> expectedExceptionInitializer
   ) throws Exception
   {
@@ -985,9 +992,16 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         queryJsonMapper
     );
 
-    SqlLifecycle lifecycle = lifecycleFactory.factorize();
-    lifecycle.initialize(sql, new QueryContext(contexts));
-    return lifecycle.runAnalyzeResources(authenticationResult);
+    PreparedStatement stmt = lifecycleFactory.preparedStatement(
+            new SqlRequest(
+                sql,
+                new QueryContext(contexts),
+                null,
+                authenticationResult
+            )
+    );
+    stmt.prepare();
+    return stmt.resources();
   }
 
   public SqlLifecycleFactory getSqlLifecycleFactory(
@@ -1103,7 +1117,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   private static DataSource recursivelyOverrideContext(final DataSource dataSource, final Map<String, Object> context)
   {
     if (dataSource instanceof QueryDataSource) {
-      final Query subquery = ((QueryDataSource) dataSource).getQuery();
+      final Query<?> subquery = ((QueryDataSource) dataSource).getQuery();
       return new QueryDataSource(recursivelyOverrideContext(subquery, context));
     } else {
       return dataSource.withChildren(

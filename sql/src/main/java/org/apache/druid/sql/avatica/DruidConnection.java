@@ -26,7 +26,9 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.sql.PreparedStatement;
 import org.apache.druid.sql.SqlLifecycleFactory;
+import org.apache.druid.sql.SqlRequest;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -52,7 +54,7 @@ public class DruidConnection
   // Typically synchronized by connectionLock, except in one case: the onClose function passed
   // into DruidStatements contained by the map.
   @GuardedBy("connectionLock")
-  private final ConcurrentMap<Integer, DruidStatement> statements;
+  private final ConcurrentMap<Integer, AbstractDruidJdbcStatement> statements = new ConcurrentHashMap<>();
   private final Object connectionLock = new Object();
 
   @GuardedBy("connectionLock")
@@ -69,7 +71,6 @@ public class DruidConnection
     this.maxStatements = maxStatements;
     this.userSecret = ImmutableMap.copyOf(userSecret);
     this.context = context;
-    this.statements = new ConcurrentHashMap<>();
   }
 
   public String getConnectionId()
@@ -77,7 +78,7 @@ public class DruidConnection
     return connectionId;
   }
 
-  public DruidStatement createStatement(SqlLifecycleFactory sqlLifecycleFactory)
+  public DruidJdbcStatement createStatement(SqlLifecycleFactory sqlLifecycleFactory)
   {
     final int statementId = statementCounter.incrementAndGet();
 
@@ -93,17 +94,11 @@ public class DruidConnection
       }
 
       @SuppressWarnings("GuardedBy")
-      final DruidStatement statement = new DruidStatement(
+      final DruidJdbcStatement statement = new DruidJdbcStatement(
           connectionId,
           statementId,
           context,
-          sqlLifecycleFactory.factorize(),
-          () -> {
-            // onClose function for the statement
-            LOG.debug("Connection [%s] closed statement [%s].", connectionId, statementId);
-            // statements will be accessed unsynchronized to avoid deadlock
-            statements.remove(statementId);
-          }
+          sqlLifecycleFactory
       );
 
       statements.put(statementId, statement);
@@ -112,10 +107,57 @@ public class DruidConnection
     }
   }
 
-  public DruidStatement getStatement(final int statementId)
+  public DruidJdbcPreparedStatement createPreparedStatement(
+      SqlLifecycleFactory sqlLifecycleFactory,
+      SqlRequest sqlRequest,
+      final long maxRowCount)
+  {
+    final int statementId = statementCounter.incrementAndGet();
+
+    synchronized (connectionLock) {
+      if (statements.containsKey(statementId)) {
+        // Will only happen if statementCounter rolls over before old statements are cleaned up. If this
+        // ever happens then something fishy is going on, because we shouldn't have billions of statements.
+        throw DruidMeta.logFailure(new ISE("Uh oh, too many statements"));
+      }
+
+      if (statements.size() >= maxStatements) {
+        throw DruidMeta.logFailure(new ISE("Too many open statements, limit is [%,d]", maxStatements));
+      }
+
+      @SuppressWarnings("GuardedBy")
+      final PreparedStatement statement = sqlLifecycleFactory.preparedStatement(
+          sqlRequest.withContext(context)
+      );
+      final DruidJdbcPreparedStatement jdbcStmt = new DruidJdbcPreparedStatement(
+          connectionId,
+          statementId,
+          statement,
+          maxRowCount
+      );
+
+      statements.put(statementId, jdbcStmt);
+      LOG.debug("Connection [%s] opened prepared statement [%s].", connectionId, statementId);
+      return jdbcStmt;
+    }
+  }
+
+  public AbstractDruidJdbcStatement getStatement(final int statementId)
   {
     synchronized (connectionLock) {
       return statements.get(statementId);
+    }
+  }
+
+  public void closeStatement(int statementId)
+  {
+    AbstractDruidJdbcStatement stmt;
+    synchronized (connectionLock) {
+      stmt = statements.remove(statementId);
+    }
+    if (stmt != null) {
+      stmt.close();
+      LOG.debug("Connection [%s] closed statement [%s].", connectionId, statementId);
     }
   }
 
@@ -140,7 +182,7 @@ public class DruidConnection
   {
     synchronized (connectionLock) {
       // Copy statements before iterating because statement.close() modifies it.
-      for (DruidStatement statement : ImmutableList.copyOf(statements.values())) {
+      for (AbstractDruidJdbcStatement statement : ImmutableList.copyOf(statements.values())) {
         try {
           statement.close();
         }

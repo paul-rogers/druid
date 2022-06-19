@@ -19,61 +19,43 @@
 
 package org.apache.druid.sql;
 
-import com.google.common.base.Supplier;
-import com.google.inject.Inject;
-import org.apache.druid.guice.LazySingleton;
+import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
-import org.apache.druid.sql.http.SqlQuery;
 
-import javax.servlet.http.HttpServletRequest;
-
-@LazySingleton
-public class SqlLifecycleFactory
+/**
+ * Provides the plan and execution resources to process SQL queries.
+ */
+public class SqlToolbox
 {
-  protected final SqlToolbox lifecycleToolbox;
+  final PlannerFactory plannerFactory;
+  final ServiceEmitter emitter;
+  final RequestLogger requestLogger;
+  final QueryScheduler queryScheduler;
+  final AuthConfig authConfig;
+  final DefaultQueryConfig defaultQueryConfig;
+  final SqlLifecycleManager sqlLifecycleManager;
 
-  @Inject
-  public SqlLifecycleFactory(
+  public SqlToolbox(
       final PlannerFactory plannerFactory,
       final ServiceEmitter emitter,
       final RequestLogger requestLogger,
       final QueryScheduler queryScheduler,
       final AuthConfig authConfig,
-      final Supplier<DefaultQueryConfig> defaultQueryConfig,
+      final DefaultQueryConfig defaultQueryConfig,
       final SqlLifecycleManager sqlLifecycleManager
   )
   {
-    this.lifecycleToolbox = new SqlToolbox(
-        plannerFactory,
-        emitter,
-        requestLogger,
-        queryScheduler,
-        authConfig,
-        defaultQueryConfig.get(),
-        sqlLifecycleManager
-    );
-  }
-
-  public HttpStatement httpStatement(
-      final SqlQuery sqlQuery,
-      final HttpServletRequest req
-  )
-  {
-    return new HttpStatement(lifecycleToolbox, sqlQuery, req);
-  }
-
-  public DirectStatement directStatement(final SqlRequest sqlRequest)
-  {
-    return new DirectStatement(lifecycleToolbox, sqlRequest);
-  }
-
-  public PreparedStatement preparedStatement(final SqlRequest sqlRequest)
-  {
-    return new PreparedStatement(lifecycleToolbox, sqlRequest);
+    this.plannerFactory = plannerFactory;
+    this.emitter = emitter;
+    this.requestLogger = requestLogger;
+    this.queryScheduler = queryScheduler;
+    this.authConfig = authConfig;
+    this.defaultQueryConfig = defaultQueryConfig;
+    this.sqlLifecycleManager = Preconditions.checkNotNull(sqlLifecycleManager, "sqlLifecycleManager");
   }
 }

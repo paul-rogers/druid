@@ -34,7 +34,6 @@ import java.util.Map;
  * @see org.apache.druid.query.topn.TopNQueryConfig
  * @see org.apache.druid.query.metadata.SegmentMetadataQueryConfig
  * @see org.apache.druid.query.scan.ScanQueryConfig
- *
  */
 public class DefaultQueryConfig
 {

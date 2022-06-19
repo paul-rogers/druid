@@ -133,6 +133,7 @@ public class DruidPlanner implements Closeable
   private ParsedNodes parsed;
   private SqlNode validatedQueryNode;
   private boolean authorized;
+  private PrepareResult prepareResult;
   private Set<ResourceAction> resourceActions;
   private RelRoot rootQueryRel;
   private RexBuilder rexBuilder;
@@ -158,7 +159,6 @@ public class DruidPlanner implements Closeable
   public void validate() throws SqlParseException, ValidationException
   {
     Preconditions.checkState(state == State.START);
-    resetPlanner();
     SqlNode root = planner.parse(plannerContext.getSql());
     parsed = ParsedNodes.create(root, plannerContext.getTimeZone());
 
@@ -233,7 +233,13 @@ public class DruidPlanner implements Closeable
     Preconditions.checkState(state == State.VALIDATED);
 
     rootQueryRel = planner.rel(validatedQueryNode);
+    doPrepare(null);
+    state = State.PREPARED;
+    return prepareResult;
+  }
 
+  private void doPrepare(QueryMaker queryMaker) throws ValidationException
+  {
     final RelDataTypeFactory typeFactory = rootQueryRel.rel.getCluster().getTypeFactory();
     final SqlValidator validator = planner.getValidator();
     final RelDataType parameterTypes = validator.getParameterRowType(validatedQueryNode);
@@ -242,11 +248,13 @@ public class DruidPlanner implements Closeable
     if (parsed.getExplainNode() != null) {
       returnedRowType = getExplainStructType(typeFactory);
     } else {
-      returnedRowType = buildQueryMaker(rootQueryRel, parsed.getInsertOrReplace()).getResultType();
+      if (queryMaker == null) {
+        queryMaker = buildQueryMaker(rootQueryRel, parsed.getInsertOrReplace());
+      }
+      returnedRowType = queryMaker.getResultType();
     }
 
-    state = State.PREPARED;
-    return new PrepareResult(returnedRowType, parameterTypes);
+    prepareResult = new PrepareResult(returnedRowType, parameterTypes);
   }
 
   /**
@@ -274,7 +282,7 @@ public class DruidPlanner implements Closeable
    * an authenticated request must be authorized for to process the
    * query. The actions will be {@code null} if the
    * planner has not yet advanced to the validation step. This may occur if
-   * validation fails and the caller ({@code SqlLifecycle}) accesses the resource
+   * validation fails and the caller accesses the resource
    * actions as part of clean-up.
    */
   public Set<ResourceAction> resourceActions(boolean includeContext)
@@ -347,31 +355,15 @@ public class DruidPlanner implements Closeable
     return plannerContext;
   }
 
+  public PrepareResult prepareResult()
+  {
+    return prepareResult;
+  }
+
   @Override
   public void close()
   {
     planner.close();
-  }
-
-  /**
-   * While the actual query might not have changed, if the druid planner is re-used, we still have the need to reset the
-   * {@link #planner} since we do not re-use artifacts or keep track of state between
-   * {@link #validate}, {@link #prepare}, and {@link #plan} and instead repeat parsing and validation
-   * for each step.
-   *
-   * Currently, that state tracking is done in {@link org.apache.druid.sql.SqlLifecycle}, which will create a new
-   * planner for each of the corresponding steps so this isn't strictly necessary at this time, this method is here as
-   * much to make this situation explicit and provide context for a future refactor as anything else (and some tests
-   * do re-use the planner between validate, prepare, and plan, which will run into this issue).
-   *
-   * This could be improved by tying {@link org.apache.druid.sql.SqlLifecycle} and {@link DruidPlanner} states more
-   * closely with the state of {@link #planner}, instead of repeating parsing and validation between each of these
-   * steps.
-   */
-  private void resetPlanner()
-  {
-    planner.close();
-    planner.reset();
   }
 
   /**
@@ -386,6 +378,9 @@ public class DruidPlanner implements Closeable
     final RelRoot possiblyLimitedRoot = possiblyWrapRootWithOuterLimitFromContext(root);
     final QueryMaker queryMaker = buildQueryMaker(possiblyLimitedRoot, insertOrReplace);
     plannerContext.setQueryMaker(queryMaker);
+    if (prepareResult == null) {
+      doPrepare(queryMaker);
+    }
 
     // Fall-back dynamic parameter substitution using {@link RelParameterizerShuttle}
     // in the event that {@link #rewriteDynamicParameters(SqlNode)} was unable to

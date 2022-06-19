@@ -54,6 +54,7 @@ import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
+import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryLifecycleFactory;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.QuerySchedulerProvider;
@@ -108,6 +109,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -116,7 +118,10 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 
-public abstract class DruidAvaticaHandlerTest extends CalciteTestBase
+/**
+ * Tests Avatica using JSON serialization.
+ */
+public class DruidAvaticaHandlerTest extends CalciteTestBase
 {
   private static final AvaticaServerConfig AVATICA_CONFIG = new AvaticaServerConfig()
   {
@@ -145,6 +150,7 @@ public abstract class DruidAvaticaHandlerTest extends CalciteTestBase
   {
     resourceCloser = Closer.create();
     conglomerate = QueryStackTests.createQueryRunnerFactoryConglomerate(resourceCloser);
+    System.setProperty("user.timezone", "UTC");
   }
 
   @AfterClass
@@ -774,35 +780,42 @@ public abstract class DruidAvaticaHandlerTest extends CalciteTestBase
     client.createStatement().close();
     client.createStatement().close();
     client.createStatement().close();
-
-    Assert.assertTrue(true);
   }
 
+  /**
+   * JDBC allows sequential reuse of statements. A statement is not closed until
+   * the application closes it (or the connection), but the statement's result set
+   * is closed on each EOF.
+   */
   @Test
-  public void testNotTooManyStatementsWhenYouFullyIterateThem() throws Exception
+  public void testManyUsesOfTheSameStatement() throws Exception
   {
-    for (int i = 0; i < 50; i++) {
-      final ResultSet resultSet = client.createStatement().executeQuery(
-          "SELECT COUNT(*) AS cnt FROM druid.foo"
-      );
-      Assert.assertEquals(
-          ImmutableList.of(
-              ImmutableMap.of("cnt", 6L)
-          ),
-          getRows(resultSet)
-      );
+    try (Statement statement = client.createStatement()) {
+      for (int i = 0; i < 50; i++) {
+        final ResultSet resultSet = statement.executeQuery(
+            "SELECT COUNT(*) AS cnt FROM druid.foo"
+        );
+        Assert.assertEquals(
+            ImmutableList.of(
+                ImmutableMap.of("cnt", 6L)
+            ),
+            getRows(resultSet)
+        );
+      }
     }
-
-    Assert.assertTrue(true);
   }
 
+  /**
+   * Statements should not be closed if then encounter an error. The {@code ResultSet}
+   * can be closed, but not the statement.
+   */
   @Test
-  public void testNotTooManyStatementsWhenTheyThrowErrors() throws Exception
+  public void tesErrorsDoNotCloseStatements() throws Exception
   {
-    for (int i = 0; i < 50; i++) {
+    try (Statement statement = client.createStatement()) {
       Exception thrown = null;
       try {
-        client.createStatement().executeQuery("SELECT SUM(nonexistent) FROM druid.foo");
+        statement.executeQuery("SELECT SUM(nonexistent) FROM druid.foo");
       }
       catch (Exception e) {
         thrown = e;
@@ -810,14 +823,32 @@ public abstract class DruidAvaticaHandlerTest extends CalciteTestBase
 
       Assert.assertNotNull(thrown);
 
-      final ResultSet resultSet = client.createStatement().executeQuery("SELECT COUNT(*) AS cnt FROM druid.foo");
+      final ResultSet resultSet = statement.executeQuery("SELECT COUNT(*) AS cnt FROM druid.foo");
       Assert.assertEquals(
           ImmutableList.of(ImmutableMap.of("cnt", 6L)),
           getRows(resultSet)
       );
     }
+  }
 
-    Assert.assertTrue(true);
+  /**
+   * Since errors do not close statements, they must be closed by the application,
+   * preferably in a try-with-resources block.
+   */
+  @Test
+  public void testNotTooManyStatementsWhenClosed() throws Exception
+  {
+    for (int i = 0; i < 50; i++) {
+      Exception thrown = null;
+      try (Statement statement = client.createStatement()) {
+        statement.executeQuery("SELECT SUM(nonexistent) FROM druid.foo");
+      }
+      catch (Exception e) {
+        thrown = e;
+      }
+
+      Assert.assertNotNull(thrown);
+    }
   }
 
   @Test
@@ -953,7 +984,6 @@ public abstract class DruidAvaticaHandlerTest extends CalciteTestBase
     );
   }
 
-
   @Test
   public void testMinRowsPerFrame() throws Exception
   {
@@ -1026,7 +1056,7 @@ public abstract class DruidAvaticaHandlerTest extends CalciteTestBase
     String smallFrameUrl = this.getJdbcConnectionString(port);
     Connection smallFrameClient = DriverManager.getConnection(smallFrameUrl, "regularUser", "druid");
 
-    // use a prepared statement because avatica currently ignores fetchSize on the initial fetch of a Statement
+    // use a prepared statement because Avatica currently ignores fetchSize on the initial fetch of a Statement
     PreparedStatement statement = smallFrameClient.prepareStatement("SELECT dim1 FROM druid.foo");
     // set a fetch size below the minimum configured threshold
     statement.setFetchSize(2);
@@ -1065,27 +1095,37 @@ public abstract class DruidAvaticaHandlerTest extends CalciteTestBase
 
     // invalid sql
     testRequestLogger.clear();
-    try {
-      client.createStatement().executeQuery("SELECT notexist FROM druid.foo");
+    try (Statement stmt = client.createStatement()) {
+      stmt.executeQuery("SELECT notexist FROM druid.foo");
       Assert.fail("invalid SQL should throw SQLException");
     }
     catch (SQLException e) {
+      // Expected
     }
     Assert.assertEquals(1, testRequestLogger.getSqlQueryLogs().size());
-    final Map<String, Object> stats = testRequestLogger.getSqlQueryLogs().get(0).getQueryStats().getStats();
-    Assert.assertEquals(false, stats.get("success"));
-    Assert.assertEquals("regularUser", stats.get("identity"));
-    Assert.assertTrue(stats.containsKey("exception"));
+    {
+      final Map<String, Object> stats = testRequestLogger.getSqlQueryLogs().get(0).getQueryStats().getStats();
+      Assert.assertEquals(false, stats.get("success"));
+      Assert.assertEquals("regularUser", stats.get("identity"));
+      Assert.assertTrue(stats.containsKey("exception"));
+    }
 
     // unauthorized sql
     testRequestLogger.clear();
-    try {
-      client.createStatement().executeQuery("SELECT count(*) FROM druid.forbiddenDatasource");
+    try (Statement stmt = client.createStatement()) {
+      stmt.executeQuery("SELECT count(*) FROM druid.forbiddenDatasource");
       Assert.fail("unauthorzed SQL should throw SQLException");
     }
     catch (SQLException e) {
+      // Expected
     }
-    Assert.assertEquals(0, testRequestLogger.getSqlQueryLogs().size());
+    Assert.assertEquals(1, testRequestLogger.getSqlQueryLogs().size());
+    {
+      final Map<String, Object> stats = testRequestLogger.getSqlQueryLogs().get(0).getQueryStats().getStats();
+      Assert.assertEquals(false, stats.get("success"));
+      Assert.assertEquals("regularUser", stats.get("identity"));
+      Assert.assertTrue(stats.containsKey("exception"));
+    }
   }
 
   @Test
@@ -1124,13 +1164,37 @@ public abstract class DruidAvaticaHandlerTest extends CalciteTestBase
     PreparedStatement statement =
         superuserClient.prepareStatement("SELECT COUNT(*) AS cnt FROM sys.servers WHERE servers.host = ?");
     statement.setString(1, "dummy");
-    final ResultSet resultSet = statement.executeQuery();
-    final List<Map<String, Object>> rows = getRows(resultSet);
     Assert.assertEquals(
         ImmutableList.of(
             ImmutableMap.of("cnt", 1L)
         ),
-        rows
+        getRows(statement.executeQuery())
+    );
+  }
+
+  @Test
+  public void testExecuteMany() throws Exception
+  {
+    PreparedStatement statement =
+        superuserClient.prepareStatement("SELECT COUNT(*) AS cnt FROM sys.servers WHERE servers.host = ?");
+    statement.setString(1, "dummy");
+    Assert.assertEquals(
+        ImmutableList.of(
+            ImmutableMap.of("cnt", 1L)
+        ),
+        getRows(statement.executeQuery())
+    );
+    statement.setString(1, "foo");
+    Assert.assertEquals(
+        Collections.emptyList(),
+        getRows(statement.executeQuery())
+    );
+    statement.setString(1, "dummy");
+    Assert.assertEquals(
+        ImmutableList.of(
+            ImmutableMap.of("cnt", 1L)
+        ),
+        getRows(statement.executeQuery())
     );
   }
 
@@ -1147,7 +1211,6 @@ public abstract class DruidAvaticaHandlerTest extends CalciteTestBase
         ),
         rows
     );
-
 
     PreparedStatement statement = client.prepareStatement(
         "SELECT COUNT(*) AS cnt FROM druid.lotsocolumns WHERE dimMultivalEnumerated = ?"
@@ -1368,9 +1431,8 @@ public abstract class DruidAvaticaHandlerTest extends CalciteTestBase
     );
   }
 
-
   @Test
-  public void testArrayStuffs() throws Exception
+  public void testArrayStuff() throws Exception
   {
     PreparedStatement statement = client.prepareStatement(
         "SELECT ARRAY_AGG(dim2) AS arr1, ARRAY_AGG(l1) AS arr2, ARRAY_AGG(d1)  AS arr3, ARRAY_AGG(f1) AS arr4 FROM druid.numfoo"
@@ -1395,9 +1457,25 @@ public abstract class DruidAvaticaHandlerTest extends CalciteTestBase
     }
   }
 
-  protected abstract String getJdbcConnectionString(int port);
+  // Default implementation is for JSON to allow debugging of tests.
+  protected String getJdbcConnectionString(final int port)
+  {
+    return StringUtils.format(
+            "jdbc:avatica:remote:url=http://127.0.0.1:%d%s",
+            port,
+            DruidAvaticaJsonHandler.AVATICA_PATH
+    );
+  }
 
-  protected abstract AbstractAvaticaHandler getAvaticaHandler(DruidMeta druidMeta);
+  // Default implementation is for JSON to allow debugging of tests.
+  protected AbstractAvaticaHandler getAvaticaHandler(final DruidMeta druidMeta)
+  {
+    return new DruidAvaticaJsonHandler(
+            druidMeta,
+            new DruidNode("dummy", "dummy", false, 1, null, true, false),
+            new AvaticaMonitor()
+    );
+  }
 
   private static List<Map<String, Object>> getRows(final ResultSet resultSet) throws SQLException
   {
