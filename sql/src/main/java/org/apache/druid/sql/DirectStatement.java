@@ -143,7 +143,7 @@ public class DirectStatement extends AbstractStatement implements Cancellable
   /**
    * Checks for cancellation. As it turns out, this is really just a test-time
    * check: an actual client can't cancel the query until the query reports
-   * a query ID, which won't happen until after the {@link #execute(Consumer))}
+   * a query ID, which won't happen until after the {@link #execute())}
    * call.
    */
   private void checkCancelled()

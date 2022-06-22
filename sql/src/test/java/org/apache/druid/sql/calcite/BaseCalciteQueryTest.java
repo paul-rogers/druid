@@ -848,7 +848,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final ExprMacroTable macroTable,
       final AuthorizerMapper authorizerMapper,
       final ObjectMapper objectMapper
-  ) throws Exception
+  )
   {
     final SqlLifecycleFactory sqlLifecycleFactory = getSqlLifecycleFactory(
         plannerConfig,

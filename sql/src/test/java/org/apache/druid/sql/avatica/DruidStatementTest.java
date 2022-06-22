@@ -590,7 +590,7 @@ public class DruidStatementTest extends CalciteTestBase
   }
 
   @Test
-  public void testParameters() throws Exception
+  public void testParameters()
   {
     SqlRequest sqlRequest = new SqlRequest(
         "SELECT COUNT(*) AS cnt FROM sys.servers WHERE servers.host = ?",

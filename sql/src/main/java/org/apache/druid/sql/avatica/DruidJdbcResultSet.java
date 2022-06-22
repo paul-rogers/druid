@@ -75,7 +75,6 @@ public class DruidJdbcResultSet implements Closeable
   private final ExecutorService yielderOpenCloseExecutor;
   private final DirectStatement stmt;
   private final long maxRowCount;
-  protected Throwable throwable;
   private State state = State.NEW;
   private Meta.Signature signature;
   private Yielder<Object[]> yielder;
@@ -179,7 +178,6 @@ public class DruidJdbcResultSet implements Closeable
 
   private RuntimeException closeAndPropagateThrowable(Throwable t)
   {
-    this.throwable = t;
     DruidMeta.logFailure(t);
     // Report a failure so that the failure is logged.
     stmt.reporter().failed(t);

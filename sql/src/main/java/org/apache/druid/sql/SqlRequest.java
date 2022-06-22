@@ -19,9 +19,9 @@
 
 package org.apache.druid.sql;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import org.apache.calcite.avatica.remote.TypedValue;
-import org.apache.curator.shaded.com.google.common.base.Preconditions;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.sql.http.SqlParameter;

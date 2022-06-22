@@ -29,7 +29,7 @@ import org.apache.druid.sql.SqlRequest;
 /**
  * Represents Druid's version of the JDBC {@code Statement} class:
  * can be executed multiple times, one after another, producing a
- * {@link DruidResultSet} for each execution.
+ * {@link DruidJdbcResultSet} for each execution.
  */
 public class DruidJdbcStatement extends AbstractDruidJdbcStatement
 {

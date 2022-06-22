@@ -184,7 +184,10 @@ public class SqlStatementTest
     EasyMock.expect(req.getAttribute(AuthConfig.DRUID_AUTHENTICATION_RESULT))
             .andReturn(CalciteTests.REGULAR_USER_AUTH_RESULT)
             .anyTimes();
-    EasyMock.expect(req.getAttribute(AuthConfig.DRUID_ALLOW_UNSECURED_PATH)).andReturn(null).anyTimes();
+    EasyMock.expect(req.getRemoteAddr()).andReturn(null).once();
+    EasyMock.expect(req.getAttribute(AuthConfig.DRUID_ALLOW_UNSECURED_PATH))
+            .andReturn(null)
+            .anyTimes();
     EasyMock.expect(req.getAttribute(AuthConfig.DRUID_AUTHORIZATION_CHECKED))
             .andReturn(null)
             .anyTimes();
@@ -429,12 +432,6 @@ public class SqlStatementTest
 
   //-----------------------------------------------------------------
   // Generic tests.
-
-  @Test
-  public void testConsumer()
-  {
-    fail();
-  }
 
   @Test
   public void testIgnoredQueryContextParametersAreIgnored()

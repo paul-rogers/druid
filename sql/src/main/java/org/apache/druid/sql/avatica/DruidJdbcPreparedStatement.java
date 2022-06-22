@@ -35,8 +35,8 @@ import java.util.List;
  * once with a query, then executed any number of times, typically with
  * parameter values. No parameters are provided during prepare, though we do
  * learn the parameter definitions passed back to the client and used by
- * Avatica for serialization. Each execution produces a {@link ResultSet}.
- * Only one execution is active at a time.
+ * Avatica for serialization. Each execution produces a
+ * {@link DruidJdbcResultSet}. Only one execution is active at a time.
  */
 public class DruidJdbcPreparedStatement extends AbstractDruidJdbcStatement
 {
@@ -57,7 +57,7 @@ public class DruidJdbcPreparedStatement extends AbstractDruidJdbcStatement
     this.maxRowCount = maxRowCount;
   }
 
-  public void prepare()
+  public synchronized void prepare()
   {
     try {
       ensure(State.NEW);
