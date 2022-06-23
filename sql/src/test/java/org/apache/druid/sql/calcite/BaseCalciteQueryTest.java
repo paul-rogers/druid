@@ -643,7 +643,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final String sql,
       final List<Query<?>> expectedQueries,
       final List<Object[]> expectedResults
-  ) throws Exception
+  )
   {
     testQuery(
         PLANNER_CONFIG_DEFAULT,
@@ -661,7 +661,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final Map<String, Object> context,
       final List<Query<?>> expectedQueries,
       final List<Object[]> expectedResults
-  ) throws Exception
+  )
   {
     testQuery(
         PLANNER_CONFIG_DEFAULT,
@@ -679,7 +679,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final List<Query<?>> expectedQueries,
       final List<Object[]> expectedResults,
       final List<SqlParameter> parameters
-  ) throws Exception
+  )
   {
     testQuery(
         PLANNER_CONFIG_DEFAULT,
@@ -698,7 +698,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final AuthenticationResult authenticationResult,
       final List<Query<?>> expectedQueries,
       final List<Object[]> expectedResults
-  ) throws Exception
+  )
   {
     testQuery(
         plannerConfig,
@@ -716,7 +716,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final Map<String, Object> context,
       final List<Query<?>> expectedQueries,
       final ResultsVerifier expectedResultsVerifier
-  ) throws Exception
+  )
   {
     testQuery(
         PLANNER_CONFIG_DEFAULT,
@@ -737,7 +737,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final AuthenticationResult authenticationResult,
       final List<Query<?>> expectedQueries,
       final List<Object[]> expectedResults
-  ) throws Exception
+  )
   {
     log.info("SQL: %s", sql);
     queryLogHook.clearRecordedQueries();
@@ -754,7 +754,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final AuthenticationResult authenticationResult,
       final List<Query<?>> expectedQueries,
       final List<Object[]> expectedResults
-  ) throws Exception
+  )
   {
     testQuery(
         plannerConfig,
@@ -777,7 +777,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final List<Query<?>> expectedQueries,
       final ResultsVerifier expectedResultsVerifier,
       @Nullable final Consumer<ExpectedException> expectedExceptionInitializer
-  ) throws Exception
+  )
   {
     log.info("SQL: %s", sql);
 
@@ -823,7 +823,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final List<SqlParameter> parameters,
       final String sql,
       final AuthenticationResult authenticationResult
-  ) throws Exception
+  )
   {
     return getResults(
         plannerConfig,
@@ -942,7 +942,6 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   }
 
   public void testQueryThrows(final String sql, Consumer<ExpectedException> expectedExceptionInitializer)
-      throws Exception
   {
     testQueryThrows(sql, new HashMap<>(QUERY_CONTEXT_DEFAULT), ImmutableList.of(), expectedExceptionInitializer);
   }
@@ -952,7 +951,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final Map<String, Object> queryContext,
       final List<Query<?>> expectedQueries,
       final Consumer<ExpectedException> expectedExceptionInitializer
-  ) throws Exception
+  )
   {
     testQuery(
         PLANNER_CONFIG_DEFAULT,

@@ -39,7 +39,7 @@ import java.util.List;
 /**
  * Common implementation for the JDBC {@code Statement} and
  * {@code PreparedStatement} implementations in Druid. Statement use
- * {@link DruidDbcResultSet} objects to iterate through rows: zero
+ * {@link DruidJdbcResultSet} objects to iterate through rows: zero
  * or one may be open at any time, and a single statement supports
  * multiple result sets concurrently. Druid closes the result set after
  * the last batch in compliance with this note on page 137 of the

@@ -102,13 +102,23 @@ public class Calcites
 
   public static void setSystemProperties()
   {
-    // These properties control the charsets used for SQL literals. I don't see a way to change this except through
-    // system properties, so we'll have to set those...
+    // These properties control the charsets used for SQL literals. I don't see
+    // a way to change this except through system properties, so we'll have to
+    // set those...
 
     final String charset = ConversionUtil.NATIVE_UTF16_CHARSET_NAME;
-    System.setProperty("saffron.default.charset", Calcites.defaultCharset().name());
-    System.setProperty("saffron.default.nationalcharset", Calcites.defaultCharset().name());
+
+    // Deprecated in Calcite 1.19. See:
+    // https://calcite.apache.org/javadocAggregate/org/apache/calcite/util/SaffronProperties.html
+    System.setProperty("saffron.default.charset", charset);
+    System.setProperty("saffron.default.nationalcharset", charset);
     System.setProperty("saffron.default.collation.name", StringUtils.format("%s$en_US", charset));
+
+    // The following are the current names. See org.apache.calcite.config.CalciteSystemProperty
+    // https://github.com/apache/calcite/blob/master/core/src/main/java/org/apache/calcite/config/CalciteSystemProperty.java
+    System.setProperty("calcite.default.charset", charset);
+    System.setProperty("calcite.default.nationalcharset", charset);
+    System.setProperty("calcite.default.collation.name", StringUtils.format("%s$en_US", charset));
   }
 
   public static Charset defaultCharset()
@@ -244,7 +254,7 @@ public class Calcites
       case VARCHAR:
         dataType = typeFactory.createTypeWithCharsetAndCollation(
             typeFactory.createSqlType(typeName),
-            Calcites.defaultCharset(),
+            defaultCharset(),
             SqlCollation.IMPLICIT
         );
         break;
@@ -264,8 +274,6 @@ public class Calcites
       final boolean nullable
   )
   {
-
-
     final RelDataType dataType = typeFactory.createArrayType(
         createSqlTypeWithNullability(typeFactory, elementTypeName, nullable),
         -1

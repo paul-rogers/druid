@@ -741,7 +741,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
   }
 
   @Test(timeout = 90_000L)
-  public void testConcurrentQueries() throws SQLException, InterruptedException, ExecutionException
+  public void testConcurrentQueries() throws InterruptedException, ExecutionException
   {
     final List<ListenableFuture<Integer>> futures = new ArrayList<>();
     final ListeningExecutorService exec = MoreExecutors.listeningDecorator(
