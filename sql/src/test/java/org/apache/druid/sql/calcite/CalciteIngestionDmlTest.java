@@ -289,7 +289,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
       Assert.assertTrue(queryLogHook.getRecordedQueries().isEmpty());
     }
 
-    private void verifySuccess() throws Exception
+    private void verifySuccess()
     {
       if (expectedTargetDataSource == null) {
         throw new ISE("Test must have expectedTargetDataSource");

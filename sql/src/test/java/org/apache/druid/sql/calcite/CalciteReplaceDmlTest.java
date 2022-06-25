@@ -19,6 +19,8 @@
 
 package org.apache.druid.sql.calcite;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.java.util.common.StringUtils;
@@ -572,7 +574,7 @@ public class CalciteReplaceDmlTest extends CalciteIngestionDmlTest
   }
 
   @Test
-  public void testReplaceWithPartitionedByContainingInvalidGranularity() throws Exception
+  public void testReplaceWithPartitionedByContainingInvalidGranularity()
   {
     // Throws a ValidationException, which gets converted to a SqlPlanningException before throwing to end user
     try {
@@ -593,7 +595,7 @@ public class CalciteReplaceDmlTest extends CalciteIngestionDmlTest
   }
 
   @Test
-  public void testExplainReplaceFromExternal() throws Exception
+  public void testExplainReplaceFromExternal() throws JsonMappingException, JsonProcessingException
   {
     // Skip vectorization since otherwise the "context" will change for each subtest.
     skipVectorize();
