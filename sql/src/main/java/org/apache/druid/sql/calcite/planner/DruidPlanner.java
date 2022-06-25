@@ -287,16 +287,15 @@ public class DruidPlanner implements Closeable
    */
   public Set<ResourceAction> resourceActions(boolean includeContext)
   {
-    Set<ResourceAction> actions;
     if (includeContext) {
-      actions = new HashSet<>(resourceActions);
+      Set<ResourceAction> actions = new HashSet<>(resourceActions);
       plannerContext.getQueryContext().getUserParams().keySet().forEach(contextParam -> actions.add(
           new ResourceAction(new Resource(contextParam, ResourceType.QUERY_CONTEXT), Action.WRITE)
       ));
+      return actions;
     } else {
-      actions = resourceActions;
+      return resourceActions;
     }
-    return actions;
   }
 
   /**

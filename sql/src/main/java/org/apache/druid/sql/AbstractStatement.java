@@ -168,6 +168,11 @@ public abstract class AbstractStatement implements Closeable
     return queryResource;
   }
 
+  public Set<ResourceAction> allResources()
+  {
+    return resourceActions;
+  }
+
   public SqlRequest sqlRequest()
   {
     return sqlRequest;

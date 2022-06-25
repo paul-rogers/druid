@@ -1000,7 +1000,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
             )
     );
     stmt.prepare();
-    return stmt.resources();
+    return stmt.allResources();
   }
 
   public SqlLifecycleFactory getSqlLifecycleFactory(
