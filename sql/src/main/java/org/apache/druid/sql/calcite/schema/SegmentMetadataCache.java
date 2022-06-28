@@ -46,6 +46,7 @@ import org.apache.druid.java.util.common.lifecycle.LifecycleStop;
 import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.query.GlobalTableDataSource;
 import org.apache.druid.query.TableDataSource;
+import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.metadata.metadata.AllColumnIncluderator;
 import org.apache.druid.query.metadata.metadata.ColumnAnalysis;
 import org.apache.druid.query.metadata.metadata.SegmentAnalysis;
@@ -66,9 +67,11 @@ import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -468,7 +471,7 @@ public class SegmentMetadataCache
                       // segmentReplicatable is used to determine if segments are served by historical or realtime servers
                       long isRealtime = server.isSegmentReplicationTarget() ? 0 : 1;
                       segmentMetadata = AvailableSegmentMetadata
-                          .builder(segment, isRealtime, ImmutableSet.of(server), null, DEFAULT_NUM_ROWS) // Added without needing a refresh
+                          .builder(segment, isRealtime, ImmutableSet.of(server), null, DEFAULT_NUM_ROWS, null) // Added without needing a refresh
                           .build();
                       markSegmentAsNeedRefresh(segment.getId());
                       if (!server.isSegmentReplicationTarget()) {
@@ -744,6 +747,7 @@ public class SegmentMetadataCache
                               .from(segmentMetadata)
                               .withRowSignature(rowSignature)
                               .withNumRows(analysis.getNumRows())
+                              .withAggregators(analysis.getAggregators())
                               .build();
                           retVal.add(segmentId);
                           return updatedSegmentMetadata;
@@ -787,6 +791,7 @@ public class SegmentMetadataCache
 
     // Preserve order.
     final Map<String, ColumnType> columnTypes = new LinkedHashMap<>();
+    final Map<String, AggregatorFactory> aggregators = new HashMap<>();
 
     if (segmentsMap != null && !segmentsMap.isEmpty()) {
       for (AvailableSegmentMetadata availableSegmentMetadata : segmentsMap.values()) {
@@ -800,6 +805,10 @@ public class SegmentMetadataCache
 
             columnTypes.putIfAbsent(column, columnType);
           }
+        }
+        Map<String, AggregatorFactory> segmentAggregators = availableSegmentMetadata.getAggregators();
+        if (segmentAggregators != null) {
+          aggregators.putAll(segmentAggregators);
         }
       }
     } else {
@@ -825,7 +834,7 @@ public class SegmentMetadataCache
     } else {
       tableDataSource = new TableDataSource(dataSource);
     }
-    return new DatasourceTable.PhysicalDatasourceMetadata(tableDataSource, builder.build(), isJoinable, isBroadcast);
+    return new DatasourceTable.PhysicalDatasourceMetadata(tableDataSource, builder.build(), isJoinable, isBroadcast, aggregators);
   }
 
   @VisibleForTesting
@@ -899,7 +908,8 @@ public class SegmentMetadataCache
         new AllColumnIncluderator(),
         false,
         brokerInternalQueryConfig.getContext(),
-        EnumSet.noneOf(SegmentMetadataQuery.AnalysisType.class),
+        // Experimental: get aggregators to help with catalog analysis.
+        EnumSet.of(SegmentMetadataQuery.AnalysisType.AGGREGATORS),
         false,
         false
     );
@@ -926,7 +936,7 @@ public class SegmentMetadataCache
       // flavor of COMPLEX.
       if (valueType == null) {
         // at some point in the future this can be simplified to the contents of the catch clause here, once the
-        // likelyhood of upgrading from some version lower than 0.23 is low
+        // likelihood of upgrading from some version lower than 0.23 is low
         try {
           valueType = ColumnType.fromString(entry.getValue().getType());
         }

@@ -33,6 +33,10 @@ import javax.annotation.Nullable;
  * Extends the 'insert' call to hold custom parameters specific to Druid i.e. PARTITIONED BY and CLUSTERED BY
  * This class extends the {@link DruidSqlIngest} so that this SqlNode can be used in
  * {@link org.apache.calcite.sql2rel.SqlToRelConverter} for getting converted into RelNode, and further processing
+ * <p>
+ * This class is not validated by the Calcite validator: all validation is done by ad-hoc
+ * code outside the "normal" planner flow. This isn't idea; it is an artifact of how the
+ * Druid planner really only knows about queries.
  */
 public class DruidSqlInsert extends DruidSqlIngest
 {
@@ -77,12 +81,14 @@ public class DruidSqlInsert extends DruidSqlIngest
   public void unparse(SqlWriter writer, int leftPrec, int rightPrec)
   {
     super.unparse(writer, leftPrec, rightPrec);
-    writer.keyword("PARTITIONED BY");
-    writer.keyword(partitionedByStringForUnparse);
-    if (getClusteredBy() != null) {
-      writer.keyword("CLUSTERED BY");
+    if (partitionedBy != null) {
+      writer.sep("PARTITIONED BY");
+      writer.keyword(partitionedByStringForUnparse);
+    }
+    if (clusteredBy != null) {
+      writer.sep("CLUSTERED BY");
       SqlWriter.Frame frame = writer.startList("", "");
-      for (SqlNode clusterByOpts : getClusteredBy().getList()) {
+      for (SqlNode clusterByOpts : clusteredBy.getList()) {
         clusterByOpts.unparse(writer, leftPrec, rightPrec);
       }
       writer.endList(frame);

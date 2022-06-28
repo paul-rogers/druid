@@ -89,7 +89,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
-public class SegmentDataCacheConcurrencyTest extends SegmentMetadataCacheCommon
+public class SegmentMetadataCacheConcurrencyTest extends SegmentMetadataCacheCommon
 {
   private static final String DATASOURCE = "datasource";
 

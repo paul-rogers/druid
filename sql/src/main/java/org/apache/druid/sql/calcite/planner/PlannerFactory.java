@@ -71,6 +71,7 @@ public class PlannerFactory
   private final AuthorizerMapper authorizerMapper;
   private final String druidSchemaName;
   private final CalciteRulesManager calciteRuleManager;
+  private final CatalogResolver catalog;
 
   @Inject
   public PlannerFactory(
@@ -81,7 +82,8 @@ public class PlannerFactory
       final AuthorizerMapper authorizerMapper,
       final @Json ObjectMapper jsonMapper,
       final @DruidSchemaName String druidSchemaName,
-      final CalciteRulesManager calciteRuleManager
+      final CalciteRulesManager calciteRuleManager,
+      final CatalogResolver catalog
   )
   {
     this.rootSchema = rootSchema;
@@ -92,6 +94,7 @@ public class PlannerFactory
     this.jsonMapper = jsonMapper;
     this.druidSchemaName = druidSchemaName;
     this.calciteRuleManager = calciteRuleManager;
+    this.catalog = catalog;
   }
 
   /**
@@ -110,7 +113,12 @@ public class PlannerFactory
         queryContext
     );
 
-    return new DruidPlanner(buildFrameworkConfig(context), context, engine);
+    return new DruidPlanner(
+        buildFrameworkConfig(context),
+        context,
+        engine,
+        catalog
+    );
   }
 
   /**

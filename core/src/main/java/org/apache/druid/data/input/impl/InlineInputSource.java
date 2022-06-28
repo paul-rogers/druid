@@ -20,6 +20,7 @@
 package org.apache.druid.data.input.impl;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import org.apache.druid.data.input.AbstractInputSource;
@@ -35,6 +36,8 @@ import java.util.stream.Stream;
 
 public class InlineInputSource extends AbstractInputSource
 {
+  public static final String TYPE_KEY = "inline";
+
   private final String data;
 
   @JsonCreator
@@ -51,6 +54,7 @@ public class InlineInputSource extends AbstractInputSource
   }
 
   @Override
+  @JsonIgnore
   public boolean isSplittable()
   {
     return false;

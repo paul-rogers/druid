@@ -115,6 +115,7 @@ import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.SqlLifecycleManager;
 import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.SqlToolbox;
+import org.apache.druid.sql.calcite.planner.CatalogResolver;
 import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
@@ -1265,7 +1266,11 @@ public class CalciteTests
     }
 
     cache.stop();
-    return new DruidSchema(cache, druidSchemaManager);
+    return new DruidSchema(
+        cache,
+        druidSchemaManager,
+        new CatalogResolver.NullCatalogResolver()
+    );
   }
 
   /**

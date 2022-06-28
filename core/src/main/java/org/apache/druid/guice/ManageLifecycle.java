@@ -28,9 +28,19 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks the object to be managed by {@link org.apache.druid.java.util.common.lifecycle.Lifecycle} and set to be on
- * {@link org.apache.druid.java.util.common.lifecycle.Lifecycle.Stage#NORMAL} stage. This stage gets defined by {@link
- * LifecycleModule}.
+ * Guice binding scope for lifecycle-managed instances.
+ * Marks the object to be managed by
+ * {@link org.apache.druid.java.util.common.lifecycle.Lifecycle} and set to be on
+ * {@link org.apache.druid.java.util.common.lifecycle.Lifecycle.Stage#NORMAL}
+ * stage. This stage gets defined by {@link LifecycleModule}.
+ * <p>
+ * Best practice is to explicitly bind the instance via Guice. Example:
+ * <code><pre>
+ * binder.bind(MyClass.class).in(ManageLifecycle.class);</pre></code>
+ * <p>
+ * Guice allows implicit scope by putting the scope annotation on the class
+ * itself. You'll see instances of such a pattern in the code base. However,
+ * explicit binding is a better practice.
  */
 @Target({ ElementType.TYPE, ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)

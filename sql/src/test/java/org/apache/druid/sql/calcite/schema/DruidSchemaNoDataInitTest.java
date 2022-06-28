@@ -29,6 +29,7 @@ import org.apache.druid.segment.loading.SegmentLoader;
 import org.apache.druid.server.QueryStackTests;
 import org.apache.druid.server.SegmentManager;
 import org.apache.druid.server.security.NoopEscalator;
+import org.apache.druid.sql.calcite.planner.CatalogResolver;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.util.CalciteTestBase;
 import org.apache.druid.sql.calcite.util.CalciteTests;
@@ -64,7 +65,11 @@ public class DruidSchemaNoDataInitTest extends CalciteTestBase
 
       cache.start();
       cache.awaitInitialization();
-      final DruidSchema druidSchema = new DruidSchema(cache, null);
+      final DruidSchema druidSchema = new DruidSchema(
+          cache,
+          null,
+          new CatalogResolver.NullCatalogResolver()
+      );
 
       Assert.assertEquals(ImmutableSet.of(), druidSchema.getTableNames());
     }

@@ -32,6 +32,7 @@ import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.validate.SqlNameMatcher;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.sql.calcite.aggregation.SqlAggregator;
 import org.apache.druid.sql.calcite.aggregation.builtin.ArrayConcatSqlAggregator;
 import org.apache.druid.sql.calcite.aggregation.builtin.ArraySqlAggregator;
@@ -129,7 +130,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class DruidOperatorTable implements SqlOperatorTable
+public class DruidOperatorTable implements SqlOperatorTable, DruidMetadataResolver
 {
   // COUNT and APPROX_COUNT_DISTINCT are not here because they are added by SqlAggregationModule.
   private static final List<SqlAggregator> STANDARD_AGGREGATORS =
@@ -396,8 +397,9 @@ public class DruidOperatorTable implements SqlOperatorTable
                           .stream()
                           .collect(Collectors.toMap(OperatorKey::of, Function.identity()));
 
-  private final Map<OperatorKey, SqlAggregator> aggregators;
-  private final Map<OperatorKey, SqlOperatorConversion> operatorConversions;
+  private final Map<OperatorKey, SqlAggregator> aggregators = new HashMap<>();
+  private final Map<OperatorKey, SqlOperatorConversion> operatorConversions = new HashMap<>();
+  private final Map<Class<? extends AggregatorFactory>, SqlAggregator> factoryTable = new HashMap<>();
 
   @Inject
   public DruidOperatorTable(
@@ -405,14 +407,12 @@ public class DruidOperatorTable implements SqlOperatorTable
       final Set<SqlOperatorConversion> operatorConversions
   )
   {
-    this.aggregators = new HashMap<>();
-    this.operatorConversions = new HashMap<>();
-
     for (SqlAggregator aggregator : aggregators) {
       final OperatorKey operatorKey = OperatorKey.of(aggregator.calciteFunction());
       if (this.aggregators.put(operatorKey, aggregator) != null) {
-        throw new ISE("Cannot have two operators with key[%s]", operatorKey);
+        throw new ISE("Cannot have two operators with key [%s]", operatorKey);
       }
+      aggregator.factories().forEach(f -> factoryTable.put(f, aggregator));
     }
 
     for (SqlAggregator aggregator : STANDARD_AGGREGATORS) {
@@ -420,13 +420,14 @@ public class DruidOperatorTable implements SqlOperatorTable
 
       // Don't complain if the name already exists; we allow standard operators to be overridden.
       this.aggregators.putIfAbsent(operatorKey, aggregator);
+      aggregator.factories().forEach(f -> factoryTable.put(f, aggregator));
     }
 
     for (SqlOperatorConversion operatorConversion : operatorConversions) {
       final OperatorKey operatorKey = OperatorKey.of(operatorConversion.calciteOperator());
       if (this.aggregators.containsKey(operatorKey)
           || this.operatorConversions.put(operatorKey, operatorConversion) != null) {
-        throw new ISE("Cannot have two operators with key[%s]", operatorKey);
+        throw new ISE("Cannot have two operators with key [%s]", operatorKey);
       }
     }
 
@@ -513,6 +514,13 @@ public class DruidOperatorTable implements SqlOperatorTable
     return retVal;
   }
 
+  @Override
+  @Nullable
+  public SqlAggregator aggregatorForFactory(Class<? extends AggregatorFactory> factoryClass)
+  {
+    return factoryTable.get(factoryClass);
+  }
+
   private static SqlSyntax normalizeSyntax(final SqlSyntax syntax)
   {
     // Treat anything other than prefix/suffix/binary syntax as function syntax.
@@ -542,16 +550,6 @@ public class DruidOperatorTable implements SqlOperatorTable
     public static OperatorKey of(final SqlOperator operator)
     {
       return new OperatorKey(operator.getName(), operator.getSyntax());
-    }
-
-    public String getName()
-    {
-      return name;
-    }
-
-    public SqlSyntax getSyntax()
-    {
-      return syntax;
     }
 
     @Override

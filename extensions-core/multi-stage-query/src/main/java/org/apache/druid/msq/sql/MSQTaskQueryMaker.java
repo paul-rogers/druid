@@ -98,7 +98,8 @@ public class MSQTaskQueryMaker implements QueryMaker
   )
   {
     this.targetDataSource = targetDataSource;
-    this.overlordClient = Preconditions.checkNotNull(overlordClient, "indexingServiceClient");
+    // Allowed to be null for tests. Checked for non-null when actually used.
+    this.overlordClient = overlordClient;
     this.plannerContext = Preconditions.checkNotNull(plannerContext, "plannerContext");
     this.jsonMapper = Preconditions.checkNotNull(jsonMapper, "jsonMapper");
     this.fieldMapping = Preconditions.checkNotNull(fieldMapping, "fieldMapping");
@@ -106,6 +107,22 @@ public class MSQTaskQueryMaker implements QueryMaker
 
   @Override
   public QueryResponse<Object[]> runQuery(final DruidQuery druidQuery)
+  {
+    Pair<String, MSQControllerTask> plan = preparePlan(druidQuery);
+    return execute(plan.left, plan.right);
+  }
+
+  @Override
+  public Object explain(DruidQuery druidQuery)
+  {
+    Pair<String, MSQControllerTask> plan = preparePlan(druidQuery);
+    return plan.right;
+  }
+
+  /**
+   * Prepare the plan returning a pair of (taskID, task spec).
+   */
+  private Pair<String, MSQControllerTask> preparePlan(final DruidQuery druidQuery)
   {
     String taskId = MSQTasks.controllerTaskId(plannerContext.getSqlQueryId());
 
@@ -258,6 +275,12 @@ public class MSQTaskQueryMaker implements QueryMaker
         null
     );
 
+    return Pair.of(taskId, controllerTask);
+  }
+
+  private QueryResponse<Object[]> execute(final String taskId, final MSQControllerTask controllerTask)
+  {
+    Preconditions.checkNotNull(overlordClient, "overlordClient");
     FutureUtils.getUnchecked(overlordClient.runTask(taskId, controllerTask), true);
     return QueryResponse.withEmptyContext(Sequences.simple(Collections.singletonList(new Object[]{taskId})));
   }

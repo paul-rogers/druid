@@ -81,7 +81,7 @@ SqlNodeList ClusterItems() :
   SqlNode e;
 }
 {
-  e = OrderItem() {
+    e = OrderItem() {
     s = span();
     list = startList(e);
   }

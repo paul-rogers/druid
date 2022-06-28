@@ -19,6 +19,8 @@
 
 package org.apache.druid.sql.calcite.run;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
@@ -75,6 +77,58 @@ import java.util.stream.Collectors;
 
 public class NativeQueryMaker implements QueryMaker
 {
+
+  /**
+   * Execution plan: primarily for testing. Captures the final form
+   * of the query used by the execution engine. Jackson-serializable,
+   * but only for serialization: never deserialized.
+   */
+  @JsonPropertyOrder({"query", "rowOrder", "newFields", "newTypes"})
+  public static class ExecutionPlan
+  {
+    final Query<?> query;
+    final List<String> rowOrder;
+    final List<String> newFields;
+    final List<SqlTypeName> newTypes;
+
+    public ExecutionPlan(
+        final Query<?> query,
+        final List<String> rowOrder,
+        final List<String> newFields,
+        final List<SqlTypeName> newTypes)
+    {
+      super();
+      this.query = query;
+      this.rowOrder = rowOrder;
+      this.newFields = newFields;
+      this.newTypes = newTypes;
+    }
+
+    @JsonProperty
+    public Query<?> getQuery()
+    {
+      return query;
+    }
+
+    @JsonProperty
+    public List<String> getRowOrder()
+    {
+      return rowOrder;
+    }
+
+    @JsonProperty
+    public List<String> getNewFields()
+    {
+      return newFields;
+    }
+
+    @JsonProperty
+    public List<SqlTypeName> getNewTypes()
+    {
+      return newTypes;
+    }
+  }
+
   private final QueryLifecycleFactory queryLifecycleFactory;
   private final PlannerContext plannerContext;
   private final ObjectMapper jsonMapper;
@@ -94,10 +148,23 @@ public class NativeQueryMaker implements QueryMaker
   }
 
   @Override
+  public Object explain(DruidQuery druidQuery)
+  {
+    final Query<?> query = druidQuery.getQuery();
+    return prepare(druidQuery, query);
+  }
+
+  @Override
   public QueryResponse<Object[]> runQuery(final DruidQuery druidQuery)
   {
     final Query<?> query = druidQuery.getQuery();
+    ExecutionPlan plan = prepare(druidQuery, query);
+    return execute(query, plan);
+  }
 
+  private ExecutionPlan prepare(final DruidQuery druidQuery, Query<?> query)
+  {
+    // TODO: Move this check to plan time, not run time.
     if (plannerContext.getPlannerConfig().isRequireTimeCondition()
         && !(druidQuery.getDataSource() instanceof InlineDataSource)) {
       if (Intervals.ONLY_ETERNITY.equals(findBaseDataSourceIntervals(query))) {
@@ -158,8 +225,9 @@ public class NativeQueryMaker implements QueryMaker
                   .map(f -> f.getType().getSqlTypeName())
                   .collect(Collectors.toList());
 
-    return execute(
+    return new ExecutionPlan(
         query,
+        rowOrder,
         mapColumnList(rowOrder, fieldMapping),
         mapColumnList(columnTypes, fieldMapping)
     );
@@ -174,9 +242,11 @@ public class NativeQueryMaker implements QueryMaker
   }
 
   @SuppressWarnings("unchecked")
-  private <T> QueryResponse<Object[]> execute(Query<?> query, final List<String> newFields, final List<SqlTypeName> newTypes)
+  private <T> QueryResponse<Object[]> execute(final Query<T> originalQuery, final ExecutionPlan plan)
   {
-    Hook.QUERY_PLAN.run(query);
+    @SuppressWarnings("unchecked")
+    Query<T> query = (Query<T>) plan.query;
+    Hook.QUERY_PLAN.run(originalQuery);
 
     if (query.getId() == null) {
       final String queryId = UUID.randomUUID().toString();
@@ -202,8 +272,8 @@ public class NativeQueryMaker implements QueryMaker
         results,
         (QueryToolChest<T, Query<T>>) queryLifecycle.getToolChest(),
         (Query<T>) query,
-        newFields,
-        newTypes
+        plan.newFields,
+        plan.newTypes
     );
   }
 

@@ -1497,6 +1497,7 @@ public class IndexTask extends AbstractBatchIndexTask implements ChatHandler
 
     @JsonProperty
     @Override
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     public int getMaxRowsInMemory()
     {
       return maxRowsInMemory;
@@ -1504,6 +1505,7 @@ public class IndexTask extends AbstractBatchIndexTask implements ChatHandler
 
     @JsonProperty
     @Override
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     public long getMaxBytesInMemory()
     {
       return maxBytesInMemory;
@@ -1511,6 +1513,7 @@ public class IndexTask extends AbstractBatchIndexTask implements ChatHandler
 
     @JsonProperty
     @Override
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     public boolean isSkipBytesInMemoryOverheadCheck()
     {
       return skipBytesInMemoryOverheadCheck;
@@ -1550,6 +1553,7 @@ public class IndexTask extends AbstractBatchIndexTask implements ChatHandler
 
     @JsonProperty
     @Override
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     public int getMaxPendingPersists()
     {
       return maxPendingPersists;
@@ -1557,6 +1561,7 @@ public class IndexTask extends AbstractBatchIndexTask implements ChatHandler
 
 
     @JsonProperty
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     public boolean isForceGuaranteedRollup()
     {
       return forceGuaranteedRollup;
@@ -1564,12 +1569,14 @@ public class IndexTask extends AbstractBatchIndexTask implements ChatHandler
 
     @JsonProperty
     @Override
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     public boolean isReportParseExceptions()
     {
       return reportParseExceptions;
     }
 
     @JsonProperty
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     public long getPushTimeout()
     {
       return pushTimeout;
@@ -1578,6 +1585,7 @@ public class IndexTask extends AbstractBatchIndexTask implements ChatHandler
     @Nullable
     @Override
     @JsonProperty
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public SegmentWriteOutMediumFactory getSegmentWriteOutMediumFactory()
     {
       return segmentWriteOutMediumFactory;
@@ -1603,6 +1611,7 @@ public class IndexTask extends AbstractBatchIndexTask implements ChatHandler
     }
 
     @JsonProperty
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     public int getMaxSavedParseExceptions()
     {
       return maxSavedParseExceptions;
@@ -1629,6 +1638,7 @@ public class IndexTask extends AbstractBatchIndexTask implements ChatHandler
     @Nullable
     @Deprecated
     @JsonProperty
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public Long getMaxTotalRows()
     {
       return partitionsSpec instanceof DynamicPartitionsSpec
@@ -1639,6 +1649,7 @@ public class IndexTask extends AbstractBatchIndexTask implements ChatHandler
     @Deprecated
     @Nullable
     @JsonProperty
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public Integer getNumShards()
     {
       return partitionsSpec instanceof HashedPartitionsSpec
@@ -1648,6 +1659,7 @@ public class IndexTask extends AbstractBatchIndexTask implements ChatHandler
 
     @Deprecated
     @JsonProperty
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     public List<String> getPartitionDimensions()
     {
       return partitionsSpec instanceof HashedPartitionsSpec
@@ -1668,6 +1680,7 @@ public class IndexTask extends AbstractBatchIndexTask implements ChatHandler
     }
 
     @JsonProperty
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     public long getAwaitSegmentAvailabilityTimeoutMillis()
     {
       return awaitSegmentAvailabilityTimeoutMillis;

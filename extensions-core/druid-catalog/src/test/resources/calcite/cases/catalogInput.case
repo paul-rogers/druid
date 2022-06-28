@@ -1,0 +1,355 @@
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+==============================================================
+Test cases related to Druid catalog input tables.
+
+==============================================================
+Converted from CalciteInsertDmlTest.testInsertFromExternal()
+=== case
+INSERT from external
+=== SQL
+INSERT INTO dst SELECT *
+FROM TABLE(extern(
+   '{
+     "type": "inline",
+     "data": "a,b,1\nc,d,2\n"
+    }',
+	'{
+	  "type": "csv",
+	  "columns": ["x","y","z"],
+	  "listDelimiter": null,
+	  "findColumnsFromHeader": false,
+	  "skipHeaderRows": 0
+	 }',
+	 '[
+	   {"name": "x", "type": "STRING"},
+	   {"name": "y", "type": "STRING"},
+	   {"name": "z", "type": "LONG"}
+	 ]'
+))
+PARTITIONED BY ALL TIME
+=== unparsed
+INSERT INTO `dst`
+(SELECT `EXPR$0`.`x`, `EXPR$0`.`y`, `EXPR$0`.`z`
+FROM TABLE(`EXTERN`('{
+     "type": "inline",
+     "data": "a,b,1\nc,d,2\n"
+    }', u&'{\000a\0009  "type": "csv",\000a\0009  "columns": ["x","y","z"],\000a\0009  "listDelimiter": null,\000a\0009  "findColumnsFromHeader": false,\000a\0009  "skipHeaderRows": 0\000a\0009 }', u&'[\000a\0009   {"name": "x", "type": "STRING"},\000a\0009   {"name": "y", "type": "STRING"},\000a\0009   {"name": "z", "type": "LONG"}\000a\0009 ]')) AS `EXPR$0`)
+PARTITIONED BY ALL TIME
+=== schema
+TASK VARCHAR
+=== targetSchema
+x VARCHAR
+y VARCHAR
+z BIGINT
+=== resources
+DATASOURCE/dst/WRITE
+EXTERNAL/EXTERNAL/READ
+=== plan
+LogicalInsert(target=[dst], granularity=[AllGranularity])
+  LogicalProject(x=[$0], y=[$1], z=[$2])
+    ExternalTableScan(dataSource=[{"type":"external","inputSource":{"type":"inline","data":"a,b,1\nc,d,2\n"},"inputFormat":{"type":"csv","columns":["x","y","z"],"listDelimiter":null,"findColumnsFromHeader":false,"skipHeaderRows":0},"signature":[{"name":"x","type":"STRING"},{"name":"y","type":"STRING"},{"name":"z","type":"LONG"}]}])
+=== native
+{
+  "queryType" : "scan",
+  "dataSource" : {
+    "type" : "external",
+    "inputSource" : {
+      "type" : "inline",
+      "data" : "a,b,1\nc,d,2\n"
+    },
+    "inputFormat" : {
+      "type" : "csv",
+      "columns" : [ "x", "y", "z" ],
+      "listDelimiter" : null,
+      "findColumnsFromHeader" : false,
+      "skipHeaderRows" : 0
+    },
+    "signature" : [ {
+      "name" : "x",
+      "type" : "STRING"
+    }, {
+      "name" : "y",
+      "type" : "STRING"
+    }, {
+      "name" : "z",
+      "type" : "LONG"
+    } ]
+  },
+  "intervals" : {
+    "type" : "intervals",
+    "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+  },
+  "resultFormat" : "compactedList",
+  "columns" : [ "x", "y", "z" ],
+  "legacy" : false,
+  "context" : {
+    "maxParseExceptions" : 0,
+    "msqSignature" : "[{\"name\":\"x\",\"type\":\"STRING\"},{\"name\":\"y\",\"type\":\"STRING\"},{\"name\":\"z\",\"type\":\"LONG\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "{\"type\":\"all\"}",
+    "sqlQueryId" : "dummyId"
+  },
+  "granularity" : {
+    "type" : "all"
+  }
+}
+==============================================================
+As above, but with enhanced EXTERNAL syntax
+=== case
+INSERT from external ex
+=== SQL
+INSERT INTO dst
+SELECT *
+FROM TABLE(staged(
+   source => 'inline',
+   format => 'csv',
+   data => 'a,b,1
+c,d,2
+'
+  ))
+  EXTEND (x VARCHAR, y VARCHAR, z BIGINT)
+PARTITIONED BY ALL TIME
+=== unparsed
+INSERT INTO `dst`
+(SELECT `EXPR$0`.`x`, `EXPR$0`.`y`, `EXPR$0`.`z`
+FROM TABLE(`STAGED`(`source` => 'inline', `format` => 'csv', `data` => 'a,b,1
+c,d,2
+') EXTEND (`x`, VARCHAR, `y`, VARCHAR, `z`, BIGINT)) AS `EXPR$0`)
+PARTITIONED BY ALL TIME
+=== schema copy
+=== targetSchema copy
+=== resources copy
+=== plan copy
+=== native copy
+==============================================================
+As above, but without explicit EXTEND
+
+=== case
+INSERT from external ex
+=== SQL
+INSERT INTO dst
+SELECT *
+FROM TABLE(staged(
+   source => 'inline',
+   format => 'csv',
+   data => 'a,b,1
+c,d,2
+'
+  ))
+  (x VARCHAR, y VARCHAR, z BIGINT)
+PARTITIONED BY ALL TIME
+=== unparsed
+INSERT INTO `dst`
+(SELECT `EXPR$0`.`x`, `EXPR$0`.`y`, `EXPR$0`.`z`
+FROM TABLE(`STAGED`(`source` => 'inline', `format` => 'csv', `data` => 'a,b,1
+c,d,2
+') EXTEND (`x`, VARCHAR, `y`, VARCHAR, `z`, BIGINT)) AS `EXPR$0`)
+PARTITIONED BY ALL TIME
+=== schema copy
+=== targetSchema copy
+=== resources copy
+=== plan copy
+=== native copy
+==============================================================
+As above, but with explicit column names
+
+=== case
+INSERT from external ex
+=== SQL
+INSERT INTO dst
+SELECT myTable.x, myTable.y, myTable.z
+FROM TABLE(staged(
+   source => 'inline',
+   format => 'csv',
+   data => 'a,b,1
+c,d,2
+'
+  ))
+  (x VARCHAR, y VARCHAR, z BIGINT)
+  AS myTable
+PARTITIONED BY ALL TIME
+=== unparsed
+INSERT INTO `dst`
+(SELECT `myTable`.`x`, `myTable`.`y`, `myTable`.`z`
+FROM TABLE(`STAGED`(`source` => 'inline', `format` => 'csv', `data` => 'a,b,1
+c,d,2
+') EXTEND (`x`, VARCHAR, `y`, VARCHAR, `z`, BIGINT)) AS `myTable`)
+PARTITIONED BY ALL TIME
+=== schema copy
+=== targetSchema copy
+=== resources copy
+=== plan copy
+=== native copy
+==============================================================
+As above, with NOT NULL, which is ignored.
+
+=== case
+INSERT from external ex
+=== SQL
+INSERT INTO dst
+SELECT *
+FROM TABLE(staged(
+   source => 'inline',
+   format => 'csv',
+   data => 'a,b,1
+c,d,2
+'
+  ))
+  (x VARCHAR NOT NULL, y VARCHAR NOT NULL, z BIGINT NOT NULL)
+PARTITIONED BY ALL TIME
+=== unparsed
+INSERT INTO `dst`
+(SELECT `EXPR$0`.`x`, `EXPR$0`.`y`, `EXPR$0`.`z`
+FROM TABLE(`STAGED`(`source` => 'inline', `format` => 'csv', `data` => 'a,b,1
+c,d,2
+') EXTEND (`x`, VARCHAR, `y`, VARCHAR, `z`, BIGINT)) AS `EXPR$0`)
+PARTITIONED BY ALL TIME
+=== schema copy
+=== targetSchema copy
+=== resources copy
+=== plan copy
+=== native copy
+==============================================================
+Inline input source defined in the catalog.
+Most sections are copies of the above because the catalog
+input table expands to the same input definition as above.
+That is, in fact, what we're trying to test.
+
+=== case
+INSERT from external
+=== SQL
+INSERT INTO dst SELECT *
+FROM "input"."inline"
+PARTITIONED BY ALL TIME
+=== unparsed
+INSERT INTO `dst`
+(SELECT `inline`.`x`, `inline`.`y`, `inline`.`z`
+FROM `input`.`inline` AS `inline`)
+PARTITIONED BY ALL TIME
+=== schema copy
+=== targetSchema copy
+=== resources
+DATASOURCE/dst/WRITE
+INPUT/inline/READ
+=== plan copy
+=== native copy
+==============================================================
+Inline input source defined in the catalog, parameterized
+with query-specific properties (in this case, data.)
+
+=== case
+INSERT from external
+=== SQL
+INSERT INTO dst SELECT *
+FROM TABLE("input"."inline"(data => 'e,f,3
+g,h,4
+'))
+PARTITIONED BY ALL TIME
+=== unparsed
+INSERT INTO `dst`
+(SELECT `EXPR$0`.`x`, `EXPR$0`.`y`, `EXPR$0`.`z`
+FROM TABLE(`input`.`inline`(`data` => 'e,f,3
+g,h,4
+')) AS `EXPR$0`)
+PARTITIONED BY ALL TIME
+=== schema
+TASK VARCHAR
+=== targetSchema
+x VARCHAR
+y VARCHAR
+z BIGINT
+=== resources
+DATASOURCE/dst/WRITE
+INPUT/inline/READ
+=== plan
+LogicalInsert(target=[dst], granularity=[AllGranularity])
+  LogicalProject(x=[$0], y=[$1], z=[$2])
+    ExternalTableScan(dataSource=[{"type":"external","inputSource":{"type":"inline","data":"e,f,3\ng,h,4\n"},"inputFormat":{"type":"csv","columns":["x","y","z"],"listDelimiter":null,"findColumnsFromHeader":false,"skipHeaderRows":0},"signature":[{"name":"x","type":"STRING"},{"name":"y","type":"STRING"},{"name":"z","type":"LONG"}]}])
+=== native
+{
+  "queryType" : "scan",
+  "dataSource" : {
+    "type" : "external",
+    "inputSource" : {
+      "type" : "inline",
+      "data" : "e,f,3\ng,h,4\n"
+    },
+    "inputFormat" : {
+      "type" : "csv",
+      "columns" : [ "x", "y", "z" ],
+      "listDelimiter" : null,
+      "findColumnsFromHeader" : false,
+      "skipHeaderRows" : 0
+    },
+    "signature" : [ {
+      "name" : "x",
+      "type" : "STRING"
+    }, {
+      "name" : "y",
+      "type" : "STRING"
+    }, {
+      "name" : "z",
+      "type" : "LONG"
+    } ]
+  },
+  "intervals" : {
+    "type" : "intervals",
+    "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+  },
+  "resultFormat" : "compactedList",
+  "columns" : [ "x", "y", "z" ],
+  "legacy" : false,
+  "context" : {
+    "maxParseExceptions" : 0,
+    "msqSignature" : "[{\"name\":\"x\",\"type\":\"STRING\"},{\"name\":\"y\",\"type\":\"STRING\"},{\"name\":\"z\",\"type\":\"LONG\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "{\"type\":\"all\"}",
+    "sqlQueryId" : "dummyId"
+  },
+  "granularity" : {
+    "type" : "all"
+  }
+}
+==============================================================
+Example HTTP input source test case
+
+=== case
+Example HTTP input
+=== SQL
+REPLACE INTO "kttm1" OVERWRITE ALL
+SELECT
+  TIME_PARSE("timestamp") AS __time,
+  session,
+  agent_category,
+  agent_type,
+  browser,
+  browser_version,
+  "language",
+  os,
+  city,
+  country,
+  forwarded_for AS ip_address
+FROM TABLE("input"."kttm_data"(uri => 'https://static.imply.io/data/kttm/kttm-v2-2019-08-25.json.gz'))
+PARTITIONED BY ALL TIME
+=== unparsed
+=== schema
+TASK VARCHAR
+=== targetSchema
+=== resources
+=== plan
+=== native

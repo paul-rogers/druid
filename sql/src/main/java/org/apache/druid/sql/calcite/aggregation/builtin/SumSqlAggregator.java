@@ -33,6 +33,7 @@ import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.util.Optionality;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.aggregation.AggregatorFactory;
+import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.FloatSumAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
@@ -41,6 +42,10 @@ import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.sql.calcite.aggregation.Aggregation;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.UnsupportedSQLQueryException;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class SumSqlAggregator extends SimpleSqlAggregator
 {
@@ -71,6 +76,16 @@ public class SumSqlAggregator extends SimpleSqlAggregator
       return null;
     }
     return Aggregation.create(createSumAggregatorFactory(valueType.getType(), name, fieldName, macroTable));
+  }
+
+  @Override
+  public List<Class<? extends AggregatorFactory>> factories() {
+    return Arrays.asList(
+        LongSumAggregatorFactory.class,
+        FloatSumAggregatorFactory.class,
+        DoubleSumAggregatorFactory.class,
+        CountAggregatorFactory.class
+    );
   }
 
   static AggregatorFactory createSumAggregatorFactory(

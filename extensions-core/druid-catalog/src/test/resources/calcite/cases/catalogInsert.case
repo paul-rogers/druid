@@ -1,0 +1,1143 @@
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+==============================================================
+Test cases for the catalog feature, for the INSERT statement.
+
+==============================================================
+Verify error if PARTITIONED BY clause is missing
+=== case
+INSERT with unnamed column in nested SELECT statement
+=== SQL
+INSERT INTO dst
+SELECT *
+FROM foo
+=== exception
+ValidationException
+=== error
+INSERT statements must specify PARTITIONED BY clause explicitly
+==============================================================
+Converted from CalciteInsertDmlTest.testInsertFromTable()
+=== case
+INSERT from table
+=== SQL
+INSERT INTO dst
+SELECT *
+FROM foo
+PARTITIONED BY ALL TIME
+=== unparsed
+INSERT INTO `dst`
+(SELECT `foo`.`__time`, `foo`.`dim1`, `foo`.`dim2`, `foo`.`dim3`, `foo`.`cnt`, `foo`.`m1`, `foo`.`m2`, `foo`.`unique_dim1`
+FROM `druid`.`foo` AS `foo`)
+PARTITIONED BY ALL TIME
+=== schema
+TASK VARCHAR
+=== targetSchema
+__time TIMESTAMP(3)
+dim1 VARCHAR
+dim2 VARCHAR
+dim3 VARCHAR
+cnt BIGINT
+m1 FLOAT
+m2 DOUBLE
+unique_dim1 COMPLEX<hyperUnique>
+=== resources
+DATASOURCE/dst/WRITE
+DATASOURCE/foo/READ
+=== plan
+LogicalInsert(target=[dst], granularity=[AllGranularity])
+  LogicalProject(__time=[$0], dim1=[$1], dim2=[$2], dim3=[$3], cnt=[$4], m1=[$5], m2=[$6], unique_dim1=[$7])
+    LogicalTableScan(table=[[druid, foo]])
+=== native
+{
+  "queryType" : "scan",
+  "dataSource" : {
+    "type" : "table",
+    "name" : "foo"
+  },
+  "intervals" : {
+    "type" : "intervals",
+    "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+  },
+  "resultFormat" : "compactedList",
+  "columns" : [ "__time", "cnt", "dim1", "dim2", "dim3", "m1", "m2", "unique_dim1" ],
+  "legacy" : false,
+  "context" : {
+    "maxParseExceptions" : 0,
+    "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"cnt\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"dim2\",\"type\":\"STRING\"},{\"name\":\"dim3\",\"type\":\"STRING\"},{\"name\":\"m1\",\"type\":\"FLOAT\"},{\"name\":\"m2\",\"type\":\"DOUBLE\"},{\"name\":\"unique_dim1\",\"type\":\"COMPLEX<hyperUnique>\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "{\"type\":\"all\"}",
+    "sqlQueryId" : "dummyId"
+  },
+  "granularity" : {
+    "type" : "all"
+  }
+}
+=== execPlan
+{
+  "type" : "query_controller",
+  "id" : "query-dummyId",
+  "spec" : {
+    "query" : {
+      "queryType" : "scan",
+      "dataSource" : {
+        "type" : "table",
+        "name" : "foo"
+      },
+      "intervals" : {
+        "type" : "intervals",
+        "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+      },
+      "resultFormat" : "compactedList",
+      "columns" : [ "__time", "cnt", "dim1", "dim2", "dim3", "m1", "m2", "unique_dim1" ],
+      "legacy" : false,
+      "context" : {
+        "finalize" : true,
+        "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"cnt\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"dim2\",\"type\":\"STRING\"},{\"name\":\"dim3\",\"type\":\"STRING\"},{\"name\":\"m1\",\"type\":\"FLOAT\"},{\"name\":\"m2\",\"type\":\"DOUBLE\"},{\"name\":\"unique_dim1\",\"type\":\"COMPLEX<hyperUnique>\"}]",
+        "msqTimeColumn" : "__time",
+        "multiStageQuery" : true,
+        "sqlInsertSegmentGranularity" : "{\"type\":\"all\"}",
+        "sqlQueryId" : "dummyId"
+      },
+      "granularity" : {
+        "type" : "all"
+      }
+    },
+    "columnMappings" : [ {
+      "queryColumn" : "__time",
+      "outputColumn" : "__time"
+    }, {
+      "queryColumn" : "dim1",
+      "outputColumn" : "dim1"
+    }, {
+      "queryColumn" : "dim2",
+      "outputColumn" : "dim2"
+    }, {
+      "queryColumn" : "dim3",
+      "outputColumn" : "dim3"
+    }, {
+      "queryColumn" : "cnt",
+      "outputColumn" : "cnt"
+    }, {
+      "queryColumn" : "m1",
+      "outputColumn" : "m1"
+    }, {
+      "queryColumn" : "m2",
+      "outputColumn" : "m2"
+    }, {
+      "queryColumn" : "unique_dim1",
+      "outputColumn" : "unique_dim1"
+    } ],
+    "destination" : {
+      "type" : "dataSource",
+      "dataSource" : "dst",
+      "segmentGranularity" : {
+        "type" : "all"
+      }
+    },
+    "assignmentStrategy" : "max",
+    "tuningConfig" : {
+      "type" : "index_parallel",
+      "maxRowsPerSegment" : 3000000,
+      "appendableIndexSpec" : {
+        "type" : "onheap",
+        "preserveExistingMetrics" : false
+      },
+      "maxRowsInMemory" : 100000,
+      "partitionsSpec" : {
+        "type" : "dynamic",
+        "maxRowsPerSegment" : 3000000,
+        "maxTotalRows" : null
+      },
+      "indexSpec" : {
+        "bitmap" : {
+          "type" : "roaring",
+          "compressRunOnSerialization" : true
+        },
+        "dimensionCompression" : "lz4",
+        "metricCompression" : "lz4",
+        "longEncoding" : "longs"
+      },
+      "indexSpecForIntermediatePersists" : {
+        "bitmap" : {
+          "type" : "roaring",
+          "compressRunOnSerialization" : true
+        },
+        "dimensionCompression" : "lz4",
+        "metricCompression" : "lz4",
+        "longEncoding" : "longs"
+      },
+      "maxNumConcurrentSubTasks" : 1,
+      "maxRetry" : 1,
+      "taskStatusCheckPeriodMs" : 1000,
+      "chatHandlerTimeout" : "PT10S",
+      "chatHandlerNumRetries" : 5,
+      "maxNumSegmentsToMerge" : 100,
+      "totalNumMergeTasks" : 10,
+      "logParseExceptions" : false,
+      "maxParseExceptions" : 2147483647,
+      "maxColumnsToMerge" : -1,
+      "maxAllowedLockCount" : -1
+    }
+  },
+  "sqlQuery" : "INSERT INTO dst\nSELECT *\nFROM foo\nPARTITIONED BY ALL TIME",
+  "sqlQueryContext" : {
+    "maxParseExceptions" : 0,
+    "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"cnt\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"dim2\",\"type\":\"STRING\"},{\"name\":\"dim3\",\"type\":\"STRING\"},{\"name\":\"m1\",\"type\":\"FLOAT\"},{\"name\":\"m2\",\"type\":\"DOUBLE\"},{\"name\":\"unique_dim1\",\"type\":\"COMPLEX<hyperUnique>\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "{\"type\":\"all\"}",
+    "sqlQueryId" : "dummyId"
+  },
+  "sqlTypeNames" : [ "TIMESTAMP", "VARCHAR", "VARCHAR", "VARCHAR", "BIGINT", "FLOAT", "DOUBLE", "OTHER" ],
+  "context" : {
+    "forceTimeChunkLock" : true
+  },
+  "groupId" : "query-dummyId",
+  "dataSource" : "dst",
+  "resource" : {
+    "availabilityGroup" : "query-dummyId",
+    "requiredCapacity" : 1
+  }
+}
+==============================================================
+Similar, but segment granularity read from catalog
+=== case
+INSERT from table
+=== SQL
+INSERT INTO allDs
+SELECT *
+FROM foo
+=== unparsed
+INSERT INTO `allDs`
+(SELECT `foo`.`__time`, `foo`.`dim1`, `foo`.`dim2`, `foo`.`dim3`, `foo`.`cnt`, `foo`.`m1`, `foo`.`m2`, `foo`.`unique_dim1`
+FROM `druid`.`foo` AS `foo`)
+PARTITIONED BY ALL
+=== schema copy
+=== targetSchema copy
+=== resources
+DATASOURCE/allDs/WRITE
+DATASOURCE/foo/READ
+=== plan
+LogicalInsert(target=[allDs], granularity=[AllGranularity])
+  LogicalProject(__time=[$0], dim1=[$1], dim2=[$2], dim3=[$3], cnt=[$4], m1=[$5], m2=[$6], unique_dim1=[$7])
+    LogicalTableScan(table=[[druid, foo]])
+=== native
+{
+  "queryType" : "scan",
+  "dataSource" : {
+    "type" : "table",
+    "name" : "foo"
+  },
+  "intervals" : {
+    "type" : "intervals",
+    "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+  },
+  "resultFormat" : "compactedList",
+  "columns" : [ "__time", "cnt", "dim1", "dim2", "dim3", "m1", "m2", "unique_dim1" ],
+  "legacy" : false,
+  "context" : {
+    "maxParseExceptions" : 0,
+    "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"cnt\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"dim2\",\"type\":\"STRING\"},{\"name\":\"dim3\",\"type\":\"STRING\"},{\"name\":\"m1\",\"type\":\"FLOAT\"},{\"name\":\"m2\",\"type\":\"DOUBLE\"},{\"name\":\"unique_dim1\",\"type\":\"COMPLEX<hyperUnique>\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "{\"type\":\"all\"}",
+    "sqlQueryId" : "dummyId"
+  },
+  "granularity" : {
+    "type" : "all"
+  }
+}
+=== execPlan
+{
+  "type" : "query_controller",
+  "id" : "query-dummyId",
+  "spec" : {
+    "query" : {
+      "queryType" : "scan",
+      "dataSource" : {
+        "type" : "table",
+        "name" : "foo"
+      },
+      "intervals" : {
+        "type" : "intervals",
+        "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+      },
+      "resultFormat" : "compactedList",
+      "columns" : [ "__time", "cnt", "dim1", "dim2", "dim3", "m1", "m2", "unique_dim1" ],
+      "legacy" : false,
+      "context" : {
+        "finalize" : true,
+        "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"cnt\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"dim2\",\"type\":\"STRING\"},{\"name\":\"dim3\",\"type\":\"STRING\"},{\"name\":\"m1\",\"type\":\"FLOAT\"},{\"name\":\"m2\",\"type\":\"DOUBLE\"},{\"name\":\"unique_dim1\",\"type\":\"COMPLEX<hyperUnique>\"}]",
+        "msqTimeColumn" : "__time",
+        "multiStageQuery" : true,
+        "sqlInsertSegmentGranularity" : "{\"type\":\"all\"}",
+        "sqlQueryId" : "dummyId"
+      },
+      "granularity" : {
+        "type" : "all"
+      }
+    },
+    "columnMappings" : [ {
+      "queryColumn" : "__time",
+      "outputColumn" : "__time"
+    }, {
+      "queryColumn" : "dim1",
+      "outputColumn" : "dim1"
+    }, {
+      "queryColumn" : "dim2",
+      "outputColumn" : "dim2"
+    }, {
+      "queryColumn" : "dim3",
+      "outputColumn" : "dim3"
+    }, {
+      "queryColumn" : "cnt",
+      "outputColumn" : "cnt"
+    }, {
+      "queryColumn" : "m1",
+      "outputColumn" : "m1"
+    }, {
+      "queryColumn" : "m2",
+      "outputColumn" : "m2"
+    }, {
+      "queryColumn" : "unique_dim1",
+      "outputColumn" : "unique_dim1"
+    } ],
+    "destination" : {
+      "type" : "dataSource",
+      "dataSource" : "allDs",
+      "segmentGranularity" : {
+        "type" : "all"
+      }
+    },
+    "assignmentStrategy" : "max",
+    "tuningConfig" : {
+      "type" : "index_parallel",
+      "maxRowsPerSegment" : 3000000,
+      "appendableIndexSpec" : {
+        "type" : "onheap",
+        "preserveExistingMetrics" : false
+      },
+      "maxRowsInMemory" : 100000,
+      "partitionsSpec" : {
+        "type" : "dynamic",
+        "maxRowsPerSegment" : 3000000,
+        "maxTotalRows" : null
+      },
+      "indexSpec" : {
+        "bitmap" : {
+          "type" : "roaring",
+          "compressRunOnSerialization" : true
+        },
+        "dimensionCompression" : "lz4",
+        "metricCompression" : "lz4",
+        "longEncoding" : "longs"
+      },
+      "indexSpecForIntermediatePersists" : {
+        "bitmap" : {
+          "type" : "roaring",
+          "compressRunOnSerialization" : true
+        },
+        "dimensionCompression" : "lz4",
+        "metricCompression" : "lz4",
+        "longEncoding" : "longs"
+      },
+      "maxNumConcurrentSubTasks" : 1,
+      "maxRetry" : 1,
+      "taskStatusCheckPeriodMs" : 1000,
+      "chatHandlerTimeout" : "PT10S",
+      "chatHandlerNumRetries" : 5,
+      "maxNumSegmentsToMerge" : 100,
+      "totalNumMergeTasks" : 10,
+      "logParseExceptions" : false,
+      "maxParseExceptions" : 2147483647,
+      "maxColumnsToMerge" : -1,
+      "maxAllowedLockCount" : -1
+    }
+  },
+  "sqlQuery" : "INSERT INTO allDs\nSELECT *\nFROM foo",
+  "sqlQueryContext" : {
+    "maxParseExceptions" : 0,
+    "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"cnt\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"dim2\",\"type\":\"STRING\"},{\"name\":\"dim3\",\"type\":\"STRING\"},{\"name\":\"m1\",\"type\":\"FLOAT\"},{\"name\":\"m2\",\"type\":\"DOUBLE\"},{\"name\":\"unique_dim1\",\"type\":\"COMPLEX<hyperUnique>\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "{\"type\":\"all\"}",
+    "sqlQueryId" : "dummyId"
+  },
+  "sqlTypeNames" : [ "TIMESTAMP", "VARCHAR", "VARCHAR", "VARCHAR", "BIGINT", "FLOAT", "DOUBLE", "OTHER" ],
+  "context" : {
+    "forceTimeChunkLock" : true
+  },
+  "groupId" : "query-dummyId",
+  "dataSource" : "allDs",
+  "resource" : {
+    "availabilityGroup" : "query-dummyId",
+    "requiredCapacity" : 1
+  }
+}
+==============================================================
+Similar, with hour granularity, expressed as "hour"
+=== case
+INSERT from table
+=== SQL
+INSERT INTO hourDs
+SELECT *
+FROM foo
+=== unparsed
+INSERT INTO `hourDs`
+(SELECT `foo`.`__time`, `foo`.`dim1`, `foo`.`dim2`, `foo`.`dim3`, `foo`.`cnt`, `foo`.`m1`, `foo`.`m2`, `foo`.`unique_dim1`
+FROM `druid`.`foo` AS `foo`)
+PARTITIONED BY HOUR
+=== schema
+TASK VARCHAR
+=== targetSchema copy
+=== resources
+DATASOURCE/foo/READ
+DATASOURCE/hourDs/WRITE
+=== plan
+LogicalInsert(target=[hourDs], granularity=[{type=period, period=PT1H, timeZone=UTC, origin=null}])
+  LogicalProject(__time=[$0], dim1=[$1], dim2=[$2], dim3=[$3], cnt=[$4], m1=[$5], m2=[$6], unique_dim1=[$7])
+    LogicalTableScan(table=[[druid, foo]])
+=== native
+{
+  "queryType" : "scan",
+  "dataSource" : {
+    "type" : "table",
+    "name" : "foo"
+  },
+  "intervals" : {
+    "type" : "intervals",
+    "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+  },
+  "resultFormat" : "compactedList",
+  "columns" : [ "__time", "cnt", "dim1", "dim2", "dim3", "m1", "m2", "unique_dim1" ],
+  "legacy" : false,
+  "context" : {
+    "maxParseExceptions" : 0,
+    "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"cnt\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"dim2\",\"type\":\"STRING\"},{\"name\":\"dim3\",\"type\":\"STRING\"},{\"name\":\"m1\",\"type\":\"FLOAT\"},{\"name\":\"m2\",\"type\":\"DOUBLE\"},{\"name\":\"unique_dim1\",\"type\":\"COMPLEX<hyperUnique>\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "\"HOUR\"",
+    "sqlQueryId" : "dummyId"
+  },
+  "granularity" : {
+    "type" : "all"
+  }
+}
+=== execPlan
+{
+  "type" : "query_controller",
+  "id" : "query-dummyId",
+  "spec" : {
+    "query" : {
+      "queryType" : "scan",
+      "dataSource" : {
+        "type" : "table",
+        "name" : "foo"
+      },
+      "intervals" : {
+        "type" : "intervals",
+        "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+      },
+      "resultFormat" : "compactedList",
+      "columns" : [ "__time", "cnt", "dim1", "dim2", "dim3", "m1", "m2", "unique_dim1" ],
+      "legacy" : false,
+      "context" : {
+        "finalize" : true,
+        "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"cnt\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"dim2\",\"type\":\"STRING\"},{\"name\":\"dim3\",\"type\":\"STRING\"},{\"name\":\"m1\",\"type\":\"FLOAT\"},{\"name\":\"m2\",\"type\":\"DOUBLE\"},{\"name\":\"unique_dim1\",\"type\":\"COMPLEX<hyperUnique>\"}]",
+        "msqTimeColumn" : "__time",
+        "multiStageQuery" : true,
+        "sqlInsertSegmentGranularity" : "\"HOUR\"",
+        "sqlQueryId" : "dummyId"
+      },
+      "granularity" : {
+        "type" : "all"
+      }
+    },
+    "columnMappings" : [ {
+      "queryColumn" : "__time",
+      "outputColumn" : "__time"
+    }, {
+      "queryColumn" : "dim1",
+      "outputColumn" : "dim1"
+    }, {
+      "queryColumn" : "dim2",
+      "outputColumn" : "dim2"
+    }, {
+      "queryColumn" : "dim3",
+      "outputColumn" : "dim3"
+    }, {
+      "queryColumn" : "cnt",
+      "outputColumn" : "cnt"
+    }, {
+      "queryColumn" : "m1",
+      "outputColumn" : "m1"
+    }, {
+      "queryColumn" : "m2",
+      "outputColumn" : "m2"
+    }, {
+      "queryColumn" : "unique_dim1",
+      "outputColumn" : "unique_dim1"
+    } ],
+    "destination" : {
+      "type" : "dataSource",
+      "dataSource" : "hourDs",
+      "segmentGranularity" : "HOUR"
+    },
+    "assignmentStrategy" : "max",
+    "tuningConfig" : {
+      "type" : "index_parallel",
+      "maxRowsPerSegment" : 3000000,
+      "appendableIndexSpec" : {
+        "type" : "onheap",
+        "preserveExistingMetrics" : false
+      },
+      "maxRowsInMemory" : 100000,
+      "partitionsSpec" : {
+        "type" : "dynamic",
+        "maxRowsPerSegment" : 3000000,
+        "maxTotalRows" : null
+      },
+      "indexSpec" : {
+        "bitmap" : {
+          "type" : "roaring",
+          "compressRunOnSerialization" : true
+        },
+        "dimensionCompression" : "lz4",
+        "metricCompression" : "lz4",
+        "longEncoding" : "longs"
+      },
+      "indexSpecForIntermediatePersists" : {
+        "bitmap" : {
+          "type" : "roaring",
+          "compressRunOnSerialization" : true
+        },
+        "dimensionCompression" : "lz4",
+        "metricCompression" : "lz4",
+        "longEncoding" : "longs"
+      },
+      "maxNumConcurrentSubTasks" : 1,
+      "maxRetry" : 1,
+      "taskStatusCheckPeriodMs" : 1000,
+      "chatHandlerTimeout" : "PT10S",
+      "chatHandlerNumRetries" : 5,
+      "maxNumSegmentsToMerge" : 100,
+      "totalNumMergeTasks" : 10,
+      "logParseExceptions" : false,
+      "maxParseExceptions" : 2147483647,
+      "maxColumnsToMerge" : -1,
+      "maxAllowedLockCount" : -1
+    }
+  },
+  "sqlQuery" : "INSERT INTO hourDs\nSELECT *\nFROM foo",
+  "sqlQueryContext" : {
+    "maxParseExceptions" : 0,
+    "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"cnt\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"dim2\",\"type\":\"STRING\"},{\"name\":\"dim3\",\"type\":\"STRING\"},{\"name\":\"m1\",\"type\":\"FLOAT\"},{\"name\":\"m2\",\"type\":\"DOUBLE\"},{\"name\":\"unique_dim1\",\"type\":\"COMPLEX<hyperUnique>\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "\"HOUR\"",
+    "sqlQueryId" : "dummyId"
+  },
+  "sqlTypeNames" : [ "TIMESTAMP", "VARCHAR", "VARCHAR", "VARCHAR", "BIGINT", "FLOAT", "DOUBLE", "OTHER" ],
+  "context" : {
+    "forceTimeChunkLock" : true
+  },
+  "groupId" : "query-dummyId",
+  "dataSource" : "hourDs",
+  "resource" : {
+    "availabilityGroup" : "query-dummyId",
+    "requiredCapacity" : 1
+  }
+}
+==============================================================
+Similar, with 5-min granularity, expressed as "PT5M"
+=== case
+INSERT from table
+=== SQL
+INSERT INTO fiveMinDs
+SELECT *
+FROM foo
+=== unparsed
+INSERT INTO `fiveMinDs`
+(SELECT `foo`.`__time`, `foo`.`dim1`, `foo`.`dim2`, `foo`.`dim3`, `foo`.`cnt`, `foo`.`m1`, `foo`.`m2`, `foo`.`unique_dim1`
+FROM `druid`.`foo` AS `foo`)
+PARTITIONED BY PT5M
+=== schema
+TASK VARCHAR
+=== targetSchema copy
+=== resources
+DATASOURCE/fiveMinDs/WRITE
+DATASOURCE/foo/READ
+=== plan
+LogicalInsert(target=[fiveMinDs], granularity=[{type=period, period=PT5M, timeZone=UTC, origin=null}])
+  LogicalProject(__time=[$0], dim1=[$1], dim2=[$2], dim3=[$3], cnt=[$4], m1=[$5], m2=[$6], unique_dim1=[$7])
+    LogicalTableScan(table=[[druid, foo]])
+=== native
+{
+  "queryType" : "scan",
+  "dataSource" : {
+    "type" : "table",
+    "name" : "foo"
+  },
+  "intervals" : {
+    "type" : "intervals",
+    "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+  },
+  "resultFormat" : "compactedList",
+  "columns" : [ "__time", "cnt", "dim1", "dim2", "dim3", "m1", "m2", "unique_dim1" ],
+  "legacy" : false,
+  "context" : {
+    "maxParseExceptions" : 0,
+    "msqRowsPerSegment" : 5432198,
+    "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"cnt\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"dim2\",\"type\":\"STRING\"},{\"name\":\"dim3\",\"type\":\"STRING\"},{\"name\":\"m1\",\"type\":\"FLOAT\"},{\"name\":\"m2\",\"type\":\"DOUBLE\"},{\"name\":\"unique_dim1\",\"type\":\"COMPLEX<hyperUnique>\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "\"FIVE_MINUTE\"",
+    "sqlQueryId" : "dummyId"
+  },
+  "granularity" : {
+    "type" : "all"
+  }
+}
+=== execPlan
+{
+  "type" : "query_controller",
+  "id" : "query-dummyId",
+  "spec" : {
+    "query" : {
+      "queryType" : "scan",
+      "dataSource" : {
+        "type" : "table",
+        "name" : "foo"
+      },
+      "intervals" : {
+        "type" : "intervals",
+        "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+      },
+      "resultFormat" : "compactedList",
+      "columns" : [ "__time", "cnt", "dim1", "dim2", "dim3", "m1", "m2", "unique_dim1" ],
+      "legacy" : false,
+      "context" : {
+        "finalize" : true,
+        "msqRowsPerSegment" : 5432198,
+        "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"cnt\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"dim2\",\"type\":\"STRING\"},{\"name\":\"dim3\",\"type\":\"STRING\"},{\"name\":\"m1\",\"type\":\"FLOAT\"},{\"name\":\"m2\",\"type\":\"DOUBLE\"},{\"name\":\"unique_dim1\",\"type\":\"COMPLEX<hyperUnique>\"}]",
+        "msqTimeColumn" : "__time",
+        "multiStageQuery" : true,
+        "sqlInsertSegmentGranularity" : "\"FIVE_MINUTE\"",
+        "sqlQueryId" : "dummyId"
+      },
+      "granularity" : {
+        "type" : "all"
+      }
+    },
+    "columnMappings" : [ {
+      "queryColumn" : "__time",
+      "outputColumn" : "__time"
+    }, {
+      "queryColumn" : "dim1",
+      "outputColumn" : "dim1"
+    }, {
+      "queryColumn" : "dim2",
+      "outputColumn" : "dim2"
+    }, {
+      "queryColumn" : "dim3",
+      "outputColumn" : "dim3"
+    }, {
+      "queryColumn" : "cnt",
+      "outputColumn" : "cnt"
+    }, {
+      "queryColumn" : "m1",
+      "outputColumn" : "m1"
+    }, {
+      "queryColumn" : "m2",
+      "outputColumn" : "m2"
+    }, {
+      "queryColumn" : "unique_dim1",
+      "outputColumn" : "unique_dim1"
+    } ],
+    "destination" : {
+      "type" : "dataSource",
+      "dataSource" : "fiveMinDs",
+      "segmentGranularity" : "FIVE_MINUTE"
+    },
+    "assignmentStrategy" : "max",
+    "tuningConfig" : {
+      "type" : "index_parallel",
+      "maxRowsPerSegment" : 5432198,
+      "appendableIndexSpec" : {
+        "type" : "onheap",
+        "preserveExistingMetrics" : false
+      },
+      "maxRowsInMemory" : 100000,
+      "partitionsSpec" : {
+        "type" : "dynamic",
+        "maxRowsPerSegment" : 5432198,
+        "maxTotalRows" : null
+      },
+      "indexSpec" : {
+        "bitmap" : {
+          "type" : "roaring",
+          "compressRunOnSerialization" : true
+        },
+        "dimensionCompression" : "lz4",
+        "metricCompression" : "lz4",
+        "longEncoding" : "longs"
+      },
+      "indexSpecForIntermediatePersists" : {
+        "bitmap" : {
+          "type" : "roaring",
+          "compressRunOnSerialization" : true
+        },
+        "dimensionCompression" : "lz4",
+        "metricCompression" : "lz4",
+        "longEncoding" : "longs"
+      },
+      "maxNumConcurrentSubTasks" : 1,
+      "maxRetry" : 1,
+      "taskStatusCheckPeriodMs" : 1000,
+      "chatHandlerTimeout" : "PT10S",
+      "chatHandlerNumRetries" : 5,
+      "maxNumSegmentsToMerge" : 100,
+      "totalNumMergeTasks" : 10,
+      "logParseExceptions" : false,
+      "maxParseExceptions" : 2147483647,
+      "maxColumnsToMerge" : -1,
+      "maxAllowedLockCount" : -1
+    }
+  },
+  "sqlQuery" : "INSERT INTO fiveMinDs\nSELECT *\nFROM foo",
+  "sqlQueryContext" : {
+    "maxParseExceptions" : 0,
+    "msqRowsPerSegment" : 5432198,
+    "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"cnt\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"dim2\",\"type\":\"STRING\"},{\"name\":\"dim3\",\"type\":\"STRING\"},{\"name\":\"m1\",\"type\":\"FLOAT\"},{\"name\":\"m2\",\"type\":\"DOUBLE\"},{\"name\":\"unique_dim1\",\"type\":\"COMPLEX<hyperUnique>\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "\"FIVE_MINUTE\"",
+    "sqlQueryId" : "dummyId"
+  },
+  "sqlTypeNames" : [ "TIMESTAMP", "VARCHAR", "VARCHAR", "VARCHAR", "BIGINT", "FLOAT", "DOUBLE", "OTHER" ],
+  "context" : {
+    "forceTimeChunkLock" : true
+  },
+  "groupId" : "query-dummyId",
+  "dataSource" : "fiveMinDs",
+  "resource" : {
+    "availabilityGroup" : "query-dummyId",
+    "requiredCapacity" : 1
+  }
+}
+==============================================================
+Converted from testInsertWithClusteredBy()
+=== case
+INSERT with CLUSTERED BY
+=== SQL
+INSERT INTO druid.dst
+SELECT
+    __time,
+    FLOOR(m1) as floor_m1,
+    dim1, CEIL(m2) as ceil_m2
+FROM foo
+PARTITIONED BY FLOOR(__time TO DAY)
+CLUSTERED BY 2, dim1 DESC, CEIL(m2)
+=== schema
+TASK VARCHAR
+=== targetSchema
+__time TIMESTAMP(3)
+floor_m1 FLOAT
+dim1 VARCHAR
+ceil_m2 DOUBLE
+=== resources
+DATASOURCE/dst/WRITE
+DATASOURCE/foo/READ
+=== plan
+LogicalInsert(target=[druid.dst], granularity=[{type=period, period=P1D, timeZone=UTC, origin=null}])
+  Clustered By: 2, `dim1` DESC, CEIL(`m2`)  LogicalSort(sort0=[$1], sort1=[$2], sort2=[$3], dir0=[ASC], dir1=[DESC], dir2=[ASC])
+    LogicalProject(__time=[$0], floor_m1=[FLOOR($5)], dim1=[$1], ceil_m2=[CEIL($6)])
+      LogicalTableScan(table=[[druid, foo]])
+=== native
+{
+  "queryType" : "scan",
+  "dataSource" : {
+    "type" : "table",
+    "name" : "foo"
+  },
+  "intervals" : {
+    "type" : "intervals",
+    "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+  },
+  "virtualColumns" : [ {
+    "type" : "expression",
+    "name" : "v0",
+    "expression" : "floor(\"m1\")",
+    "outputType" : "FLOAT"
+  }, {
+    "type" : "expression",
+    "name" : "v1",
+    "expression" : "ceil(\"m2\")",
+    "outputType" : "DOUBLE"
+  } ],
+  "resultFormat" : "compactedList",
+  "orderBy" : [ {
+    "columnName" : "v0",
+    "order" : "ascending"
+  }, {
+    "columnName" : "dim1",
+    "order" : "descending"
+  }, {
+    "columnName" : "v1",
+    "order" : "ascending"
+  } ],
+  "columns" : [ "__time", "dim1", "v0", "v1" ],
+  "legacy" : false,
+  "context" : {
+    "maxParseExceptions" : 0,
+    "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"v0\",\"type\":\"FLOAT\"},{\"name\":\"v1\",\"type\":\"DOUBLE\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "\"DAY\"",
+    "sqlQueryId" : "dummyId"
+  },
+  "granularity" : {
+    "type" : "all"
+  }
+}
+=== execPlan
+{
+  "type" : "query_controller",
+  "id" : "query-dummyId",
+  "spec" : {
+    "query" : {
+      "queryType" : "scan",
+      "dataSource" : {
+        "type" : "table",
+        "name" : "foo"
+      },
+      "intervals" : {
+        "type" : "intervals",
+        "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+      },
+      "virtualColumns" : [ {
+        "type" : "expression",
+        "name" : "v0",
+        "expression" : "floor(\"m1\")",
+        "outputType" : "FLOAT"
+      }, {
+        "type" : "expression",
+        "name" : "v1",
+        "expression" : "ceil(\"m2\")",
+        "outputType" : "DOUBLE"
+      } ],
+      "resultFormat" : "compactedList",
+      "orderBy" : [ {
+        "columnName" : "v0",
+        "order" : "ascending"
+      }, {
+        "columnName" : "dim1",
+        "order" : "descending"
+      }, {
+        "columnName" : "v1",
+        "order" : "ascending"
+      } ],
+      "columns" : [ "__time", "dim1", "v0", "v1" ],
+      "legacy" : false,
+      "context" : {
+        "finalize" : true,
+        "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"v0\",\"type\":\"FLOAT\"},{\"name\":\"v1\",\"type\":\"DOUBLE\"}]",
+        "msqTimeColumn" : "__time",
+        "multiStageQuery" : true,
+        "sqlInsertSegmentGranularity" : "\"DAY\"",
+        "sqlQueryId" : "dummyId"
+      },
+      "granularity" : {
+        "type" : "all"
+      }
+    },
+    "columnMappings" : [ {
+      "queryColumn" : "__time",
+      "outputColumn" : "__time"
+    }, {
+      "queryColumn" : "v0",
+      "outputColumn" : "floor_m1"
+    }, {
+      "queryColumn" : "dim1",
+      "outputColumn" : "dim1"
+    }, {
+      "queryColumn" : "v1",
+      "outputColumn" : "ceil_m2"
+    } ],
+    "destination" : {
+      "type" : "dataSource",
+      "dataSource" : "dst",
+      "segmentGranularity" : "DAY"
+    },
+    "assignmentStrategy" : "max",
+    "tuningConfig" : {
+      "type" : "index_parallel",
+      "maxRowsPerSegment" : 3000000,
+      "appendableIndexSpec" : {
+        "type" : "onheap",
+        "preserveExistingMetrics" : false
+      },
+      "maxRowsInMemory" : 100000,
+      "partitionsSpec" : {
+        "type" : "dynamic",
+        "maxRowsPerSegment" : 3000000,
+        "maxTotalRows" : null
+      },
+      "indexSpec" : {
+        "bitmap" : {
+          "type" : "roaring",
+          "compressRunOnSerialization" : true
+        },
+        "dimensionCompression" : "lz4",
+        "metricCompression" : "lz4",
+        "longEncoding" : "longs"
+      },
+      "indexSpecForIntermediatePersists" : {
+        "bitmap" : {
+          "type" : "roaring",
+          "compressRunOnSerialization" : true
+        },
+        "dimensionCompression" : "lz4",
+        "metricCompression" : "lz4",
+        "longEncoding" : "longs"
+      },
+      "maxNumConcurrentSubTasks" : 1,
+      "maxRetry" : 1,
+      "taskStatusCheckPeriodMs" : 1000,
+      "chatHandlerTimeout" : "PT10S",
+      "chatHandlerNumRetries" : 5,
+      "maxNumSegmentsToMerge" : 100,
+      "totalNumMergeTasks" : 10,
+      "logParseExceptions" : false,
+      "maxParseExceptions" : 2147483647,
+      "maxColumnsToMerge" : -1,
+      "maxAllowedLockCount" : -1
+    }
+  },
+  "sqlQuery" : "INSERT INTO druid.dst\nSELECT\n    __time,\n    FLOOR(m1) as floor_m1,\n    dim1, CEIL(m2) as ceil_m2\nFROM foo\nPARTITIONED BY FLOOR(__time TO DAY)\nCLUSTERED BY 2, dim1 DESC, CEIL(m2)",
+  "sqlQueryContext" : {
+    "maxParseExceptions" : 0,
+    "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"v0\",\"type\":\"FLOAT\"},{\"name\":\"v1\",\"type\":\"DOUBLE\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "\"DAY\"",
+    "sqlQueryId" : "dummyId"
+  },
+  "sqlTypeNames" : [ "TIMESTAMP", "FLOAT", "VARCHAR", "DOUBLE" ],
+  "context" : {
+    "forceTimeChunkLock" : true
+  },
+  "groupId" : "query-dummyId",
+  "dataSource" : "dst",
+  "resource" : {
+    "availabilityGroup" : "query-dummyId",
+    "requiredCapacity" : 1
+  }
+}
+==============================================================
+Similar to above, but clustering comes from the catalog.
+For now, the catalog does not allow expressions in cluster keys,
+only column names. (Since it is hard to parse an expression
+in the validation phase.)
+=== case
+INSERT with CLUSTERED BY
+=== SQL
+INSERT INTO druid.clusterBy
+SELECT
+    __time,
+    FLOOR(m1) as floor_m1,
+    dim1, CEIL(m2) as ceil_m2
+FROM foo
+=== schema
+TASK VARCHAR
+=== targetSchema
+__time TIMESTAMP(3)
+floor_m1 FLOAT
+dim1 VARCHAR
+ceil_m2 DOUBLE
+=== resources
+DATASOURCE/clusterBy/WRITE
+DATASOURCE/foo/READ
+=== plan
+LogicalInsert(target=[druid.clusterBy], granularity=[{type=period, period=P1D, timeZone=UTC, origin=null}])
+  Clustered By: `floor_m1`, `dim1` DESC  LogicalSort(sort0=[$1], sort1=[$2], dir0=[ASC], dir1=[DESC])
+    LogicalProject(__time=[$0], floor_m1=[FLOOR($5)], dim1=[$1], ceil_m2=[CEIL($6)])
+      LogicalTableScan(table=[[druid, foo]])
+=== native
+{
+  "queryType" : "scan",
+  "dataSource" : {
+    "type" : "table",
+    "name" : "foo"
+  },
+  "intervals" : {
+    "type" : "intervals",
+    "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+  },
+  "virtualColumns" : [ {
+    "type" : "expression",
+    "name" : "v0",
+    "expression" : "floor(\"m1\")",
+    "outputType" : "FLOAT"
+  }, {
+    "type" : "expression",
+    "name" : "v1",
+    "expression" : "ceil(\"m2\")",
+    "outputType" : "DOUBLE"
+  } ],
+  "resultFormat" : "compactedList",
+  "orderBy" : [ {
+    "columnName" : "v0",
+    "order" : "ascending"
+  }, {
+    "columnName" : "dim1",
+    "order" : "descending"
+  } ],
+  "columns" : [ "__time", "dim1", "v0", "v1" ],
+  "legacy" : false,
+  "context" : {
+    "maxParseExceptions" : 0,
+    "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"v0\",\"type\":\"FLOAT\"},{\"name\":\"v1\",\"type\":\"DOUBLE\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "\"DAY\"",
+    "sqlQueryId" : "dummyId"
+  },
+  "granularity" : {
+    "type" : "all"
+  }
+}
+=== execPlan
+{
+  "type" : "query_controller",
+  "id" : "query-dummyId",
+  "spec" : {
+    "query" : {
+      "queryType" : "scan",
+      "dataSource" : {
+        "type" : "table",
+        "name" : "foo"
+      },
+      "intervals" : {
+        "type" : "intervals",
+        "intervals" : [ "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z" ]
+      },
+      "virtualColumns" : [ {
+        "type" : "expression",
+        "name" : "v0",
+        "expression" : "floor(\"m1\")",
+        "outputType" : "FLOAT"
+      }, {
+        "type" : "expression",
+        "name" : "v1",
+        "expression" : "ceil(\"m2\")",
+        "outputType" : "DOUBLE"
+      } ],
+      "resultFormat" : "compactedList",
+      "orderBy" : [ {
+        "columnName" : "v0",
+        "order" : "ascending"
+      }, {
+        "columnName" : "dim1",
+        "order" : "descending"
+      } ],
+      "columns" : [ "__time", "dim1", "v0", "v1" ],
+      "legacy" : false,
+      "context" : {
+        "finalize" : true,
+        "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"v0\",\"type\":\"FLOAT\"},{\"name\":\"v1\",\"type\":\"DOUBLE\"}]",
+        "msqTimeColumn" : "__time",
+        "multiStageQuery" : true,
+        "sqlInsertSegmentGranularity" : "\"DAY\"",
+        "sqlQueryId" : "dummyId"
+      },
+      "granularity" : {
+        "type" : "all"
+      }
+    },
+    "columnMappings" : [ {
+      "queryColumn" : "__time",
+      "outputColumn" : "__time"
+    }, {
+      "queryColumn" : "v0",
+      "outputColumn" : "floor_m1"
+    }, {
+      "queryColumn" : "dim1",
+      "outputColumn" : "dim1"
+    }, {
+      "queryColumn" : "v1",
+      "outputColumn" : "ceil_m2"
+    } ],
+    "destination" : {
+      "type" : "dataSource",
+      "dataSource" : "clusterBy",
+      "segmentGranularity" : "DAY"
+    },
+    "assignmentStrategy" : "max",
+    "tuningConfig" : {
+      "type" : "index_parallel",
+      "maxRowsPerSegment" : 3000000,
+      "appendableIndexSpec" : {
+        "type" : "onheap",
+        "preserveExistingMetrics" : false
+      },
+      "maxRowsInMemory" : 100000,
+      "partitionsSpec" : {
+        "type" : "dynamic",
+        "maxRowsPerSegment" : 3000000,
+        "maxTotalRows" : null
+      },
+      "indexSpec" : {
+        "bitmap" : {
+          "type" : "roaring",
+          "compressRunOnSerialization" : true
+        },
+        "dimensionCompression" : "lz4",
+        "metricCompression" : "lz4",
+        "longEncoding" : "longs"
+      },
+      "indexSpecForIntermediatePersists" : {
+        "bitmap" : {
+          "type" : "roaring",
+          "compressRunOnSerialization" : true
+        },
+        "dimensionCompression" : "lz4",
+        "metricCompression" : "lz4",
+        "longEncoding" : "longs"
+      },
+      "maxNumConcurrentSubTasks" : 1,
+      "maxRetry" : 1,
+      "taskStatusCheckPeriodMs" : 1000,
+      "chatHandlerTimeout" : "PT10S",
+      "chatHandlerNumRetries" : 5,
+      "maxNumSegmentsToMerge" : 100,
+      "totalNumMergeTasks" : 10,
+      "logParseExceptions" : false,
+      "maxParseExceptions" : 2147483647,
+      "maxColumnsToMerge" : -1,
+      "maxAllowedLockCount" : -1
+    }
+  },
+  "sqlQuery" : "INSERT INTO druid.clusterBy\nSELECT\n    __time,\n    FLOOR(m1) as floor_m1,\n    dim1, CEIL(m2) as ceil_m2\nFROM foo",
+  "sqlQueryContext" : {
+    "maxParseExceptions" : 0,
+    "msqSignature" : "[{\"name\":\"__time\",\"type\":\"LONG\"},{\"name\":\"dim1\",\"type\":\"STRING\"},{\"name\":\"v0\",\"type\":\"FLOAT\"},{\"name\":\"v1\",\"type\":\"DOUBLE\"}]",
+    "multiStageQuery" : true,
+    "sqlInsertSegmentGranularity" : "\"DAY\"",
+    "sqlQueryId" : "dummyId"
+  },
+  "sqlTypeNames" : [ "TIMESTAMP", "FLOAT", "VARCHAR", "DOUBLE" ],
+  "context" : {
+    "forceTimeChunkLock" : true
+  },
+  "groupId" : "query-dummyId",
+  "dataSource" : "clusterBy",
+  "resource" : {
+    "availabilityGroup" : "query-dummyId",
+    "requiredCapacity" : 1
+  }
+}

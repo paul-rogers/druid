@@ -36,7 +36,6 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
-import org.apache.calcite.prepare.BaseDruidSqlValidator;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
@@ -52,6 +51,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.sql.util.ChainedSqlOperatorTable;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.RelDecorrelator;
@@ -67,6 +67,7 @@ import org.apache.calcite.util.Pair;
 import javax.annotation.Nullable;
 
 import java.io.Reader;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
@@ -76,7 +77,7 @@ import java.util.Properties;
  * but with the validator made accessible, and with the minimum of formatting
  * changes needed to pass Druid's static checks. Note that the resulting code
  * is more Calcite-like than Druid-like. There seemed no value in restructuring
- * the code just to be more Druid-like.
+ * the code just to be more Druid-like any more than necessary to pass checkstyle.
  */
 public class CalcitePlanner implements Planner, ViewExpander
 {
@@ -93,6 +94,12 @@ public class CalcitePlanner implements Planner, ViewExpander
   private final SqlToRelConverter.Config sqlToRelConverterConfig;
   private final SqlRexConvertletTable convertletTable;
 
+  /**
+   * Druid-specific to resolve metadata used for "special" columns,
+   * such as inserting the proper aggregate functions for measures.
+   */
+  private final DruidMetadataResolver metadataResolver;
+
   private State state;
 
   // set in STATE_2_READY
@@ -108,11 +115,13 @@ public class CalcitePlanner implements Planner, ViewExpander
   // set in STATE_5_CONVERT
   private RelRoot root;
 
-  public CalcitePlanner(FrameworkConfig config)
+  public CalcitePlanner(
+      FrameworkConfig config,
+      DruidMetadataResolver metadataResolver
+  )
   {
     this.frameworkConfig = config;
     this.defaultSchema = config.getDefaultSchema();
-    this.operatorTable = config.getOperatorTable();
     this.programs = config.getPrograms();
     this.parserConfig = config.getParserConfig();
     this.sqlToRelConverterConfig = config.getSqlToRelConverterConfig();
@@ -122,6 +131,21 @@ public class CalcitePlanner implements Planner, ViewExpander
     this.executor = config.getExecutor();
     this.context = config.getContext();
     this.connectionConfig = connConfig();
+    this.metadataResolver = metadataResolver;
+
+    // With the catalog, schemas can provide functions.
+    // Add the necessary indirection. The type factory used here
+    // is the Druid one, since the per-query one is not yet available
+    // here. Nor are built-in function associated with per-query types.
+    this.operatorTable = new ChainedSqlOperatorTable(
+        Arrays.asList(
+            config.getOperatorTable(),
+            new CalciteCatalogReader(
+                CalciteSchema.from(rootSchema(defaultSchema)),
+                CalciteSchema.from(defaultSchema).path(null),
+                DruidTypeSystem.TYPE_FACTORY,
+                connectionConfig
+            )));
     reset();
   }
 
@@ -237,8 +261,13 @@ public class CalcitePlanner implements Planner, ViewExpander
     final SqlConformance conformance = conformance();
     final CalciteCatalogReader catalogReader = createCatalogReader();
     this.validator =
-        new BaseDruidSqlValidator(operatorTable, catalogReader, typeFactory,
-            conformance);
+        new DruidSqlValidator(
+            operatorTable,
+            catalogReader,
+            typeFactory,
+            conformance,
+            metadataResolver
+        );
     this.validator.setIdentifierExpansion(true);
     try {
       validatedSqlNode = validator.validate(sqlNode);
@@ -324,8 +353,13 @@ public class CalcitePlanner implements Planner, ViewExpander
     final CalciteCatalogReader catalogReader =
         createCatalogReader().withSchemaPath(schemaPath);
     final SqlValidator validator =
-        new BaseDruidSqlValidator(operatorTable, catalogReader, typeFactory,
-            conformance);
+        new DruidSqlValidator(
+            operatorTable,
+            catalogReader,
+            typeFactory,
+            conformance,
+            metadataResolver
+         );
     validator.setIdentifierExpansion(true);
 
     final RexBuilder rexBuilder = createRexBuilder();

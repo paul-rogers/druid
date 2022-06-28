@@ -66,6 +66,7 @@ public class DruidPlanner implements Closeable
   private final CalcitePlanner planner;
   private final PlannerContext plannerContext;
   private final SqlEngine engine;
+  private final CatalogResolver catalog;
   private State state = State.START;
   private SqlStatementHandler handler;
   private boolean authorized;
@@ -73,13 +74,18 @@ public class DruidPlanner implements Closeable
   DruidPlanner(
       final FrameworkConfig frameworkConfig,
       final PlannerContext plannerContext,
-      final SqlEngine engine
+      final SqlEngine engine,
+      final CatalogResolver catalog
   )
   {
     this.frameworkConfig = frameworkConfig;
-    this.planner = new CalcitePlanner(frameworkConfig);
+    this.planner = new CalcitePlanner(
+        frameworkConfig,
+        (DruidOperatorTable) frameworkConfig.getOperatorTable()
+        );
     this.plannerContext = plannerContext;
     this.engine = engine;
+    this.catalog = catalog;
   }
 
   /**

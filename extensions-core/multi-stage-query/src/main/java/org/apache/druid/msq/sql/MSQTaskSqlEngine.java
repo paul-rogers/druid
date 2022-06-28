@@ -230,7 +230,7 @@ public class MSQTaskSqlEngine implements SqlEngine
     if (hasSegmentGranularity && timeFieldIndex < 0) {
       throw new ValidationException(
           StringUtils.format(
-              "INSERT queries with segment granularity other than \"all\" must have a \"%s\" field.",
+              "INSERT queries with a time partition other than \"all\" must have a \"%s\" field.",
               ColumnHolder.TIME_COLUMN_NAME
           )
       );

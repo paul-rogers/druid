@@ -57,4 +57,10 @@ public class TestInsertQueryMaker implements QueryMaker
         Sequences.simple(ImmutableList.of(new Object[]{targetDataSource, signature}))
     );
   }
+
+  @Override
+  public Object explain(DruidQuery druidQuery)
+  {
+    return druidQuery.getQuery();
+  }
 }

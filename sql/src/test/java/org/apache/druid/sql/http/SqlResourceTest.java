@@ -84,6 +84,8 @@ import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.SqlToolbox;
 import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
+import org.apache.druid.sql.calcite.planner.CatalogResolver;
+import org.apache.druid.sql.calcite.planner.CatalogResolver.NullCatalogResolver;
 import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.DruidPlanner;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
@@ -112,6 +114,7 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.StreamingOutput;
+
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -211,7 +214,10 @@ public class SqlResourceTest extends CalciteTestBase
     };
 
     executorService = MoreExecutors.listeningDecorator(Execs.multiThreaded(8, "test_sql_resource_%s"));
-    walker = CalciteTests.createMockWalker(conglomerate, temporaryFolder.newFolder(), scheduler);
+    walker = CalciteTests.createMockWalker(
+        conglomerate,
+        temporaryFolder.newFolder(),
+        scheduler);
 
     final PlannerConfig plannerConfig = PlannerConfig.builder().serializeComplexValues(false).build();
     final DruidSchemaCatalog rootSchema = CalciteTests.createMockRootSchema(
@@ -234,7 +240,8 @@ public class SqlResourceTest extends CalciteTestBase
         CalciteTests.TEST_AUTHORIZER_MAPPER,
         CalciteTests.getJsonMapper(),
         CalciteTests.DRUID_SCHEMA_NAME,
-        new CalciteRulesManager(ImmutableSet.of())
+        new CalciteRulesManager(ImmutableSet.of()),
+        new CatalogResolver.NullCatalogResolver()
     );
 
     lifecycleManager = new SqlLifecycleManager()

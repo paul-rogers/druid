@@ -22,8 +22,10 @@ package org.apache.druid.sql.calcite.planner;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.IdentifierNamespace;
+import org.apache.calcite.sql.validate.SqlUserDefinedTableMacro;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
@@ -62,11 +64,51 @@ public class SqlResourceCollectorShuttle extends SqlShuttle
   @Override
   public SqlNode visit(SqlCall call)
   {
-    if (call.getOperator() instanceof AuthorizableOperator) {
+    SqlOperator op = call.getOperator();
+    if (op instanceof AuthorizableOperator) {
       resourceActions.addAll(((AuthorizableOperator) call.getOperator()).computeResources(call));
+    } else if (op instanceof SqlUserDefinedTableMacro) {
+      visitParameterizedTable((SqlUserDefinedTableMacro) op);
     }
 
     return super.visit(call);
+  }
+
+  /**
+   * Visit a table macro that may be an parameterized table of the form:<code><pre>
+   * FROM TABLE(schema.table(arg => value, ...))</pre></code>
+   * <p>
+   * This is an awkward way to find the underlying table. Better would be
+   * too look for {@code DruidTable} nodes later in the process.
+   * <p>
+   * Alternatively, if we could get at the macro in the operator,
+   * we could directly grab the info we need. But, the macro is private,
+   * so we have to re-resolve the name here.
+   */
+  private void visitParameterizedTable(SqlUserDefinedTableMacro op)
+  {
+    SqlIdentifier id = op.getSqlIdentifier();
+
+    // The "input" schema has parameterizable tables and is never the
+    // default schema, so assume the name must have two parts.
+    if (id.names.size() != 2) {
+      return;
+    }
+
+    // The name should reference a table
+    SqlValidatorTable table = validator.getCatalogReader().getTable(id.names);
+    if (table == null) {
+      return;
+    }
+
+    // The schema provides a resource type.
+    final String resourceType = plannerContext.getSchemaResourceType(id.names.get(0), id.names.get(1));
+    if (resourceType == null) {
+      return;
+    }
+
+    // We're pretty sure this is a parameterized table.
+    resourceActions.add(new ResourceAction(new Resource(id.names.get(1), resourceType), Action.READ));
   }
 
   @Override

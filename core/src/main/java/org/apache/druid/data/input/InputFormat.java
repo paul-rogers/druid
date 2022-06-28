@@ -43,10 +43,10 @@ import java.io.File;
 @UnstableApi
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(value = {
-    @Type(name = "csv", value = CsvInputFormat.class),
-    @Type(name = "json", value = JsonInputFormat.class),
+    @Type(name = CsvInputFormat.TYPE_KEY, value = CsvInputFormat.class),
+    @Type(name = JsonInputFormat.TYPE_KEY, value = JsonInputFormat.class),
     @Type(name = "regex", value = RegexInputFormat.class),
-    @Type(name = "tsv", value = DelimitedInputFormat.class)
+    @Type(name = DelimitedInputFormat.TYPE_KEY, value = DelimitedInputFormat.class)
 })
 public interface InputFormat
 {

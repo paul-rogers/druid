@@ -48,6 +48,7 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.sql.DirectStatement.ResultSet;
 import org.apache.druid.sql.SqlPlanningException.PlanningError;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
+import org.apache.druid.sql.calcite.planner.CatalogResolver;
 import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
@@ -154,7 +155,8 @@ public class SqlStatementTest
         CalciteTests.TEST_AUTHORIZER_MAPPER,
         CalciteTests.getJsonMapper(),
         CalciteTests.DRUID_SCHEMA_NAME,
-        new CalciteRulesManager(ImmutableSet.of())
+        new CalciteRulesManager(ImmutableSet.of()),
+        new CatalogResolver.NullCatalogResolver()
     );
 
     this.sqlStatementFactory = new SqlStatementFactory(

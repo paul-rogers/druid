@@ -23,11 +23,14 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlAggFunction;
+import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.rel.VirtualColumnRegistry;
 
 import javax.annotation.Nullable;
+
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -73,4 +76,8 @@ public interface SqlAggregator
       List<Aggregation> existingAggregations,
       boolean finalizeAggregations
   );
+
+  default List<Class<? extends AggregatorFactory>> factories() {
+    return Collections.emptyList();
+  }
 }
