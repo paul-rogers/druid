@@ -215,6 +215,7 @@
         <module>docker-tests/it-base</module>
         <module>docker-tests/it-high-availability</module>
         <module>docker-tests/it-batch-index</module>
+        <module>docker-tests/it-input-format</module>
     </modules>
 
     <repositories>
