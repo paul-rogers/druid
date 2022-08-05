@@ -88,6 +88,8 @@ import org.apache.druid.sql.DirectStatement;
 import org.apache.druid.sql.PreparedStatement;
 import org.apache.druid.sql.SqlQueryPlus;
 import org.apache.druid.sql.SqlStatementFactory;
+import org.apache.druid.sql.calcite.QueryTester.QueryTestCase;
+import org.apache.druid.sql.calcite.QueryTester.QueryTestConfig;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
@@ -905,7 +907,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         queryPlus,
         createOperatorTable(),
         createMacroTable(),
-        CalciteTests.TEST_AUTHORIZER_MAPPER,
+        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
         queryJsonMapper
     );
   }
@@ -919,21 +921,35 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final ObjectMapper objectMapper
   )
   {
-    final SqlStatementFactory sqlLifecycleFactory = getSqlLifecycleFactory(
-        plannerConfig,
-        new AuthConfig(),
+    QueryTestConfig testConfig = new QueryTestConfig(
+        conglomerate,
+        walker,
+        objectMapper,
         operatorTable,
         macroTable,
-        authorizerMapper,
-        objectMapper
+        new AuthConfig()
     );
-    final DirectStatement stmt = sqlLifecycleFactory.directStatement(queryPlus);
-    Sequence<Object[]> results = stmt.execute();
-    RelDataType rowType = stmt.prepareResult().getRowType();
-    return new Pair<>(
-        RowSignatures.fromRelDataType(rowType.getFieldNames(), rowType),
-        results.toList()
-    );
+    QueryTestCase testCase = testConfig.testCase(queryPlus)
+        .plannerConfig(plannerConfig)
+        .authorizerMapper(authorizerMapper);
+    QueryTester tester = testCase.tester();
+    return tester.run();
+
+//    final SqlStatementFactory sqlLifecycleFactory = getSqlLifecycleFactory(
+//        plannerConfig,
+//        new AuthConfig(),
+//        operatorTable,
+//        macroTable,
+//        authorizerMapper,
+//        objectMapper
+//    );
+//    final DirectStatement stmt = sqlLifecycleFactory.directStatement(queryPlus);
+//    Sequence<Object[]> results = stmt.execute();
+//    RelDataType rowType = stmt.prepareResult().getRowType();
+//    return new Pair<>(
+//        RowSignatures.fromRelDataType(rowType.getFieldNames(), rowType),
+//        results.toList()
+//    );
   }
 
   public void verifyResults(
@@ -1061,7 +1077,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         authConfig,
         createOperatorTable(),
         createMacroTable(),
-        CalciteTests.TEST_AUTHORIZER_MAPPER,
+        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
         queryJsonMapper
     );
 

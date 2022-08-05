@@ -178,54 +178,54 @@ public class CalciteTests
   public static final String INFORMATION_SCHEMA_NAME = "INFORMATION_SCHEMA";
 
   public static final String TEST_SUPERUSER_NAME = "testSuperuser";
-  public static final AuthorizerMapper TEST_AUTHORIZER_MAPPER = new AuthorizerMapper(null)
-  {
-    @Override
-    public Authorizer getAuthorizer(String name)
-    {
-      return (authenticationResult, resource, action) -> {
-        if (authenticationResult.getIdentity().equals(TEST_SUPERUSER_NAME)) {
-          return Access.OK;
-        }
-
-        switch (resource.getType()) {
-          case ResourceType.DATASOURCE:
-            if (resource.getName().equals(FORBIDDEN_DATASOURCE)) {
-              return new Access(false);
-            } else {
-              return Access.OK;
-            }
-          case ResourceType.VIEW:
-            if (resource.getName().equals("forbiddenView")) {
-              return new Access(false);
-            } else {
-              return Access.OK;
-            }
-          case ResourceType.QUERY_CONTEXT:
-            return Access.OK;
-          default:
-            return new Access(false);
-        }
-      };
-    }
-  };
-  public static final AuthenticatorMapper TEST_AUTHENTICATOR_MAPPER;
-
-  static {
-    final Map<String, Authenticator> defaultMap = new HashMap<>();
-    defaultMap.put(
-        AuthConfig.ALLOW_ALL_NAME,
-        new AllowAllAuthenticator()
-        {
-          @Override
-          public AuthenticationResult authenticateJDBCContext(Map<String, Object> context)
-          {
-            return new AuthenticationResult((String) context.get("user"), AuthConfig.ALLOW_ALL_NAME, null, null);
-          }
-        }
-    );
-    TEST_AUTHENTICATOR_MAPPER = new AuthenticatorMapper(defaultMap);
-  }
+//  public static final AuthorizerMapper TEST_AUTHORIZER_MAPPER = new AuthorizerMapper(null)
+//  {
+//    @Override
+//    public Authorizer getAuthorizer(String name)
+//    {
+//      return (authenticationResult, resource, action) -> {
+//        if (authenticationResult.getIdentity().equals(TEST_SUPERUSER_NAME)) {
+//          return Access.OK;
+//        }
+//
+//        switch (resource.getType()) {
+//          case ResourceType.DATASOURCE:
+//            if (resource.getName().equals(FORBIDDEN_DATASOURCE)) {
+//              return new Access(false);
+//            } else {
+//              return Access.OK;
+//            }
+//          case ResourceType.VIEW:
+//            if (resource.getName().equals("forbiddenView")) {
+//              return new Access(false);
+//            } else {
+//              return Access.OK;
+//            }
+//          case ResourceType.QUERY_CONTEXT:
+//            return Access.OK;
+//          default:
+//            return new Access(false);
+//        }
+//      };
+//    }
+//  };
+//  public static final AuthenticatorMapper TEST_AUTHENTICATOR_MAPPER;
+//
+//  static {
+//    final Map<String, Authenticator> defaultMap = new HashMap<>();
+//    defaultMap.put(
+//        AuthConfig.ALLOW_ALL_NAME,
+//        new AllowAllAuthenticator()
+//        {
+//          @Override
+//          public AuthenticationResult authenticateJDBCContext(Map<String, Object> context)
+//          {
+//            return new AuthenticationResult((String) context.get("user"), AuthConfig.ALLOW_ALL_NAME, null, null);
+//          }
+//        }
+//    );
+//    TEST_AUTHENTICATOR_MAPPER = new AuthenticatorMapper(defaultMap);
+//  }
 
   public static final Escalator TEST_AUTHENTICATOR_ESCALATOR;
 
@@ -255,7 +255,7 @@ public class CalciteTests
 
   private static final String TIMESTAMP_COLUMN = "t";
 
-  public static final Injector INJECTOR = new CalciteTestInjectorBuilder().build();
+  public static final Injector INJECTOR = new CalciteTestInjectorBuilder().withCalciteTestComponents().build();
 
   private static final InputRowParser<Map<String, Object>> PARSER = new MapInputRowParser(
       new TimeAndDimsParseSpec(
@@ -784,7 +784,7 @@ public class CalciteTests
         new ServiceEmitter("dummy", "dummy", new NoopEmitter()),
         new NoopRequestLogger(),
         new AuthConfig(),
-        TEST_AUTHORIZER_MAPPER,
+        INJECTOR.getInstance(AuthorizerMapper.class),
         Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of()))
     );
   }

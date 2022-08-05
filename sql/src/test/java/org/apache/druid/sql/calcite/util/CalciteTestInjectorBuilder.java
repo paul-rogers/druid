@@ -34,6 +34,7 @@ import org.apache.druid.query.lookup.LookupSerdeModule;
 import org.apache.druid.sql.calcite.aggregation.SqlAggregationModule;
 import org.apache.druid.sql.calcite.expression.builtin.QueryLookupOperatorConversion;
 import org.apache.druid.sql.calcite.external.ExternalOperatorConversion;
+import org.apache.druid.sql.calcite.util.MockComponents.MockComponentsModule;
 import org.apache.druid.sql.guice.SqlBindings;
 import org.apache.druid.timeline.DataSegment;
 
@@ -54,6 +55,12 @@ public class CalciteTestInjectorBuilder extends CoreInjectorBuilder
         new BasicTestModule(),
         new SqlAggregationModule()
     );
+  }
+
+  public CalciteTestInjectorBuilder withCalciteTestComponents()
+  {
+    add(new MockComponentsModule());
+    return this;
   }
 
   @Override
