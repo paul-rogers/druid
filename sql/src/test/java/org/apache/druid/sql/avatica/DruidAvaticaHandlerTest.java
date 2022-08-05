@@ -82,6 +82,8 @@ import org.apache.druid.sql.calcite.util.CalciteTestBase;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.QueryLogHook;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
+import org.apache.druid.sql.calcite.util.MockComponents.MockAuthenticatorMapper;
+import org.apache.druid.sql.calcite.util.MockComponents.MockAuthorizerMapper;
 import org.eclipse.jetty.server.Server;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -191,7 +193,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
     final DruidOperatorTable operatorTable = CalciteTests.createOperatorTable();
     final ExprMacroTable macroTable = CalciteTests.createExprMacroTable();
     final DruidSchemaCatalog rootSchema =
-        CalciteTests.createMockRootSchema(conglomerate, walker, plannerConfig, CalciteTests.TEST_AUTHORIZER_MAPPER);
+        CalciteTests.createMockRootSchema(conglomerate, walker, plannerConfig, CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class));
     testRequestLogger = new TestRequestLogger();
 
     injector = Initialization.makeInjectorWithModules(
@@ -205,8 +207,8 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
                 binder.bindConstant().annotatedWith(Names.named("serviceName")).to("test");
                 binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
                 binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
-                binder.bind(AuthenticatorMapper.class).toInstance(CalciteTests.TEST_AUTHENTICATOR_MAPPER);
-                binder.bind(AuthorizerMapper.class).toInstance(CalciteTests.TEST_AUTHORIZER_MAPPER);
+                binder.bind(AuthorizerMapper.class).to(MockAuthorizerMapper.class).in(LazySingleton.class);
+                binder.bind(AuthenticatorMapper.class).to(MockAuthenticatorMapper.class).in(LazySingleton.class);
                 binder.bind(Escalator.class).toInstance(CalciteTests.TEST_AUTHENTICATOR_ESCALATOR);
                 binder.bind(RequestLogger.class).toInstance(testRequestLogger);
                 binder.bind(DruidSchemaCatalog.class).toInstance(rootSchema);

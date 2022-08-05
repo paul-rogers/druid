@@ -892,9 +892,30 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         expectedExceptionInitializer.accept(expectedException);
       }
 
-      final Pair<RowSignature, List<Object[]>> plannerResults = getResults(plannerConfig, queryPlus.withContext(theQueryContext));
-      verifyResults(queryPlus.sql(), theQueries, plannerResults, expectedResultsVerifier);
+      QueryTestCase testCase = testConfig()
+          .testCase(queryPlus.withContext(theQueryContext))
+          .plannerConfig(plannerConfig)
+          .authorizerMapper(CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class))
+          .expectedQueries(theQueries)
+          .expectedResults(expectedResultsVerifier);
+      QueryTester tester = testCase.tester();
+      final Pair<RowSignature, List<Object[]>> plannerResults = tester.run();
+      tester.verifyResults(plannerResults);
+      tester.verifyQueries(queryLogHook.getRecordedQueries());
     }
+  }
+
+  private QueryTestConfig testConfig()
+  {
+    return new QueryTestConfig(
+        conglomerate,
+        walker,
+        queryJsonMapper,
+        createOperatorTable(),
+        createMacroTable(),
+        new AuthConfig(),
+        queryLogHook
+    );
   }
 
   public Pair<RowSignature, List<Object[]>> getResults(
@@ -902,36 +923,9 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final SqlQueryPlus queryPlus
   )
   {
-    return getResults(
-        plannerConfig,
-        queryPlus,
-        createOperatorTable(),
-        createMacroTable(),
-        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
-        queryJsonMapper
-    );
-  }
-
-  public Pair<RowSignature, List<Object[]>> getResults(
-      final PlannerConfig plannerConfig,
-      final SqlQueryPlus queryPlus,
-      final DruidOperatorTable operatorTable,
-      final ExprMacroTable macroTable,
-      final AuthorizerMapper authorizerMapper,
-      final ObjectMapper objectMapper
-  )
-  {
-    QueryTestConfig testConfig = new QueryTestConfig(
-        conglomerate,
-        walker,
-        objectMapper,
-        operatorTable,
-        macroTable,
-        new AuthConfig()
-    );
-    QueryTestCase testCase = testConfig.testCase(queryPlus)
+    QueryTestCase testCase = testConfig().testCase(queryPlus)
         .plannerConfig(plannerConfig)
-        .authorizerMapper(authorizerMapper);
+        .authorizerMapper(CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class));
     QueryTester tester = testCase.tester();
     return tester.run();
 

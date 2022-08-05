@@ -37,6 +37,7 @@ import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
+import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
@@ -272,7 +273,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
           new AuthConfig(),
           createOperatorTable(),
           createMacroTable(),
-          CalciteTests.TEST_AUTHORIZER_MAPPER,
+          CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
           queryJsonMapper
       );
 

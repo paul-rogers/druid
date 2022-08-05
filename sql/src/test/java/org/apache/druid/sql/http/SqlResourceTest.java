@@ -69,6 +69,7 @@ import org.apache.druid.server.scheduling.ManualQueryPrioritizationStrategy;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
+import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.DirectStatement;
@@ -215,7 +216,7 @@ public class SqlResourceTest extends CalciteTestBase
         conglomerate,
         walker,
         plannerConfig,
-        CalciteTests.TEST_AUTHORIZER_MAPPER
+        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class)
     );
     final DruidOperatorTable operatorTable = CalciteTests.createOperatorTable();
     final ExprMacroTable macroTable = CalciteTests.createExprMacroTable();
@@ -229,7 +230,7 @@ public class SqlResourceTest extends CalciteTestBase
         operatorTable,
         macroTable,
         plannerConfig,
-        CalciteTests.TEST_AUTHORIZER_MAPPER,
+        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
         CalciteTests.getJsonMapper(),
         CalciteTests.DRUID_SCHEMA_NAME,
         new CalciteRulesManager(ImmutableSet.of())
@@ -281,7 +282,7 @@ public class SqlResourceTest extends CalciteTestBase
     };
     resource = new SqlResource(
         JSON_MAPPER,
-        CalciteTests.TEST_AUTHORIZER_MAPPER,
+        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
         sqlLifecycleFactory,
         lifecycleManager,
         new ServerConfig()
@@ -1345,7 +1346,7 @@ public class SqlResourceTest extends CalciteTestBase
   {
     resource = new SqlResource(
         JSON_MAPPER,
-        CalciteTests.TEST_AUTHORIZER_MAPPER,
+        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
         sqlLifecycleFactory,
         lifecycleManager,
         new ServerConfig() {
@@ -1390,7 +1391,7 @@ public class SqlResourceTest extends CalciteTestBase
   {
     resource = new SqlResource(
         JSON_MAPPER,
-        CalciteTests.TEST_AUTHORIZER_MAPPER,
+        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
         sqlLifecycleFactory,
         lifecycleManager,
         new ServerConfig()

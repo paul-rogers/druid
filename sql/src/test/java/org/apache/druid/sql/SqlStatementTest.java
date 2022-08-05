@@ -44,6 +44,7 @@ import org.apache.druid.server.scheduling.HiLoQueryLaningStrategy;
 import org.apache.druid.server.scheduling.ManualQueryPrioritizationStrategy;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
+import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.sql.SqlPlanningException.PlanningError;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
@@ -136,7 +137,7 @@ public class SqlStatementTest
         conglomerate,
         walker,
         plannerConfig,
-        CalciteTests.TEST_AUTHORIZER_MAPPER
+        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class)
     );
     final DruidOperatorTable operatorTable = CalciteTests.createOperatorTable();
     final ExprMacroTable macroTable = CalciteTests.createExprMacroTable();
@@ -149,7 +150,7 @@ public class SqlStatementTest
         operatorTable,
         macroTable,
         plannerConfig,
-        CalciteTests.TEST_AUTHORIZER_MAPPER,
+        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
         CalciteTests.getJsonMapper(),
         CalciteTests.DRUID_SCHEMA_NAME,
         new CalciteRulesManager(ImmutableSet.of())
