@@ -101,17 +101,11 @@ import org.apache.druid.server.QueryStackTests;
 import org.apache.druid.server.SegmentManager;
 import org.apache.druid.server.coordination.DruidServerMetadata;
 import org.apache.druid.server.log.NoopRequestLogger;
-import org.apache.druid.server.security.Access;
-import org.apache.druid.server.security.AllowAllAuthenticator;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
-import org.apache.druid.server.security.Authenticator;
-import org.apache.druid.server.security.AuthenticatorMapper;
-import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.Escalator;
 import org.apache.druid.server.security.NoopEscalator;
-import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.SqlLifecycleManager;
 import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
@@ -148,7 +142,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -178,54 +171,6 @@ public class CalciteTests
   public static final String INFORMATION_SCHEMA_NAME = "INFORMATION_SCHEMA";
 
   public static final String TEST_SUPERUSER_NAME = "testSuperuser";
-//  public static final AuthorizerMapper TEST_AUTHORIZER_MAPPER = new AuthorizerMapper(null)
-//  {
-//    @Override
-//    public Authorizer getAuthorizer(String name)
-//    {
-//      return (authenticationResult, resource, action) -> {
-//        if (authenticationResult.getIdentity().equals(TEST_SUPERUSER_NAME)) {
-//          return Access.OK;
-//        }
-//
-//        switch (resource.getType()) {
-//          case ResourceType.DATASOURCE:
-//            if (resource.getName().equals(FORBIDDEN_DATASOURCE)) {
-//              return new Access(false);
-//            } else {
-//              return Access.OK;
-//            }
-//          case ResourceType.VIEW:
-//            if (resource.getName().equals("forbiddenView")) {
-//              return new Access(false);
-//            } else {
-//              return Access.OK;
-//            }
-//          case ResourceType.QUERY_CONTEXT:
-//            return Access.OK;
-//          default:
-//            return new Access(false);
-//        }
-//      };
-//    }
-//  };
-//  public static final AuthenticatorMapper TEST_AUTHENTICATOR_MAPPER;
-//
-//  static {
-//    final Map<String, Authenticator> defaultMap = new HashMap<>();
-//    defaultMap.put(
-//        AuthConfig.ALLOW_ALL_NAME,
-//        new AllowAllAuthenticator()
-//        {
-//          @Override
-//          public AuthenticationResult authenticateJDBCContext(Map<String, Object> context)
-//          {
-//            return new AuthenticationResult((String) context.get("user"), AuthConfig.ALLOW_ALL_NAME, null, null);
-//          }
-//        }
-//    );
-//    TEST_AUTHENTICATOR_MAPPER = new AuthenticatorMapper(defaultMap);
-//  }
 
   public static final Escalator TEST_AUTHENTICATOR_ESCALATOR;
 

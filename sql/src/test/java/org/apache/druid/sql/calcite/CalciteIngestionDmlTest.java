@@ -23,11 +23,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.query.Query;
@@ -35,15 +33,11 @@ import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFact
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.Action;
-import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
-import org.apache.druid.sql.DirectStatement;
-import org.apache.druid.sql.SqlQueryPlus;
-import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
 import org.apache.druid.sql.calcite.planner.Calcites;
@@ -52,7 +46,6 @@ import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
-import org.hamcrest.MatcherAssert;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.internal.matchers.ThrowableMessageMatcher;
@@ -268,32 +261,14 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
         throw new ISE("Test must not have expectedQuery");
       }
 
-      final SqlStatementFactory sqlLifecycleFactory = getSqlLifecycleFactory(
-          plannerConfig,
-          new AuthConfig(),
-          createOperatorTable(),
-          createMacroTable(),
-          CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
-          queryJsonMapper
-      );
-
-      DirectStatement stmt = sqlLifecycleFactory.directStatement(
-          SqlQueryPlus
-              .builder(sql)
-              .context(queryContext)
-              .auth(authenticationResult)
-              .build()
-      );
-
-      final Throwable e = Assert.assertThrows(
-          Throwable.class,
-          () -> {
-            stmt.execute();
-          }
-      );
-
-      MatcherAssert.assertThat(e, validationErrorMatcher);
-      Assert.assertTrue(queryLogHook.getRecordedQueries().isEmpty());
+      testCase()
+          .sql(sql)
+          .context(queryContext)
+          .auth(authenticationResult)
+          .plannerConfig(plannerConfig)
+          .authorizerMapper(CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class))
+          .tester()
+          .verifyValidationError(validationErrorMatcher);
     }
 
     private void verifySuccess()
@@ -306,29 +281,16 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
         throw new ISE("Test must have expectedResources");
       }
 
-      final List<Query<?>> expectedQueries =
-          expectedQuery == null
-          ? Collections.emptyList()
-          : Collections.singletonList(recursivelyOverrideContext(expectedQuery, queryContext));
-
-      SqlQueryPlus queryPlus = queryPlus(
-          sql,
-          queryContext,
-          DEFAULT_PARAMETERS,
-          authenticationResult);
-      Assert.assertEquals(
-          ImmutableSet.copyOf(expectedResources),
-          analyzeResources(plannerConfig, new AuthConfig(), queryPlus)
-      );
-
-      final Pair<RowSignature, List<Object[]>> results = getResults(plannerConfig, queryPlus);
-
-      verifyResults(
-          sql,
-          expectedQueries,
-          Collections.singletonList(new Object[]{expectedTargetDataSource, expectedTargetSignature}),
-          results
-      );
+      testCase()
+          .sql(sql)
+          .context(queryContext)
+          .auth(authenticationResult)
+          .plannerConfig(plannerConfig)
+          .authorizerMapper(CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class))
+          .expectedQueryWithContext(expectedQuery)
+          .expectedResults(Collections.singletonList(new Object[]{expectedTargetDataSource, expectedTargetSignature}))
+          .expectedResources(expectedResources)
+          .runAndVerify();
     }
   }
 
