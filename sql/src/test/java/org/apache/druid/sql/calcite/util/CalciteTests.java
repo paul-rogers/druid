@@ -700,7 +700,7 @@ public class CalciteTests
     // No instantiation.
   }
 
-  public static final DruidViewMacroFactory DRUID_VIEW_MACRO_FACTORY = new TestDruidViewMacroFactory();
+  public static final DruidViewMacroFactory DRUID_VIEW_MACRO_FACTORY = INJECTOR.getInstance(DruidViewMacroFactory.class);
 
   public static QueryMakerFactory createMockQueryMakerFactory(
       final QuerySegmentWalker walker,
@@ -998,6 +998,7 @@ public class CalciteTests
     return new MapBasedInputRow(DateTimes.ISO_DATE_OPTIONAL_TIME.parse(time), dimensions, event);
   }
 
+  @Deprecated
   public static ExprMacroTable createExprMacroTable()
   {
     final List<ExprMacroTable.ExprMacro> exprMacros = new ArrayList<>();
@@ -1009,6 +1010,7 @@ public class CalciteTests
     return new ExprMacroTable(exprMacros);
   }
 
+  @Deprecated
   public static DruidOperatorTable createOperatorTable()
   {
     try {

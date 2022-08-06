@@ -32,7 +32,6 @@ import java.util.List;
 
 public class BloomFilterExtensionModule implements DruidModule
 {
-
   @Override
   public List<? extends Module> getJacksonModules()
   {

@@ -19,12 +19,14 @@
 
 package org.apache.druid.sql;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.sql.SqlLifecycleManager.Cancellable;
 import org.apache.druid.sql.calcite.planner.DruidPlanner;
+import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerResult;
 import org.apache.druid.sql.calcite.planner.PrepareResult;
 
@@ -103,9 +105,20 @@ public class DirectStatement extends AbstractStatement implements Cancellable
    */
   public Sequence<Object[]> execute()
   {
+    return executeWithConfig(null);
+  }
+
+  /**
+   * Execute using the planner config provided. Generally used by tests
+   * where the planner config changes between tests.
+   */
+  @VisibleForTesting
+  public Sequence<Object[]> executeWithConfig(PlannerConfig plannerConfig)
+  {
     try (DruidPlanner planner = sqlToolbox.plannerFactory.createPlanner(
         queryPlus.sql(),
-        queryPlus.context())) {
+        queryPlus.context(),
+        plannerConfig)) {
       validate(planner);
       authorize(planner, authorizer());
 

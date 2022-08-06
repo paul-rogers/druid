@@ -20,6 +20,7 @@
 package org.apache.druid.sql.calcite;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -101,6 +102,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
   protected String externSql(final ExternalDataSource externalDataSource)
   {
     try {
+      ObjectMapper queryJsonMapper = queryJsonMapper();
       return StringUtils.format(
           "TABLE(extern(%s, %s, %s))",
           Calcites.escapeStringLiteral(queryJsonMapper.writeValueAsString(externalDataSource.getInputSource())),
@@ -117,7 +119,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
   {
     String granularityString = null;
     try {
-      granularityString = queryJsonMapper.writeValueAsString(granularity);
+      granularityString = queryJsonMapper().writeValueAsString(granularity);
     }
     catch (JsonProcessingException e) {
       Assert.fail(e.getMessage());

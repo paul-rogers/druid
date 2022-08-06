@@ -22,9 +22,9 @@ package org.apache.druid.query.aggregation.datasketches.hll.sql;
 import com.fasterxml.jackson.databind.Module;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.inject.Binder;
 import org.apache.druid.common.config.NullHandling;
+import org.apache.druid.initialization.DruidModule;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.PeriodGranularity;
@@ -61,13 +61,14 @@ import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
 import org.apache.druid.sql.calcite.aggregation.ApproxCountDistinctSqlAggregator;
 import org.apache.druid.sql.calcite.aggregation.builtin.CountSqlAggregator;
 import org.apache.druid.sql.calcite.filtration.Filtration;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
+import org.apache.druid.sql.guice.SqlBindings;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.LinearShardSpec;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Period;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -79,17 +80,58 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
 {
   private static final boolean ROUND = true;
 
-  @Override
-  public Iterable<? extends Module> getJacksonModules()
+  private static class TestApproxCountDistinctSqlAggregator extends ApproxCountDistinctSqlAggregator
   {
-    return Iterables.concat(super.getJacksonModules(), new HllSketchModule().getJacksonModules());
+    TestApproxCountDistinctSqlAggregator()
+    {
+      super(new HllSketchApproxCountDistinctSqlAggregator());
+    }
+  }
+
+  public static class TestCountSqlAggregator extends CountSqlAggregator
+  {
+    public TestCountSqlAggregator()
+    {
+      super(new ApproxCountDistinctSqlAggregator(new HllSketchApproxCountDistinctSqlAggregator()));
+    }
+  }
+
+  @BeforeClass
+  public static void setup()
+  {
+    setupInjector(
+        // Near clone of HllSketchModule with one difference
+        new DruidModule()
+        {
+          @Override
+          public void configure(Binder binder)
+          {
+            HllSketchModule.registerSerde();
+            SqlBindings.addAggregator(binder, HllSketchApproxCountDistinctSqlAggregator.class);
+            SqlBindings.addAggregator(binder, HllSketchObjectSqlAggregator.class);
+            // Use APPROX_COUNT_DISTINCT_DS_HLL as APPROX_COUNT_DISTINCT impl for these tests.
+            SqlBindings.addAggregator(binder, TestApproxCountDistinctSqlAggregator.class);
+            SqlBindings.addAggregator(binder, TestCountSqlAggregator.class);
+
+            SqlBindings.addOperatorConversion(binder, HllSketchEstimateOperatorConversion.class);
+            SqlBindings.addOperatorConversion(binder, HllSketchEstimateWithErrorBoundsOperatorConversion.class);
+            SqlBindings.addOperatorConversion(binder, HllSketchSetUnionOperatorConversion.class);
+            SqlBindings.addOperatorConversion(binder, HllSketchToStringOperatorConversion.class);
+          }
+
+          @Override
+          public List<? extends Module> getJacksonModules()
+          {
+            return new HllSketchModule().getJacksonModules();
+          }
+        }
+    );
   }
 
   @SuppressWarnings("resource")
   @Override
   public SpecificSegmentsQuerySegmentWalker createQuerySegmentWalker() throws IOException
   {
-    HllSketchModule.registerSerde();
     final QueryableIndex index = IndexBuilder.create()
                                              .tmpDir(temporaryFolder.newFolder())
                                              .segmentWriteOutMediumFactory(OffHeapMemorySegmentWriteOutMediumFactory.instance())
@@ -125,30 +167,6 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
     return walker;
   }
 
-  @Override
-  public DruidOperatorTable createOperatorTable()
-  {
-    final HllSketchApproxCountDistinctSqlAggregator approxCountDistinctSqlAggregator =
-        new HllSketchApproxCountDistinctSqlAggregator();
-
-    return new DruidOperatorTable(
-        ImmutableSet.of(
-            approxCountDistinctSqlAggregator,
-            new HllSketchObjectSqlAggregator(),
-
-            // Use APPROX_COUNT_DISTINCT_DS_HLL as APPROX_COUNT_DISTINCT impl for these tests.
-            new CountSqlAggregator(new ApproxCountDistinctSqlAggregator(approxCountDistinctSqlAggregator)),
-            new ApproxCountDistinctSqlAggregator(approxCountDistinctSqlAggregator)
-        ),
-        ImmutableSet.of(
-            new HllSketchSetUnionOperatorConversion(),
-            new HllSketchEstimateOperatorConversion(),
-            new HllSketchToStringOperatorConversion(),
-            new HllSketchEstimateWithErrorBoundsOperatorConversion()
-        )
-    );
-  }
-
   @Test
   public void testApproxCountDistinctHllSketch()
   {
@@ -159,7 +177,7 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
                        + "  SUM(cnt),\n"
                        + "  APPROX_COUNT_DISTINCT_DS_HLL(dim2),\n" // uppercase
                        + "  APPROX_COUNT_DISTINCT_DS_HLL(dim2) FILTER(WHERE dim2 <> ''),\n" // lowercase; also, filtered
-                       + "  APPROX_COUNT_DISTINCT(SUBSTRING(dim2, 1, 1)),\n" // on extractionFn, using generic A.C.D.
+                       + "  APPROX_COUNT_DISTINCT_DS_HLL(SUBSTRING(dim2, 1, 1)),\n" // on extractionFn, using generic A.C.D.
                        + "  COUNT(DISTINCT SUBSTRING(dim2, 1, 1) || 'x'),\n" // on expression, using COUNT DISTINCT
                        + "  APPROX_COUNT_DISTINCT_DS_HLL(hllsketch_dim1, 21, 'HLL_8'),\n" // on native HllSketch column
                        + "  APPROX_COUNT_DISTINCT_DS_HLL(hllsketch_dim1)\n" // on native HllSketch column
@@ -242,7 +260,6 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
         expectedResults
     );
   }
-
 
   @Test
   public void testAvgDailyCountDistinctHllSketch()

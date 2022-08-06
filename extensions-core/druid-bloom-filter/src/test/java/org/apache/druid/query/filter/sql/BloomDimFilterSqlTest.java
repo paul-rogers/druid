@@ -19,10 +19,7 @@
 
 package org.apache.druid.query.filter.sql;
 
-import com.fasterxml.jackson.databind.Module;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import org.apache.calcite.avatica.SqlType;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.guice.BloomFilterExtensionModule;
@@ -33,7 +30,6 @@ import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
-import org.apache.druid.query.expression.LookupExprMacro;
 import org.apache.druid.query.expressions.BloomFilterExpressions;
 import org.apache.druid.query.filter.BloomDimFilter;
 import org.apache.druid.query.filter.BloomKFilter;
@@ -42,50 +38,26 @@ import org.apache.druid.query.filter.ExpressionDimFilter;
 import org.apache.druid.query.filter.OrDimFilter;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
-import org.apache.druid.sql.calcite.aggregation.ApproxCountDistinctSqlAggregator;
-import org.apache.druid.sql.calcite.aggregation.builtin.BuiltinApproxCountDistinctSqlAggregator;
-import org.apache.druid.sql.calcite.aggregation.builtin.CountSqlAggregator;
 import org.apache.druid.sql.calcite.filtration.Filtration;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.http.SqlParameter;
+import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 public class BloomDimFilterSqlTest extends BaseCalciteQueryTest
 {
-  @Override
-  public DruidOperatorTable createOperatorTable()
+  @BeforeClass
+  public static void setup()
   {
-    CalciteTests.getJsonMapper().registerModule(new BloomFilterSerializersModule());
-    return new DruidOperatorTable(
-        ImmutableSet.of(
-            new CountSqlAggregator(new ApproxCountDistinctSqlAggregator(new BuiltinApproxCountDistinctSqlAggregator()))
-        ),
-        ImmutableSet.of(new BloomFilterOperatorConversion())
+    setupInjector(
+        new BloomFilterExtensionModule(),
+        binder -> {
+          ExpressionModule.addExprMacro(binder, BloomFilterExpressions.TestExprMacro.class);
+        }
     );
-  }
-
-  @Override
-  public ExprMacroTable createMacroTable()
-  {
-    final List<ExprMacroTable.ExprMacro> exprMacros = new ArrayList<>();
-    for (Class<? extends ExprMacroTable.ExprMacro> clazz : ExpressionModule.EXPR_MACROS) {
-      exprMacros.add(CalciteTests.INJECTOR.getInstance(clazz));
-    }
-    exprMacros.add(CalciteTests.INJECTOR.getInstance(LookupExprMacro.class));
-    exprMacros.add(new BloomFilterExpressions.TestExprMacro());
-    return new ExprMacroTable(exprMacros);
-  }
-
-  @Override
-  public Iterable<? extends Module> getJacksonModules()
-  {
-    return Iterables.concat(super.getJacksonModules(), new BloomFilterExtensionModule().getJacksonModules());
   }
 
   @Test
@@ -144,7 +116,7 @@ public class BloomDimFilterSqlTest extends BaseCalciteQueryTest
                               base64
                           ),
                           null,
-                          createMacroTable()
+                          injector().getInstance(ExprMacroTable.class)
                       )
                   )
                   .aggregators(aggregators(new CountAggregatorFactory("a0")))

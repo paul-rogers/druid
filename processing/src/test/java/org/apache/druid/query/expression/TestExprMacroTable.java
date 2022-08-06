@@ -22,6 +22,7 @@ package org.apache.druid.query.expression;
 import com.google.common.collect.ImmutableList;
 import org.apache.druid.math.expr.ExprMacroTable;
 
+@Deprecated
 public class TestExprMacroTable extends ExprMacroTable
 {
   public static final ExprMacroTable INSTANCE = new TestExprMacroTable();

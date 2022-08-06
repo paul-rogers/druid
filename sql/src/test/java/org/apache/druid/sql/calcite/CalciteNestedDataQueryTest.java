@@ -19,11 +19,9 @@
 
 package org.apache.druid.sql.calcite;
 
-import com.fasterxml.jackson.databind.Module;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.impl.DimensionSchema;
@@ -37,7 +35,6 @@ import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.guice.ExpressionModule;
 import org.apache.druid.guice.NestedDataModule;
 import org.apache.druid.java.util.common.granularity.Granularities;
-import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
@@ -59,7 +56,6 @@ import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.nested.NestedDataComplexTypeSerde;
-import org.apache.druid.segment.serde.ComplexMetrics;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.apache.druid.segment.virtual.NestedFieldVirtualColumn;
 import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMediumFactory;
@@ -69,10 +65,10 @@ import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.LinearShardSpec;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -146,22 +142,23 @@ public class CalciteNestedDataQueryTest extends BaseCalciteQueryTest
   private static final List<InputRow> ROWS =
       RAW_ROWS.stream().map(raw -> CalciteTests.createRow(raw, PARSER)).collect(Collectors.toList());
 
-  private ExprMacroTable macroTable;
-
-  @Override
-  public Iterable<? extends Module> getJacksonModules()
+  @BeforeClass
+  public static void setup()
   {
-    return Iterables.concat(
-        super.getJacksonModules(),
-        NestedDataModule.getJacksonModulesList()
+    buildInjector(injectorBuilder()
+        .withSqlAggregation()
+        .addModules(
+            new NestedDataModule(),
+            binder -> {
+              ExpressionModule.addExprMacro(binder, LookupExprMacro.class);
+            }
+        )
     );
   }
 
   @Override
   public SpecificSegmentsQuerySegmentWalker createQuerySegmentWalker() throws IOException
   {
-    NestedDataModule.registerHandlersAndSerde();
-    macroTable = createMacroTable();
     final QueryableIndex index =
         IndexBuilder.create()
                     .tmpDir(temporaryFolder.newFolder())
@@ -188,18 +185,6 @@ public class CalciteNestedDataQueryTest extends BaseCalciteQueryTest
                    .build(),
         index
     );
-  }
-
-  @Override
-  public ExprMacroTable createMacroTable()
-  {
-    ComplexMetrics.registerSerde(NestedDataComplexTypeSerde.TYPE_NAME, NestedDataComplexTypeSerde.INSTANCE);
-    final List<ExprMacroTable.ExprMacro> exprMacros = new ArrayList<>();
-    for (Class<? extends ExprMacroTable.ExprMacro> clazz : ExpressionModule.EXPR_MACROS) {
-      exprMacros.add(CalciteTests.INJECTOR.getInstance(clazz));
-    }
-    exprMacros.add(CalciteTests.INJECTOR.getInstance(LookupExprMacro.class));
-    return new ExprMacroTable(exprMacros);
   }
 
   @Test
@@ -2056,7 +2041,7 @@ public class CalciteNestedDataQueryTest extends BaseCalciteQueryTest
                                 "v0",
                                 "json_keys(\"nester\",'.')",
                                 ColumnType.STRING_ARRAY,
-                                macroTable
+                                exprMacroTable()
                             )
                         )
                         .setDimensions(
@@ -2098,7 +2083,7 @@ public class CalciteNestedDataQueryTest extends BaseCalciteQueryTest
                                 "v0",
                                 "json_keys(\"nester\",'$.')",
                                 ColumnType.STRING_ARRAY,
-                                macroTable
+                                exprMacroTable()
                             )
                         )
                         .setDimensions(
@@ -2140,7 +2125,7 @@ public class CalciteNestedDataQueryTest extends BaseCalciteQueryTest
                                 "v0",
                                 "json_keys(\"nest\",'.')",
                                 ColumnType.STRING_ARRAY,
-                                macroTable
+                                exprMacroTable()
                             )
                         )
                         .setDimensions(
@@ -2183,7 +2168,7 @@ public class CalciteNestedDataQueryTest extends BaseCalciteQueryTest
                                 "v0",
                                 "json_paths(\"nester\")",
                                 ColumnType.STRING_ARRAY,
-                                macroTable
+                                exprMacroTable()
                             )
                         )
                         .setDimensions(
@@ -2325,7 +2310,7 @@ public class CalciteNestedDataQueryTest extends BaseCalciteQueryTest
                           "v0",
                           "json_object('n',\"v1\",'x',\"v2\")",
                           NestedDataComplexTypeSerde.TYPE,
-                          macroTable
+                          exprMacroTable()
                       ),
                       new NestedFieldVirtualColumn(
                           "nester",
@@ -2373,25 +2358,25 @@ public class CalciteNestedDataQueryTest extends BaseCalciteQueryTest
                           "v0",
                           "to_json(\"string\")",
                           NestedDataComplexTypeSerde.TYPE,
-                          macroTable
+                          exprMacroTable()
                       ),
                       new ExpressionVirtualColumn(
                           "v1",
                           "parse_json(\"string\")",
                           NestedDataComplexTypeSerde.TYPE,
-                          macroTable
+                          exprMacroTable()
                       ),
                       new ExpressionVirtualColumn(
                           "v2",
                           "parse_json('{\\u0022foo\\u0022:1}')",
                           NestedDataComplexTypeSerde.TYPE,
-                          macroTable
+                          exprMacroTable()
                       ),
                       new ExpressionVirtualColumn(
                           "v3",
                           "parse_json(to_json_string(\"nester\"))",
                           NestedDataComplexTypeSerde.TYPE,
-                          macroTable
+                          exprMacroTable()
                       )
                   )
                   .columns("string", "v0", "v1", "v2", "v3")

@@ -19,17 +19,16 @@
 
 package org.apache.druid.sql.calcite;
 
-import com.fasterxml.jackson.databind.InjectableValues;
-import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.google.api.client.util.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Injector;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.druid.annotations.UsedByJUnitParamsRunner;
 import org.apache.druid.common.config.NullHandling;
+import org.apache.druid.guice.DruidInjectorBuilder;
 import org.apache.druid.hll.VersionOneHyperLogLogCollector;
-import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
@@ -58,8 +57,6 @@ import org.apache.druid.query.filter.OrDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.having.DimFilterHavingSpec;
-import org.apache.druid.query.lookup.LookupExtractorFactoryContainerProvider;
-import org.apache.druid.query.lookup.LookupSerdeModule;
 import org.apache.druid.query.ordering.StringComparator;
 import org.apache.druid.query.ordering.StringComparators;
 import org.apache.druid.query.scan.ScanQuery;
@@ -81,17 +78,16 @@ import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.calcite.QueryTester.QueryTestCase;
 import org.apache.druid.sql.calcite.QueryTester.QueryTestConfig;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
-import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.planner.Calcites;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.util.CalciteTestBase;
+import org.apache.druid.sql.calcite.util.CalciteTestInjectorBuilder;
 import org.apache.druid.sql.calcite.util.CalciteTests;
+import org.apache.druid.sql.calcite.util.MockModules;
 import org.apache.druid.sql.calcite.util.QueryLogHook;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
 import org.apache.druid.sql.http.SqlParameter;
-import org.apache.druid.timeline.DataSegment;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Interval;
@@ -108,7 +104,6 @@ import org.junit.rules.TemporaryFolder;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -128,6 +123,11 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   public static final String HLLC_STRING = VersionOneHyperLogLogCollector.class.getName();
 
   @BeforeClass
+  public static void setup()
+  {
+    setupNullValues();
+  }
+
   public static void setupNullValues()
   {
     NULL_STRING = NullHandling.defaultStringValue();
@@ -256,7 +256,6 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   public boolean cannotVectorize = false;
   public boolean skipVectorize = false;
 
-  public ObjectMapper queryJsonMapper;
   public SpecificSegmentsQuerySegmentWalker walker = null;
   public QueryLogHook queryLogHook;
 
@@ -269,174 +268,6 @@ public class BaseCalciteQueryTest extends CalciteTestBase
     TIMESERIES_CONTEXT_LOS_ANGELES.put(QueryContexts.MAX_SCATTER_GATHER_BYTES_KEY, Long.MAX_VALUE);
 
     OUTER_LIMIT_CONTEXT.put(PlannerContext.CTX_SQL_OUTER_LIMIT, 2);
-  }
-
-  // Generate timestamps for expected results
-  public static long timestamp(final String timeString)
-  {
-    return Calcites.jodaToCalciteTimestamp(DateTimes.of(timeString), DateTimeZone.UTC);
-  }
-
-  // Generate timestamps for expected results
-  public static long timestamp(final String timeString, final String timeZoneString)
-  {
-    final DateTimeZone timeZone = DateTimes.inferTzFromString(timeZoneString);
-    return Calcites.jodaToCalciteTimestamp(new DateTime(timeString, timeZone), timeZone);
-  }
-
-  // Generate day numbers for expected results
-  public static int day(final String dayString)
-  {
-    return (int) (Intervals.utc(timestamp("1970"), timestamp(dayString)).toDurationMillis() / (86400L * 1000L));
-  }
-
-  public static QuerySegmentSpec querySegmentSpec(final Interval... intervals)
-  {
-    return new MultipleIntervalSegmentSpec(Arrays.asList(intervals));
-  }
-
-  public static AndDimFilter and(DimFilter... filters)
-  {
-    return new AndDimFilter(Arrays.asList(filters));
-  }
-
-  public static OrDimFilter or(DimFilter... filters)
-  {
-    return new OrDimFilter(Arrays.asList(filters));
-  }
-
-  public static NotDimFilter not(DimFilter filter)
-  {
-    return new NotDimFilter(filter);
-  }
-
-  public static InDimFilter in(String dimension, List<String> values, ExtractionFn extractionFn)
-  {
-    return new InDimFilter(dimension, values, extractionFn);
-  }
-
-  public static SelectorDimFilter selector(final String fieldName, final String value, final ExtractionFn extractionFn)
-  {
-    return new SelectorDimFilter(fieldName, value, extractionFn);
-  }
-
-  public static ExpressionDimFilter expressionFilter(final String expression)
-  {
-    return new ExpressionDimFilter(expression, CalciteTests.createExprMacroTable());
-  }
-
-  public static DimFilter numericSelector(
-      final String fieldName,
-      final String value,
-      final ExtractionFn extractionFn
-  )
-  {
-    // We use Bound filters for numeric equality to achieve "10.0" = "10"
-    return bound(fieldName, value, value, false, false, extractionFn, StringComparators.NUMERIC);
-  }
-
-  public static BoundDimFilter bound(
-      final String fieldName,
-      final String lower,
-      final String upper,
-      final boolean lowerStrict,
-      final boolean upperStrict,
-      final ExtractionFn extractionFn,
-      final StringComparator comparator
-  )
-  {
-    return new BoundDimFilter(fieldName, lower, upper, lowerStrict, upperStrict, null, extractionFn, comparator);
-  }
-
-  public static BoundDimFilter timeBound(final Object intervalObj)
-  {
-    final Interval interval = new Interval(intervalObj, ISOChronology.getInstanceUTC());
-    return new BoundDimFilter(
-        ColumnHolder.TIME_COLUMN_NAME,
-        String.valueOf(interval.getStartMillis()),
-        String.valueOf(interval.getEndMillis()),
-        false,
-        true,
-        null,
-        null,
-        StringComparators.NUMERIC
-    );
-  }
-
-  public static CascadeExtractionFn cascade(final ExtractionFn... fns)
-  {
-    return new CascadeExtractionFn(fns);
-  }
-
-  public static List<DimensionSpec> dimensions(final DimensionSpec... dimensionSpecs)
-  {
-    return Arrays.asList(dimensionSpecs);
-  }
-
-  public static List<AggregatorFactory> aggregators(final AggregatorFactory... aggregators)
-  {
-    return Arrays.asList(aggregators);
-  }
-
-  public static DimFilterHavingSpec having(final DimFilter filter)
-  {
-    return new DimFilterHavingSpec(filter, true);
-  }
-
-  public static ExpressionVirtualColumn expressionVirtualColumn(
-      final String name,
-      final String expression,
-      final ColumnType outputType
-  )
-  {
-    return new ExpressionVirtualColumn(name, expression, outputType, CalciteTests.createExprMacroTable());
-  }
-
-  public static JoinDataSource join(
-      DataSource left,
-      DataSource right,
-      String rightPrefix,
-      String condition,
-      JoinType joinType,
-      DimFilter filter
-  )
-  {
-    return JoinDataSource.create(
-        left,
-        right,
-        rightPrefix,
-        condition,
-        joinType,
-        filter,
-        CalciteTests.createExprMacroTable()
-    );
-  }
-
-  public static JoinDataSource join(
-      DataSource left,
-      DataSource right,
-      String rightPrefix,
-      String condition,
-      JoinType joinType
-  )
-  {
-    return join(left, right, rightPrefix, condition, joinType, null);
-  }
-
-  public static String equalsCondition(DruidExpression left, DruidExpression right)
-  {
-    return StringUtils.format("(%s == %s)", left.getExpression(), right.getExpression());
-  }
-
-  public static ExpressionPostAggregator expressionPostAgg(final String name, final String expression)
-  {
-    return new ExpressionPostAggregator(name, expression, null, CalciteTests.createExprMacroTable());
-  }
-
-  public static Druids.ScanQueryBuilder newScanQueryBuilder()
-  {
-    return new Druids.ScanQueryBuilder().resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
-                                        .legacy(false);
   }
 
   @BeforeClass
@@ -455,19 +286,13 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   @Rule
   public QueryLogHook getQueryLogHook()
   {
-    queryJsonMapper = createQueryJsonMapper();
-    return queryLogHook = QueryLogHook.create(queryJsonMapper);
+    return queryLogHook = QueryLogHook.create(queryJsonMapper());
   }
 
   @Before
   public void setUp() throws Exception
   {
     walker = createQuerySegmentWalker();
-
-    // also register the static injected mapper, though across multiple test runs
-    ObjectMapper mapper = CalciteTests.getJsonMapper();
-    mapper.registerModules(getJacksonModules());
-    setMapperInjectableValues(mapper, getJacksonInjectables());
   }
 
   @After
@@ -483,58 +308,6 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         conglomerate,
         temporaryFolder.newFolder()
     );
-  }
-
-  public ObjectMapper createQueryJsonMapper()
-  {
-    // ugly workaround, for some reason the static mapper from Calcite.INJECTOR seems to get messed up over
-    // multiple test runs, resulting in missing subtypes that cause this JSON serde round-trip test
-    // this should be nearly identical to CalciteTests.getJsonMapper()
-    ObjectMapper mapper = new DefaultObjectMapper().registerModules(getJacksonModules());
-    setMapperInjectableValues(mapper, getJacksonInjectables());
-    return mapper;
-  }
-
-  public DruidOperatorTable createOperatorTable()
-  {
-    return CalciteTests.createOperatorTable();
-  }
-
-  public ExprMacroTable createMacroTable()
-  {
-    return CalciteTests.createExprMacroTable();
-  }
-
-  public Map<String, Object> getJacksonInjectables()
-  {
-    return new HashMap<>();
-  }
-
-  public final void setMapperInjectableValues(ObjectMapper mapper, Map<String, Object> injectables)
-  {
-    // duplicate the injectable values from CalciteTests.INJECTOR initialization, mainly to update the injectable
-    // macro table, or whatever else you feel like injecting to a mapper
-    LookupExtractorFactoryContainerProvider lookupProvider =
-        CalciteTests.INJECTOR.getInstance(LookupExtractorFactoryContainerProvider.class);
-    mapper.setInjectableValues(new InjectableValues.Std(injectables)
-                                   .addValue(ExprMacroTable.class.getName(), createMacroTable())
-                                                .addValue(ObjectMapper.class.getName(), mapper)
-                                                .addValue(
-                                                    DataSegment.PruneSpecsHolder.class,
-                                                    DataSegment.PruneSpecsHolder.DEFAULT
-                                                )
-                                                .addValue(
-                                                    LookupExtractorFactoryContainerProvider.class.getName(),
-                                                    lookupProvider
-                                                )
-    );
-  }
-
-  public Iterable<? extends Module> getJacksonModules()
-  {
-    final List<Module> modules = new ArrayList<>(new LookupSerdeModule().getJacksonModules());
-    modules.add(new SimpleModule().registerSubtypes(ExternalDataSource.class));
-    return modules;
   }
 
   public void assertQueryIsUnplannable(final String sql, String expectedError)
@@ -699,6 +472,10 @@ public class BaseCalciteQueryTest extends CalciteTestBase
     );
   }
 
+  /**
+   * Run the query with the context provided. Does not run the
+   * query with multiple vectorize options.
+   */
   public void testQuery(
       final PlannerConfig plannerConfig,
       final Map<String, Object> queryContext,
@@ -714,7 +491,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         .context(queryContext)
         .auth(authenticationResult)
         .plannerConfig(plannerConfig)
-        .authorizerMapper(CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class))
+        .authorizerMapper(injector().getInstance(AuthorizerMapper.class))
         .expectedQueries(expectedQueries)
         .expectedResults(expectedResults)
         .runAndVerify();
@@ -796,7 +573,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
     log.info("SQL: %s", testCase.sql());
 
     testCase
-        .authorizerMapper(CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class))
+        .authorizerMapper(injector().getInstance(AuthorizerMapper.class))
         .cannotVectorize(cannotVectorize)
         .skipVectorize(skipVectorize)
         .runAndVerifyVectorized(expectedException);
@@ -805,11 +582,9 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   protected QueryTestConfig testConfig()
   {
     return new QueryTestConfig(
+        injector(),
         conglomerate,
         walker,
-        queryJsonMapper,
-        createOperatorTable(),
-        createMacroTable(),
         new AuthConfig(),
         queryLogHook
     );
@@ -873,11 +648,9 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   )
   {
     return new QueryTestConfig(
+            injector(),
             conglomerate,
             walker,
-            queryJsonMapper,
-            createOperatorTable(),
-            createMacroTable(),
             authConfig,
             queryLogHook
          )
@@ -886,7 +659,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         .context(contexts)
         .auth(authenticationResult)
         .plannerConfig(plannerConfig)
-        .authorizerMapper(CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class))
+        .authorizerMapper(injector().getInstance(AuthorizerMapper.class))
         .tester()
         .analyzeResources();
   }

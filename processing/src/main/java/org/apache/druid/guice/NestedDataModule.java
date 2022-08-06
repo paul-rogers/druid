@@ -51,7 +51,6 @@ public class NestedDataModule implements DruidModule
     registerHandlersAndSerde();
   }
 
-
   @VisibleForTesting
   public static void registerHandlersAndSerde()
   {

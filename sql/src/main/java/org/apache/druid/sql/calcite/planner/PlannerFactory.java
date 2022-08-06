@@ -49,6 +49,8 @@ import org.apache.druid.sql.calcite.run.QueryMakerFactory;
 import org.apache.druid.sql.calcite.schema.DruidSchemaCatalog;
 import org.apache.druid.sql.calcite.schema.DruidSchemaName;
 
+import javax.annotation.Nullable;
+
 import java.util.Map;
 import java.util.Properties;
 
@@ -99,16 +101,31 @@ public class PlannerFactory
   }
 
   /**
-   * Create a Druid query planner from an initial query context
+   * Create a Druid query planner from an initial query context.
    */
   public DruidPlanner createPlanner(final String sql, final QueryContext queryContext)
+  {
+    return createPlanner(sql, queryContext, null);
+  }
+
+  /**
+   * Create a Druid query planner from an initial query context and the
+   * provided planner config, which can be null, to use the system config.
+   * The non-null value is only for testing, where the planner
+   * config varies across tests.
+   */
+  public DruidPlanner createPlanner(
+      final String sql,
+      final QueryContext queryContext,
+      @Nullable final PlannerConfig specificPlannerConfig
+  )
   {
     final PlannerContext context = PlannerContext.create(
         sql,
         operatorTable,
         macroTable,
         jsonMapper,
-        plannerConfig,
+        specificPlannerConfig == null ? this.plannerConfig : specificPlannerConfig,
         rootSchema,
         queryContext
     );

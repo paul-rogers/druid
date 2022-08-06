@@ -19,10 +19,7 @@
 
 package org.apache.druid.query.aggregation.datasketches.quantiles.sql;
 
-import com.fasterxml.jackson.databind.Module;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.math.expr.ExprMacroTable;
@@ -59,11 +56,11 @@ import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMediumFactory;
 import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
 import org.apache.druid.sql.calcite.filtration.Filtration;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.LinearShardSpec;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -74,25 +71,12 @@ import java.util.Map;
 
 public class DoublesSketchSqlAggregatorTest extends BaseCalciteQueryTest
 {
-  private static final DruidOperatorTable OPERATOR_TABLE = new DruidOperatorTable(
-      ImmutableSet.of(
-          new DoublesSketchApproxQuantileSqlAggregator(),
-          new DoublesSketchObjectSqlAggregator()
-      ),
-      ImmutableSet.of(
-          new DoublesSketchQuantileOperatorConversion(),
-          new DoublesSketchQuantilesOperatorConversion(),
-          new DoublesSketchToHistogramOperatorConversion(),
-          new DoublesSketchRankOperatorConversion(),
-          new DoublesSketchCDFOperatorConversion(),
-          new DoublesSketchSummaryOperatorConversion()
-      )
-  );
-
-  @Override
-  public Iterable<? extends Module> getJacksonModules()
+  @BeforeClass
+  public static void setup()
   {
-    return Iterables.concat(super.getJacksonModules(), new DoublesSketchModule().getJacksonModules());
+    setupInjector(
+        new DoublesSketchModule()
+    );
   }
 
   @Override
@@ -131,12 +115,6 @@ public class DoublesSketchSqlAggregatorTest extends BaseCalciteQueryTest
                    .build(),
         index
     );
-  }
-
-  @Override
-  public DruidOperatorTable createOperatorTable()
-  {
-    return OPERATOR_TABLE;
   }
 
   @Test

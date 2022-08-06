@@ -92,6 +92,7 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -168,13 +169,13 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
   @Rule
   public ExpectedException expectedException = ExpectedException.none();
 
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @ClassRule
+  public static TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   @Rule
   public QueryLogHook queryLogHook = QueryLogHook.create();
 
-  private SpecificSegmentsQuerySegmentWalker walker;
+  private static SpecificSegmentsQuerySegmentWalker walker;
   private Server server;
   private Connection client;
   private Connection clientNoTrailingSlash;
@@ -182,23 +183,19 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
   private Connection clientLosAngeles;
   private DruidMeta druidMeta;
   private String url;
-  private Injector injector;
-  private TestRequestLogger testRequestLogger;
+  private static TestRequestLogger testRequestLogger;
 
-  @Before
-  public void setUp() throws Exception
+  @BeforeClass
+  public static void classSetup() throws IOException
   {
+    testRequestLogger = new TestRequestLogger();
     walker = CalciteTests.createMockWalker(conglomerate, temporaryFolder.newFolder());
     final PlannerConfig plannerConfig = new PlannerConfig();
-    final DruidOperatorTable operatorTable = CalciteTests.createOperatorTable();
-    final ExprMacroTable macroTable = CalciteTests.createExprMacroTable();
     final DruidSchemaCatalog rootSchema =
         CalciteTests.createMockRootSchema(conglomerate, walker, plannerConfig, CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class));
-    testRequestLogger = new TestRequestLogger();
-
-    injector = Initialization.makeInjectorWithModules(
-        GuiceInjectors.makeStartupInjector(),
-        ImmutableList.of(
+    buildInjector(injectorBuilder()
+        .withSqlAggregation()
+        .add(
             new Module()
             {
               @Override
@@ -217,8 +214,8 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
                 }
                 binder.bind(QueryLifecycleFactory.class)
                       .toInstance(CalciteTests.createMockQueryLifecycleFactory(walker, conglomerate));
-                binder.bind(DruidOperatorTable.class).toInstance(operatorTable);
-                binder.bind(ExprMacroTable.class).toInstance(macroTable);
+//                binder.bind(DruidOperatorTable.class).toInstance(operatorTable);
+//                binder.bind(ExprMacroTable.class).toInstance(macroTable);
                 binder.bind(PlannerConfig.class).toInstance(plannerConfig);
                 binder.bind(String.class)
                       .annotatedWith(DruidSchemaName.class)
@@ -236,8 +233,13 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
             }
         )
     );
+  }
 
-    druidMeta = injector.getInstance(DruidMeta.class);
+  @Before
+  public void setUp() throws Exception
+  {
+    testRequestLogger.clear();
+    druidMeta = injector().getInstance(DruidMeta.class);
     final AbstractAvaticaHandler handler = this.getAvaticaHandler(druidMeta);
     final int port = ThreadLocalRandom.current().nextInt(9999) + 10000;
     server = new Server(new InetSocketAddress("127.0.0.1", port));
@@ -945,7 +947,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
         ),
         smallFrameConfig,
         new ErrorHandler(new ServerConfig()),
-        injector
+        injector()
     )
     {
       @Override
@@ -1035,7 +1037,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
         ),
         smallFrameConfig,
         new ErrorHandler(new ServerConfig()),
-        injector
+        injector()
     )
     {
       @Override

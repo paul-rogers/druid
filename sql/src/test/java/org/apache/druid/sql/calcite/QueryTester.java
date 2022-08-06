@@ -23,6 +23,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Injector;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Pair;
@@ -53,9 +54,10 @@ import org.apache.druid.sql.calcite.schema.DruidSchemaCatalog;
 import org.apache.druid.sql.calcite.schema.NoopDruidSchemaManager;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 import org.apache.druid.sql.calcite.util.CalciteTests;
+import org.apache.druid.sql.calcite.util.MockComponents.CalciteTestsViewManager;
 import org.apache.druid.sql.calcite.util.QueryLogHook;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
-import org.apache.druid.sql.calcite.view.InProcessViewManager;
+import org.apache.druid.sql.calcite.view.DruidViewMacroFactory;
 import org.apache.druid.sql.http.SqlParameter;
 import org.hamcrest.Matcher;
 import org.hamcrest.MatcherAssert;
@@ -80,29 +82,23 @@ public class QueryTester
 
   public static class QueryTestConfig
   {
+    final Injector injector;
     final QueryRunnerFactoryConglomerate conglomerate;
     final SpecificSegmentsQuerySegmentWalker walker;
-    final ObjectMapper objectMapper;
-    final DruidOperatorTable operatorTable;
-    final ExprMacroTable macroTable;
     final AuthConfig authConfig;
     final QueryLogHook queryLogHook;
 
     public QueryTestConfig(
+        final Injector injector,
         final QueryRunnerFactoryConglomerate conglomerate,
         final SpecificSegmentsQuerySegmentWalker walker,
-        final ObjectMapper objectMapper,
-        final DruidOperatorTable operatorTable,
-        final ExprMacroTable macroTable,
         final AuthConfig authConfig,
         final QueryLogHook queryLogHook
     )
     {
+      this.injector = injector;
       this.conglomerate = conglomerate;
       this.walker = walker;
-      this.objectMapper = objectMapper;
-      this.operatorTable = operatorTable;
-      this.macroTable = macroTable;
       this.authConfig = authConfig;
       this.queryLogHook = queryLogHook;
     }
@@ -433,7 +429,7 @@ public class QueryTester
   public Pair<RowSignature, List<Object[]>> run()
   {
     final DirectStatement stmt = directStmt();
-    Sequence<Object[]> results = stmt.execute();
+    Sequence<Object[]> results = stmt.executeWithConfig(testCase.plannerConfig);
     return new Pair<>(
         rowSignature(stmt),
         results.toList()
@@ -450,7 +446,7 @@ public class QueryTester
       throw new ISE("Test must have an authorizer mapper");
     }
 
-    final InProcessViewManager viewManager = new InProcessViewManager(CalciteTests.DRUID_VIEW_MACRO_FACTORY);
+    CalciteTestsViewManager viewManager = new CalciteTestsViewManager(testConfig.injector.getInstance(DruidViewMacroFactory.class));
     DruidSchemaCatalog rootSchema = CalciteTests.createMockRootSchema(
         testConfig.conglomerate,
         testConfig.walker,
@@ -464,62 +460,18 @@ public class QueryTester
         rootSchema,
         new TestQueryMakerFactory(
             CalciteTests.createMockQueryLifecycleFactory(testConfig.walker, testConfig.conglomerate),
-            testConfig.objectMapper
+            testConfig.injector.getInstance(ObjectMapper.class)
         ),
-        testConfig.operatorTable,
-        testConfig.macroTable,
+        testConfig.injector.getInstance(DruidOperatorTable.class),
+        testConfig.injector.getInstance(ExprMacroTable.class),
         testCase.plannerConfig,
         testCase.authorizerMapper,
-        testConfig.objectMapper,
+        testConfig.injector.getInstance(ObjectMapper.class),
         CalciteTests.DRUID_SCHEMA_NAME,
         new CalciteRulesManager(ImmutableSet.of())
     );
-    final SqlStatementFactory sqlLifecycleFactory = CalciteTests.createSqlLifecycleFactory(plannerFactory, testConfig.authConfig);
-
-    viewManager.createView(
-        plannerFactory,
-        "aview",
-        "SELECT SUBSTRING(dim1, 1, 1) AS dim1_firstchar FROM foo WHERE dim2 = 'a'"
-    );
-
-    viewManager.createView(
-        plannerFactory,
-        "bview",
-        "SELECT COUNT(*) FROM druid.foo\n"
-        + "WHERE __time >= CURRENT_TIMESTAMP + INTERVAL '1' DAY AND __time < TIMESTAMP '2002-01-01 00:00:00'"
-    );
-
-    viewManager.createView(
-        plannerFactory,
-        "cview",
-        "SELECT SUBSTRING(bar.dim1, 1, 1) AS dim1_firstchar, bar.dim2 as dim2, dnf.l2 as l2\n"
-        + "FROM (SELECT * from foo WHERE dim2 = 'a') as bar INNER JOIN druid.numfoo dnf ON bar.dim2 = dnf.dim2"
-    );
-
-    viewManager.createView(
-        plannerFactory,
-        "dview",
-        "SELECT SUBSTRING(dim1, 1, 1) AS numfoo FROM foo WHERE dim2 = 'a'"
-    );
-
-    viewManager.createView(
-        plannerFactory,
-        "forbiddenView",
-        "SELECT __time, SUBSTRING(dim1, 1, 1) AS dim1_firstchar, dim2 FROM foo WHERE dim2 = 'a'"
-    );
-
-    viewManager.createView(
-        plannerFactory,
-        "restrictedView",
-        "SELECT __time, dim1, dim2, m1 FROM druid.forbiddenDatasource WHERE dim2 = 'a'"
-    );
-
-    viewManager.createView(
-        plannerFactory,
-        "invalidView",
-        "SELECT __time, dim1, dim2, m1 FROM druid.invalidDatasource WHERE dim2 = 'a'"
-    );
-    return sqlLifecycleFactory;
+    ((CalciteTestsViewManager) viewManager).createViews(plannerFactory);
+    return CalciteTests.createSqlLifecycleFactory(plannerFactory, testConfig.authConfig);
   }
 
   public void verifyResults(List<Object[]> results)
@@ -550,13 +502,14 @@ public class QueryTester
       );
 
       try {
+        ObjectMapper objectMapper = testConfig.injector.getInstance(ObjectMapper.class);
         // go through some JSON serde and back, round tripping both queries and comparing them to each other, because
         // Assert.assertEquals(recordedQueries.get(i), stringAndBack) is a failure due to a sorted map being present
         // in the recorded queries, but it is a regular map after deserialization
-        final String recordedString = testConfig.objectMapper.writeValueAsString(recordedQueries.get(i));
-        final Query<?> stringAndBack = testConfig.objectMapper.readValue(recordedString, Query.class);
-        final String expectedString = testConfig.objectMapper.writeValueAsString(testCase.expectedQueries.get(i));
-        final Query<?> expectedStringAndBack = testConfig.objectMapper.readValue(expectedString, Query.class);
+        final String recordedString = objectMapper.writeValueAsString(recordedQueries.get(i));
+        final Query<?> stringAndBack = objectMapper.readValue(recordedString, Query.class);
+        final String expectedString = objectMapper.writeValueAsString(testCase.expectedQueries.get(i));
+        final Query<?> expectedStringAndBack = objectMapper.readValue(expectedString, Query.class);
         Assert.assertEquals(expectedStringAndBack, stringAndBack);
       }
       catch (JsonProcessingException e) {
@@ -601,7 +554,7 @@ public class QueryTester
       Object[] result = results.get(i);
       Assert.assertEquals(expectedResult.length, result.length);
       for (int j = 0; j < expectedResult.length; j++) {
-        String msg = StringUtils.format("result #%d[%d]: %s", i + 1, j, sql);
+        String msg = StringUtils.format("%s: result #%d[%d]", sql, i + 1, j);
         if (expectedResult[j] instanceof Float) {
           Assert.assertEquals(msg, (Float) expectedResult[j], (Float) result[j], 0.000001);
         } else if (expectedResult[j] instanceof Double) {

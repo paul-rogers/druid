@@ -19,10 +19,7 @@
 
 package org.apache.druid.query.aggregation.datasketches.theta.sql;
 
-import com.fasterxml.jackson.databind.Module;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
@@ -52,16 +49,14 @@ import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMediumFactory;
 import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
-import org.apache.druid.sql.calcite.aggregation.ApproxCountDistinctSqlAggregator;
-import org.apache.druid.sql.calcite.aggregation.builtin.CountSqlAggregator;
 import org.apache.druid.sql.calcite.filtration.Filtration;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.LinearShardSpec;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Period;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -73,17 +68,17 @@ public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
 {
   private static final String DATA_SOURCE = "foo";
 
-  @Override
-  public Iterable<? extends Module> getJacksonModules()
+  @BeforeClass
+  public static void setup()
   {
-    return Iterables.concat(super.getJacksonModules(), new SketchModule().getJacksonModules());
+    setupInjector(
+        new SketchModule()
+    );
   }
 
   @Override
   public SpecificSegmentsQuerySegmentWalker createQuerySegmentWalker() throws IOException
   {
-    SketchModule.registerSerde();
-
     final QueryableIndex index = IndexBuilder.create()
                                              .tmpDir(temporaryFolder.newFolder())
                                              .segmentWriteOutMediumFactory(OffHeapMemorySegmentWriteOutMediumFactory.instance())
@@ -116,31 +111,6 @@ public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
                    .size(0)
                    .build(),
         index
-    );
-  }
-
-  @Override
-  public DruidOperatorTable createOperatorTable()
-  {
-    final ThetaSketchApproxCountDistinctSqlAggregator approxCountDistinctSqlAggregator =
-        new ThetaSketchApproxCountDistinctSqlAggregator();
-
-    return new DruidOperatorTable(
-        ImmutableSet.of(
-            new ThetaSketchApproxCountDistinctSqlAggregator(),
-            new ThetaSketchObjectSqlAggregator(),
-
-            // Use APPROX_COUNT_DISTINCT_DS_THETA as APPROX_COUNT_DISTINCT impl for these tests.
-            new CountSqlAggregator(new ApproxCountDistinctSqlAggregator(approxCountDistinctSqlAggregator)),
-            new ApproxCountDistinctSqlAggregator(approxCountDistinctSqlAggregator)
-        ),
-        ImmutableSet.of(
-            new ThetaSketchEstimateOperatorConversion(),
-            new ThetaSketchEstimateWithErrorBoundsOperatorConversion(),
-            new ThetaSketchSetIntersectOperatorConversion(),
-            new ThetaSketchSetUnionOperatorConversion(),
-            new ThetaSketchSetNotOperatorConversion()
-        )
     );
   }
 

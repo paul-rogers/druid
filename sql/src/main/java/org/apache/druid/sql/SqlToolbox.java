@@ -19,6 +19,7 @@
 
 package org.apache.druid.sql;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.DefaultQueryConfig;
@@ -57,5 +58,22 @@ public class SqlToolbox
     this.authConfig = authConfig;
     this.defaultQueryConfig = defaultQueryConfig;
     this.sqlLifecycleManager = Preconditions.checkNotNull(sqlLifecycleManager, "sqlLifecycleManager");
+  }
+
+  /**
+   * Clones the SqlToolbox with test-specific settings.
+   */
+  @VisibleForTesting
+  public SqlToolbox forTesting(final AuthConfig authConfig)
+  {
+    return new SqlToolbox(
+        this.plannerFactory,
+        this.emitter,
+        this.requestLogger,
+        this.queryScheduler,
+        authConfig,
+        this.defaultQueryConfig,
+        this.sqlLifecycleManager
+     );
   }
 }

@@ -19,6 +19,7 @@
 
 package org.apache.druid.sql;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.tools.ValidationException;
 import org.apache.druid.java.util.common.logger.Logger;
@@ -114,12 +115,20 @@ public abstract class AbstractStatement implements Closeable
    * context variables as well as query resources.
    */
   protected void authorize(
-      DruidPlanner planner,
-      Function<Set<ResourceAction>, Access> authorizer
+      final DruidPlanner planner,
+      final Function<Set<ResourceAction>, Access> authorizer
   )
   {
-    boolean authorizeContextParams = sqlToolbox.authConfig.authorizeQueryContextParams();
+    authorize(planner, authorizer, sqlToolbox.authConfig.authorizeQueryContextParams());
+  }
 
+  @VisibleForTesting
+  protected void authorize(
+      final DruidPlanner planner,
+      final Function<Set<ResourceAction>, Access> authorizer,
+      final boolean authorizeContextParams
+  )
+  {
     // Authentication is done by the planner using the function provided
     // here. The planner ensures that this step is done before planning.
     Access authorizationResult = planner.authorize(authorizer, authorizeContextParams);

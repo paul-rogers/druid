@@ -604,7 +604,7 @@ public class CalciteReplaceDmlTest extends CalciteIngestionDmlTest
         .intervals(querySegmentSpec(Filtration.eternity()))
         .columns("x", "y", "z")
         .context(
-            queryJsonMapper.readValue(
+            queryJsonMapper().readValue(
                 "{\"defaultTimeout\":300000,\"maxScatterGatherBytes\":9223372036854775807,\"sqlCurrentTimestamp\":\"2000-01-01T00:00:00Z\",\"sqlInsertSegmentGranularity\":\"{\\\"type\\\":\\\"all\\\"}\",\"sqlQueryId\":\"dummy\",\"sqlReplaceTimeChunks\":\"all\",\"vectorize\":\"false\",\"vectorizeVirtualColumns\":\"false\"}",
                 JacksonUtils.TYPE_REFERENCE_MAP_STRING_OBJECT
             )
@@ -613,7 +613,7 @@ public class CalciteReplaceDmlTest extends CalciteIngestionDmlTest
 
     final String expectedExplanation =
         "DruidQueryRel(query=["
-        + queryJsonMapper.writeValueAsString(expectedQuery)
+        + queryJsonMapper().writeValueAsString(expectedQuery)
         + "], signature=[{x:STRING, y:STRING, z:LONG}])\n";
 
     // Use testQuery for EXPLAIN (not testIngestionQuery).

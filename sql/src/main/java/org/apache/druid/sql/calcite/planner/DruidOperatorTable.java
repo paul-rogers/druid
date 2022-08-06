@@ -394,8 +394,8 @@ public class DruidOperatorTable implements SqlOperatorTable
                           .stream()
                           .collect(Collectors.toMap(OperatorKey::of, Function.identity()));
 
-  private final Map<OperatorKey, SqlAggregator> aggregators;
-  private final Map<OperatorKey, SqlOperatorConversion> operatorConversions;
+  private final Map<OperatorKey, SqlAggregator> aggregators = new HashMap<>();
+  private final Map<OperatorKey, SqlOperatorConversion> operatorConversions = new HashMap<>();
 
   @Inject
   public DruidOperatorTable(
@@ -403,13 +403,10 @@ public class DruidOperatorTable implements SqlOperatorTable
       final Set<SqlOperatorConversion> operatorConversions
   )
   {
-    this.aggregators = new HashMap<>();
-    this.operatorConversions = new HashMap<>();
-
     for (SqlAggregator aggregator : aggregators) {
       final OperatorKey operatorKey = OperatorKey.of(aggregator.calciteFunction());
       if (this.aggregators.put(operatorKey, aggregator) != null) {
-        throw new ISE("Cannot have two operators with key[%s]", operatorKey);
+        throw new ISE("Cannot have two operators with key [%s]", operatorKey);
       }
     }
 
@@ -424,7 +421,7 @@ public class DruidOperatorTable implements SqlOperatorTable
       final OperatorKey operatorKey = OperatorKey.of(operatorConversion.calciteOperator());
       if (this.aggregators.containsKey(operatorKey)
           || this.operatorConversions.put(operatorKey, operatorConversion) != null) {
-        throw new ISE("Cannot have two operators with key[%s]", operatorKey);
+        throw new ISE("Cannot have two operators with key [%s]", operatorKey);
       }
     }
 

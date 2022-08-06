@@ -47,7 +47,7 @@ import java.util.List;
 public class ApproxCountDistinctSqlAggregator implements SqlAggregator
 {
   private static final SqlAggFunction FUNCTION_INSTANCE = new ApproxCountDistinctSqlAggFunction();
-  private static final String NAME = "APPROX_COUNT_DISTINCT";
+  public static final String NAME = "APPROX_COUNT_DISTINCT";
 
   private final SqlAggregator delegate;
 
