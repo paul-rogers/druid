@@ -28,7 +28,11 @@ public class ExpressionProcessingModule implements Module
   @Override
   public void configure(Binder binder)
   {
-    JsonConfigProvider.bind(binder, "druid.expressions", ExpressionProcessingConfig.class);
+    JsonConfigProvider.bind(
+        binder,
+        ExpressionProcessingConfig.PROPERTY_BASE,
+        ExpressionProcessingConfig.class
+    );
     binder.requestStaticInjection(ExpressionProcessing.class);
   }
 }

@@ -182,6 +182,7 @@ public class DiscoverySideEffectsProviderTest
   private Injector createInjector(List<Module> modules)
   {
     return new StartupInjectorBuilder()
+        .withStatics()
         .add(
             ServerInjectorBuilder.registerNodeRoleModule(ImmutableSet.of(nodeRole)),
             binder -> {

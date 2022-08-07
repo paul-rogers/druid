@@ -26,14 +26,17 @@ import javax.annotation.Nullable;
 
 public class ExpressionProcessingConfig
 {
-  public static final String NESTED_ARRAYS_CONFIG_STRING = "druid.expressions.allowNestedArrays";
-  public static final String NULL_HANDLING_LEGACY_LOGICAL_OPS_STRING = "druid.expressions.useStrictBooleans";
+  public static final String PROPERTY_BASE = "druid.expressions";
+  public static final String NESTED_ARRAYS_KEY =
+      PROPERTY_BASE + ".allowNestedArrays";
+  public static final String NULL_HANDLING_LEGACY_LOGICAL_OPS_KEY =
+      PROPERTY_BASE + ".useStrictBooleans";
   // Coerce arrays to multi value strings
-  public static final String PROCESS_ARRAYS_AS_MULTIVALUE_STRINGS_CONFIG_STRING =
-      "druid.expressions.processArraysAsMultiValueStrings";
+  public static final String PROCESS_ARRAYS_AS_MULTIVALUE_STRINGS_KEY =
+      PROPERTY_BASE + ".processArraysAsMultiValueStrings";
   // Coerce 'null', '[]', and '[null]' into '[null]' for backwards compat with 0.22 and earlier
-  public static final String HOMOGENIZE_NULL_MULTIVALUE_STRING_ARRAYS =
-      "druid.expressions.homogenizeNullMultiValueStringArrays";
+  public static final String HOMOGENIZE_NULL_MULTIVALUE_STRING_ARRAYS_KEY =
+      PROPERTY_BASE + ".homogenizeNullMultiValueStringArrays";
 
   @JsonProperty("allowNestedArrays")
   private final boolean allowNestedArrays;
@@ -55,15 +58,15 @@ public class ExpressionProcessingConfig
       @JsonProperty("homogenizeNullMultiValueStringArrays") @Nullable Boolean homogenizeNullMultiValueStringArrays
   )
   {
-    this.allowNestedArrays = getWithPropertyFallbackFalse(allowNestedArrays, NESTED_ARRAYS_CONFIG_STRING);
-    this.useStrictBooleans = getWithPropertyFallbackFalse(useStrictBooleans, NULL_HANDLING_LEGACY_LOGICAL_OPS_STRING);
+    this.allowNestedArrays = getWithPropertyFallbackFalse(allowNestedArrays, NESTED_ARRAYS_KEY);
+    this.useStrictBooleans = getWithPropertyFallbackFalse(useStrictBooleans, NULL_HANDLING_LEGACY_LOGICAL_OPS_KEY);
     this.processArraysAsMultiValueStrings = getWithPropertyFallbackFalse(
         processArraysAsMultiValueStrings,
-        PROCESS_ARRAYS_AS_MULTIVALUE_STRINGS_CONFIG_STRING
+        PROCESS_ARRAYS_AS_MULTIVALUE_STRINGS_KEY
     );
     this.homogenizeNullMultiValueStringArrays = getWithPropertyFallbackFalse(
         homogenizeNullMultiValueStringArrays,
-        HOMOGENIZE_NULL_MULTIVALUE_STRING_ARRAYS
+        HOMOGENIZE_NULL_MULTIVALUE_STRING_ARRAYS_KEY
     );
   }
 

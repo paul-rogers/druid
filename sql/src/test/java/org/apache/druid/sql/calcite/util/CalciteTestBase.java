@@ -24,7 +24,6 @@ import com.google.api.client.util.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import org.apache.druid.common.config.NullHandling;
-import org.apache.druid.guice.DruidInjectorBuilder;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
@@ -89,7 +88,7 @@ public abstract class CalciteTestBase
    *
    * @see #injector()
    * @see #injectorBuilder()
-   * @see #buildInjector(DruidInjectorBuilder)
+   * @see #buildInjector(CalciteTestInjectorBuilder)
    */
   private static Injector injector;
 
@@ -113,18 +112,15 @@ public abstract class CalciteTestBase
    * Use this form to perform customization beyond just adding
    * modules.
    *
-   * @see {@link #buildInjector(DruidInjectorBuilder)}
+   * @see {@link #buildInjector(CalciteTestInjectorBuilder)}
    * to build the injector from the builder returned here
    */
   protected static CalciteTestInjectorBuilder injectorBuilder()
   {
     Preconditions.checkState(injector == null);
     CalciteTestInjectorBuilder builder = new CalciteTestInjectorBuilder()
-        .withCalciteTestComponents();
-    builder.add(
-        new MockModules.CalciteQueryTestModule(),
-        new MockModules.MockSqlIngestionModule()
-    );
+        .withMockComponents()
+        .forCalciteTests();
     return builder;
   }
 
@@ -133,7 +129,7 @@ public abstract class CalciteTestBase
    * builder typically is the one returned from {@link #injectorBuilder()},
    * but it can be any builder if the test has "special needs."
    */
-  protected static void buildInjector(DruidInjectorBuilder builder)
+  protected static void buildInjector(CalciteTestInjectorBuilder builder)
   {
     Preconditions.checkState(injector == null);
     injector = builder.build();
@@ -153,7 +149,7 @@ public abstract class CalciteTestBase
    */
   protected static void setupInjector(com.google.inject.Module...modules)
   {
-    buildInjector(injectorBuilder().addModules(modules));
+    buildInjector(injectorBuilder().add(modules));
   }
 
   /**

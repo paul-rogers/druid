@@ -201,7 +201,7 @@ public class CalciteTests
   private static final String TIMESTAMP_COLUMN = "t";
 
   public static final Injector INJECTOR = new CalciteTestInjectorBuilder()
-      .withCalciteTestComponents()
+      .withMockComponents()
       .withSqlAggregation()
       .build();
 

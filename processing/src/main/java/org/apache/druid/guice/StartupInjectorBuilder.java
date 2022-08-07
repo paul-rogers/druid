@@ -46,12 +46,28 @@ public class StartupInjectorBuilder extends BaseInjectorBuilder<StartupInjectorB
         new DruidGuiceExtensions(),
         new JacksonModule(),
         new ConfigModule(),
-        new NullHandlingModule(),
-        new ExpressionProcessingModule(),
         binder -> {
           binder.bind(DruidSecondaryModule.class);
         }
     );
+  }
+
+  /**
+   * Normal operation initializes null handling and expression processing from
+   * properties. However, many tests expect to initialize these items via
+   * static methods. If both are used, then there is a race condition as to
+   * which touches the statics last. While tests are being converted, leave
+   * this disabled. Only when tests do their null and expression setup via
+   * properties should this be used in tests. This transition can be done
+   * test-by-test.
+   */
+  public StartupInjectorBuilder withStatics()
+  {
+    add(
+        new NullHandlingModule(),
+        new ExpressionProcessingModule()
+    );
+    return this;
   }
 
   public StartupInjectorBuilder withProperties(Properties properties)
@@ -75,6 +91,7 @@ public class StartupInjectorBuilder extends BaseInjectorBuilder<StartupInjectorB
 
   public StartupInjectorBuilder forServer()
   {
+    withStatics();
     withExtensions();
     add(
         new PropertiesModule(Arrays.asList("common.runtime.properties", "runtime.properties")),

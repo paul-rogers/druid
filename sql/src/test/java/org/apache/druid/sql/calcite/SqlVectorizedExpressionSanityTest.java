@@ -52,7 +52,6 @@ import org.apache.druid.sql.calcite.schema.DruidSchemaCatalog;
 import org.apache.druid.sql.calcite.util.CalciteTestInjectorBuilder;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
-import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.LinearShardSpec;
 import org.junit.AfterClass;
@@ -70,35 +69,35 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RunWith(Parameterized.class)
-public class SqlVectorizedExpressionSanityTest extends InitializedNullHandlingTest
+public class SqlVectorizedExpressionSanityTest //extends InitializedNullHandlingTest
 {
   private static final Logger log = new Logger(SqlVectorizedExpressionSanityTest.class);
 
   private static final List<String> QUERIES = ImmutableList.of(
-//      "SELECT SUM(long1 * long2) FROM foo",
-//      "SELECT SUM((long1 * long2) / double1) FROM foo",
-//      "SELECT SUM(float3 + ((long1 * long4)/double1)) FROM foo",
-//      "SELECT SUM(long5 - (float3 + ((long1 * long4)/double1))) FROM foo",
-//      "SELECT cos(double2) FROM foo",
-//      "SELECT SUM(-long4) FROM foo",
-//      "SELECT SUM(PARSE_LONG(string1)) FROM foo",
-//      "SELECT SUM(PARSE_LONG(string3)) FROM foo",
-//      "SELECT TIME_FLOOR(__time, 'PT1H'), string2, SUM(long1 * double4) FROM foo GROUP BY 1,2 ORDER BY 3",
-//      "SELECT TIME_FLOOR(__time, 'PT1H'), string2, SUM(long1 * double4) FROM foo WHERE string2 = '10' GROUP BY 1,2 ORDER BY 3",
-//      "SELECT TIME_FLOOR(__time, 'PT1H'), SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 1",
-//      "SELECT TIME_FLOOR(__time, 'PT1H'), SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 2",
-//      "SELECT TIME_FLOOR(TIMESTAMPADD(DAY, -1, __time), 'PT1H'), SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 1",
-//      "SELECT TIME_SHIFT(__time, 'PT1H', 3), string2, SUM(long1 * double4) FROM foo GROUP BY 1,2 ORDER BY 3",
-//      "SELECT TIME_SHIFT(__time, 'PT1H', 4), string2, SUM(long1 * double4) FROM foo WHERE string2 = '10' GROUP BY 1,2 ORDER BY 3",
-//      "SELECT TIME_SHIFT(__time, 'PT1H', 3), SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 1",
-//      "SELECT TIME_SHIFT(__time, 'PT1H', 4), SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 2",
-//      "SELECT TIME_SHIFT(TIMESTAMPADD(DAY, -1, __time), 'PT1H', 3), SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 1",
-//      "SELECT (long1 * long2), SUM(double1) FROM foo GROUP BY 1 ORDER BY 2",
-//      "SELECT string2, SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 2",
-//      "SELECT string1 + string2, COUNT(*) FROM foo GROUP BY 1 ORDER BY 2",
-//      "SELECT CONCAT(string1, '-', 'foo'), COUNT(*) FROM foo GROUP BY 1 ORDER BY 2",
-//      "SELECT CONCAT(string1, '-', string2), string3, COUNT(*) FROM foo GROUP BY 1,2 ORDER BY 3",
-//      "SELECT CONCAT(string1, '-', string2, '-', long1, '-', double1, '-', float1) FROM foo GROUP BY 1",
+      "SELECT SUM(long1 * long2) FROM foo",
+      "SELECT SUM((long1 * long2) / double1) FROM foo",
+      "SELECT SUM(float3 + ((long1 * long4)/double1)) FROM foo",
+      "SELECT SUM(long5 - (float3 + ((long1 * long4)/double1))) FROM foo",
+      "SELECT cos(double2) FROM foo",
+      "SELECT SUM(-long4) FROM foo",
+      "SELECT SUM(PARSE_LONG(string1)) FROM foo",
+      "SELECT SUM(PARSE_LONG(string3)) FROM foo",
+      "SELECT TIME_FLOOR(__time, 'PT1H'), string2, SUM(long1 * double4) FROM foo GROUP BY 1,2 ORDER BY 3",
+      "SELECT TIME_FLOOR(__time, 'PT1H'), string2, SUM(long1 * double4) FROM foo WHERE string2 = '10' GROUP BY 1,2 ORDER BY 3",
+      "SELECT TIME_FLOOR(__time, 'PT1H'), SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 1",
+      "SELECT TIME_FLOOR(__time, 'PT1H'), SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 2",
+      "SELECT TIME_FLOOR(TIMESTAMPADD(DAY, -1, __time), 'PT1H'), SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 1",
+      "SELECT TIME_SHIFT(__time, 'PT1H', 3), string2, SUM(long1 * double4) FROM foo GROUP BY 1,2 ORDER BY 3",
+      "SELECT TIME_SHIFT(__time, 'PT1H', 4), string2, SUM(long1 * double4) FROM foo WHERE string2 = '10' GROUP BY 1,2 ORDER BY 3",
+      "SELECT TIME_SHIFT(__time, 'PT1H', 3), SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 1",
+      "SELECT TIME_SHIFT(__time, 'PT1H', 4), SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 2",
+      "SELECT TIME_SHIFT(TIMESTAMPADD(DAY, -1, __time), 'PT1H', 3), SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 1",
+      "SELECT (long1 * long2), SUM(double1) FROM foo GROUP BY 1 ORDER BY 2",
+      "SELECT string2, SUM(long1 * long4) FROM foo GROUP BY 1 ORDER BY 2",
+      "SELECT string1 + string2, COUNT(*) FROM foo GROUP BY 1 ORDER BY 2",
+      "SELECT CONCAT(string1, '-', 'foo'), COUNT(*) FROM foo GROUP BY 1 ORDER BY 2",
+      "SELECT CONCAT(string1, '-', string2), string3, COUNT(*) FROM foo GROUP BY 1,2 ORDER BY 3",
+      "SELECT CONCAT(string1, '-', string2, '-', long1, '-', double1, '-', float1) FROM foo GROUP BY 1",
       "SELECT CAST(long1 as BOOLEAN) AND CAST (long2 as BOOLEAN), COUNT(*) FROM foo GROUP BY 1 ORDER BY 2",
       "SELECT long5 IS NULL, long3 IS NOT NULL, count(*) FROM foo GROUP BY 1,2 ORDER BY 3"
   );
@@ -115,11 +114,6 @@ public class SqlVectorizedExpressionSanityTest extends InitializedNullHandlingTe
   @BeforeClass
   public static void setupClass()
   {
-    final Injector injector = new CalciteTestInjectorBuilder()
-        .withSqlAggregation()
-        .property("useStrictBooleans", true)
-        .build();
-    ExpressionProcessing.initializeForStrictBooleansTests(true);
     CLOSER = Closer.create();
 
     final GeneratorSchemaInfo schemaInfo = GeneratorBasicSchemas.SCHEMA_MAP.get("expression-testbench");
@@ -144,6 +138,13 @@ public class SqlVectorizedExpressionSanityTest extends InitializedNullHandlingTe
     );
     CLOSER.register(WALKER);
 
+    // Injector is created here, after the reference to QueryStackTests, since that
+    // reference will invoke a static initializer that will reset the expression
+    // processing setting below.
+    final Injector injector = new CalciteTestInjectorBuilder()
+        .withSqlAggregation()
+        .strictBooleans(true)
+        .build();
     final PlannerConfig plannerConfig = new PlannerConfig();
     final DruidSchemaCatalog rootSchema =
         CalciteTests.createMockRootSchema(CONGLOMERATE, WALKER, plannerConfig, AuthTestUtils.TEST_AUTHORIZER_MAPPER);

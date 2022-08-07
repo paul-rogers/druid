@@ -47,7 +47,9 @@ public class LookupSerdeModuleTest
   @Before
   public void setUp()
   {
-    injector = new CoreInjectorBuilder(new StartupInjectorBuilder().build())
+    injector = new CoreInjectorBuilder(new StartupInjectorBuilder()
+        .withStatics()
+        .build())
         .add(
             new ExpressionModule(),
             new LookupSerdeModule()

@@ -114,7 +114,9 @@ public class SqlStatementTest
   public void setUp() throws Exception
   {
     final Injector injector = new CalciteTestInjectorBuilder()
+        .withMockComponents()
         .withSqlAggregation()
+        .withStatics()
         .build();
     final QueryScheduler scheduler = new QueryScheduler(
         5,

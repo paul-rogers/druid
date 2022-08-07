@@ -30,18 +30,20 @@ import javax.annotation.Nullable;
 public class ExpressionProcessing
 {
   /**
-   * INSTANCE is injected using static injection to avoid adding JacksonInject annotations all over the code.
-   * @see {@link ExpressionProcessingModule} for details.
+   * INSTANCE is injected using static injection to avoid adding JacksonInject
+   * annotations all over the code.
+   * <p>
+   * It does not take effect in all unit tests since we don't use Guice Injection.
+   * Use {@link #initializeForTests} when modules are not available.
    *
-   * It does not take effect in all unit tests since we don't use Guice Injection. Use {@link #initializeForTests}
-   * when modules are not available.
+   * @see {@link ExpressionProcessingModule} for details.
    */
   @Inject
   private static ExpressionProcessingConfig INSTANCE;
 
-
   /**
-   * Many unit tests do not setup modules for this value to be injected, this method provides a manual way to initialize
+   * Many unit tests do not set up modules for this value to be injected, this
+   * method provides a manual way to initialize.
    * {@link #INSTANCE}
    * @param allowNestedArrays
    */

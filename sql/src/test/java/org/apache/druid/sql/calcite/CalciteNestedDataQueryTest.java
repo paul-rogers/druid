@@ -147,7 +147,7 @@ public class CalciteNestedDataQueryTest extends BaseCalciteQueryTest
   {
     buildInjector(injectorBuilder()
         .withSqlAggregation()
-        .addModules(
+        .add(
             new NestedDataModule(),
             binder -> {
               ExpressionModule.addExprMacro(binder, LookupExprMacro.class);
