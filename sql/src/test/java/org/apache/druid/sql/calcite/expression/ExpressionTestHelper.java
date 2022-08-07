@@ -19,7 +19,9 @@
 
 package org.apache.druid.sql.calcite.expression;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Injector;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -32,6 +34,7 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.druid.data.input.MapBasedRow;
 import org.apache.druid.math.expr.ExprEval;
+import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.math.expr.InputBindings;
 import org.apache.druid.math.expr.Parser;
 import org.apache.druid.query.QueryContext;
@@ -45,6 +48,7 @@ import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.virtual.VirtualizedColumnSelectorFactory;
 import org.apache.druid.sql.calcite.planner.Calcites;
+import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
@@ -56,13 +60,13 @@ import org.apache.druid.sql.calcite.schema.NamedViewSchema;
 import org.apache.druid.sql.calcite.schema.ViewSchema;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 import org.apache.druid.sql.calcite.util.CalciteTestBase;
-import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.easymock.EasyMock;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.Assert;
 
 import javax.annotation.Nullable;
+
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
@@ -74,29 +78,14 @@ import java.util.stream.Collectors;
 
 class ExpressionTestHelper
 {
-  private static final PlannerContext PLANNER_CONTEXT = PlannerContext.create(
-      "SELECT 1", // The actual query isn't important for this test
-      CalciteTests.createOperatorTable(),
-      CalciteTests.createExprMacroTable(),
-      CalciteTests.getJsonMapper(),
-      new PlannerConfig(),
-      new DruidSchemaCatalog(
-          EasyMock.createMock(SchemaPlus.class),
-          ImmutableMap.of(
-              "druid", new NamedDruidSchema(EasyMock.createMock(DruidSchema.class), "druid"),
-              NamedViewSchema.NAME, new NamedViewSchema(EasyMock.createMock(ViewSchema.class))
-          )
-      ),
-      new QueryContext()
-  );
-
   private final RowSignature rowSignature;
   private final Map<String, Object> bindings;
   private final RelDataTypeFactory typeFactory;
   private final RexBuilder rexBuilder;
   private final RelDataType relDataType;
+  private final PlannerContext plannerContext;
 
-  ExpressionTestHelper(RowSignature rowSignature, Map<String, Object> bindings)
+  ExpressionTestHelper(RowSignature rowSignature, Map<String, Object> bindings, Injector injector)
   {
     this.rowSignature = rowSignature;
     this.bindings = bindings;
@@ -104,6 +93,26 @@ class ExpressionTestHelper
     this.typeFactory = new JavaTypeFactoryImpl();
     this.rexBuilder = new RexBuilder(typeFactory);
     this.relDataType = RowSignatures.toRelDataType(rowSignature, typeFactory);
+    this.plannerContext = plannerContext(injector);
+  }
+
+  private PlannerContext plannerContext(Injector injector)
+  {
+    return PlannerContext.create(
+        "SELECT 1", // The actual query isn't important for this test
+        injector.getInstance(DruidOperatorTable.class),
+        injector.getInstance(ExprMacroTable.class),
+        injector.getInstance(ObjectMapper.class),
+        new PlannerConfig(),
+        new DruidSchemaCatalog(
+            EasyMock.createMock(SchemaPlus.class),
+            ImmutableMap.of(
+                "druid", new NamedDruidSchema(EasyMock.createMock(DruidSchema.class), "druid"),
+                NamedViewSchema.NAME, new NamedViewSchema(EasyMock.createMock(ViewSchema.class))
+            )
+        ),
+        new QueryContext()
+    );
   }
 
   RelDataType createSqlType(SqlTypeName sqlTypeName)
@@ -294,7 +303,7 @@ class ExpressionTestHelper
       final boolean deepCompare
   )
   {
-    DruidExpression expression = Expressions.toDruidExpression(PLANNER_CONTEXT, rowSignature, rexNode);
+    DruidExpression expression = Expressions.toDruidExpression(plannerContext, rowSignature, rexNode);
     Assert.assertNotNull(expression);
     if (deepCompare) {
       Assert.assertEquals("Expression for: " + rexNode, expectedExpression, expression);
@@ -302,7 +311,7 @@ class ExpressionTestHelper
       Assert.assertEquals("Expression for: " + rexNode, expectedExpression.getExpression(), expression.getExpression());
     }
 
-    ExprEval<?> result = Parser.parse(expression.getExpression(), PLANNER_CONTEXT.getExprMacroTable())
+    ExprEval<?> result = Parser.parse(expression.getExpression(), plannerContext.getExprMacroTable())
                                .eval(InputBindings.withMap(bindings));
 
     Assert.assertEquals("Result for: " + rexNode, expectedResult, result.value());
@@ -319,7 +328,7 @@ class ExpressionTestHelper
     final RexNode rexNode = rexBuilder.makeCall(op, exprs);
     final VirtualColumnRegistry virtualColumnRegistry = VirtualColumnRegistry.create(rowSignature, TestExprMacroTable.INSTANCE, false);
 
-    final DimFilter filter = Expressions.toFilter(PLANNER_CONTEXT, rowSignature, virtualColumnRegistry, rexNode);
+    final DimFilter filter = Expressions.toFilter(plannerContext, rowSignature, virtualColumnRegistry, rexNode);
     Assert.assertEquals("Filter for: " + rexNode, expectedFilter, filter);
 
     final List<VirtualColumn> virtualColumns =

@@ -377,9 +377,9 @@ public class VarianceSqlAggregatorTest extends BaseCalciteQueryTest
                   .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Filtration.eternity())))
                   .granularity(Granularities.ALL)
                   .virtualColumns(
-                      BaseCalciteQueryTest.expressionVirtualColumn("v0", "(\"d1\" * 7)", ColumnType.DOUBLE),
-                      BaseCalciteQueryTest.expressionVirtualColumn("v1", "(\"f1\" * 7)", ColumnType.FLOAT),
-                      BaseCalciteQueryTest.expressionVirtualColumn("v2", "(\"l1\" * 7)", ColumnType.LONG)
+                      expressionVirtualColumn("v0", "(\"d1\" * 7)", ColumnType.DOUBLE),
+                      expressionVirtualColumn("v1", "(\"f1\" * 7)", ColumnType.FLOAT),
+                      expressionVirtualColumn("v2", "(\"l1\" * 7)", ColumnType.LONG)
                   )
                   .aggregators(
                       ImmutableList.of(

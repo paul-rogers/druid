@@ -54,7 +54,7 @@ public class TimeFormatOperatorConversionTest extends ExpressionTestBase
   public void setUp()
   {
     target = new TimeFormatOperatorConversion();
-    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS);
+    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS, injector());
   }
 
   @Test

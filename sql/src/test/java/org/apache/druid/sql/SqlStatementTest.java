@@ -19,11 +19,13 @@
 
 package org.apache.druid.sql;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.inject.Injector;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.druid.java.util.common.concurrent.Execs;
@@ -54,6 +56,7 @@ import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
 import org.apache.druid.sql.calcite.planner.PrepareResult;
 import org.apache.druid.sql.calcite.schema.DruidSchemaCatalog;
+import org.apache.druid.sql.calcite.util.CalciteTestInjectorBuilder;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.QueryLogHook;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
@@ -110,6 +113,9 @@ public class SqlStatementTest
   @Before
   public void setUp() throws Exception
   {
+    final Injector injector = new CalciteTestInjectorBuilder()
+        .withSqlAggregation()
+        .build();
     final QueryScheduler scheduler = new QueryScheduler(
         5,
         ManualQueryPrioritizationStrategy.INSTANCE,
@@ -137,21 +143,19 @@ public class SqlStatementTest
         conglomerate,
         walker,
         plannerConfig,
-        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class)
+        injector.getInstance(AuthorizerMapper.class)
     );
-    final DruidOperatorTable operatorTable = CalciteTests.createOperatorTable();
-    final ExprMacroTable macroTable = CalciteTests.createExprMacroTable();
 
     testRequestLogger = new TestRequestLogger();
 
     final PlannerFactory plannerFactory = new PlannerFactory(
         rootSchema,
         CalciteTests.createMockQueryMakerFactory(walker, conglomerate),
-        operatorTable,
-        macroTable,
+        injector.getInstance(DruidOperatorTable.class),
+        injector.getInstance(ExprMacroTable.class),
         plannerConfig,
-        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
-        CalciteTests.getJsonMapper(),
+        injector.getInstance(AuthorizerMapper.class),
+        injector.getInstance(ObjectMapper.class),
         CalciteTests.DRUID_SCHEMA_NAME,
         new CalciteRulesManager(ImmutableSet.of())
     );

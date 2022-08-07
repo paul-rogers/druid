@@ -26,12 +26,16 @@ import org.apache.druid.initialization.CoreInjectorBuilder;
 import org.apache.druid.sql.calcite.aggregation.SqlAggregationModule;
 import org.apache.druid.sql.calcite.util.MockComponents.MockComponentsModule;
 
+import java.util.Properties;
+
 /**
  * Create the injector used for {@link CalciteTests#INJECTOR}, but in a way
  * that is extensible.
  */
 public class CalciteTestInjectorBuilder extends CoreInjectorBuilder
 {
+  private Properties properties = new Properties();
+
   public CalciteTestInjectorBuilder()
   {
     super(new StartupInjectorBuilder()
@@ -65,10 +69,19 @@ public class CalciteTestInjectorBuilder extends CoreInjectorBuilder
     return this;
   }
 
+  public CalciteTestInjectorBuilder property(String key, Object value)
+  {
+    this.properties.setProperty(key, value.toString());
+    return this;
+  }
+
   @Override
   public Injector build()
   {
     try {
+      addModule(binder -> {
+        binder.bind(Properties.class).toInstance(properties);
+      });
       return super.build();
     }
     catch (Exception e) {

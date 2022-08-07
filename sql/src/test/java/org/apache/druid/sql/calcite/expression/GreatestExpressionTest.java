@@ -64,7 +64,7 @@ public class GreatestExpressionTest extends ExpressionTestBase
   public void setUp()
   {
     target = new GreatestOperatorConversion();
-    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS);
+    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS, injector());
   }
 
   @Test

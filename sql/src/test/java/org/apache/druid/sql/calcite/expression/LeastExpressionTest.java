@@ -64,7 +64,7 @@ public class LeastExpressionTest extends ExpressionTestBase
   public void setUp()
   {
     target = new LeastOperatorConversion();
-    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS);
+    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS, injector());
   }
 
   @Test

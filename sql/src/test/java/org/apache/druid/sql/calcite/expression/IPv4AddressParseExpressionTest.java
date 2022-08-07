@@ -51,7 +51,7 @@ public class IPv4AddressParseExpressionTest extends ExpressionTestBase
   public void setUp()
   {
     target = new IPv4AddressParseOperatorConversion();
-    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS);
+    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS, injector());
   }
 
   @Test

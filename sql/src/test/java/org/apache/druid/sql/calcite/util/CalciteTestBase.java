@@ -56,6 +56,7 @@ import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.join.JoinType;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
+import org.apache.druid.sql.calcite.QueryTester;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.expression.SimpleExtraction;
 import org.apache.druid.sql.calcite.planner.Calcites;
@@ -67,7 +68,6 @@ import org.joda.time.chrono.ISOChronology;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -156,10 +156,20 @@ public abstract class CalciteTestBase
     buildInjector(injectorBuilder().addModules(modules));
   }
 
-  @AfterClass
-  public static void tearDownClass() throws IOException
+  /**
+   * The injector is expected to be shared across the entire test
+   * class. However, the Avatica tests recreate the injector per test.
+   * Call this method to rest the injector after a test.
+   */
+  public static void tearDownInjector()
   {
     injector = null;
+  }
+
+  @AfterClass
+  public static void staticTearDown()
+  {
+    tearDownInjector();
   }
 
   @BeforeClass

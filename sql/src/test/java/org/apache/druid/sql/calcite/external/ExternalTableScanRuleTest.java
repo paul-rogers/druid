@@ -19,14 +19,18 @@
 
 package org.apache.druid.sql.calcite.external;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Injector;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.ValidationException;
+import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QuerySegmentWalker;
+import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.schema.DruidSchema;
@@ -34,6 +38,7 @@ import org.apache.druid.sql.calcite.schema.DruidSchemaCatalog;
 import org.apache.druid.sql.calcite.schema.NamedDruidSchema;
 import org.apache.druid.sql.calcite.schema.NamedViewSchema;
 import org.apache.druid.sql.calcite.schema.ViewSchema;
+import org.apache.druid.sql.calcite.util.CalciteTestInjectorBuilder;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.easymock.EasyMock;
 import org.junit.Assert;
@@ -44,12 +49,14 @@ public class ExternalTableScanRuleTest
   @Test
   public void testMatchesWhenExternalScanUnsupported() throws ValidationException
   {
-
+    final Injector injector = new CalciteTestInjectorBuilder()
+        .withSqlAggregation()
+        .build();
     final PlannerContext plannerContext = PlannerContext.create(
         "DUMMY", // The actual query isn't important for this test
-        CalciteTests.createOperatorTable(),
-        CalciteTests.createExprMacroTable(),
-        CalciteTests.getJsonMapper(),
+        injector.getInstance(DruidOperatorTable.class),
+        injector.getInstance(ExprMacroTable.class),
+        injector.getInstance(ObjectMapper.class),
         new PlannerConfig(),
         new DruidSchemaCatalog(
             EasyMock.createMock(SchemaPlus.class),

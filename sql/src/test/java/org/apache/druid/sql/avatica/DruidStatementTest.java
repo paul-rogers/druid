@@ -19,9 +19,11 @@
 
 package org.apache.druid.sql.avatica;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.inject.Injector;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.remote.TypedValue;
@@ -97,20 +99,19 @@ public class DruidStatementTest extends CalciteTestBase
   @Before
   public void setUp() throws Exception
   {
+    final Injector injector = injector();
     walker = CalciteTests.createMockWalker(conglomerate, temporaryFolder.newFolder());
     final PlannerConfig plannerConfig = new PlannerConfig();
-    final DruidOperatorTable operatorTable = CalciteTests.createOperatorTable();
-    final ExprMacroTable macroTable = CalciteTests.createExprMacroTable();
     DruidSchemaCatalog rootSchema =
         CalciteTests.createMockRootSchema(conglomerate, walker, plannerConfig, AuthTestUtils.TEST_AUTHORIZER_MAPPER);
     final PlannerFactory plannerFactory = new PlannerFactory(
         rootSchema,
         CalciteTests.createMockQueryMakerFactory(walker, conglomerate),
-        operatorTable,
-        macroTable,
+        injector.getInstance(DruidOperatorTable.class),
+        injector.getInstance(ExprMacroTable.class),
         plannerConfig,
         AuthTestUtils.TEST_AUTHORIZER_MAPPER,
-        CalciteTests.getJsonMapper(),
+        injector.getInstance(ObjectMapper.class),
         CalciteTests.DRUID_SCHEMA_NAME,
         new CalciteRulesManager(ImmutableSet.of())
     );

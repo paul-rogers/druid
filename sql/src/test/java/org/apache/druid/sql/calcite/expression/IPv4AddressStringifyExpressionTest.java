@@ -50,7 +50,7 @@ public class IPv4AddressStringifyExpressionTest extends ExpressionTestBase
   public void setUp()
   {
     target = new IPv4AddressStringifyOperatorConversion();
-    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS);
+    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS, injector());
   }
 
   @Test

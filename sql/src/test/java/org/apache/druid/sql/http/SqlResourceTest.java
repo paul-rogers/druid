@@ -20,7 +20,6 @@
 package org.apache.druid.sql.http;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Suppliers;
@@ -30,12 +29,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.inject.Injector;
 import org.apache.calcite.avatica.SqlType;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.common.exception.AllowedRegexErrorResponseTransformStrategy;
 import org.apache.druid.common.exception.ErrorResponseTransformStrategy;
 import org.apache.druid.common.guava.SettableSupplier;
-import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.NonnullPair;
 import org.apache.druid.java.util.common.Pair;
@@ -128,7 +127,6 @@ import java.util.stream.Collectors;
 
 public class SqlResourceTest extends CalciteTestBase
 {
-  private static final ObjectMapper JSON_MAPPER = new DefaultObjectMapper();
   private static final String DUMMY_SQL_QUERY_ID = "dummy";
   private static final int WAIT_TIMEOUT_SECS = 3;
   private static final Consumer<DirectStatement> NULL_ACTION = s -> {};
@@ -178,9 +176,17 @@ public class SqlResourceTest extends CalciteTestBase
     resourceCloser.close();
   }
 
+  /**
+   * A good future improvement is to modify this to create the server once for the
+   * entire tests rather than per test function.
+   */
   @Before
   public void setUp() throws Exception
   {
+    // Force initialization of the default injector. Done per-method
+    // here, but should really be done per-class.
+    Injector injector = injector();
+
     final QueryScheduler scheduler = new QueryScheduler(
         5,
         ManualQueryPrioritizationStrategy.INSTANCE,
@@ -216,10 +222,8 @@ public class SqlResourceTest extends CalciteTestBase
         conglomerate,
         walker,
         plannerConfig,
-        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class)
+        injector.getInstance(AuthorizerMapper.class)
     );
-    final DruidOperatorTable operatorTable = CalciteTests.createOperatorTable();
-    final ExprMacroTable macroTable = CalciteTests.createExprMacroTable();
     req = request(true);
 
     testRequestLogger = new TestRequestLogger();
@@ -227,11 +231,11 @@ public class SqlResourceTest extends CalciteTestBase
     final PlannerFactory plannerFactory = new PlannerFactory(
         rootSchema,
         CalciteTests.createMockQueryMakerFactory(walker, conglomerate),
-        operatorTable,
-        macroTable,
+        injector.getInstance(DruidOperatorTable.class),
+        injector.getInstance(ExprMacroTable.class),
         plannerConfig,
-        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
-        CalciteTests.getJsonMapper(),
+        injector.getInstance(AuthorizerMapper.class),
+        queryJsonMapper(),
         CalciteTests.DRUID_SCHEMA_NAME,
         new CalciteRulesManager(ImmutableSet.of())
     );
@@ -281,8 +285,8 @@ public class SqlResourceTest extends CalciteTestBase
       }
     };
     resource = new SqlResource(
-        JSON_MAPPER,
-        CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
+        queryJsonMapper(),
+        injector.getInstance(AuthorizerMapper.class),
         sqlLifecycleFactory,
         lifecycleManager,
         new ServerConfig()
@@ -301,6 +305,7 @@ public class SqlResourceTest extends CalciteTestBase
     walker = null;
     executorService.shutdownNow();
     executorService.awaitTermination(2, TimeUnit.SECONDS);
+    tearDownInjector();
   }
 
   @Test
@@ -713,7 +718,7 @@ public class SqlResourceTest extends CalciteTestBase
             "org.apache.druid.hll.VersionOneHyperLogLogCollector",
             nullStr
         ),
-        JSON_MAPPER.readValue(lines.get(0), List.class)
+        queryJsonMapper().readValue(lines.get(0), List.class)
     );
     Assert.assertEquals(
         Arrays.asList(
@@ -727,7 +732,7 @@ public class SqlResourceTest extends CalciteTestBase
             "org.apache.druid.hll.VersionOneHyperLogLogCollector",
             nullStr
         ),
-        JSON_MAPPER.readValue(lines.get(1), List.class)
+        queryJsonMapper().readValue(lines.get(1), List.class)
     );
     Assert.assertEquals("", lines.get(2));
     Assert.assertEquals("", lines.get(3));
@@ -746,9 +751,9 @@ public class SqlResourceTest extends CalciteTestBase
     final List<String> lines = Splitter.on('\n').splitToList(response);
 
     Assert.assertEquals(7, lines.size());
-    Assert.assertEquals(EXPECTED_COLUMNS_FOR_RESULT_FORMAT_TESTS, JSON_MAPPER.readValue(lines.get(0), List.class));
-    Assert.assertEquals(EXPECTED_TYPES_FOR_RESULT_FORMAT_TESTS, JSON_MAPPER.readValue(lines.get(1), List.class));
-    Assert.assertEquals(EXPECTED_SQL_TYPES_FOR_RESULT_FORMAT_TESTS, JSON_MAPPER.readValue(lines.get(2), List.class));
+    Assert.assertEquals(EXPECTED_COLUMNS_FOR_RESULT_FORMAT_TESTS, queryJsonMapper().readValue(lines.get(0), List.class));
+    Assert.assertEquals(EXPECTED_TYPES_FOR_RESULT_FORMAT_TESTS, queryJsonMapper().readValue(lines.get(1), List.class));
+    Assert.assertEquals(EXPECTED_SQL_TYPES_FOR_RESULT_FORMAT_TESTS, queryJsonMapper().readValue(lines.get(2), List.class));
     Assert.assertEquals(
         Arrays.asList(
             "2000-01-01T00:00:00.000Z",
@@ -761,7 +766,7 @@ public class SqlResourceTest extends CalciteTestBase
             "org.apache.druid.hll.VersionOneHyperLogLogCollector",
             nullStr
         ),
-        JSON_MAPPER.readValue(lines.get(3), List.class)
+        queryJsonMapper().readValue(lines.get(3), List.class)
     );
     Assert.assertEquals(
         Arrays.asList(
@@ -775,7 +780,7 @@ public class SqlResourceTest extends CalciteTestBase
             "org.apache.druid.hll.VersionOneHyperLogLogCollector",
             nullStr
         ),
-        JSON_MAPPER.readValue(lines.get(4), List.class)
+        queryJsonMapper().readValue(lines.get(4), List.class)
     );
     Assert.assertEquals("", lines.get(5));
     Assert.assertEquals("", lines.get(6));
@@ -793,9 +798,9 @@ public class SqlResourceTest extends CalciteTestBase
     final List<String> lines = Splitter.on('\n').splitToList(response);
 
     Assert.assertEquals(6, lines.size());
-    Assert.assertEquals(Collections.singletonList("EXPR$0"), JSON_MAPPER.readValue(lines.get(0), List.class));
-    Assert.assertEquals(Collections.singletonList(null), JSON_MAPPER.readValue(lines.get(1), List.class));
-    Assert.assertEquals(Collections.singletonList("ROW"), JSON_MAPPER.readValue(lines.get(2), List.class));
+    Assert.assertEquals(Collections.singletonList("EXPR$0"), queryJsonMapper().readValue(lines.get(0), List.class));
+    Assert.assertEquals(Collections.singletonList(null), queryJsonMapper().readValue(lines.get(1), List.class));
+    Assert.assertEquals(Collections.singletonList("ROW"), queryJsonMapper().readValue(lines.get(2), List.class));
     Assert.assertEquals(
         Collections.singletonList(
             Arrays.asList(
@@ -803,7 +808,7 @@ public class SqlResourceTest extends CalciteTestBase
                 2
             )
         ),
-        JSON_MAPPER.readValue(lines.get(3), List.class)
+        queryJsonMapper().readValue(lines.get(3), List.class)
     );
     Assert.assertEquals("", lines.get(4));
     Assert.assertEquals("", lines.get(5));
@@ -889,7 +894,7 @@ public class SqlResourceTest extends CalciteTestBase
                 .put("EXPR$8", "")
                 .build()
         ),
-        JSON_MAPPER.readValue(lines.get(0), Object.class)
+        queryJsonMapper().readValue(lines.get(0), Object.class)
     );
     Assert.assertEquals(
         transformer.apply(
@@ -906,7 +911,7 @@ public class SqlResourceTest extends CalciteTestBase
                 .put("EXPR$8", "")
                 .build()
         ),
-        JSON_MAPPER.readValue(lines.get(1), Object.class)
+        queryJsonMapper().readValue(lines.get(1), Object.class)
     );
     Assert.assertEquals("", lines.get(2));
     Assert.assertEquals("", lines.get(3));
@@ -933,7 +938,7 @@ public class SqlResourceTest extends CalciteTestBase
     }
 
     Assert.assertEquals(5, lines.size());
-    Assert.assertEquals(expectedHeader, JSON_MAPPER.readValue(lines.get(0), Object.class));
+    Assert.assertEquals(expectedHeader, queryJsonMapper().readValue(lines.get(0), Object.class));
     Assert.assertEquals(
         transformer.apply(
             ImmutableMap
@@ -949,7 +954,7 @@ public class SqlResourceTest extends CalciteTestBase
                 .put("EXPR$8", "")
                 .build()
         ),
-        JSON_MAPPER.readValue(lines.get(1), Object.class)
+        queryJsonMapper().readValue(lines.get(1), Object.class)
     );
     Assert.assertEquals(
         transformer.apply(
@@ -966,7 +971,7 @@ public class SqlResourceTest extends CalciteTestBase
                 .put("EXPR$8", "")
                 .build()
         ),
-        JSON_MAPPER.readValue(lines.get(2), Object.class)
+        queryJsonMapper().readValue(lines.get(2), Object.class)
     );
     Assert.assertEquals("", lines.get(3));
     Assert.assertEquals("", lines.get(4));
@@ -999,7 +1004,7 @@ public class SqlResourceTest extends CalciteTestBase
     }
 
     Assert.assertEquals(5, lines.size());
-    Assert.assertEquals(expectedHeader, JSON_MAPPER.readValue(lines.get(0), Object.class));
+    Assert.assertEquals(expectedHeader, queryJsonMapper().readValue(lines.get(0), Object.class));
     Assert.assertEquals(
         transformer.apply(
             ImmutableMap
@@ -1015,7 +1020,7 @@ public class SqlResourceTest extends CalciteTestBase
                 .put("EXPR$8", "")
                 .build()
         ),
-        JSON_MAPPER.readValue(lines.get(1), Object.class)
+        queryJsonMapper().readValue(lines.get(1), Object.class)
     );
     Assert.assertEquals(
         transformer.apply(
@@ -1032,7 +1037,7 @@ public class SqlResourceTest extends CalciteTestBase
                 .put("EXPR$8", "")
                 .build()
         ),
-        JSON_MAPPER.readValue(lines.get(2), Object.class)
+        queryJsonMapper().readValue(lines.get(2), Object.class)
     );
     Assert.assertEquals("", lines.get(3));
     Assert.assertEquals("", lines.get(4));
@@ -1054,13 +1059,13 @@ public class SqlResourceTest extends CalciteTestBase
     final Map<String, Object> expectedHeader = ImmutableMap.of("EXPR$0", typeMap);
 
     Assert.assertEquals(4, lines.size());
-    Assert.assertEquals(expectedHeader, JSON_MAPPER.readValue(lines.get(0), Object.class));
+    Assert.assertEquals(expectedHeader, queryJsonMapper().readValue(lines.get(0), Object.class));
     Assert.assertEquals(
             ImmutableMap
                 .<String, Object>builder()
                 .put("EXPR$0", Arrays.asList(1, 2))
                 .build(),
-        JSON_MAPPER.readValue(lines.get(1), Object.class)
+        queryJsonMapper().readValue(lines.get(1), Object.class)
     );
 
     Assert.assertEquals("", lines.get(2));
@@ -1345,7 +1350,7 @@ public class SqlResourceTest extends CalciteTestBase
   public void testUnsupportedQueryThrowsExceptionWithFilterResponse() throws Exception
   {
     resource = new SqlResource(
-        JSON_MAPPER,
+        queryJsonMapper(),
         CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
         sqlLifecycleFactory,
         lifecycleManager,
@@ -1390,7 +1395,7 @@ public class SqlResourceTest extends CalciteTestBase
   public void testAssertionErrorThrowsErrorWithFilterResponse() throws Exception
   {
     resource = new SqlResource(
-        JSON_MAPPER,
+        queryJsonMapper(),
         CalciteTests.INJECTOR.getInstance(AuthorizerMapper.class),
         sqlLifecycleFactory,
         lifecycleManager,
@@ -1536,7 +1541,7 @@ public class SqlResourceTest extends CalciteTestBase
 
     response = future.get();
     Assert.assertEquals(Status.INTERNAL_SERVER_ERROR.getStatusCode(), response.getStatus());
-    QueryException exception = JSON_MAPPER.readValue((byte[]) response.getEntity(), QueryException.class);
+    QueryException exception = queryJsonMapper().readValue((byte[]) response.getEntity(), QueryException.class);
     Assert.assertEquals(
         QueryInterruptedException.QUERY_CANCELLED,
         exception.getErrorCode()
@@ -1566,7 +1571,7 @@ public class SqlResourceTest extends CalciteTestBase
 
     response = future.get();
     Assert.assertEquals(Status.INTERNAL_SERVER_ERROR.getStatusCode(), response.getStatus());
-    QueryException exception = JSON_MAPPER.readValue((byte[]) response.getEntity(), QueryException.class);
+    QueryException exception = queryJsonMapper().readValue((byte[]) response.getEntity(), QueryException.class);
     Assert.assertEquals(
         QueryInterruptedException.QUERY_CANCELLED,
         exception.getErrorCode()
@@ -1712,7 +1717,7 @@ public class SqlResourceTest extends CalciteTestBase
       //noinspection unchecked
       return (Pair<QueryException, T>) pair;
     } else {
-      return Pair.of(pair.lhs, JSON_MAPPER.readValue(pair.rhs, typeReference));
+      return Pair.of(pair.lhs, queryJsonMapper().readValue(pair.rhs, typeReference));
     }
   }
 
@@ -1737,7 +1742,7 @@ public class SqlResourceTest extends CalciteTestBase
       );
     } else {
       return Pair.of(
-          JSON_MAPPER.readValue((byte[]) response.getEntity(), QueryException.class),
+          queryJsonMapper().readValue((byte[]) response.getEntity(), QueryException.class),
           null
       );
     }

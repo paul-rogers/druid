@@ -58,7 +58,7 @@ public class IPv4AddressMatchExpressionTest extends ExpressionTestBase
   public void setUp()
   {
     target = new IPv4AddressMatchOperatorConversion();
-    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS);
+    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS, injector());
   }
 
   @Test

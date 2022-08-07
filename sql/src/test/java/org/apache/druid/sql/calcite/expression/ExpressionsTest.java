@@ -125,7 +125,7 @@ public class ExpressionsTest extends ExpressionTestBase
   @Before
   public void setUp()
   {
-    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS);
+    testHelper = new ExpressionTestHelper(ROW_SIGNATURE, BINDINGS, injector());
   }
 
   @Test
