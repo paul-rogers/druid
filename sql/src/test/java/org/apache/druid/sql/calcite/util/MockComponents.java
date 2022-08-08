@@ -239,8 +239,6 @@ public class MockComponents
    * Calcite-specific class that exists only to use the above class which, when
    * created through Guice, has the above class name rather than the base class
    * name.
-   * @author paul
-   *
    */
   public static class CalciteMockQueryRunnerFactoryCongomerate extends MockQueryRunnerFactoryCongomerate
   {
