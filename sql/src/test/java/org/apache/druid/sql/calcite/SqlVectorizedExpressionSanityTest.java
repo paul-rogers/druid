@@ -142,7 +142,6 @@ public class SqlVectorizedExpressionSanityTest //extends InitializedNullHandling
     // reference will invoke a static initializer that will reset the expression
     // processing setting below.
     final Injector injector = new CalciteTestInjectorBuilder()
-        .withSqlAggregation()
         .strictBooleans(true)
         .build();
     final PlannerConfig plannerConfig = new PlannerConfig();

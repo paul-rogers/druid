@@ -21,13 +21,21 @@ package org.apache.druid.sql.calcite.util;
 
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import org.apache.druid.guice.DruidProcessingConfigModule;
 import org.apache.druid.guice.ExpressionModule;
+import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.StartupInjectorBuilder;
 import org.apache.druid.initialization.CoreInjectorBuilder;
+import org.apache.druid.initialization.DruidModule;
+import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.math.expr.ExpressionProcessingConfig;
 import org.apache.druid.sql.calcite.aggregation.SqlAggregationModule;
 import org.apache.druid.sql.calcite.util.MockComponents.MockComponentsModule;
+import org.apache.druid.sql.calcite.util.MockModules.CalciteQueryTestModule;
+import org.apache.druid.sql.calcite.util.MockModules.MockQueryableModule;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -40,15 +48,41 @@ import java.util.Properties;
  * as well as modules to use when building the injector. A number of standard
  * options are available as methods.
  * <p>
+ * Modules added here can implement {@link ManagedDruidModule} to provide a
+ * simple way to initialize test data that depends on objects within the
+ * injector. The injector holds a {@link Closer} so that tests need not
+ * handle that. The {@code Closer} is closed in the {@link #tearDown(Injector)}
+ * method.
+ * <p>
  * Unlike other injector builders, this one is "deferred": the base
  * injector builder is built at build time so that it can accept custom
  * properties provided here. Tests don't use properties from files.
  */
 public class CalciteTestInjectorBuilder
 {
+  /**
+   * Many test components are mocks that are initialized in-process from mock
+   * data. Normal Guice modules assume initialization occurs in a constructor,
+   * but this results in awkward dependencies in tests. Druid provides a
+   * lifecycle manager, but that is overkill in tests. This interface is a
+   * happy medium. Modules are initialized in the order in which they are added
+   * to the builder and torn down in opposite order.
+   */
+  public interface ManagedDruidModule extends DruidModule
+  {
+    default void setup(Injector injector)
+    {
+    }
+
+    default void teardown(Injector injector)
+    {
+    }
+  }
+
   private Properties properties = new Properties(System.getProperties());
   private List<Module> modules = new ArrayList<>();
   private boolean withStatics;
+  private boolean omitSqlAggregation;
 
   public CalciteTestInjectorBuilder()
   {
@@ -57,12 +91,22 @@ public class CalciteTestInjectorBuilder
         // For the ExprMacroTable dependency for PlannerFactory
         new ExpressionModule(),
         new MockModules.MockLookupSerdeModule()
+//        binder -> {
+//          binder.bind(Closer.class).in(LazySingleton.class);
+//        }
     );
   }
 
   public CalciteTestInjectorBuilder withMockComponents()
   {
-    add(new MockComponentsModule());
+    add(
+        // For DruidProcessingConfig, needed by the mock conglomerate.
+        // Configure using injector properties.
+//        new DruidProcessingConfigModule(),
+        new MockComponentsModule(),
+        new MockQueryableModule(),
+        new CalciteQueryTestModule()
+    );
     //
     // add(new CalcitePlannerModule());
     return this;
@@ -74,9 +118,9 @@ public class CalciteTestInjectorBuilder
    * custom modules, while using the standard aggregates, include
    * the standard aggregate module as well.
    */
-  public CalciteTestInjectorBuilder withSqlAggregation()
+  public CalciteTestInjectorBuilder omitSqlAggregation()
   {
-    modules.add(new SqlAggregationModule());
+    omitSqlAggregation = true;
     return this;
   }
 
@@ -143,20 +187,43 @@ public class CalciteTestInjectorBuilder
   public Injector build()
   {
     try {
+      if (!omitSqlAggregation) {
+        modules.add(new SqlAggregationModule());
+      }
       StartupInjectorBuilder startupBuilder = new StartupInjectorBuilder()
           .withProperties(properties);
       if (withStatics) {
         startupBuilder.withStatics();
       }
-      return new CoreInjectorBuilder(startupBuilder.build())
+      Injector injector = new CoreInjectorBuilder(startupBuilder.build())
           .addAll(modules)
           .build();
+      for (Module module : modules) {
+        if (module instanceof ManagedDruidModule) {
+          ((ManagedDruidModule) module).setup(injector);
+        }
+      }
+      return injector;
     }
     catch (Exception e) {
       // Catches failures when used as a static initializer.
       e.printStackTrace();
       System.exit(1);
       throw e;
+    }
+  }
+
+  public void tearDown(Injector injector)
+  {
+    for (Module module : modules) {
+      if (module instanceof ManagedDruidModule) {
+        ((ManagedDruidModule) module).teardown(injector);
+      }
+    }
+    try {
+      injector.getInstance(Closer.class).close();
+    } catch (IOException e) {
+      throw new ISE(e, "Something failed to close");
     }
   }
 }

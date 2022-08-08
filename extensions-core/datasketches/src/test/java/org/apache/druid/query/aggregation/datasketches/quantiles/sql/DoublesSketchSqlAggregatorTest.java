@@ -74,8 +74,9 @@ public class DoublesSketchSqlAggregatorTest extends BaseCalciteQueryTest
   @BeforeClass
   public static void setup()
   {
-    setupInjector(
-        new DoublesSketchModule()
+    buildInjector(injectorBuilder()
+        .omitSqlAggregation()
+        .add(new DoublesSketchModule())
     );
   }
 

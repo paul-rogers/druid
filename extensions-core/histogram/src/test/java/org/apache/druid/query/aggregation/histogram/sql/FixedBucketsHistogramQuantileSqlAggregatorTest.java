@@ -65,8 +65,9 @@ public class FixedBucketsHistogramQuantileSqlAggregatorTest extends BaseCalciteQ
   @BeforeClass
   public static void setup()
   {
-    setupInjector(
-        new ApproximateHistogramDruidModule()
+    buildInjector(injectorBuilder()
+        .omitSqlAggregation()
+        .add(new ApproximateHistogramDruidModule())
     );
   }
 

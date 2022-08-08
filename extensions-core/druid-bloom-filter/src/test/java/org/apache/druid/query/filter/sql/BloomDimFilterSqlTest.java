@@ -52,11 +52,14 @@ public class BloomDimFilterSqlTest extends BaseCalciteQueryTest
   @BeforeClass
   public static void setup()
   {
-    setupInjector(
-        new BloomFilterExtensionModule(),
-        binder -> {
-          ExpressionModule.addExprMacro(binder, BloomFilterExpressions.TestExprMacro.class);
-        }
+    buildInjector(injectorBuilder()
+        .omitSqlAggregation()
+        .add(
+            new BloomFilterExtensionModule(),
+            binder -> {
+              ExpressionModule.addExprMacro(binder, BloomFilterExpressions.TestExprMacro.class);
+            }
+         )
     );
   }
 

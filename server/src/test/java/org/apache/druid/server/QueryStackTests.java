@@ -21,6 +21,7 @@ package org.apache.druid.server;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.name.Named;
 import org.apache.druid.client.cache.CacheConfig;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
@@ -81,6 +82,8 @@ import org.apache.druid.timeline.VersionedIntervalTimeline;
 import org.junit.Assert;
 
 import javax.annotation.Nullable;
+import javax.inject.Inject;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -97,7 +100,7 @@ public class QueryStackTests
       new ServerConfig()
   );
   private static final ServiceEmitter EMITTER = new NoopServiceEmitter();
-  private static final int COMPUTE_BUFFER_SIZE = 10 * 1024 * 1024;
+  public static final int COMPUTE_BUFFER_SIZE = 10 * 1024 * 1024;
 
   private QueryStackTests()
   {
@@ -271,87 +274,108 @@ public class QueryStackTests
     );
   }
 
+  public static class MockQueryRunnerFactoryCongomerate extends DefaultQueryRunnerFactoryConglomerate
+  {
+    public MockQueryRunnerFactoryCongomerate(
+        final Closer closer,
+        final DruidProcessingConfig processingConfig,
+        final @Named("minTopNThreshold") Supplier<Integer> minTopNThresholdSupplier
+    )
+    {
+      super(buildFactoryMap(closer, processingConfig, minTopNThresholdSupplier));
+    }
+
+    private static Map<Class<? extends Query>, QueryRunnerFactory> buildFactoryMap(
+        final Closer closer,
+        final DruidProcessingConfig processingConfig,
+        final Supplier<Integer> minTopNThresholdSupplier
+    )
+    {
+      final TestBufferPool testBufferPool = TestBufferPool.offHeap(COMPUTE_BUFFER_SIZE, Integer.MAX_VALUE);
+      closer.register(() -> {
+        // Verify that all objects have been returned to the pool.
+        Assert.assertEquals(0, testBufferPool.getOutstandingObjectCount());
+      });
+
+      final TestGroupByBuffers groupByBuffers =
+          closer.register(TestGroupByBuffers.createFromProcessingConfig(processingConfig));
+
+      final GroupByQueryRunnerFactory groupByQueryRunnerFactory =
+          GroupByQueryRunnerTest.makeQueryRunnerFactory(
+              GroupByQueryRunnerTest.DEFAULT_MAPPER,
+              new GroupByQueryConfig()
+              {
+                @Override
+                public String getDefaultStrategy()
+                {
+                  return GroupByStrategySelector.STRATEGY_V2;
+                }
+              },
+              groupByBuffers,
+              processingConfig
+          );
+
+      return ImmutableMap.<Class<? extends Query>, QueryRunnerFactory>builder()
+          .put(
+              SegmentMetadataQuery.class,
+              new SegmentMetadataQueryRunnerFactory(
+                  new SegmentMetadataQueryQueryToolChest(
+                      new SegmentMetadataQueryConfig("P1W")
+                  ),
+                  QueryRunnerTestHelper.NOOP_QUERYWATCHER
+              )
+          )
+          .put(
+              ScanQuery.class,
+              new ScanQueryRunnerFactory(
+                  new ScanQueryQueryToolChest(
+                      new ScanQueryConfig(),
+                      new DefaultGenericQueryMetricsFactory()
+                  ),
+                  new ScanQueryEngine(),
+                  new ScanQueryConfig()
+              )
+          )
+          .put(
+              TimeseriesQuery.class,
+              new TimeseriesQueryRunnerFactory(
+                  new TimeseriesQueryQueryToolChest(),
+                  new TimeseriesQueryEngine(),
+                  QueryRunnerTestHelper.NOOP_QUERYWATCHER
+              )
+          )
+          .put(
+              TopNQuery.class,
+              new TopNQueryRunnerFactory(
+                  testBufferPool,
+                  new TopNQueryQueryToolChest(new TopNQueryConfig()
+                  {
+                    @Override
+                    public int getMinTopNThreshold()
+                    {
+                      return minTopNThresholdSupplier.get();
+                    }
+                  }),
+                  QueryRunnerTestHelper.NOOP_QUERYWATCHER
+              )
+          )
+          .put(GroupByQuery.class, groupByQueryRunnerFactory)
+          .put(TimeBoundaryQuery.class, new TimeBoundaryQueryRunnerFactory(QueryRunnerTestHelper.NOOP_QUERYWATCHER))
+          .build();
+    }
+  }
+
   public static QueryRunnerFactoryConglomerate createQueryRunnerFactoryConglomerate(
       final Closer closer,
       final DruidProcessingConfig processingConfig,
       final Supplier<Integer> minTopNThresholdSupplier
   )
   {
-    final TestBufferPool testBufferPool = TestBufferPool.offHeap(COMPUTE_BUFFER_SIZE, Integer.MAX_VALUE);
-    closer.register(() -> {
-      // Verify that all objects have been returned to the pool.
-      Assert.assertEquals(0, testBufferPool.getOutstandingObjectCount());
-    });
-
-    final TestGroupByBuffers groupByBuffers =
-        closer.register(TestGroupByBuffers.createFromProcessingConfig(processingConfig));
-
-    final GroupByQueryRunnerFactory groupByQueryRunnerFactory =
-        GroupByQueryRunnerTest.makeQueryRunnerFactory(
-            GroupByQueryRunnerTest.DEFAULT_MAPPER,
-            new GroupByQueryConfig()
-            {
-              @Override
-              public String getDefaultStrategy()
-              {
-                return GroupByStrategySelector.STRATEGY_V2;
-              }
-            },
-            groupByBuffers,
-            processingConfig
-        );
-
-    final QueryRunnerFactoryConglomerate conglomerate = new DefaultQueryRunnerFactoryConglomerate(
-        ImmutableMap.<Class<? extends Query>, QueryRunnerFactory>builder()
-            .put(
-                SegmentMetadataQuery.class,
-                new SegmentMetadataQueryRunnerFactory(
-                    new SegmentMetadataQueryQueryToolChest(
-                        new SegmentMetadataQueryConfig("P1W")
-                    ),
-                    QueryRunnerTestHelper.NOOP_QUERYWATCHER
-                )
-            )
-            .put(
-                ScanQuery.class,
-                new ScanQueryRunnerFactory(
-                    new ScanQueryQueryToolChest(
-                        new ScanQueryConfig(),
-                        new DefaultGenericQueryMetricsFactory()
-                    ),
-                    new ScanQueryEngine(),
-                    new ScanQueryConfig()
-                )
-            )
-            .put(
-                TimeseriesQuery.class,
-                new TimeseriesQueryRunnerFactory(
-                    new TimeseriesQueryQueryToolChest(),
-                    new TimeseriesQueryEngine(),
-                    QueryRunnerTestHelper.NOOP_QUERYWATCHER
-                )
-            )
-            .put(
-                TopNQuery.class,
-                new TopNQueryRunnerFactory(
-                    testBufferPool,
-                    new TopNQueryQueryToolChest(new TopNQueryConfig()
-                    {
-                      @Override
-                      public int getMinTopNThreshold()
-                      {
-                        return minTopNThresholdSupplier.get();
-                      }
-                    }),
-                    QueryRunnerTestHelper.NOOP_QUERYWATCHER
-                )
-            )
-            .put(GroupByQuery.class, groupByQueryRunnerFactory)
-            .put(TimeBoundaryQuery.class, new TimeBoundaryQueryRunnerFactory(QueryRunnerTestHelper.NOOP_QUERYWATCHER))
-            .build()
+    return new MockQueryRunnerFactoryCongomerate(
+        closer,
+        processingConfig,
+        minTopNThresholdSupplier
     );
-
-    return conglomerate;
   }
 
   public static JoinableFactory makeJoinableFactoryForLookup(

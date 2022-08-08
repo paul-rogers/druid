@@ -19,10 +19,17 @@
 
 package org.apache.druid.sql.calcite.util;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import org.apache.druid.guice.LazySingleton;
+import org.apache.druid.java.util.common.io.Closer;
+import org.apache.druid.query.DefaultQueryRunnerFactoryConglomerate;
+import org.apache.druid.query.DruidProcessingConfig;
+import org.apache.druid.server.QueryStackTests;
+import org.apache.druid.server.QueryStackTests.MockQueryRunnerFactoryCongomerate;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AllowAllAuthenticator;
 import org.apache.druid.server.security.AuthConfig;
@@ -38,6 +45,7 @@ import org.apache.druid.sql.calcite.view.DruidViewMacroFactory;
 import org.apache.druid.sql.calcite.view.InProcessViewManager;
 
 import java.util.Map;
+import java.util.function.Supplier;
 
 public class MockComponents
 {
@@ -172,6 +180,78 @@ public class MockComponents
           "SELECT __time, dim1, dim2, m1 FROM druid.invalidDatasource WHERE dim2 = 'a'"
       );
     }
+  }
 
+  /**
+   * Like the test-only DruidProcessingConfig created in {@link QueryStackTests#getProcessingConfig},
+   * except this one takes its two parameters as properties.
+   */
+  public static class MockDruidProcessingConfig extends DruidProcessingConfig
+  {
+    public static final String PROPERTY_BASE = "druid.processing";
+    private static final String MERGE_BUFFERS_PROPERTY = "mergeBufferCount";
+    public static final String MERGE_BUFFERS_KEY = PROPERTY_BASE + "." + MERGE_BUFFERS_PROPERTY;
+    private static final String USE_PARALLEL_MERGE_POOL_PROPERTY = "useParallelMergePool";
+    public static final String USE_PARALLEL_MERGE_POOL_KEY = PROPERTY_BASE + "." + USE_PARALLEL_MERGE_POOL_PROPERTY;
+
+    @JsonProperty(MERGE_BUFFERS_PROPERTY)
+    private int mergeBufferCount = DEFAULT_NUM_MERGE_BUFFERS;
+
+    @JsonProperty(USE_PARALLEL_MERGE_POOL_PROPERTY)
+    private boolean useParallelMergePool;
+
+    @Override
+    public String getFormatString()
+    {
+      return null;
+    }
+
+    @Override
+    public int intermediateComputeSizeBytes()
+    {
+      return QueryStackTests.COMPUTE_BUFFER_SIZE;
+    }
+
+    @Override
+    public int getNumThreads()
+    {
+      // Only use 1 thread for tests.
+      return 1;
+    }
+
+    @Override
+    public int getNumMergeBuffers()
+    {
+      if (mergeBufferCount == DEFAULT_NUM_MERGE_BUFFERS) {
+        return 2;
+      }
+      return mergeBufferCount;
+    }
+
+    @Override
+    public boolean useParallelMergePoolConfigured()
+    {
+      return useParallelMergePool;
+    }
+  }
+
+  /**
+   * Calcite-specific class that exists only to use the above class which, when
+   * created through Guice, has the above class name rather than the base class
+   * name.
+   * @author paul
+   *
+   */
+  public static class CalciteMockQueryRunnerFactoryCongomerate extends MockQueryRunnerFactoryCongomerate
+  {
+    @Inject
+    public CalciteMockQueryRunnerFactoryCongomerate(
+        final Closer closer,
+        final MockDruidProcessingConfig processingConfig,
+        final @Named("minTopNThreshold") Supplier<Integer> minTopNThresholdSupplier
+    )
+    {
+      super(closer, processingConfig, minTopNThresholdSupplier);
+    }
   }
 }

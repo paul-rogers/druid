@@ -115,7 +115,6 @@ public class SqlStatementTest
   {
     final Injector injector = new CalciteTestInjectorBuilder()
         .withMockComponents()
-        .withSqlAggregation()
         .withStatics()
         .build();
     final QueryScheduler scheduler = new QueryScheduler(

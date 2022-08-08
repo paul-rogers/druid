@@ -60,8 +60,9 @@ public class TDigestSketchSqlAggregatorTest extends BaseCalciteQueryTest
   @BeforeClass
   public static void setup()
   {
-    setupInjector(
-        new TDigestSketchModule()
+    buildInjector(injectorBuilder()
+        .omitSqlAggregation()
+        .add(new TDigestSketchModule())
     );
   }
 

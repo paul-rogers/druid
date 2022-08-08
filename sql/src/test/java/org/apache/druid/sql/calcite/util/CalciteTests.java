@@ -202,7 +202,6 @@ public class CalciteTests
 
   public static final Injector INJECTOR = new CalciteTestInjectorBuilder()
       .withMockComponents()
-      .withSqlAggregation()
       .build();
 
   private static final InputRowParser<Map<String, Object>> PARSER = new MapInputRowParser(

@@ -51,7 +51,7 @@ import java.util.List;
  * replaced various parts of queries with dynamic parameters. It is NOT
  * important that this file remains in sync with {@link CalciteQueryTest}, the
  * tests were merely chosen to produce a selection of parameter types and
- * positions within query expressions and have been renamed to reflect this
+ * positions within query expressions and have been renamed to reflect this.
  */
 public class CalciteParameterQueryTest extends BaseCalciteQueryTest
 {

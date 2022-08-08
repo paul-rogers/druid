@@ -73,8 +73,9 @@ public class BloomFilterSqlAggregatorTest extends BaseCalciteQueryTest
   @BeforeClass
   public static void setup()
   {
-    setupInjector(
-        new BloomFilterExtensionModule()
+    buildInjector(injectorBuilder()
+        .omitSqlAggregation()
+        .add(new BloomFilterExtensionModule())
     );
   }
 

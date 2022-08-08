@@ -23,20 +23,35 @@ import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
+import com.google.inject.Injector;
+import com.google.inject.TypeLiteral;
+import com.google.inject.name.Named;
+import com.google.inject.name.Names;
+import org.apache.druid.common.aws.AWSEndpointConfig;
 import org.apache.druid.guice.ExpressionModule;
+import org.apache.druid.guice.JsonConfigProvider;
+import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.initialization.DruidModule;
+import org.apache.druid.java.util.common.io.Closer;
+import org.apache.druid.query.DruidProcessingConfig;
+import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.expression.LookupEnabledTestExprMacroTable;
 import org.apache.druid.query.expression.LookupExprMacro;
 import org.apache.druid.query.lookup.LookupExtractorFactoryContainerProvider;
 import org.apache.druid.query.lookup.LookupSerdeModule;
+import org.apache.druid.query.topn.TopNQueryConfig;
+import org.apache.druid.server.QueryStackTests.MockQueryRunnerFactoryCongomerate;
 import org.apache.druid.sql.calcite.expression.builtin.QueryLookupOperatorConversion;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.external.ExternalOperatorConversion;
+import org.apache.druid.sql.calcite.util.MockComponents.CalciteMockQueryRunnerFactoryCongomerate;
+import org.apache.druid.sql.calcite.util.MockComponents.MockDruidProcessingConfig;
 import org.apache.druid.sql.guice.SqlBindings;
 import org.apache.druid.timeline.DataSegment;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * The Calcite tests are configured using Guice, but often we want a
@@ -133,12 +148,52 @@ public class MockModules
     }
   }
 
-  public static class CalciteQueryTestModule implements DruidModule
+  public static class CalciteQueryTestModule implements com.google.inject.Module
   {
     @Override
     public void configure(Binder binder)
     {
       //    binder.bind(ViewManager.class).to(CalciteTestsViewManager.class).in(LazySingleton.class);
+
+      // The test components used to be created by hand, and relied on a Closer to close
+      // them. To minimize disruption, we create a (test global) Closer in Guice. Since
+      // Closer is not designed for injection, we use a provider instead.
+      binder.bind(Closer.class).toProvider(() -> Closer.create()).in(LazySingleton.class);
     }
   }
+
+  /**
+   * Mock version of {@link org.apache.druid.guice.QueryableModule}. Provides the
+   * test query factory conglomerate populated with the factories needed for tests.
+   */
+  public static class MockQueryableModule implements com.google.inject.Module
+  {
+    @Override
+    public void configure(Binder binder)
+    {
+      // Uses JSON configuration to allow tests to set properties to set options for
+      // the DruidProcessingConfig via a test-specific subclass.
+      JsonConfigProvider.bind(binder, MockDruidProcessingConfig.PROPERTY_BASE, MockDruidProcessingConfig.class);
+
+      // Depends on the Closer created in CalciteTestInjectorBuilder,
+      // DruidProcessingConfig created from (default) properties, and...
+      binder.bind(new TypeLiteral<Supplier<Integer>>() { })
+          .annotatedWith(Names.named("minTopNThreshold"))
+          .toInstance(() -> TopNQueryConfig.DEFAULT_MIN_TOPN_THRESHOLD);
+      binder.bind(QueryRunnerFactoryConglomerate.class)
+          .to(CalciteMockQueryRunnerFactoryCongomerate.class)
+          .in(LazySingleton.class);
+    }
+  }
+
+//  public static class MockDruidProcessingModule implements com.google.inject.Module
+//  {
+//    @Override
+//    public void configure(Binder binder)
+//    {
+//      binder.bind(DruidProcessingConfig.class).to(MockDruidProcessingConfig.class).in(LazySingleton.class);
+//      JsonConfigProvider.bind(binder, MockDruidProcessingConfig.PROPERTY_BASE, MockDruidProcessingConfig.class);
+//    }
+//
+//  }
 }

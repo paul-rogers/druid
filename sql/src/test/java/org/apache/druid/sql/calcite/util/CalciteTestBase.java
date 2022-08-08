@@ -91,6 +91,7 @@ public abstract class CalciteTestBase
    * @see #buildInjector(CalciteTestInjectorBuilder)
    */
   private static Injector injector;
+  private static CalciteTestInjectorBuilder injectorBuilder;
 
   /**
    * Returns the injector for this test. Creates the injector lazily on demand
@@ -102,7 +103,7 @@ public abstract class CalciteTestBase
   public Injector injector()
   {
     if (injector == null) {
-      buildInjector(injectorBuilder().withSqlAggregation());
+      buildInjector(injectorBuilder());
     }
     return injector;
   }
@@ -133,6 +134,7 @@ public abstract class CalciteTestBase
   {
     Preconditions.checkState(injector == null);
     injector = builder.build();
+    injectorBuilder = builder;
   }
 
   /**
@@ -155,11 +157,17 @@ public abstract class CalciteTestBase
   /**
    * The injector is expected to be shared across the entire test
    * class. However, the Avatica tests recreate the injector per test.
-   * Call this method to rest the injector after a test.
+   * Call this method to rest the injector after a test. Closes any
+   * managed modules and anything registered with the injector's
+   * {@code Closer}.
    */
   public static void tearDownInjector()
   {
+    if (injector != null) {
+      injectorBuilder.tearDown(injector);
+    }
     injector = null;
+    injectorBuilder = null;
   }
 
   @AfterClass

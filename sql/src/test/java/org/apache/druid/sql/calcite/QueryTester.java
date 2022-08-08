@@ -447,8 +447,9 @@ public class QueryTester
     }
 
     CalciteTestsViewManager viewManager = new CalciteTestsViewManager(testConfig.injector.getInstance(DruidViewMacroFactory.class));
+    QueryRunnerFactoryConglomerate conglomerate = testConfig.injector.getInstance(QueryRunnerFactoryConglomerate.class);
     DruidSchemaCatalog rootSchema = CalciteTests.createMockRootSchema(
-        testConfig.conglomerate,
+        conglomerate,
         testConfig.walker,
         testCase.plannerConfig,
         viewManager,
@@ -459,7 +460,7 @@ public class QueryTester
     final PlannerFactory plannerFactory = new PlannerFactory(
         rootSchema,
         new TestQueryMakerFactory(
-            CalciteTests.createMockQueryLifecycleFactory(testConfig.walker, testConfig.conglomerate),
+            CalciteTests.createMockQueryLifecycleFactory(testConfig.walker, conglomerate),
             testConfig.injector.getInstance(ObjectMapper.class)
         ),
         testConfig.injector.getInstance(DruidOperatorTable.class),

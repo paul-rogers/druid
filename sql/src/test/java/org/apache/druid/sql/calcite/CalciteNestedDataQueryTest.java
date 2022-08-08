@@ -146,7 +146,6 @@ public class CalciteNestedDataQueryTest extends BaseCalciteQueryTest
   public static void setup()
   {
     buildInjector(injectorBuilder()
-        .withSqlAggregation()
         .add(
             new NestedDataModule(),
             binder -> {

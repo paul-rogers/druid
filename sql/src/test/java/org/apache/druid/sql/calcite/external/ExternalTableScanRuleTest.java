@@ -50,7 +50,6 @@ public class ExternalTableScanRuleTest
   public void testMatchesWhenExternalScanUnsupported() throws ValidationException
   {
     final Injector injector = new CalciteTestInjectorBuilder()
-        .withSqlAggregation()
         .build();
     final PlannerContext plannerContext = PlannerContext.create(
         "DUMMY", // The actual query isn't important for this test

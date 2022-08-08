@@ -41,6 +41,7 @@ import org.apache.druid.query.aggregation.datasketches.hll.HllSketchModule;
 import org.apache.druid.query.aggregation.datasketches.hll.HllSketchToEstimatePostAggregator;
 import org.apache.druid.query.aggregation.datasketches.hll.HllSketchToEstimateWithBoundsPostAggregator;
 import org.apache.druid.query.aggregation.datasketches.hll.HllSketchToStringPostAggregator;
+import org.apache.druid.query.aggregation.datasketches.theta.SketchModule;
 import org.apache.druid.query.aggregation.post.ArithmeticPostAggregator;
 import org.apache.druid.query.aggregation.post.ExpressionPostAggregator;
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
@@ -99,32 +100,35 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
   @BeforeClass
   public static void setup()
   {
-    setupInjector(
-        // Near clone of HllSketchModule with one difference
-        new DruidModule()
-        {
-          @Override
-          public void configure(Binder binder)
-          {
-            HllSketchModule.registerSerde();
-            SqlBindings.addAggregator(binder, HllSketchApproxCountDistinctSqlAggregator.class);
-            SqlBindings.addAggregator(binder, HllSketchObjectSqlAggregator.class);
-            // Use APPROX_COUNT_DISTINCT_DS_HLL as APPROX_COUNT_DISTINCT impl for these tests.
-            SqlBindings.addAggregator(binder, TestApproxCountDistinctSqlAggregator.class);
-            SqlBindings.addAggregator(binder, TestCountSqlAggregator.class);
+    buildInjector(injectorBuilder()
+        .omitSqlAggregation()
+        .add(
+            // Near clone of HllSketchModule with one difference
+            new DruidModule()
+            {
+              @Override
+              public void configure(Binder binder)
+              {
+                HllSketchModule.registerSerde();
+                SqlBindings.addAggregator(binder, HllSketchApproxCountDistinctSqlAggregator.class);
+                SqlBindings.addAggregator(binder, HllSketchObjectSqlAggregator.class);
+                // Use APPROX_COUNT_DISTINCT_DS_HLL as APPROX_COUNT_DISTINCT impl for these tests.
+                SqlBindings.addAggregator(binder, TestApproxCountDistinctSqlAggregator.class);
+                SqlBindings.addAggregator(binder, TestCountSqlAggregator.class);
 
-            SqlBindings.addOperatorConversion(binder, HllSketchEstimateOperatorConversion.class);
-            SqlBindings.addOperatorConversion(binder, HllSketchEstimateWithErrorBoundsOperatorConversion.class);
-            SqlBindings.addOperatorConversion(binder, HllSketchSetUnionOperatorConversion.class);
-            SqlBindings.addOperatorConversion(binder, HllSketchToStringOperatorConversion.class);
-          }
+                SqlBindings.addOperatorConversion(binder, HllSketchEstimateOperatorConversion.class);
+                SqlBindings.addOperatorConversion(binder, HllSketchEstimateWithErrorBoundsOperatorConversion.class);
+                SqlBindings.addOperatorConversion(binder, HllSketchSetUnionOperatorConversion.class);
+                SqlBindings.addOperatorConversion(binder, HllSketchToStringOperatorConversion.class);
+              }
 
-          @Override
-          public List<? extends Module> getJacksonModules()
-          {
-            return new HllSketchModule().getJacksonModules();
-          }
-        }
+              @Override
+              public List<? extends Module> getJacksonModules()
+              {
+                return new HllSketchModule().getJacksonModules();
+              }
+            }
+        )
     );
   }
 

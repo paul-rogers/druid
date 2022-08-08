@@ -66,8 +66,9 @@ public class VarianceSqlAggregatorTest extends BaseCalciteQueryTest
   @BeforeClass
   public static void setup()
   {
-    setupInjector(
-        new DruidStatsModule()
+    buildInjector(injectorBuilder()
+        .omitSqlAggregation()
+        .add(new DruidStatsModule())
     );
   }
 

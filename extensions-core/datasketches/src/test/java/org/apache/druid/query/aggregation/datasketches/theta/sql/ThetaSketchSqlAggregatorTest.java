@@ -71,8 +71,9 @@ public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
   @BeforeClass
   public static void setup()
   {
-    setupInjector(
-        new SketchModule()
+    buildInjector(injectorBuilder()
+        .omitSqlAggregation()
+        .add(new SketchModule())
     );
   }
 

@@ -192,7 +192,6 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
     testRequestLogger = new TestRequestLogger();
 
     buildInjector(injectorBuilder()
-        .withSqlAggregation()
         .add(
             new Module()
             {
