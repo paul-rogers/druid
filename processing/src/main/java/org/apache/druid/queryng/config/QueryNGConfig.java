@@ -20,13 +20,19 @@
 package org.apache.druid.queryng.config;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryPlus;
+import org.apache.druid.query.scan.ScanQuery;
 
 /**
  * Configuration for the "NG" query engine.
  */
 public class QueryNGConfig
 {
+  @SuppressWarnings("unused") // To be used later
   public static final String CONFIG_ROOT = "druid.queryng";
+
+  public static final String CONTEXT_VAR = "queryng";
 
   /**
    * Whether the engine is enabled. It is disabled by default.
@@ -34,18 +40,53 @@ public class QueryNGConfig
   @JsonProperty("enabled")
   private boolean enabled;
 
+  @JsonProperty("requireContext")
+  private boolean requireContext = true;
+
   /**
    * Create an instance for testing.
    */
-  public static QueryNGConfig create(boolean enabled)
+  public static QueryNGConfig create(boolean enabled, boolean requireContext)
   {
     QueryNGConfig config = new QueryNGConfig();
     config.enabled = enabled;
+    config.requireContext = requireContext;
     return config;
   }
 
   public boolean enabled()
   {
     return enabled;
+  }
+
+  /**
+   * Determine if Query NG should be enabled for the given query. Only scan
+   * queries are currently supported. For safety, the default config also
+   * requires that a context variable be set to enable the operatore-based
+   * engine. However, the configuration can skip the context check. A present,
+   * the skip-context option is primarily for testing.
+   *  that is, if the query should have a fragment context attached.
+   * At present, Query NG is enabled if the query is a scan query and
+   * the query has the "queryng" context variable set. The caller
+   * should already have checked if the Query NG engine is enabled
+   * globally. If Query NG is enabled for a query, then the caller
+   * will attach a fragment context to the query's QueryPlus.
+   */
+  public boolean isEnabled(Query<?> query)
+  {
+    // Query has to be of the currently-supported type
+    return enabled
+        && (query instanceof ScanQuery)
+        && (!requireContext || query.getContextBoolean(CONTEXT_VAR, false));
+  }
+
+  /**
+   * Determine if the Query NG (operator-based) engine is enabled for the given
+   * query (given as a QueryPlus). Query NG is enabled if the QueryPlus
+   * includes the fragment context needed by the Query NG engine.
+   */
+  public static boolean enabledFor(final QueryPlus<?> queryPlus)
+  {
+    return queryPlus.fragmentBuilder() != null;
   }
 }

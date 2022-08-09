@@ -22,9 +22,10 @@ package org.apache.druid.queryng.fragment;
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.queryng.fragment.FragmentHandleImpl.EmptyFragmentHandle;
 import org.apache.druid.queryng.fragment.FragmentHandleImpl.FragmentOperatorHandle;
 import org.apache.druid.queryng.fragment.FragmentHandleImpl.FragmentSequenceHandle;
-import org.apache.druid.queryng.fragment.FragmentHandleImpl.EmptyFragmentHandle;
+import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Operator;
 
 import java.util.Iterator;
@@ -100,7 +101,7 @@ public class FragmentBuilderImpl implements FragmentBuilder
           @Override
           public Iterator<T> make()
           {
-            return run.iterator();
+            return Iterators.toIterator(run.iterator());
           }
 
           @Override

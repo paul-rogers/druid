@@ -23,8 +23,6 @@ import com.google.common.base.Preconditions;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
-import java.util.Iterator;
-
 /**
  * Base class for operators that do a simple mapping of their input
  * to their output. Handles the busy-work of managing the (single)
@@ -32,20 +30,18 @@ import java.util.Iterator;
  */
 public abstract class MappingOperator<IN, OUT> implements IterableOperator<OUT>
 {
-  protected final FragmentContext context;
   private final Operator<IN> input;
-  protected Iterator<IN> inputIter;
+  protected ResultIterator<IN> inputIter;
   protected State state = State.START;
 
   public MappingOperator(FragmentContext context, Operator<IN> input)
   {
-    this.context = context;
     this.input = input;
     context.register(this);
   }
 
   @Override
-  public Iterator<OUT> open()
+  public ResultIterator<OUT> open()
   {
     Preconditions.checkState(state == State.START);
     inputIter = input.open();
@@ -61,11 +57,5 @@ public abstract class MappingOperator<IN, OUT> implements IterableOperator<OUT>
     }
     inputIter = null;
     state = State.CLOSED;
-  }
-
-  @Override
-  public boolean hasNext()
-  {
-    return state == State.RUN && inputIter.hasNext();
   }
 }

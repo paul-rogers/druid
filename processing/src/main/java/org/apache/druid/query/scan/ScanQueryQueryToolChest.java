@@ -36,7 +36,7 @@ import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
-import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.config.QueryNGConfig;
 import org.apache.druid.queryng.planner.ScanPlanner;
 import org.apache.druid.segment.VirtualColumn;
 import org.apache.druid.segment.column.ColumnType;
@@ -69,7 +69,7 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
   public QueryRunner<ScanResultValue> mergeResults(final QueryRunner<ScanResultValue> runner)
   {
     return (queryPlus, responseContext) -> {
-      if (Operators.enabledFor(queryPlus)) {
+      if (QueryNGConfig.enabledFor(queryPlus)) {
         return ScanPlanner.runLimitAndOffset(queryPlus, runner, responseContext, scanQueryConfig);
       }
       final ScanQuery originalQuery = ((ScanQuery) (queryPlus.getQuery()));
@@ -230,20 +230,21 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
     return resultSequence.flatMap(
         result -> {
           // Generics? Where we're going, we don't need generics.
-          final List rows = (List) result.getEvents();
-          final Iterable arrays = Iterables.transform(rows, (Function) mapper);
+          @SuppressWarnings("unchecked")
+          final List<Object[]> rows = (List<Object[]>) result.getEvents();
+          @SuppressWarnings("unchecked")
+          final Iterable<Object[]> arrays = Iterables.transform(rows, (Function) mapper);
           return Sequences.simple(arrays);
         }
     );
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public Sequence<Object[]> resultsAsArrays(QueryPlus<ScanResultValue> queryPlus, Sequence<ScanResultValue> resultSequence)
   {
     ScanQuery query = (ScanQuery) queryPlus.getQuery();
-    if (Operators.enabledFor(queryPlus)) {
-       final List<String> fields = resultArraySignature(query).getColumnNames();
+    if (QueryNGConfig.enabledFor(queryPlus)) {
+      final List<String> fields = resultArraySignature(query).getColumnNames();
       return ScanPlanner.resultsAsArrays(queryPlus, fields, resultSequence);
     } else {
       return resultsAsArrays(query, resultSequence);

@@ -42,6 +42,9 @@ public class QueryNGModule implements Module
     JsonConfigProvider.bind(binder, QueryNGConfig.CONFIG_ROOT, QueryNGConfig.class);
     binder
       .bind(FragmentBuilderFactory.class)
+      // Query NG disabled in production nodes for now.
+      //.to(NullFragmentBuilderFactory.class)
+      // Enabled here just for debugging.
       .to(FragmentBuilderFactoryImpl.class)
       .in(LazySingleton.class);
   }

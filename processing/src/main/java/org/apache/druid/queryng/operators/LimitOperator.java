@@ -21,30 +21,30 @@ package org.apache.druid.queryng.operators;
 
 import org.apache.druid.queryng.fragment.FragmentContext;
 
-public abstract class LimitOperator<T> extends MappingOperator<T, T>
+/**
+ * Limits the results from the input operator to the given number
+ * of rows.
+ */
+public class LimitOperator<T> extends MappingOperator<T, T>
 {
-  public static final long UNLIMITED = Long.MAX_VALUE;
-
   protected final long limit;
   protected long rowCount;
-  protected int batchCount;
 
-  public LimitOperator(FragmentContext context, long limit, Operator<T> input)
+  public LimitOperator(FragmentContext context, Operator<T> input, long limit)
   {
     super(context, input);
     this.limit = limit;
+    context.register(this);
   }
 
   @Override
-  public boolean hasNext()
+  public T next() throws EofException
   {
-    return rowCount < limit && super.hasNext();
-  }
-
-  @Override
-  public T next()
-  {
+    if (rowCount >= limit) {
+      throw Operators.eof();
+    }
+    T item = inputIter.next();
     rowCount++;
-    return inputIter.next();
+    return item;
   }
 }

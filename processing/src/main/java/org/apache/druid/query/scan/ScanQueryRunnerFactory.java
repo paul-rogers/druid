@@ -46,7 +46,7 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.spec.MultipleSpecificSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
-import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.config.QueryNGConfig;
 import org.apache.druid.queryng.planner.ScanPlanner;
 import org.apache.druid.segment.Segment;
 import org.joda.time.Interval;
@@ -91,7 +91,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
   {
     // In single thread and in Jetty thread instead of processing thread
     return (queryPlus, responseContext) -> {
-      if (Operators.enabledFor(queryPlus)) {
+      if (QueryNGConfig.enabledFor(queryPlus)) {
         Sequence<ScanResultValue> results = ScanPlanner.runMerge(
             queryPlus,
             queryRunners,
@@ -373,7 +373,7 @@ public class ScanQueryRunnerFactory implements QueryRunnerFactory<ScanResultValu
     @Override
     public Sequence<ScanResultValue> run(QueryPlus<ScanResultValue> queryPlus, ResponseContext responseContext)
     {
-      if (Operators.enabledFor(queryPlus)) {
+      if (QueryNGConfig.enabledFor(queryPlus)) {
         return ScanPlanner.runScan(queryPlus, segment, responseContext);
       }
 

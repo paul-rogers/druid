@@ -19,6 +19,8 @@
 
 package org.apache.druid.queryng.fragment;
 
+import org.apache.druid.queryng.operators.Operator.ResultIterator;
+
 import java.util.List;
 
 /**
@@ -31,9 +33,11 @@ import java.util.List;
  * the iterator, a sequence, or convert the results to a list. The
  * fragment is not reentrant: results can be obtained only once.
  */
-public interface FragmentRun<T> extends AutoCloseable, Iterable<T>
+public interface FragmentRun<T> extends AutoCloseable
 {
   FragmentContext context();
+
+  ResultIterator<T> iterator();
 
   /**
    * Materializes the entire result set as a list. Primarily for testing.
