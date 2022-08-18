@@ -1895,7 +1895,7 @@
                                 <exclude>.github/pull_request_template.md</exclude>
                                 <exclude>.github/dependabot.yml</exclude>
                                 <exclude>git.version</exclude>
-                                <exclude>node_modules/**</exclude>
+                                <exclude>website/node_modules/**</exclude>
                                 <exclude>src/**/*.snap</exclude>
                                 <exclude>examples/conf/**</exclude>
                                 <exclude>.asf.yaml</exclude>
@@ -1903,6 +1903,10 @@
                                 <exclude>.editorconfig</exclude>
                                 <exclude>**/hadoop.indexer.libs.version</exclude>
                                 <exclude>**/codegen/**</exclude>
+                                <exclude>**/target/**</exclude>
+                                <exclude>**/.settings/**</exclude>
+                                <exclude>**/.classpath</exclude>
+                                <exclude>**/.project</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
