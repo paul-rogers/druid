@@ -40,6 +40,28 @@ cd /
 # Set  druid.metadata.mysql.driver.driverClassName to the preferred
 # driver.
 
+# Test-specific way to define extensions. Compose defines two test-specific
+# variables. We combine these to create the final form converted to a property.
+if [ -n "$druid_extensions_loadList" ]; then
+	echo "Using the provided druid_extensions_loadList=$druid_extensions_loadList"
+else
+	echo $druid_standard_loadList | tr "," "\n" > /tmp/extns
+	if [ -n "$druid_test_loadList" ]; then
+		echo $druid_test_loadList | tr "," "\n" >> /tmp/extns
+	fi
+	druid_extensions_loadList="["
+	delim=""
+	while read -r line; do
+	  	druid_extensions_loadList="$druid_extensions_loadList$delim\"$line\""
+	  	delim=","
+	done < /tmp/extns
+	druid_extensions_loadList="${druid_extensions_loadList}]"
+	unset druid_standard_loadList
+	unset druid_test_loadList
+	rm /tmp/extns
+	echo "Effective druid_extensions_loadList=$druid_extensions_loadList"
+fi
+
 # Create druid service config files with all the config variables
 setupConfig
 

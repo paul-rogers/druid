@@ -22,12 +22,14 @@
 export DRUID_DEV=$(cd $(dirname $0) && pwd)
 
 function usage {
-	echo "Usage: $0 cmd [category]"
-	echo "  dist            - build the Druid distribution"
-	echo "  image           - build the test image"
-	echo "  up <category>   - start the cluster for category"
-	echo "  down <category> - stop the cluster for category"
-	echo "  test <category> - start the cluster, run the test for category, and stop the cluster"
+	cat <<EOF
+Usage: $0 cmd [category]
+  dist            - build the Druid distribution
+  image           - build the test image
+  up <category>   - start the cluster for category
+  down <category> - stop the cluster for category
+  test <category> - start the cluster, run the test for category, and stop the cluster
+EOF
 }
 
 CMD=$1
@@ -48,7 +50,7 @@ case $CMD in
 			exit 1
 		fi
 		cd $DRUID_DEV/integration-tests-ex/cases
-		./cluster.sh $1 up
+		./cluster.sh up $1
 		;;
 	"down")
 		if [ -z "$1" ]; then
@@ -56,7 +58,7 @@ case $CMD in
 			exit 1
 		fi
 		cd $DRUID_DEV/integration-tests-ex/cases
-		./cluster.sh $1 down
+		./cluster.sh down $1
 		;;
 	"test")
 		if [ -z "$1" ]; then

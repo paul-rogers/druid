@@ -75,8 +75,17 @@
             <version>${project.parent.version}</version>
         </dependency>
         <dependency>
+            <groupId>org.apache.druid</groupId>
+            <artifactId>druid-indexing-service</artifactId>
+            <version>${project.parent.version}</version>
+        </dependency>
+        <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.google.inject.extensions</groupId>
+            <artifactId>guice-multibindings</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.curator</groupId>
@@ -308,8 +317,8 @@
                                     <executable>bash</executable>
                                     <arguments>
                                         <argument>cluster.sh</argument>
-                                        <argument>${it.category}</argument>
                                         <argument>up</argument>
+                                        <argument>${it.category}</argument>
                                     </arguments>
                                 </configuration>
                             </execution>
@@ -325,8 +334,8 @@
                                     <executable>bash</executable>
                                     <arguments>
                                         <argument>cluster.sh</argument>
-                                        <argument>${it.category}</argument>
                                         <argument>down</argument>
+                                        <argument>${it.category}</argument>
                                     </arguments>
                                 </configuration>
                             </execution>

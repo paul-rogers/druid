@@ -87,7 +87,7 @@ public class DruidTestRunner extends BlockJUnit4ClassRunner
   private Initializer buildInitializer(Object test)
   {
     Class<?> testClass = test.getClass();
-    Category annotations[] = testClass.getAnnotationsByType(Category.class);
+    Category[] annotations = testClass.getAnnotationsByType(Category.class);
     if (annotations.length == 0) {
       throw new UOE(
           "Class % must have a @Category annotation",
@@ -100,7 +100,7 @@ public class DruidTestRunner extends BlockJUnit4ClassRunner
           testClass.getSimpleName()
       );
     }
-    Class<?> categories[] = annotations[0].value();
+    Class<?>[] categories = annotations[0].value();
     if (categories.length == 0) {
       throw new UOE(
           "Class % must have a @Category value",
@@ -148,7 +148,7 @@ public class DruidTestRunner extends BlockJUnit4ClassRunner
    */
   private Class<?> category(Class<?> testClass)
   {
-    Category annotations[] = testClass.getAnnotationsByType(Category.class);
+    Category[] annotations = testClass.getAnnotationsByType(Category.class);
     if (annotations.length == 0) {
       throw new UOE(
           "Class % must have a @Category annotation",
@@ -161,7 +161,7 @@ public class DruidTestRunner extends BlockJUnit4ClassRunner
           testClass.getSimpleName()
       );
     }
-    Class<?> categories[] = annotations[0].value();
+    Class<?>[] categories = annotations[0].value();
     if (categories.length == 0) {
       throw new UOE(
           "Class % must have a @Category value",
