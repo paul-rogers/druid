@@ -1872,10 +1872,10 @@
                                 <exclude>conf/**</exclude>
                                 <exclude>docker/*.conf</exclude>
                                 <exclude>docker/service-supervisords/*.conf</exclude>
-                                <exclude>target/**</exclude>
+                                <exclude>**/target/**</exclude>
                                 <exclude>licenses/**</exclude>
-                                <exclude>**/test/resources/**</exclude> <!-- test data for "old" ITs. -->
-                                <exclude>integration-tests-ex/cases/resources/data/**</exclude> <!-- test data for "new" ITs. -->
+                                <exclude>**/test/resources/**/*</exclude> <!-- test data for "old" ITs. -->
+                                <exclude>integration-tests-ex/cases/resources/data/**/*</exclude> <!-- test data for "new" ITs. -->
                                 <exclude>**/derby.log</exclude>
                                 <exclude>**/jvm.config</exclude>
                                 <exclude>**/*.avsc</exclude>
@@ -1902,9 +1902,8 @@
                                 <exclude>**/dependency-reduced-pom.xml</exclude>
                                 <exclude>.editorconfig</exclude>
                                 <exclude>**/hadoop.indexer.libs.version</exclude>
-                                <exclude>**/codegen/**</exclude>
-                                <exclude>**/target/**</exclude>
-                                <exclude>**/.settings/**</exclude>
+                                <exclude>**/codegen/**/*</exclude>
+                                <exclude>**/.settings/**/*</exclude>
                                 <exclude>**/.classpath</exclude>
                                 <exclude>**/.project</exclude>
                             </excludes>
