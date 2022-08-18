@@ -78,7 +78,7 @@ jobs:
     - name: "experimental docker tests"
       stage: Tests - phase 1
       # Uses the install defined above. Then, builds the test tools and docker image,
-      # and run the various IT tests. If tests fail, echos log lines of any of
+      # and runs one IT. If tests fail, echos log lines of any of
       # the Druid services that did not exit normally.
       # Run though install to ensure the test tools are installed, and the docker
       # image is built. The tests only need verify.

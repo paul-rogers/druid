@@ -497,7 +497,7 @@ public class Initializer
   }
 
   /**
-   * Define test properties similar to how the server does. Property precendence
+   * Define test properties similar to how the server does. Property precedence
    * is:
    * <ul>
    * <li>System properties (highest)</li>
@@ -521,6 +521,8 @@ public class Initializer
       }
     }
     finalProperties.putAll(System.getProperties());
+    log.info("Properties:");
+    log.info(finalProperties.toString());
     return finalProperties;
   }
 

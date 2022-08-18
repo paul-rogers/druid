@@ -184,7 +184,7 @@ public class DruidTestRunner extends BlockJUnit4ClassRunner
   private String inferCluster(Class<?> category)
   {
     String categoryName = category.getSimpleName();
-    Cluster annotations[] = category.getAnnotationsByType(Cluster.class);
+    Cluster[] annotations = category.getAnnotationsByType(Cluster.class);
     if (annotations.length == 0) {
       return categoryName;
     }
