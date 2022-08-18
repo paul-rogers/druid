@@ -47,15 +47,12 @@ import java.util.List;
 @Category(AzureDeepStorage.class)
 public class ITAzureToHdfsParallelIndexTest extends AbstractAzureInputSourceParallelIndexTest
 {
-  private Pair<String, List> azureInputSource;
-
-  public ITAzureToHdfsParallelIndexTest (Pair<String, List> azureInputSource) {
-    this.azureInputSource = azureInputSource;
-  }
+  @Parameterized.Parameter
+  public Pair<String, List> azureInputSource;
 
   @Test
-  public void testAzureIndexData() throws Exception
+  public void testAzureIndexData(Pair<String, List> azureInputSource) throws Exception
   {
-    doTest(this.azureInputSource, new Pair<>(false, false));
+    doTest(azureInputSource, new Pair<>(false, false));
   }
 }

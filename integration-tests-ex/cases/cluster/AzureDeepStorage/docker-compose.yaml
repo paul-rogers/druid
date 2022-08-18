@@ -91,6 +91,10 @@ services:
       service: indexer
     environment:
       - DRUID_INTEGRATION_TEST_GROUP=${DRUID_INTEGRATION_TEST_GROUP}
+      - druid_test_loadList=druid-azure-extensions
+      - druid_azure_account=<AZURE_ACCOUNT>
+      - druid_azure_key=<AZURE_KEY>
+      - druid_azure_container=<CONTAINER_NAME>
     volumes:
       # Test data
       - ../data:/resources

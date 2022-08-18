@@ -19,14 +19,9 @@
 
 package org.apache.druid.testsEx.indexer;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.testsEx.categories.AzureDeepStorage;
-import org.apache.druid.testsEx.config.Configure;
-import org.apache.druid.testsEx.config.DruidTestRunner;
 import org.apache.druid.testsEx.config.DruidTestRunnerFactory;
-import org.apache.druid.testsEx.config.Initializer;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
@@ -45,26 +40,17 @@ import java.util.List;
  *    integration-tests/docker/environment-configs/override-examples/azure for env vars to provide.
  */
 
-@RunWith(DruidTestRunner.class)
+@RunWith(Parameterized.class)
+@Parameterized.UseParametersRunnerFactory(DruidTestRunnerFactory.class)
 @Category(AzureDeepStorage.class)
 public class ITAzureToAzureParallelIndexTest extends AbstractAzureInputSourceParallelIndexTest
 {
 
-//  @Configure
-//  public static void configure(Initializer.Builder builder)
-//  {
-//    builder.propertyEnvVarBinding("druid.my.bucket", "ULTIMATE_ANSWER");
-//  }
-
+  @Parameterized.Parameter
+  public Pair<String, List> azureInputSource;
   @Test
   public void testAzureIndexData() throws Exception
   {
-    doTest(new Pair<>("objects",
-                      ImmutableList.of(
-                          ImmutableMap.of("bucket", "%%BUCKET%%", "path", "%%PATH%%" + "wikipedia_index_data1.json"),
-                          ImmutableMap.of("bucket", "%%BUCKET%%", "path", "%%PATH%%" + "wikipedia_index_data2.json"),
-                          ImmutableMap.of("bucket", "%%BUCKET%%", "path", "%%PATH%%" + "wikipedia_index_data3.json")
-                      )
-    ), new Pair<>(false, false));
+    doTest(this.azureInputSource, new Pair<>(false, false));
   }
 }
