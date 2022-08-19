@@ -19,15 +19,16 @@
 
 package org.apache.druid.testsEx.indexer;
 
+import junitparams.Parameters;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.testsEx.categories.AzureDeepStorage;
-import org.apache.druid.testsEx.config.DruidTestRunnerFactory;
+import org.apache.druid.testsEx.config.DruidTestRunner;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * IMPORTANT:
@@ -40,17 +41,14 @@ import java.util.List;
  *    integration-tests/docker/environment-configs/override-examples/azure for env vars to provide.
  */
 
-@RunWith(Parameterized.class)
-@Parameterized.UseParametersRunnerFactory(DruidTestRunnerFactory.class)
+@RunWith(DruidTestRunner.class)
 @Category(AzureDeepStorage.class)
 public class ITAzureToAzureParallelIndexTest extends AbstractAzureInputSourceParallelIndexTest
 {
-
-  @Parameterized.Parameter
-  public Pair<String, List> azureInputSource;
   @Test
-  public void testAzureIndexData() throws Exception
+  @Parameters(source = AzureResourcesProvider.class)
+  public void testAzureIndexData(Pair<String, List<Map<String, String>>> azureInputSource) throws Exception
   {
-    doTest(this.azureInputSource, new Pair<>(false, false));
+    doTest(azureInputSource, new Pair<>(false, false));
   }
 }

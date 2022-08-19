@@ -19,15 +19,16 @@
 
 package org.apache.druid.testsEx.indexer;
 
+import junitparams.Parameters;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.testsEx.categories.AzureDeepStorage;
-import org.apache.druid.testsEx.config.DruidTestRunnerFactory;
+import org.apache.druid.testsEx.config.DruidTestRunner;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * IMPORTANT:
@@ -42,16 +43,13 @@ import java.util.List;
  * 4) Run the test with -Dstart.hadoop.docker=true in the mvn command
  */
 
-@RunWith(Parameterized.class)
-@Parameterized.UseParametersRunnerFactory(DruidTestRunnerFactory.class)
+@RunWith(DruidTestRunner.class)
 @Category(AzureDeepStorage.class)
 public class ITAzureToHdfsParallelIndexTest extends AbstractAzureInputSourceParallelIndexTest
 {
-  @Parameterized.Parameter
-  public Pair<String, List> azureInputSource;
-
   @Test
-  public void testAzureIndexData(Pair<String, List> azureInputSource) throws Exception
+  @Parameters(source = AzureResourcesProvider.class)
+  public void testAzureIndexData(Pair<String, List<Map<String, String>>> azureInputSource) throws Exception
   {
     doTest(azureInputSource, new Pair<>(false, false));
   }

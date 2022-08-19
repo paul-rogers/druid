@@ -19,26 +19,15 @@
 
 package org.apache.druid.testsEx.config;
 
-import junit.framework.Test;
-import junitparams.internal.ParameterisedTestClassRunner;
-import junitparams.internal.TestMethod;
+import junitparams.JUnitParamsRunner;
 import org.apache.druid.java.util.common.UOE;
-import org.junit.Ignore;
 import org.junit.experimental.categories.Category;
-import org.junit.runner.Description;
-import org.junit.runner.notification.RunNotifier;
-import org.junit.runners.BlockJUnit4ClassRunner;
-import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.Statement;
-import org.junit.runners.parameterized.BlockJUnit4ClassRunnerWithParameters;
-import org.junit.runners.parameterized.TestWithParameters;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Test runner for Druid integration tests. Loads test configuration. Initializes
@@ -53,82 +42,11 @@ import java.util.List;
  * test members <i>before</i> starting the lifecycle, so that the injection creates
  * a reference, which creates the object, which registers it in the lifecycle. We
  * should fix this issue. Until then, the awkwardness is hidden in this test runner.
+ * <p>
+ * Extends the parameterize test runner, so your Druid ITs can also use parameters.
  */
-public class DruidTestRunner extends BlockJUnit4ClassRunnerWithParameters
+public class DruidTestRunner extends JUnitParamsRunner
 {
-  public DruidTestRunner(TestWithParameters test) throws InitializationError
-  {
-    super(test);
-  }
-
-//  // Trying to merge DruidTestRunner with JUnitParamsRunner
-//  /// Start Here///
-//  private ParameterisedTestClassRunner parameterisedRunner = new ParameterisedTestClassRunner(super.getTestClass());
-//
-//  private boolean handleIgnored(FrameworkMethod method, RunNotifier notifier) {
-//    TestMethod testMethod = this.parameterisedRunner.testMethodFor(method);
-//    if (testMethod.isIgnored()) {
-//      notifier.fireTestIgnored(this.describeMethod(method));
-//    }
-//
-//    return testMethod.isIgnored();
-//  }
-//
-//  private void verifyMethodCanBeRunByStandardRunner(TestMethod testMethod) {
-//    List<Throwable> errors = new ArrayList();
-//    testMethod.frameworkMethod().validatePublicVoidNoArg(false, errors);
-//    if (!errors.isEmpty()) {
-//      throw new RuntimeException((Throwable)errors.get(0));
-//    }
-//  }
-//  @Override
-//  protected void runChild(FrameworkMethod method, RunNotifier notifier) {
-//    if (!this.handleIgnored(method, notifier)) {
-//      TestMethod testMethod = this.parameterisedRunner.testMethodFor(method);
-//      if (this.parameterisedRunner.shouldRun(testMethod)) {
-//        this.parameterisedRunner.runParameterisedTest(testMethod, this.methodBlock(method), notifier);
-//      } else {
-//        this.verifyMethodCanBeRunByStandardRunner(testMethod);
-//        super.runChild(method, notifier);
-//      }
-//
-//    }
-//  }
-//
-//  @Override
-//  public Description getDescription() {
-//    Description description = Description.createSuiteDescription(getName(), getTestClass().getAnnotations());
-//    List<FrameworkMethod> resultMethods = parameterisedRunner.returnListOfMethods();
-//
-//    for (FrameworkMethod method : resultMethods)
-//      description.addChild(describeMethod(method));
-//
-//    return description;
-//  }
-//
-//  private Description describeMethod(FrameworkMethod method) {
-//    Description child = parameterisedRunner.describeParameterisedMethod(method);
-//
-//    if (child == null)
-//      child = describeChild(method);
-//
-//    return child;
-//
-//  }
-//
-//  @Override
-//  protected Statement methodInvoker(FrameworkMethod method, Object test) {
-//    Statement methodInvoker = parameterisedRunner.parameterisedMethodInvoker(method, test);
-//    if (methodInvoker == null) {
-//      methodInvoker = super.methodInvoker(method, test);
-//    }
-//
-//    return methodInvoker;
-//
-//  }
-//
-//  /// End Here ///
-
   private class CloseInitializer extends Statement
   {
     private final Statement next;
@@ -151,13 +69,13 @@ public class DruidTestRunner extends BlockJUnit4ClassRunnerWithParameters
 
   private Initializer initializer;
 
-//  public DruidTestRunner(Class<?> testClass) throws InitializationError
-//  {
-//    super(testClass);
-//  }
+  public DruidTestRunner(Class<?> testClass) throws InitializationError
+  {
+    super(testClass);
+  }
 
   @Override
-  public Object createTest() throws Exception
+  protected Object createTest() throws Exception
   {
     Object test = super.createTest();
     if (initializer == null) {

@@ -21,13 +21,14 @@ package org.apache.druid.testsEx.indexer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.annotations.UsedByJUnitParamsRunner;
 import org.apache.druid.indexer.partitions.DynamicPartitionsSpec;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.StringUtils;
-import org.junit.runners.Parameterized;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -42,34 +43,40 @@ public abstract class AbstractAzureInputSourceParallelIndexTest extends Abstract
   private static final String WIKIPEDIA_DATA_2 = "wikipedia_index_data2.json";
   private static final String WIKIPEDIA_DATA_3 = "wikipedia_index_data3.json";
 
-  @Parameterized.Parameters
-  public static Object[][] resources()
+  public static class AzureResourcesProvider
   {
-    return new Object[][]{
-        {new Pair<>(INPUT_SOURCE_URIS_KEY,
-                    ImmutableList.of(
-                        "azure://%%BUCKET%%/%%PATH%%" + WIKIPEDIA_DATA_1,
-                        "azure://%%BUCKET%%/%%PATH%%" + WIKIPEDIA_DATA_2,
-                        "azure://%%BUCKET%%/%%PATH%%" + WIKIPEDIA_DATA_3
-                    )
-        )},
-        {new Pair<>(INPUT_SOURCE_PREFIXES_KEY,
-                    ImmutableList.of(
-                        "azure://%%BUCKET%%/%%PATH%%"
-                    )
-        )},
-        {new Pair<>(INPUT_SOURCE_OBJECTS_KEY,
-                    ImmutableList.of(
-                        ImmutableMap.of("bucket", "%%BUCKET%%", "path", "%%PATH%%" + WIKIPEDIA_DATA_1),
-                        ImmutableMap.of("bucket", "%%BUCKET%%", "path", "%%PATH%%" + WIKIPEDIA_DATA_2),
-                        ImmutableMap.of("bucket", "%%BUCKET%%", "path", "%%PATH%%" + WIKIPEDIA_DATA_3)
-                    )
-        )}
-    };
+    @UsedByJUnitParamsRunner
+    public static Object[] provideResources()
+    {
+      return new Object[]{
+          new Pair<>(
+              INPUT_SOURCE_URIS_KEY,
+                  ImmutableList.of(
+                      "azure://%%BUCKET%%/%%PATH%%" + WIKIPEDIA_DATA_1,
+                      "azure://%%BUCKET%%/%%PATH%%" + WIKIPEDIA_DATA_2,
+                      "azure://%%BUCKET%%/%%PATH%%" + WIKIPEDIA_DATA_3
+                  )
+          ),
+          new Pair<>(
+                INPUT_SOURCE_PREFIXES_KEY,
+                ImmutableList.of(
+                    "azure://%%BUCKET%%/%%PATH%%"
+                )
+          ),
+          new Pair<>(
+                INPUT_SOURCE_OBJECTS_KEY,
+                ImmutableList.of(
+                    ImmutableMap.of("bucket", "%%BUCKET%%", "path", "%%PATH%%" + WIKIPEDIA_DATA_1),
+                    ImmutableMap.of("bucket", "%%BUCKET%%", "path", "%%PATH%%" + WIKIPEDIA_DATA_2),
+                    ImmutableMap.of("bucket", "%%BUCKET%%", "path", "%%PATH%%" + WIKIPEDIA_DATA_3)
+                )
+          )
+      };
+    }
   }
 
   void doTest(
-      Pair<String, List> azureInputSource,
+      Pair<String, List<Map<String, String>>> azureInputSource,
       Pair<Boolean, Boolean> segmentAvailabilityConfirmationPair
   ) throws Exception
   {
