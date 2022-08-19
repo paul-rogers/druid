@@ -169,6 +169,24 @@
             <version>${project.parent.version}</version>
         </dependency>
         <dependency>
+            <groupId>org.apache.druid.extensions</groupId>
+            <artifactId>druid-azure-extensions</artifactId>
+            <version>${project.parent.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.druid.extensions</groupId>
+            <artifactId>druid-hdfs-storage</artifactId>
+            <version>${project.parent.version}</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.amazonaws</groupId>
+                    <artifactId>aws-java-sdk-bundle</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
         </dependency>
@@ -226,33 +244,42 @@
     </build>
 
     <profiles>
-    	<profile>
-    	    <id>IT-HighAvailability</id>
+        <profile>
+          <id>IT-HighAvailability</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
-    		<properties>
-    			<it.category>HighAvailability</it.category>
-    		</properties>
-    	</profile>
-    	<profile>
-    	    <id>IT-BatchIndex</id>
+        <properties>
+          <it.category>HighAvailability</it.category>
+        </properties>
+        </profile>
+        <profile>
+          <id>IT-BatchIndex</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
-    		<properties>
-    			<it.category>BatchIndex</it.category>
-    		</properties>
-    	</profile>
-    	<profile>
-    	    <id>IT-InputFormat</id>
+        <properties>
+          <it.category>BatchIndex</it.category>
+        </properties>
+        </profile>
+        <profile>
+          <id>IT-InputFormat</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
-    		<properties>
-    			<it.category>InputFormat</it.category>
-    		</properties>
-    	</profile>
+        <properties>
+          <it.category>InputFormat</it.category>
+        </properties>
+        </profile>
+        <profile>
+            <id>IT-AzureDeepStorage</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <properties>
+                <it.category>AzureDeepStorage</it.category>
+            </properties>
+        </profile>
         <profile>
             <id>docker-tests</id>
             <activation>
