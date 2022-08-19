@@ -82,7 +82,8 @@ jobs:
       # the Druid services that did not exit normally.
       # Run though install to ensure the test tools are installed, and the docker
       # image is built. The tests only need verify.
-      script: ${MVN} install -P dist,test-image,docker-tests,IT-HighAvailability -rf :distribution ${MAVEN_SKIP} -DskipUTs=true
+      #script: ${MVN} install -P dist,test-image,docker-tests,IT-HighAvailability -rf :distribution ${MAVEN_SKIP} -DskipUTs=true
+     script: it.sh travis HighAvailability
       #after_failure:
       #  - docker-tests/check-results.sh 
       
