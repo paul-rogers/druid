@@ -43,6 +43,7 @@ import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.DirectStatement;
 import org.apache.druid.sql.SqlQueryPlus;
 import org.apache.druid.sql.SqlStatementFactory;
+import org.apache.druid.sql.calcite.BaseCalciteQueryTest.CalciteRunnerBuilder;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
 import org.apache.druid.sql.calcite.planner.Calcites;
@@ -272,27 +273,11 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
         throw new ISE("Test must not have expectedQuery");
       }
 
-      final SqlStatementFactory sqlStatementFactory = getSqlStatementFactory(
-          plannerConfig,
-          new AuthConfig(),
-          createOperatorTable(),
-          createMacroTable(),
-          CalciteTests.TEST_AUTHORIZER_MAPPER,
-          queryJsonMapper
-      );
-
-      DirectStatement stmt = sqlStatementFactory.directStatement(
-          SqlQueryPlus
-              .builder(sql)
-              .context(queryContext)
-              .auth(authenticationResult)
-              .build()
-      );
-
+      CalciteQueryRunner tester = tester();
       final Throwable e = Assert.assertThrows(
           Throwable.class,
           () -> {
-            stmt.execute();
+            tester.getResults(sqlQuery());
           }
       );
 
@@ -320,8 +305,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
           analyzeResources(plannerConfig, new AuthConfig(), sql, queryContext, authenticationResult)
       );
 
-      final Pair<RowSignature, List<Object[]>> results =
-          getResults(plannerConfig, queryContext, Collections.emptyList(), sql, authenticationResult);
+      final Pair<RowSignature, List<Object[]>> results = tester().getResults(sqlQuery());
 
       verifyResults(
           sql,
@@ -329,6 +313,21 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
           Collections.singletonList(new Object[]{expectedTargetDataSource, expectedTargetSignature}),
           results
       );
+    }
+
+    private SqlQueryPlus sqlQuery()
+    {
+      return SqlQueryPlus.builder(sql)
+          .context(queryContext)
+          .auth(authenticationResult)
+          .build();
+    }
+
+    private CalciteQueryRunner tester()
+    {
+      CalciteRunnerBuilder builder = new CalciteRunnerBuilder();
+      builder.plannerConfig = plannerConfig;
+      return builder.build();
     }
   }
 
