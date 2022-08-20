@@ -43,7 +43,7 @@ import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.DirectStatement;
 import org.apache.druid.sql.SqlQueryPlus;
 import org.apache.druid.sql.SqlStatementFactory;
-import org.apache.druid.sql.calcite.BaseCalciteQueryTest.CalciteRunnerBuilder;
+import org.apache.druid.sql.calcite.BaseCalciteQueryTest.CalciteQueryRunner;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
 import org.apache.druid.sql.calcite.planner.Calcites;
@@ -273,7 +273,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
         throw new ISE("Test must not have expectedQuery");
       }
 
-      CalciteQueryRunner tester = tester();
+      CalciteQueryRunner tester = queryRunner(plannerConfig);
       final Throwable e = Assert.assertThrows(
           Throwable.class,
           () -> {
@@ -305,7 +305,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
           analyzeResources(plannerConfig, new AuthConfig(), sql, queryContext, authenticationResult)
       );
 
-      final Pair<RowSignature, List<Object[]>> results = tester().getResults(sqlQuery());
+      final Pair<RowSignature, List<Object[]>> results = queryRunner(plannerConfig).getResults(sqlQuery());
 
       verifyResults(
           sql,
@@ -323,12 +323,6 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
           .build();
     }
 
-    private CalciteQueryRunner tester()
-    {
-      CalciteRunnerBuilder builder = new CalciteRunnerBuilder();
-      builder.plannerConfig = plannerConfig;
-      return builder.build();
-    }
   }
 
   protected static ResourceAction viewRead(final String viewName)

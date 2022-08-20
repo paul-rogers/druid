@@ -830,34 +830,13 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       @Nullable final Consumer<ExpectedException> expectedExceptionInitializer
   )
   {
+    log.info("SQL: %s", sql);
+
+    CalciteQueryRunner queryRunner = queryRunner(plannerConfig);
     SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
         .sqlParameters(parameters)
         .auth(authenticationResult)
         .build();
-    testQueryVariations(
-        plannerConfig,
-        sqlQuery,
-        queryContext,
-        expectedQueries,
-        expectedResultsVerifier,
-        expectedExceptionInitializer
-    );
-  }
-
-  public void testQueryVariations(
-      final PlannerConfig plannerConfig,
-      final SqlQueryPlus sqlQuery,
-      final Map<String, Object> queryContext,
-      final List<Query<?>> expectedQueries,
-      final ResultsVerifier expectedResultsVerifier,
-      @Nullable final Consumer<ExpectedException> expectedExceptionInitializer
-  )
-  {
-    log.info("SQL: %s", sqlQuery.sql());
-
-    CalciteRunnerBuilder builder = new CalciteRunnerBuilder();
-    builder.plannerConfig = plannerConfig;
-    CalciteQueryRunner queryRunner = builder.build();
 
     final List<String> vectorizeValues = new ArrayList<>();
     vectorizeValues.add("false");
@@ -890,104 +869,13 @@ public class BaseCalciteQueryTest extends CalciteTestBase
 
       final Pair<RowSignature, List<Object[]>> plannerResults = queryRunner.getResults(
           sqlQuery.withContext(theQueryContext));
-      verifyResults(sqlQuery.sql(), theQueries, plannerResults, expectedResultsVerifier);
+      verifyResults(sql, theQueries, plannerResults, expectedResultsVerifier);
     }
   }
 
-  public class CalciteRunnerBuilder
+  public CalciteQueryRunner queryRunner(PlannerConfig plannerConfig)
   {
-    public PlannerConfig plannerConfig;
-    public DruidOperatorTable operatorTable;
-    public ExprMacroTable macroTable;
-    public AuthorizerMapper authorizerMapper;
-    public ObjectMapper objectMapper;
-    public AuthConfig authConfig;
-
-    CalciteQueryRunner build()
-    {
-      final PlannerConfig plannerConfig = this.plannerConfig != null ? this.plannerConfig : PLANNER_CONFIG_DEFAULT;
-      final DruidOperatorTable operatorTable = this.operatorTable != null ? this.operatorTable : createOperatorTable();
-      final ExprMacroTable macroTable = this.macroTable != null ? this.macroTable : createMacroTable();
-      final AuthorizerMapper authorizerMapper = this.authorizerMapper != null ? this.authorizerMapper : CalciteTests.TEST_AUTHORIZER_MAPPER;
-      final ObjectMapper objectMapper = this.objectMapper != null ? this.objectMapper : queryJsonMapper;
-      final AuthConfig authConfig = this.authConfig != null ? this.authConfig : new AuthConfig();
-
-      final InProcessViewManager viewManager = new InProcessViewManager(CalciteTests.DRUID_VIEW_MACRO_FACTORY);
-      DruidSchemaCatalog rootSchema = CalciteTests.createMockRootSchema(
-          conglomerate,
-          walker,
-          plannerConfig,
-          viewManager,
-          new NoopDruidSchemaManager(),
-          authorizerMapper
-      );
-
-      final PlannerFactory plannerFactory = new PlannerFactory(
-          rootSchema,
-          operatorTable,
-          macroTable,
-          plannerConfig,
-          authorizerMapper,
-          objectMapper,
-          CalciteTests.DRUID_SCHEMA_NAME,
-          new CalciteRulesManager(ImmutableSet.of())
-      );
-      final SqlStatementFactory sqlStatementFactory = CalciteTests.createSqlStatementFactory(
-          engine,
-          plannerFactory,
-          authConfig
-      );
-      createViews(plannerFactory, viewManager);
-      return new CalciteQueryRunner(sqlStatementFactory);
-    }
-
-    private void createViews(PlannerFactory plannerFactory, InProcessViewManager viewManager)
-    {
-
-      viewManager.createView(
-          plannerFactory,
-          "aview",
-          "SELECT SUBSTRING(dim1, 1, 1) AS dim1_firstchar FROM foo WHERE dim2 = 'a'"
-      );
-
-      viewManager.createView(
-          plannerFactory,
-          "bview",
-          "SELECT COUNT(*) FROM druid.foo\n"
-          + "WHERE __time >= CURRENT_TIMESTAMP + INTERVAL '1' DAY AND __time < TIMESTAMP '2002-01-01 00:00:00'"
-      );
-
-      viewManager.createView(
-          plannerFactory,
-          "cview",
-          "SELECT SUBSTRING(bar.dim1, 1, 1) AS dim1_firstchar, bar.dim2 as dim2, dnf.l2 as l2\n"
-          + "FROM (SELECT * from foo WHERE dim2 = 'a') as bar INNER JOIN druid.numfoo dnf ON bar.dim2 = dnf.dim2"
-      );
-
-      viewManager.createView(
-          plannerFactory,
-          "dview",
-          "SELECT SUBSTRING(dim1, 1, 1) AS numfoo FROM foo WHERE dim2 = 'a'"
-      );
-
-      viewManager.createView(
-          plannerFactory,
-          "forbiddenView",
-          "SELECT __time, SUBSTRING(dim1, 1, 1) AS dim1_firstchar, dim2 FROM foo WHERE dim2 = 'a'"
-      );
-
-      viewManager.createView(
-          plannerFactory,
-          "restrictedView",
-          "SELECT __time, dim1, dim2, m1 FROM druid.forbiddenDatasource WHERE dim2 = 'a'"
-      );
-
-      viewManager.createView(
-          plannerFactory,
-          "invalidView",
-          "SELECT __time, dim1, dim2, m1 FROM druid.invalidDatasource WHERE dim2 = 'a'"
-      );
-    }
+    return new CalciteQueryRunner(getSqlStatementFactory(plannerConfig));
   }
 
   public class CalciteQueryRunner
@@ -1105,13 +993,12 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final Consumer<ExpectedException> expectedExceptionInitializer
   )
   {
-    SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
-        .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
-        .build();
-    testQueryVariations(
-        null,
-        sqlQuery,
+    testQuery(
+        PLANNER_CONFIG_DEFAULT,
         queryContext,
+        DEFAULT_PARAMETERS,
+        sql,
+        CalciteTests.REGULAR_USER_AUTH_RESULT,
         expectedQueries,
         (query, results) -> {},
         expectedExceptionInitializer
@@ -1135,14 +1022,113 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       AuthenticationResult authenticationResult
   )
   {
-    CalciteRunnerBuilder builder = new CalciteRunnerBuilder();
-    builder.plannerConfig = plannerConfig;
-    CalciteQueryRunner tester = builder.build();
     SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
         .context(contexts)
         .auth(authenticationResult)
         .build();
-    return tester.analyzeResources(sqlQuery);
+    return queryRunner(plannerConfig).analyzeResources(sqlQuery);
+  }
+
+  public SqlStatementFactory getSqlStatementFactory(
+      PlannerConfig plannerConfig
+  )
+  {
+    return getSqlStatementFactory(
+        plannerConfig,
+        null,
+        null,
+        null,
+        null,
+        null
+     );
+  }
+
+  public SqlStatementFactory getSqlStatementFactory(
+      @Nullable PlannerConfig plannerConfig,
+      @Nullable AuthConfig authConfig,
+      @Nullable DruidOperatorTable operatorTable,
+      @Nullable ExprMacroTable macroTable,
+      @Nullable AuthorizerMapper authorizerMapper,
+      @Nullable ObjectMapper objectMapper
+  )
+  {
+    plannerConfig = plannerConfig != null ? plannerConfig : PLANNER_CONFIG_DEFAULT;
+    operatorTable = operatorTable != null ? operatorTable : createOperatorTable();
+    macroTable = macroTable != null ? macroTable : createMacroTable();
+    authorizerMapper = authorizerMapper != null ? authorizerMapper : CalciteTests.TEST_AUTHORIZER_MAPPER;
+    objectMapper = objectMapper != null ? objectMapper : queryJsonMapper;
+    authConfig = authConfig != null ? authConfig : new AuthConfig();
+
+    final InProcessViewManager viewManager = new InProcessViewManager(CalciteTests.DRUID_VIEW_MACRO_FACTORY);
+    DruidSchemaCatalog rootSchema = CalciteTests.createMockRootSchema(
+        conglomerate,
+        walker,
+        plannerConfig,
+        viewManager,
+        new NoopDruidSchemaManager(),
+        authorizerMapper
+    );
+
+    final PlannerFactory plannerFactory = new PlannerFactory(
+        rootSchema,
+        operatorTable,
+        macroTable,
+        plannerConfig,
+        authorizerMapper,
+        objectMapper,
+        CalciteTests.DRUID_SCHEMA_NAME,
+        new CalciteRulesManager(ImmutableSet.of())
+    );
+    final SqlStatementFactory sqlStatementFactory = CalciteTests.createSqlStatementFactory(
+        engine,
+        plannerFactory,
+        authConfig
+    );
+
+    viewManager.createView(
+        plannerFactory,
+        "aview",
+        "SELECT SUBSTRING(dim1, 1, 1) AS dim1_firstchar FROM foo WHERE dim2 = 'a'"
+    );
+
+    viewManager.createView(
+        plannerFactory,
+        "bview",
+        "SELECT COUNT(*) FROM druid.foo\n"
+        + "WHERE __time >= CURRENT_TIMESTAMP + INTERVAL '1' DAY AND __time < TIMESTAMP '2002-01-01 00:00:00'"
+    );
+
+    viewManager.createView(
+        plannerFactory,
+        "cview",
+        "SELECT SUBSTRING(bar.dim1, 1, 1) AS dim1_firstchar, bar.dim2 as dim2, dnf.l2 as l2\n"
+        + "FROM (SELECT * from foo WHERE dim2 = 'a') as bar INNER JOIN druid.numfoo dnf ON bar.dim2 = dnf.dim2"
+    );
+
+    viewManager.createView(
+        plannerFactory,
+        "dview",
+        "SELECT SUBSTRING(dim1, 1, 1) AS numfoo FROM foo WHERE dim2 = 'a'"
+    );
+
+    viewManager.createView(
+        plannerFactory,
+        "forbiddenView",
+        "SELECT __time, SUBSTRING(dim1, 1, 1) AS dim1_firstchar, dim2 FROM foo WHERE dim2 = 'a'"
+    );
+
+    viewManager.createView(
+        plannerFactory,
+        "restrictedView",
+        "SELECT __time, dim1, dim2, m1 FROM druid.forbiddenDatasource WHERE dim2 = 'a'"
+    );
+
+    viewManager.createView(
+        plannerFactory,
+        "invalidView",
+        "SELECT __time, dim1, dim2, m1 FROM druid.invalidDatasource WHERE dim2 = 'a'"
+    );
+    return sqlStatementFactory;
   }
 
   protected void cannotVectorize()
