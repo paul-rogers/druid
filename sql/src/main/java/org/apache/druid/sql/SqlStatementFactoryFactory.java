@@ -27,7 +27,6 @@ import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.AuthConfig;
-import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 import org.apache.druid.sql.http.SqlQuery;
@@ -71,11 +70,6 @@ public class SqlStatementFactoryFactory
   public SqlStatementFactory factorize(final SqlEngine engine)
   {
     return new FactoryImpl(lifecycleToolbox.withEngine(engine));
-  }
-
-  public SqlStatementFactory factorize(final SqlEngine engine, final PlannerConfig plannerConfig)
-  {
-    return new FactoryImpl(lifecycleToolbox.withPlannerConfig(engine, plannerConfig));
   }
 
   private static class FactoryImpl implements SqlStatementFactory

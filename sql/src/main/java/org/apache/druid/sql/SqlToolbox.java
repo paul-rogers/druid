@@ -25,7 +25,6 @@ import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.AuthConfig;
-import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 
@@ -75,20 +74,6 @@ public class SqlToolbox
         authConfig,
         defaultQueryConfig,
         sqlLifecycleManager
-    );
-  }
-
-  public SqlToolbox withPlannerConfig(final SqlEngine engine, final PlannerConfig plannerConfig)
-  {
-    return new SqlToolbox(
-        engine,
-        this.plannerFactory.withConfig(plannerConfig),
-        this.emitter,
-        this.requestLogger,
-        this.queryScheduler,
-        this.authConfig,
-        this.defaultQueryConfig,
-        this.sqlLifecycleManager
     );
   }
 }

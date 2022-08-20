@@ -88,7 +88,6 @@ import org.apache.druid.sql.DirectStatement;
 import org.apache.druid.sql.PreparedStatement;
 import org.apache.druid.sql.SqlQueryPlus;
 import org.apache.druid.sql.SqlStatementFactory;
-import org.apache.druid.sql.SqlStatementFactoryFactory;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
@@ -281,11 +280,6 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   public SpecificSegmentsQuerySegmentWalker walker = null;
   public SqlEngine engine = null;
   public QueryLogHook queryLogHook;
-
-  // Caches the planner factory, and all its supporting objects, for
-  // one test class.
-  public static SqlStatementFactoryFactory currentFactory;
-  public static Class<? extends BaseCalciteQueryTest> currentClass;
 
   public BaseCalciteQueryTest()
   {
@@ -482,16 +476,12 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   {
     resourceCloser = Closer.create();
     conglomerate = QueryStackTests.createQueryRunnerFactoryConglomerate(resourceCloser, () -> minTopNThreshold);
-    currentFactory = null;
-    currentClass = null;
   }
 
   @AfterClass
   public static void tearDownClass() throws IOException
   {
     resourceCloser.close();
-    currentFactory = null;
-    currentClass = null;
   }
 
   @Rule
@@ -888,6 +878,14 @@ public class BaseCalciteQueryTest extends CalciteTestBase
     return new CalciteQueryRunner(getSqlStatementFactory(plannerConfig));
   }
 
+  public CalciteQueryRunner queryRunner(
+      PlannerConfig plannerConfig,
+      AuthConfig authConfig
+  )
+  {
+    return new CalciteQueryRunner(getSqlStatementFactory(plannerConfig, authConfig));
+  }
+
   public class CalciteQueryRunner
   {
     private final SqlStatementFactory sqlStatementFactory;
@@ -1036,72 +1034,40 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         .context(contexts)
         .auth(authenticationResult)
         .build();
-    return queryRunner(plannerConfig).analyzeResources(sqlQuery);
+    return queryRunner(plannerConfig, authConfig).analyzeResources(sqlQuery);
   }
 
-  public synchronized SqlStatementFactory getSqlStatementFactory(
+  public SqlStatementFactory getSqlStatementFactory(
       PlannerConfig plannerConfig
   )
   {
-    // Simple cache of the static portion of the query execution framework.
-    // Saves recreating the test data and the underlying mechanisms, just
-    // to change the planner config.
-    //
-    // This implementation works for single-threaded tests. If may not work
-    // when tests are run in multiple threads, since all instances share the
-    // same static variable. The code is synchronized, so the result will be
-    // correct, but there may be thrashing as the cache is invalidated on
-    // each test. This is the best we can do at the moment with the existing
-    // code.
-    if (currentFactory == null || currentClass != getClass()) {
-      currentFactory = getSqlStatementFactoryFactory();
-      currentClass = getClass();
-    }
-    return currentFactory.factorize(engine, plannerConfig);
-  }
-
-  /**
-   * Build the statement factory-factory, which also builds all the infrastructure
-   * behind the factory by calling methods on this test class. As a result, each
-   * factory-factory is specific to one test. This method can be overridden to
-   * control the objects passed to the factory.
-   */
-  protected SqlStatementFactoryFactory getSqlStatementFactoryFactory()
-  {
-    return getSqlStatementFactoryFactory(
-        null,
-        null,
-        null,
-        null,
-        null
+    return getSqlStatementFactory(
+        plannerConfig,
+        new AuthConfig()
      );
   }
 
   /**
-   * Builds the statement factory-factory using either the components provided, or
-   * the default components. As it turns out, no tests at present customize the
-   * components via this method; all customization is done via the methods on
-   * this class itself.
+   * Build the statement factory, which also builds all the infrastructure
+   * behind the factory by calling methods on this test class. As a result, each
+   * factory is specific to one test and one planner config. This method can be
+   * overridden to control the objects passed to the factory.
    */
-  private SqlStatementFactoryFactory getSqlStatementFactoryFactory(
-      @Nullable AuthConfig authConfig,
-      @Nullable DruidOperatorTable operatorTable,
-      @Nullable ExprMacroTable macroTable,
-      @Nullable AuthorizerMapper authorizerMapper,
-      @Nullable ObjectMapper objectMapper
+  private SqlStatementFactory getSqlStatementFactory(
+      PlannerConfig plannerConfig,
+      AuthConfig authConfig
   )
   {
-    operatorTable = operatorTable != null ? operatorTable : createOperatorTable();
-    macroTable = macroTable != null ? macroTable : createMacroTable();
-    authorizerMapper = authorizerMapper != null ? authorizerMapper : CalciteTests.TEST_AUTHORIZER_MAPPER;
-    objectMapper = objectMapper != null ? objectMapper : queryJsonMapper;
-    authConfig = authConfig != null ? authConfig : new AuthConfig();
+    DruidOperatorTable operatorTable = createOperatorTable();
+    ExprMacroTable macroTable = createMacroTable();
+    AuthorizerMapper authorizerMapper = CalciteTests.TEST_AUTHORIZER_MAPPER;
+    ObjectMapper objectMapper = queryJsonMapper;
 
     final InProcessViewManager viewManager = new InProcessViewManager(CalciteTests.DRUID_VIEW_MACRO_FACTORY);
     DruidSchemaCatalog rootSchema = CalciteTests.createMockRootSchema(
         conglomerate,
         walker,
-        PLANNER_CONFIG_DEFAULT,
+        plannerConfig,
         viewManager,
         new NoopDruidSchemaManager(),
         authorizerMapper
@@ -1111,13 +1077,14 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         rootSchema,
         operatorTable,
         macroTable,
-        PLANNER_CONFIG_DEFAULT,
+        plannerConfig,
         authorizerMapper,
         objectMapper,
         CalciteTests.DRUID_SCHEMA_NAME,
         new CalciteRulesManager(ImmutableSet.of())
     );
-    final SqlStatementFactoryFactory sqlStatementFactoryFactory = CalciteTests.createSqlStatementFactoryFactory(
+    final SqlStatementFactory sqlStatementFactory = CalciteTests.createSqlStatementFactory(
+        engine,
         plannerFactory,
         authConfig
     );
@@ -1165,7 +1132,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         "invalidView",
         "SELECT __time, dim1, dim2, m1 FROM druid.invalidDatasource WHERE dim2 = 'a'"
     );
-    return sqlStatementFactoryFactory;
+    return sqlStatementFactory;
   }
 
   protected void cannotVectorize()

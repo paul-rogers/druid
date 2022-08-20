@@ -200,7 +200,11 @@ public class PlannerConfig
            Objects.equals(metadataRefreshPeriod, that.metadataRefreshPeriod) &&
            Objects.equals(sqlTimeZone, that.sqlTimeZone) &&
            useNativeQueryExplain == that.useNativeQueryExplain &&
-           forceExpressionVirtualColumns == that.forceExpressionVirtualColumns;
+           forceExpressionVirtualColumns == that.forceExpressionVirtualColumns &&
+           useGroupingSetForExactDistinct == that.useGroupingSetForExactDistinct &&
+           computeInnerJoinCostAsFilter == that.computeInnerJoinCostAsFilter &&
+           authorizeSystemTablesDirectly == that.authorizeSystemTablesDirectly &&
+           maxNumericInFilters == that.maxNumericInFilters;
   }
 
   @Override
