@@ -642,17 +642,16 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final List<Object[]> expectedResults
   )
   {
-    SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
-        .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
-        .build();
-    new CalciteQueryTester(
-            new CalciteRunnerBuilder().build(),
-            sqlQuery,
-            QUERY_CONTEXT_DEFAULT,
-            expectedQueries,
-            expectedResults
-        )
-       .testQuery();
+    testQuery(
+        PLANNER_CONFIG_DEFAULT,
+        QUERY_CONTEXT_DEFAULT,
+        DEFAULT_PARAMETERS,
+        sql,
+        CalciteTests.REGULAR_USER_AUTH_RESULT,
+        expectedQueries,
+        expectedResults,
+        null
+    );
   }
 
   public void testQuery(
@@ -672,17 +671,6 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         expectedResults,
         expectedResultRowSignature
     );
-    SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
-        .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
-        .build();
-    new CalciteQueryTester(
-        new CalciteRunnerBuilder().build(),
-            sqlQuery,
-            QUERY_CONTEXT_DEFAULT,
-            expectedQueries,
-            new DefaultResultsVerifier(expectedResults, expectedResultRowSignature)
-        )
-       .testQuery();
   }
 
   public void testQuery(
@@ -692,17 +680,16 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final List<Object[]> expectedResults
   )
   {
-    SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
-        .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
-        .build();
-    new CalciteQueryTester(
-            new CalciteRunnerBuilder().build(),
-            sqlQuery,
-            queryContext,
-            expectedQueries,
-            expectedResults
-        )
-       .testQuery();
+    testQuery(
+        PLANNER_CONFIG_DEFAULT,
+        queryContext,
+        DEFAULT_PARAMETERS,
+        sql,
+        CalciteTests.REGULAR_USER_AUTH_RESULT,
+        expectedQueries,
+        expectedResults,
+        null
+    );
   }
 
   public void testQuery(
@@ -712,18 +699,16 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final List<SqlParameter> parameters
   )
   {
-    SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
-        .sqlParameters(parameters)
-        .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
-        .build();
-    new CalciteQueryTester(
-            new CalciteRunnerBuilder().build(),
-            sqlQuery,
-            QUERY_CONTEXT_DEFAULT,
-            expectedQueries,
-            expectedResults
-        )
-       .testQuery();
+    testQuery(
+        PLANNER_CONFIG_DEFAULT,
+        QUERY_CONTEXT_DEFAULT,
+        parameters,
+        sql,
+        CalciteTests.REGULAR_USER_AUTH_RESULT,
+        expectedQueries,
+        expectedResults,
+        null
+    );
   }
 
   public void testQuery(
@@ -734,20 +719,16 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final List<Object[]> expectedResults
   )
   {
-    CalciteRunnerBuilder builder = new CalciteRunnerBuilder();
-    builder.plannerConfig = plannerConfig;
-    CalciteQueryRunner queryRunner = builder.build();
-    SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
-        .auth(authenticationResult)
-        .build();
-    new CalciteQueryTester(
-            queryRunner,
-            sqlQuery,
-            QUERY_CONTEXT_DEFAULT,
-            expectedQueries,
-            expectedResults
-        )
-       .testQuery();
+    testQuery(
+        plannerConfig,
+        QUERY_CONTEXT_DEFAULT,
+        DEFAULT_PARAMETERS,
+        sql,
+        authenticationResult,
+        expectedQueries,
+        expectedResults,
+        null
+    );
   }
 
   public void testQuery(
@@ -757,17 +738,16 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final ResultsVerifier expectedResultsVerifier
   )
   {
-    SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
-        .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
-        .build();
-    new CalciteQueryTester(
-            new CalciteRunnerBuilder().build(),
-            sqlQuery,
-            queryContext,
-            expectedQueries,
-            expectedResultsVerifier
-        )
-       .testQuery();
+    testQuery(
+        PLANNER_CONFIG_DEFAULT,
+        queryContext,
+        DEFAULT_PARAMETERS,
+        sql,
+        CalciteTests.REGULAR_USER_AUTH_RESULT,
+        expectedQueries,
+        expectedResultsVerifier,
+        null
+    );
   }
 
   public void testQuery(
@@ -779,20 +759,16 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final List<Object[]> expectedResults
   )
   {
-    CalciteRunnerBuilder builder = new CalciteRunnerBuilder();
-    builder.plannerConfig = plannerConfig;
-    CalciteQueryRunner queryRunner = builder.build();
-    SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
-        .auth(authenticationResult)
-        .build();
-    new CalciteQueryTester(
-            queryRunner,
-            sqlQuery,
-            queryContext,
-            expectedQueries,
-            expectedResults
-        )
-       .testQuery();
+    testQuery(
+        plannerConfig,
+        queryContext,
+        Collections.emptyList(),
+        sql,
+        authenticationResult,
+        expectedQueries,
+        expectedResults,
+        null
+    );
   }
 
   public void testQuery(
@@ -805,21 +781,16 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final List<Object[]> expectedResults
   )
   {
-    CalciteRunnerBuilder builder = new CalciteRunnerBuilder();
-    builder.plannerConfig = plannerConfig;
-    CalciteQueryRunner queryRunner = builder.build();
-    SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
-        .sqlParameters(parameters)
-        .auth(authenticationResult)
-        .build();
-    new CalciteQueryTester(
-            queryRunner,
-            sqlQuery,
-            queryContext,
-            expectedQueries,
-            expectedResults
-         )
-        .testQuery();
+    testQuery(
+        plannerConfig,
+        queryContext,
+        parameters,
+        sql,
+        authenticationResult,
+        expectedQueries,
+        expectedResults,
+        null
+    );
   }
 
   public void testQuery(
@@ -833,23 +804,21 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       final RowSignature expectedResultSignature
   )
   {
-    CalciteRunnerBuilder builder = new CalciteRunnerBuilder();
-    builder.plannerConfig = plannerConfig;
-    CalciteQueryRunner queryRunner = builder.build();
-    SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
-        .sqlParameters(parameters)
-        .auth(authenticationResult)
-        .build();
-    new CalciteQueryTester(
-            queryRunner,
-            sqlQuery,
-            queryContext,
-            expectedQueries,
-            new DefaultResultsVerifier(expectedResults, expectedResultSignature)
-        )
-       .testQuery();
+    testQuery(
+        plannerConfig,
+        queryContext,
+        parameters,
+        sql,
+        authenticationResult,
+        expectedQueries,
+        new DefaultResultsVerifier(expectedResults, expectedResultSignature),
+        null
+    );
   }
 
+  /**
+   * All testQuery roads lead to this method.
+   */
   public void testQuery(
       final PlannerConfig plannerConfig,
       final Map<String, Object> queryContext,
@@ -861,146 +830,67 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       @Nullable final Consumer<ExpectedException> expectedExceptionInitializer
   )
   {
-    CalciteRunnerBuilder builder = new CalciteRunnerBuilder();
-    builder.plannerConfig = plannerConfig;
-    CalciteQueryRunner queryRunner = builder.build();
     SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
         .sqlParameters(parameters)
         .auth(authenticationResult)
         .build();
-    new CalciteQueryTester(
-            queryRunner,
-            sqlQuery,
-            queryContext,
-            expectedQueries,
-            expectedResultsVerifier,
-            expectedExceptionInitializer
-        )
-       .testQuery();
+    testQueryVariations(
+        plannerConfig,
+        sqlQuery,
+        queryContext,
+        expectedQueries,
+        expectedResultsVerifier,
+        expectedExceptionInitializer
+    );
   }
 
-  public class CalciteQueryTester
+  public void testQueryVariations(
+      final PlannerConfig plannerConfig,
+      final SqlQueryPlus sqlQuery,
+      final Map<String, Object> queryContext,
+      final List<Query<?>> expectedQueries,
+      final ResultsVerifier expectedResultsVerifier,
+      @Nullable final Consumer<ExpectedException> expectedExceptionInitializer
+  )
   {
-    private final CalciteQueryRunner queryRunner;
-    private final SqlQueryPlus sqlQuery;
-    private final Map<String, Object> queryContext;
-    private final List<Query<?>> expectedQueries;
-    private final ResultsVerifier expectedResultsVerifier;
-    @Nullable private final Consumer<ExpectedException> expectedExceptionInitializer;
+    log.info("SQL: %s", sqlQuery.sql());
 
-    public CalciteQueryTester(
-        final CalciteQueryRunner queryRunner,
-        final SqlQueryPlus sqlQuery,
-        final Map<String, Object> queryContext,
-        final List<Query<?>> expectedQueries,
-        final ResultsVerifier expectedResultsVerifier,
-        @Nullable final Consumer<ExpectedException> expectedExceptionInitializer
-    )
-    {
-      this.queryRunner = queryRunner;
-      this.sqlQuery = sqlQuery;
-      this.queryContext = queryContext;
-      this.expectedQueries = expectedQueries;
-      this.expectedResultsVerifier = expectedResultsVerifier;
-      this.expectedExceptionInitializer = expectedExceptionInitializer;
+    CalciteRunnerBuilder builder = new CalciteRunnerBuilder();
+    builder.plannerConfig = plannerConfig;
+    CalciteQueryRunner queryRunner = builder.build();
+
+    final List<String> vectorizeValues = new ArrayList<>();
+    vectorizeValues.add("false");
+    if (!skipVectorize) {
+      vectorizeValues.add("force");
     }
 
-    public CalciteQueryTester(
-        final CalciteQueryRunner queryRunner,
-        final SqlQueryPlus sqlQuery,
-        final Map<String, Object> queryContext,
-        final List<Query<?>> expectedQueries,
-        final ResultsVerifier expectedResultsVerifier
-    )
-    {
-      this(
-          queryRunner,
-          sqlQuery,
-          queryContext,
-          expectedQueries,
-          expectedResultsVerifier,
-          null
-      );
-    }
+    for (final String vectorize : vectorizeValues) {
+      queryLogHook.clearRecordedQueries();
 
-    public CalciteQueryTester(
-        final CalciteQueryRunner queryRunner,
-        final SqlQueryPlus sqlQuery,
-        final Map<String, Object> queryContext,
-        final List<Query<?>> expectedQueries,
-        final List<Object[]> expectedResults
-    )
-    {
-      this(
-          queryRunner,
-          sqlQuery,
-          queryContext,
-          expectedQueries,
-          new DefaultResultsVerifier(expectedResults, null),
-          null
-      );
-    }
+      final Map<String, Object> theQueryContext = new HashMap<>(queryContext);
+      theQueryContext.put(QueryContexts.VECTORIZE_KEY, vectorize);
+      theQueryContext.put(QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY, vectorize);
 
-    public CalciteQueryTester(
-        final CalciteQueryRunner queryRunner,
-        final SqlQueryPlus sqlQuery,
-        final Map<String, Object> queryContext,
-        final List<Query<?>> expectedQueries,
-        final Consumer<ExpectedException> expectedExceptionInitializer
-    )
-    {
-      this(
-          queryRunner,
-          sqlQuery,
-          queryContext,
-          expectedQueries,
-          (query, results) -> {},
-          expectedExceptionInitializer
-      );
-    }
-
-    /**
-     * All testQuery roads lead to this method.
-     */
-    public void testQuery()
-    {
-      log.info("SQL: %s", sqlQuery.sql());
-
-      final List<String> vectorizeValues = new ArrayList<>();
-
-      vectorizeValues.add("false");
-
-      if (!skipVectorize) {
-        vectorizeValues.add("force");
+      if (!"false".equals(vectorize)) {
+        theQueryContext.put(QueryContexts.VECTOR_SIZE_KEY, 2); // Small vector size to ensure we use more than one.
       }
 
-      for (final String vectorize : vectorizeValues) {
-        queryLogHook.clearRecordedQueries();
-
-        final Map<String, Object> theQueryContext = new HashMap<>(queryContext);
-        theQueryContext.put(QueryContexts.VECTORIZE_KEY, vectorize);
-        theQueryContext.put(QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY, vectorize);
-
-        if (!"false".equals(vectorize)) {
-          theQueryContext.put(QueryContexts.VECTOR_SIZE_KEY, 2); // Small vector size to ensure we use more than one.
-        }
-
-        final List<Query<?>> theQueries = new ArrayList<>();
-        for (Query<?> query : expectedQueries) {
-          theQueries.add(recursivelyOverrideContext(query, theQueryContext));
-        }
-
-        if (cannotVectorize && "force".equals(vectorize)) {
-          expectedException.expect(RuntimeException.class);
-          expectedException.expectMessage("Cannot vectorize");
-        } else if (expectedExceptionInitializer != null) {
-          expectedExceptionInitializer.accept(expectedException);
-        }
-
-        final Pair<RowSignature, List<Object[]>> plannerResults = queryRunner.getResults(
-            sqlQuery.withContext(theQueryContext));
-        verifyResults(sqlQuery.sql(), theQueries, plannerResults, expectedResultsVerifier);
+      final List<Query<?>> theQueries = new ArrayList<>();
+      for (Query<?> query : expectedQueries) {
+        theQueries.add(recursivelyOverrideContext(query, theQueryContext));
       }
+
+      if (cannotVectorize && "force".equals(vectorize)) {
+        expectedException.expect(RuntimeException.class);
+        expectedException.expectMessage("Cannot vectorize");
+      } else if (expectedExceptionInitializer != null) {
+        expectedExceptionInitializer.accept(expectedException);
+      }
+
+      final Pair<RowSignature, List<Object[]>> plannerResults = queryRunner.getResults(
+          sqlQuery.withContext(theQueryContext));
+      verifyResults(sqlQuery.sql(), theQueries, plannerResults, expectedResultsVerifier);
     }
   }
 
@@ -1218,14 +1108,14 @@ public class BaseCalciteQueryTest extends CalciteTestBase
     SqlQueryPlus sqlQuery = SqlQueryPlus.builder(sql)
         .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
         .build();
-    CalciteQueryTester tester = new CalciteQueryTester(
-        new CalciteRunnerBuilder().build(),
+    testQueryVariations(
+        null,
         sqlQuery,
         queryContext,
         expectedQueries,
+        (query, results) -> {},
         expectedExceptionInitializer
     );
-    tester.testQuery();
   }
 
   public Set<ResourceAction> analyzeResources(
