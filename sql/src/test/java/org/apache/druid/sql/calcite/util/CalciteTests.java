@@ -798,8 +798,7 @@ public class CalciteTests
     return createSqlStatementFactory(engine, plannerFactory, new AuthConfig());
   }
 
-  public static SqlStatementFactory createSqlStatementFactory(
-      final SqlEngine engine,
+  public static SqlStatementFactoryFactory createSqlStatementFactoryFactory(
       final PlannerFactory plannerFactory,
       final AuthConfig authConfig
   )
@@ -812,6 +811,18 @@ public class CalciteTests
         authConfig,
         Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of())),
         new SqlLifecycleManager()
+    );
+  }
+
+  public static SqlStatementFactory createSqlStatementFactory(
+      final SqlEngine engine,
+      final PlannerFactory plannerFactory,
+      final AuthConfig authConfig
+  )
+  {
+    return createSqlStatementFactoryFactory(
+        plannerFactory,
+        authConfig
     ).factorize(engine);
   }
 

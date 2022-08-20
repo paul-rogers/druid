@@ -95,9 +95,30 @@ public class PlannerFactory
   }
 
   /**
+   * Create a new factory with the given planner config. Primarily for
+   * testing in which the planner config changes between tests.
+   */
+  public PlannerFactory withConfig(PlannerConfig plannerConfig)
+  {
+    return new PlannerFactory(
+        this.rootSchema,
+        this.operatorTable,
+        this.macroTable,
+        plannerConfig,
+        this.authorizerMapper,
+        this.jsonMapper,
+        this.druidSchemaName,
+        this.calciteRuleManager
+    );
+  }
+
+  /**
    * Create a Druid query planner from an initial query context
    */
-  public DruidPlanner createPlanner(final SqlEngine engine, final String sql, final QueryContext queryContext)
+  public DruidPlanner createPlanner(
+      final SqlEngine engine,
+      final String sql,
+      final QueryContext queryContext)
   {
     final PlannerContext context = PlannerContext.create(
         sql,

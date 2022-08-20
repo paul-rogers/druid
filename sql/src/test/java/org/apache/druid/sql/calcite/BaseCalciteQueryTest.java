@@ -88,6 +88,7 @@ import org.apache.druid.sql.DirectStatement;
 import org.apache.druid.sql.PreparedStatement;
 import org.apache.druid.sql.SqlQueryPlus;
 import org.apache.druid.sql.SqlStatementFactory;
+import org.apache.druid.sql.SqlStatementFactoryFactory;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
@@ -280,6 +281,11 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   public SpecificSegmentsQuerySegmentWalker walker = null;
   public SqlEngine engine = null;
   public QueryLogHook queryLogHook;
+
+  // Caches the planner factory, and all its supporting objects, for
+  // one test class.
+  public static SqlStatementFactoryFactory currentFactory;
+  public static Class<? extends BaseCalciteQueryTest> currentClass;
 
   public BaseCalciteQueryTest()
   {
@@ -476,12 +482,16 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   {
     resourceCloser = Closer.create();
     conglomerate = QueryStackTests.createQueryRunnerFactoryConglomerate(resourceCloser, () -> minTopNThreshold);
+    currentFactory = null;
+    currentClass = null;
   }
 
   @AfterClass
   public static void tearDownClass() throws IOException
   {
     resourceCloser.close();
+    currentFactory = null;
+    currentClass = null;
   }
 
   @Rule
@@ -1029,12 +1039,36 @@ public class BaseCalciteQueryTest extends CalciteTestBase
     return queryRunner(plannerConfig).analyzeResources(sqlQuery);
   }
 
-  public SqlStatementFactory getSqlStatementFactory(
+  public synchronized SqlStatementFactory getSqlStatementFactory(
       PlannerConfig plannerConfig
   )
   {
-    return getSqlStatementFactory(
-        plannerConfig,
+    // Simple cache of the static portion of the query execution framework.
+    // Saves recreating the test data and the underlying mechanisms, just
+    // to change the planner config.
+    //
+    // This implementation works for single-threaded tests. If may not work
+    // when tests are run in multiple threads, since all instances share the
+    // same static variable. The code is synchronized, so the result will be
+    // correct, but there may be thrashing as the cache is invalidated on
+    // each test. This is the best we can do at the moment with the existing
+    // code.
+    if (currentFactory == null || currentClass != getClass()) {
+      currentFactory = getSqlStatementFactoryFactory();
+      currentClass = getClass();
+    }
+    return currentFactory.factorize(engine, plannerConfig);
+  }
+
+  /**
+   * Build the statement factory-factory, which also builds all the infrastructure
+   * behind the factory by calling methods on this test class. As a result, each
+   * factory-factory is specific to one test. This method can be overridden to
+   * control the objects passed to the factory.
+   */
+  protected SqlStatementFactoryFactory getSqlStatementFactoryFactory()
+  {
+    return getSqlStatementFactoryFactory(
         null,
         null,
         null,
@@ -1043,8 +1077,13 @@ public class BaseCalciteQueryTest extends CalciteTestBase
      );
   }
 
-  public SqlStatementFactory getSqlStatementFactory(
-      @Nullable PlannerConfig plannerConfig,
+  /**
+   * Builds the statement factory-factory using either the components provided, or
+   * the default components. As it turns out, no tests at present customize the
+   * components via this method; all customization is done via the methods on
+   * this class itself.
+   */
+  private SqlStatementFactoryFactory getSqlStatementFactoryFactory(
       @Nullable AuthConfig authConfig,
       @Nullable DruidOperatorTable operatorTable,
       @Nullable ExprMacroTable macroTable,
@@ -1052,7 +1091,6 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       @Nullable ObjectMapper objectMapper
   )
   {
-    plannerConfig = plannerConfig != null ? plannerConfig : PLANNER_CONFIG_DEFAULT;
     operatorTable = operatorTable != null ? operatorTable : createOperatorTable();
     macroTable = macroTable != null ? macroTable : createMacroTable();
     authorizerMapper = authorizerMapper != null ? authorizerMapper : CalciteTests.TEST_AUTHORIZER_MAPPER;
@@ -1063,7 +1101,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
     DruidSchemaCatalog rootSchema = CalciteTests.createMockRootSchema(
         conglomerate,
         walker,
-        plannerConfig,
+        PLANNER_CONFIG_DEFAULT,
         viewManager,
         new NoopDruidSchemaManager(),
         authorizerMapper
@@ -1073,14 +1111,13 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         rootSchema,
         operatorTable,
         macroTable,
-        plannerConfig,
+        PLANNER_CONFIG_DEFAULT,
         authorizerMapper,
         objectMapper,
         CalciteTests.DRUID_SCHEMA_NAME,
         new CalciteRulesManager(ImmutableSet.of())
     );
-    final SqlStatementFactory sqlStatementFactory = CalciteTests.createSqlStatementFactory(
-        engine,
+    final SqlStatementFactoryFactory sqlStatementFactoryFactory = CalciteTests.createSqlStatementFactoryFactory(
         plannerFactory,
         authConfig
     );
@@ -1128,7 +1165,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
         "invalidView",
         "SELECT __time, dim1, dim2, m1 FROM druid.invalidDatasource WHERE dim2 = 'a'"
     );
-    return sqlStatementFactory;
+    return sqlStatementFactoryFactory;
   }
 
   protected void cannotVectorize()
