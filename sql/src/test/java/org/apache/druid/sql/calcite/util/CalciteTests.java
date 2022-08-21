@@ -773,23 +773,7 @@ public class CalciteTests
       final QueryRunnerFactoryConglomerate conglomerate
   )
   {
-    return new QueryLifecycleFactory(
-        new QueryToolChestWarehouse()
-        {
-          @Override
-          public <T, QueryType extends Query<T>> QueryToolChest<T, QueryType> getToolChest(final QueryType query)
-          {
-            return conglomerate.findFactory(query).getToolchest();
-          }
-        },
-        walker,
-        new DefaultGenericQueryMetricsFactory(),
-        new ServiceEmitter("dummy", "dummy", new NoopEmitter()),
-        new NoopRequestLogger(),
-        new AuthConfig(),
-        TEST_AUTHORIZER_MAPPER,
-        Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of()))
-    );
+    return QueryFrameworkUtils.createMockQueryLifecycleFactory(walker, conglomerate);
   }
 
   public static SqlStatementFactory createSqlStatementFactory(
@@ -833,15 +817,6 @@ public class CalciteTests
     return INJECTOR.getInstance(Key.get(ObjectMapper.class, Json.class));
   }
 
-  public static JoinableFactory createDefaultJoinableFactory()
-  {
-    return QueryStackTests.makeJoinableFactoryFromDefault(
-        INJECTOR.getInstance(LookupExtractorFactoryContainerProvider.class),
-        ImmutableSet.of(CUSTOM_ROW_TABLE_JOINABLE),
-        ImmutableMap.of(CUSTOM_ROW_TABLE_JOINABLE.getClass(), GlobalTableDataSource.class)
-    );
-  }
-
   public static SpecificSegmentsQuerySegmentWalker createMockWalker(
       final QueryRunnerFactoryConglomerate conglomerate,
       final File tmpDir
@@ -851,7 +826,7 @@ public class CalciteTests
         conglomerate,
         tmpDir,
         QueryStackTests.DEFAULT_NOOP_SCHEDULER,
-        createDefaultJoinableFactory()
+        QueryFrameworkUtils.createDefaultJoinableFactory(INJECTOR)
     );
   }
 
@@ -1192,90 +1167,12 @@ public class CalciteTests
       final AuthorizerMapper authorizerMapper
   )
   {
-    return createMockRootSchema(conglomerate, walker, plannerConfig, null, new NoopDruidSchemaManager(), authorizerMapper);
-  }
-
-  public static DruidSchemaCatalog createMockRootSchema(
-      final QueryRunnerFactoryConglomerate conglomerate,
-      final SpecificSegmentsQuerySegmentWalker walker,
-      final PlannerConfig plannerConfig,
-      @Nullable final ViewManager viewManager,
-      final DruidSchemaManager druidSchemaManager,
-      final AuthorizerMapper authorizerMapper
-  )
-  {
-    DruidSchema druidSchema = createMockSchema(conglomerate, walker, plannerConfig, druidSchemaManager);
-    SystemSchema systemSchema =
-        CalciteTests.createMockSystemSchema(druidSchema, walker, plannerConfig, authorizerMapper);
-
-    LookupSchema lookupSchema = CalciteTests.createMockLookupSchema();
-    ViewSchema viewSchema = viewManager != null ? new ViewSchema(viewManager) : null;
-
-    SchemaPlus rootSchema = CalciteSchema.createRootSchema(false, false).plus();
-    Set<NamedSchema> namedSchemas = new HashSet<>();
-    namedSchemas.add(new NamedDruidSchema(druidSchema, CalciteTests.DRUID_SCHEMA_NAME));
-    namedSchemas.add(new NamedSystemSchema(plannerConfig, systemSchema));
-    namedSchemas.add(new NamedLookupSchema(lookupSchema));
-
-    if (viewSchema != null) {
-      namedSchemas.add(new NamedViewSchema(viewSchema));
-    }
-
-    DruidSchemaCatalog catalog = new DruidSchemaCatalog(
-        rootSchema,
-        namedSchemas.stream().collect(Collectors.toMap(NamedSchema::getSchemaName, x -> x))
-    );
-    InformationSchema informationSchema =
-        new InformationSchema(
-            catalog,
-            authorizerMapper
-        );
-    rootSchema.add(CalciteTests.DRUID_SCHEMA_NAME, druidSchema);
-    rootSchema.add(CalciteTests.INFORMATION_SCHEMA_NAME, informationSchema);
-    rootSchema.add(NamedSystemSchema.NAME, systemSchema);
-    rootSchema.add(NamedLookupSchema.NAME, lookupSchema);
-
-    if (viewSchema != null) {
-      rootSchema.add(NamedViewSchema.NAME, viewSchema);
-    }
-
-    return catalog;
-  }
-
-  private static DruidSchema createMockSchema(
-      final QueryRunnerFactoryConglomerate conglomerate,
-      final SpecificSegmentsQuerySegmentWalker walker,
-      final PlannerConfig plannerConfig,
-      final DruidSchemaManager druidSchemaManager
-  )
-  {
-    final SegmentMetadataCache cache = new SegmentMetadataCache(
-        createMockQueryLifecycleFactory(walker, conglomerate),
-        new TestServerInventoryView(walker.getSegments()),
-        new SegmentManager(EasyMock.createMock(SegmentLoader.class))
-        {
-          @Override
-          public Set<String> getDataSourceNames()
-          {
-            return ImmutableSet.of(CalciteTests.BROADCAST_DATASOURCE);
-          }
-        },
-        createDefaultJoinableFactory(),
-        SegmentCacheConfig.create(),
-        CalciteTests.TEST_AUTHENTICATOR_ESCALATOR,
-        new BrokerInternalQueryConfig()
-    );
-
-    try {
-      cache.start();
-      cache.awaitInitialization();
-    }
-    catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-
-    cache.stop();
-    return new DruidSchema(cache, druidSchemaManager);
+    return QueryFrameworkUtils.createMockRootSchema(
+        INJECTOR,
+        conglomerate,
+        walker,
+        plannerConfig,
+        authorizerMapper);
   }
 
   /**

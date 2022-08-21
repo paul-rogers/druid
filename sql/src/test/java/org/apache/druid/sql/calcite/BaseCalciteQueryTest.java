@@ -103,6 +103,7 @@ import org.apache.druid.sql.calcite.schema.NoopDruidSchemaManager;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 import org.apache.druid.sql.calcite.util.CalciteTestBase;
 import org.apache.druid.sql.calcite.util.CalciteTests;
+import org.apache.druid.sql.calcite.util.QueryFrameworkUtils;
 import org.apache.druid.sql.calcite.util.QueryLogHook;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
 import org.apache.druid.sql.calcite.view.InProcessViewManager;
@@ -1064,7 +1065,8 @@ public class BaseCalciteQueryTest extends CalciteTestBase
     ObjectMapper objectMapper = queryJsonMapper;
 
     final InProcessViewManager viewManager = new InProcessViewManager(CalciteTests.DRUID_VIEW_MACRO_FACTORY);
-    DruidSchemaCatalog rootSchema = CalciteTests.createMockRootSchema(
+    DruidSchemaCatalog rootSchema = QueryFrameworkUtils.createMockRootSchema(
+        CalciteTests.INJECTOR,
         conglomerate,
         walker,
         plannerConfig,
