@@ -118,6 +118,7 @@ import org.apache.druid.sql.SqlStatementFactoryFactory;
 import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
+import org.apache.druid.sql.calcite.planner.SegmentCacheConfig;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 import org.apache.druid.sql.calcite.schema.DruidSchema;
@@ -145,6 +146,7 @@ import org.joda.time.Duration;
 import org.joda.time.chrono.ISOChronology;
 
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1259,7 +1261,7 @@ public class CalciteTests
           }
         },
         createDefaultJoinableFactory(),
-        plannerConfig,
+        SegmentCacheConfig.create(),
         CalciteTests.TEST_AUTHENTICATOR_ESCALATOR,
         new BrokerInternalQueryConfig()
     );

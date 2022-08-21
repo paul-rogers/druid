@@ -29,7 +29,7 @@ import org.apache.druid.segment.loading.SegmentLoader;
 import org.apache.druid.server.QueryStackTests;
 import org.apache.druid.server.SegmentManager;
 import org.apache.druid.server.security.NoopEscalator;
-import org.apache.druid.sql.calcite.planner.PlannerConfig;
+import org.apache.druid.sql.calcite.planner.SegmentCacheConfig;
 import org.apache.druid.sql.calcite.util.CalciteTestBase;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
@@ -42,7 +42,7 @@ import java.util.Collections;
 
 public class DruidSchemaNoDataInitTest extends CalciteTestBase
 {
-  private static final PlannerConfig PLANNER_CONFIG_DEFAULT = new PlannerConfig();
+  private static final SegmentCacheConfig SEGMENT_CACHE_CONFIG_DEFAULT = SegmentCacheConfig.create();
 
   @Test
   public void testInitializationWithNoData() throws Exception
@@ -57,7 +57,7 @@ public class DruidSchemaNoDataInitTest extends CalciteTestBase
           new TestServerInventoryView(Collections.emptyList()),
           new SegmentManager(EasyMock.createMock(SegmentLoader.class)),
           new MapJoinableFactory(ImmutableSet.of(), ImmutableMap.of()),
-          PLANNER_CONFIG_DEFAULT,
+          SEGMENT_CACHE_CONFIG_DEFAULT,
           new NoopEscalator(),
           new BrokerInternalQueryConfig()
       );

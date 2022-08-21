@@ -33,7 +33,7 @@ import org.apache.druid.segment.join.JoinableFactory;
 import org.apache.druid.segment.loading.SegmentLoader;
 import org.apache.druid.server.QueryStackTests;
 import org.apache.druid.server.SegmentManager;
-import org.apache.druid.sql.calcite.planner.PlannerConfig;
+import org.apache.druid.sql.calcite.planner.SegmentCacheConfig;
 import org.apache.druid.sql.calcite.util.CalciteTestBase;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.easymock.EasyMock;
@@ -51,7 +51,7 @@ import java.util.concurrent.CountDownLatch;
 
 public abstract class SegmentMetadataCacheCommon extends CalciteTestBase
 {
-  static final PlannerConfig PLANNER_CONFIG_DEFAULT = PlannerConfig.builder().metadataRefreshPeriod("PT1S").build();
+  static final SegmentCacheConfig SEGMENT_CACHE_CONFIG_DEFAULT = SegmentCacheConfig.create("PT1S");
 
   static final List<InputRow> ROWS1 = ImmutableList.of(
       CalciteTests.createRow(ImmutableMap.of("t", "2000-01-01", "m1", "1.0", "dim1", "")),

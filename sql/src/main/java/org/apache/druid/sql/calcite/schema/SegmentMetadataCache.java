@@ -60,7 +60,7 @@ import org.apache.druid.server.coordination.DruidServerMetadata;
 import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.Escalator;
-import org.apache.druid.sql.calcite.planner.PlannerConfig;
+import org.apache.druid.sql.calcite.planner.SegmentCacheConfig;
 import org.apache.druid.sql.calcite.table.DatasourceTable;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
@@ -106,7 +106,7 @@ public class SegmentMetadataCache
   private static final long DEFAULT_NUM_ROWS = 0;
 
   private final QueryLifecycleFactory queryLifecycleFactory;
-  private final PlannerConfig config;
+  private final SegmentCacheConfig config;
   // Escalator, so we can attach an authentication result to queries we generate.
   private final Escalator escalator;
   private final SegmentManager segmentManager;
@@ -216,7 +216,7 @@ public class SegmentMetadataCache
       final TimelineServerView serverView,
       final SegmentManager segmentManager,
       final JoinableFactory joinableFactory,
-      final PlannerConfig config,
+      final SegmentCacheConfig config,
       final Escalator escalator,
       final BrokerInternalQueryConfig brokerInternalQueryConfig
   )

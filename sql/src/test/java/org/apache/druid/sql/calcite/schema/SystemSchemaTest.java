@@ -87,6 +87,7 @@ import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
+import org.apache.druid.sql.calcite.planner.SegmentCacheConfig;
 import org.apache.druid.sql.calcite.schema.SystemSchema.SegmentsTable;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 import org.apache.druid.sql.calcite.util.CalciteTestBase;
@@ -127,6 +128,7 @@ import java.util.Set;
 public class SystemSchemaTest extends CalciteTestBase
 {
   private static final PlannerConfig PLANNER_CONFIG_DEFAULT = new PlannerConfig();
+  private static final SegmentCacheConfig SEGMENT_CACHE_CONFIG_DEFAULT = SegmentCacheConfig.create();
 
   private static final List<InputRow> ROWS1 = ImmutableList.of(
       CalciteTests.createRow(ImmutableMap.of("t", "2000-01-01", "m1", "1.0", "dim1", "")),
@@ -250,7 +252,7 @@ public class SystemSchemaTest extends CalciteTestBase
         new TestServerInventoryView(walker.getSegments(), realtimeSegments),
         new SegmentManager(EasyMock.createMock(SegmentLoader.class)),
         new MapJoinableFactory(ImmutableSet.of(), ImmutableMap.of()),
-        PLANNER_CONFIG_DEFAULT,
+        SEGMENT_CACHE_CONFIG_DEFAULT,
         new NoopEscalator(),
         new BrokerInternalQueryConfig()
     );
