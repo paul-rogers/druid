@@ -61,6 +61,7 @@ import org.apache.druid.sql.calcite.filtration.Filtration;
 import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
+import org.apache.druid.sql.calcite.util.TestDataBuilder;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.LinearShardSpec;
 import org.junit.Test;
@@ -117,7 +118,7 @@ public class BloomFilterSqlAggregatorTest extends BaseCalciteQueryTest
                             .withRollup(false)
                             .build()
                     )
-                    .rows(CalciteTests.ROWS1_WITH_NUMERIC_DIMS)
+                    .rows(TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS)
                     .buildMMappedIndex();
 
     return new SpecificSegmentsQuerySegmentWalker(conglomerate).add(
@@ -144,7 +145,7 @@ public class BloomFilterSqlAggregatorTest extends BaseCalciteQueryTest
     cannotVectorize();
 
     BloomKFilter expected1 = new BloomKFilter(TEST_NUM_ENTRIES);
-    for (InputRow row : CalciteTests.ROWS1_WITH_NUMERIC_DIMS) {
+    for (InputRow row : TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS) {
       String raw = NullHandling.emptyToNullIfNeeded((String) row.getRaw("dim1"));
       if (raw == null) {
         expected1.addBytes(null, 0, 0);
@@ -187,7 +188,7 @@ public class BloomFilterSqlAggregatorTest extends BaseCalciteQueryTest
 
     BloomKFilter expected1 = new BloomKFilter(TEST_NUM_ENTRIES);
     BloomKFilter expected2 = new BloomKFilter(TEST_NUM_ENTRIES);
-    for (InputRow row : CalciteTests.ROWS1_WITH_NUMERIC_DIMS) {
+    for (InputRow row : TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS) {
       String raw = NullHandling.emptyToNullIfNeeded((String) row.getRaw("dim1"));
       if (raw == null) {
         expected1.addBytes(null, 0, 0);
@@ -249,7 +250,7 @@ public class BloomFilterSqlAggregatorTest extends BaseCalciteQueryTest
     cannotVectorize();
 
     BloomKFilter expected1 = new BloomKFilter(TEST_NUM_ENTRIES);
-    for (InputRow row : CalciteTests.ROWS1_WITH_NUMERIC_DIMS) {
+    for (InputRow row : TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS) {
       String raw = NullHandling.emptyToNullIfNeeded((String) row.getRaw("dim1"));
       // empty string extractionFn produces null
       if (raw == null || "".equals(raw)) {
@@ -297,7 +298,7 @@ public class BloomFilterSqlAggregatorTest extends BaseCalciteQueryTest
     cannotVectorize();
 
     BloomKFilter expected3 = new BloomKFilter(TEST_NUM_ENTRIES);
-    for (InputRow row : CalciteTests.ROWS1_WITH_NUMERIC_DIMS) {
+    for (InputRow row : TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS) {
       Object raw = row.getRaw("l1");
       if (raw == null) {
         if (NullHandling.replaceWithDefault()) {
@@ -342,7 +343,7 @@ public class BloomFilterSqlAggregatorTest extends BaseCalciteQueryTest
   {
     cannotVectorize();
     BloomKFilter expected1 = new BloomKFilter(TEST_NUM_ENTRIES);
-    for (InputRow row : CalciteTests.ROWS1_WITH_NUMERIC_DIMS) {
+    for (InputRow row : TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS) {
       Object raw = row.getRaw("l1");
       if (raw == null) {
         if (NullHandling.replaceWithDefault()) {
@@ -396,7 +397,7 @@ public class BloomFilterSqlAggregatorTest extends BaseCalciteQueryTest
     cannotVectorize();
 
     BloomKFilter expected1 = new BloomKFilter(TEST_NUM_ENTRIES);
-    for (InputRow row : CalciteTests.ROWS1_WITH_NUMERIC_DIMS) {
+    for (InputRow row : TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS) {
       Object raw = row.getRaw("f1");
       if (raw == null) {
         if (NullHandling.replaceWithDefault()) {
@@ -450,7 +451,7 @@ public class BloomFilterSqlAggregatorTest extends BaseCalciteQueryTest
     cannotVectorize();
 
     BloomKFilter expected1 = new BloomKFilter(TEST_NUM_ENTRIES);
-    for (InputRow row : CalciteTests.ROWS1_WITH_NUMERIC_DIMS) {
+    for (InputRow row : TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS) {
       Object raw = row.getRaw("d1");
       if (raw == null) {
         if (NullHandling.replaceWithDefault()) {

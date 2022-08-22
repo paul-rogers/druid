@@ -58,6 +58,7 @@ import org.apache.druid.sql.calcite.filtration.Filtration;
 import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
+import org.apache.druid.sql.calcite.util.TestDataBuilder;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.LinearShardSpec;
 import org.junit.Assert;
@@ -114,7 +115,7 @@ public class VarianceSqlAggregatorTest extends BaseCalciteQueryTest
                             .withRollup(false)
                             .build()
                     )
-                    .rows(CalciteTests.ROWS1_WITH_NUMERIC_DIMS)
+                    .rows(TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS)
                     .buildMMappedIndex();
 
     return new SpecificSegmentsQuerySegmentWalker(conglomerate).add(
@@ -169,7 +170,7 @@ public class VarianceSqlAggregatorTest extends BaseCalciteQueryTest
     VarianceAggregatorCollector holder1 = new VarianceAggregatorCollector();
     VarianceAggregatorCollector holder2 = new VarianceAggregatorCollector();
     VarianceAggregatorCollector holder3 = new VarianceAggregatorCollector();
-    for (InputRow row : CalciteTests.ROWS1_WITH_NUMERIC_DIMS) {
+    for (InputRow row : TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS) {
       Object raw1 = row.getRaw("d1");
       Object raw2 = row.getRaw("f1");
       Object raw3 = row.getRaw("l1");
@@ -216,7 +217,7 @@ public class VarianceSqlAggregatorTest extends BaseCalciteQueryTest
     VarianceAggregatorCollector holder1 = new VarianceAggregatorCollector();
     VarianceAggregatorCollector holder2 = new VarianceAggregatorCollector();
     VarianceAggregatorCollector holder3 = new VarianceAggregatorCollector();
-    for (InputRow row : CalciteTests.ROWS1_WITH_NUMERIC_DIMS) {
+    for (InputRow row : TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS) {
       Object raw1 = row.getRaw("d1");
       Object raw2 = row.getRaw("f1");
       Object raw3 = row.getRaw("l1");
@@ -263,7 +264,7 @@ public class VarianceSqlAggregatorTest extends BaseCalciteQueryTest
     VarianceAggregatorCollector holder1 = new VarianceAggregatorCollector();
     VarianceAggregatorCollector holder2 = new VarianceAggregatorCollector();
     VarianceAggregatorCollector holder3 = new VarianceAggregatorCollector();
-    for (InputRow row : CalciteTests.ROWS1_WITH_NUMERIC_DIMS) {
+    for (InputRow row : TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS) {
       Object raw1 = row.getRaw("d1");
       Object raw2 = row.getRaw("f1");
       Object raw3 = row.getRaw("l1");
@@ -318,7 +319,7 @@ public class VarianceSqlAggregatorTest extends BaseCalciteQueryTest
     VarianceAggregatorCollector holder1 = new VarianceAggregatorCollector();
     VarianceAggregatorCollector holder2 = new VarianceAggregatorCollector();
     VarianceAggregatorCollector holder3 = new VarianceAggregatorCollector();
-    for (InputRow row : CalciteTests.ROWS1_WITH_NUMERIC_DIMS) {
+    for (InputRow row : TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS) {
       Object raw1 = row.getRaw("d1");
       Object raw2 = row.getRaw("f1");
       Object raw3 = row.getRaw("l1");
@@ -371,7 +372,7 @@ public class VarianceSqlAggregatorTest extends BaseCalciteQueryTest
     VarianceAggregatorCollector holder1 = new VarianceAggregatorCollector();
     VarianceAggregatorCollector holder2 = new VarianceAggregatorCollector();
     VarianceAggregatorCollector holder3 = new VarianceAggregatorCollector();
-    for (InputRow row : CalciteTests.ROWS1_WITH_NUMERIC_DIMS) {
+    for (InputRow row : TestDataBuilder.ROWS1_WITH_NUMERIC_DIMS) {
       Object raw1 = row.getRaw("d1");
       Object raw2 = row.getRaw("f1");
       Object raw3 = row.getRaw("l1");

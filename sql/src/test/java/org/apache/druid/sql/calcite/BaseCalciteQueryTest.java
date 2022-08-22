@@ -22,7 +22,6 @@ package org.apache.druid.sql.calcite;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -61,7 +60,6 @@ import org.apache.druid.query.filter.OrDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.having.DimFilterHavingSpec;
-import org.apache.druid.query.lookup.LookupSerdeModule;
 import org.apache.druid.query.ordering.StringComparator;
 import org.apache.druid.query.ordering.StringComparators;
 import org.apache.druid.query.scan.ScanQuery;
@@ -84,12 +82,10 @@ import org.apache.druid.sql.PreparedStatement;
 import org.apache.druid.sql.SqlQueryPlus;
 import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
-import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
-import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 import org.apache.druid.sql.calcite.util.CalciteTestBase;
@@ -504,13 +500,15 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
   {
     resetFramework();
     try {
-      baseComponentSupplier = new StandardComponentSupplier(temporaryFolder.newFolder());
+      baseComponentSupplier = new StandardComponentSupplier(
+          CalciteTests.INJECTOR,
+          temporaryFolder.newFolder());
     }
-    catch (IOException e)
-    {
+    catch (IOException e) {
       throw new RE(e);
     }
     queryFramework = new QueryFramework.Builder(this)
+        .injector(CalciteTests.INJECTOR)
         .minTopNThreshold(minTopNThreshold)
         .mergeBufferCount(mergeBufferCount)
         .build();

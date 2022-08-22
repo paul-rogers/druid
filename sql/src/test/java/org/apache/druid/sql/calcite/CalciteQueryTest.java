@@ -117,6 +117,7 @@ import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.rel.CannotBuildQueryException;
 import org.apache.druid.sql.calcite.util.CalciteTests;
+import org.apache.druid.sql.calcite.util.TestDataBuilder;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.MatcherAssert;
 import org.joda.time.DateTime;
@@ -216,8 +217,8 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
                      .add(new Object[]{"druid", CalciteTests.DATASOURCE4, "TABLE", "NO", "NO"})
                      .add(new Object[]{"druid", CalciteTests.DATASOURCE5, "TABLE", "NO", "NO"})
                      .add(new Object[]{"druid", CalciteTests.DATASOURCE3, "TABLE", "NO", "NO"})
-                     .add(new Object[]{"druid", CalciteTests.SOME_DATASOURCE, "TABLE", "NO", "NO"})
-                     .add(new Object[]{"druid", CalciteTests.SOMEXDATASOURCE, "TABLE", "NO", "NO"})
+                     .add(new Object[]{"druid", TestDataBuilder.SOME_DATASOURCE, "TABLE", "NO", "NO"})
+                     .add(new Object[]{"druid", TestDataBuilder.SOMEXDATASOURCE, "TABLE", "NO", "NO"})
                      .add(new Object[]{"druid", CalciteTests.USERVISITDATASOURCE, "TABLE", "NO", "NO"})
                      .add(new Object[]{"INFORMATION_SCHEMA", "COLUMNS", "SYSTEM_TABLE", "NO", "NO"})
                      .add(new Object[]{"INFORMATION_SCHEMA", "SCHEMATA", "SYSTEM_TABLE", "NO", "NO"})
@@ -252,8 +253,8 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
                      .add(new Object[]{"druid", CalciteTests.FORBIDDEN_DATASOURCE, "TABLE", "NO", "NO"})
                      .add(new Object[]{"druid", CalciteTests.DATASOURCE5, "TABLE", "NO", "NO"})
                      .add(new Object[]{"druid", CalciteTests.DATASOURCE3, "TABLE", "NO", "NO"})
-                     .add(new Object[]{"druid", CalciteTests.SOME_DATASOURCE, "TABLE", "NO", "NO"})
-                     .add(new Object[]{"druid", CalciteTests.SOMEXDATASOURCE, "TABLE", "NO", "NO"})
+                     .add(new Object[]{"druid", TestDataBuilder.SOME_DATASOURCE, "TABLE", "NO", "NO"})
+                     .add(new Object[]{"druid", TestDataBuilder.SOMEXDATASOURCE, "TABLE", "NO", "NO"})
                      .add(new Object[]{"druid", CalciteTests.USERVISITDATASOURCE, "TABLE", "NO", "NO"})
                      .add(new Object[]{"INFORMATION_SCHEMA", "COLUMNS", "SYSTEM_TABLE", "NO", "NO"})
                      .add(new Object[]{"INFORMATION_SCHEMA", "SCHEMATA", "SYSTEM_TABLE", "NO", "NO"})
@@ -12461,7 +12462,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
                              .build()),
 
         //Since adding a zero period does not change the timestamp, just compare the stamp with the orignal
-        CalciteTests.ROWS1.stream()
+        TestDataBuilder.ROWS1.stream()
                           .map(row -> new Object[]{row.getTimestampFromEpoch()})
                           .collect(Collectors.toList())
     );
@@ -12490,7 +12491,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
                              .build()),
 
         //Since adding a zero period does not change the timestamp, just compare the stamp with the orignal
-        CalciteTests.ROWS1.stream()
+        TestDataBuilder.ROWS1.stream()
                           .map(row -> new Object[]{row.getTimestampFromEpoch()})
                           .collect(Collectors.toList())
     );
@@ -12521,7 +12522,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
                              .build()),
 
         //Since adding a zero period does not change the timestamp, just compare the stamp with the orignal
-        CalciteTests.ROWS1.stream()
+        TestDataBuilder.ROWS1.stream()
                           .map(row -> new Object[]{row.getTimestampFromEpoch()})
                           .collect(Collectors.toList())
     );
@@ -12559,7 +12560,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
                              .build()),
 
         // verify if query results match the given
-        CalciteTests.ROWS1.stream()
+        TestDataBuilder.ROWS1.stream()
                           .map(r -> new Object[]{periodGranularity.increment(r.getTimestamp()).getMillis()})
                           .collect(Collectors.toList())
     );
@@ -12588,7 +12589,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
 
         // verify if query results match the given
         // "cnt" for each row is 1
-        CalciteTests.ROWS1.stream()
+        TestDataBuilder.ROWS1.stream()
                           .map(row -> new Object[]{periodGranularity.increment(row.getTimestamp()).getMillis()})
                           .collect(Collectors.toList())
     );

@@ -52,6 +52,7 @@ import org.apache.druid.sql.calcite.filtration.Filtration;
 import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
+import org.apache.druid.sql.calcite.util.TestDataBuilder;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.LinearShardSpec;
 import org.junit.Assert;
@@ -98,7 +99,7 @@ public class TDigestSketchSqlAggregatorTest extends BaseCalciteQueryTest
                             .withRollup(false)
                             .build()
                     )
-                    .rows(CalciteTests.ROWS1)
+                    .rows(TestDataBuilder.ROWS1)
                     .buildMMappedIndex();
 
     return new SpecificSegmentsQuerySegmentWalker(conglomerate).add(

@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Injector;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.RE;
 import org.apache.druid.java.util.common.io.Closer;
@@ -47,6 +48,7 @@ import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 import org.apache.druid.sql.calcite.schema.DruidSchemaCatalog;
 import org.apache.druid.sql.calcite.schema.NoopDruidSchemaManager;
+import org.apache.druid.sql.calcite.view.DruidViewMacroFactory;
 import org.apache.druid.sql.calcite.view.InProcessViewManager;
 import org.apache.druid.timeline.DataSegment;
 
@@ -81,10 +83,14 @@ public class QueryFramework
 
   public static class StandardComponentSupplier implements QueryComponentSupplier
   {
+    private final Injector injector;
     private final File temporaryFolder;
 
-    public StandardComponentSupplier(final File temporaryFolder)
+    public StandardComponentSupplier(
+        final Injector injector,
+        final File temporaryFolder)
     {
+      this.injector = injector;
       this.temporaryFolder = temporaryFolder;
     }
 
@@ -93,7 +99,8 @@ public class QueryFramework
         QueryRunnerFactoryConglomerate conglomerate
     )
     {
-      return CalciteTests.createMockWalker(
+      return TestDataBuilder.createMockWalker(
+          injector,
           conglomerate,
           temporaryFolder
       );
@@ -111,13 +118,13 @@ public class QueryFramework
     @Override
     public DruidOperatorTable createOperatorTable()
     {
-      return CalciteTests.createOperatorTable();
+      return QueryFrameworkUtils.createOperatorTable(injector);
     }
 
     @Override
     public ExprMacroTable createMacroTable()
     {
-      return CalciteTests.createExprMacroTable();
+      return QueryFrameworkUtils.createExprMacroTable(injector);
     }
 
     @Override
@@ -133,18 +140,24 @@ public class QueryFramework
     {
       return new HashMap<>();
     }
-
   }
 
   public static class Builder
   {
     private final QueryComponentSupplier componentSupplier;
+    private Injector injector;
     private int minTopNThreshold = TopNQueryConfig.DEFAULT_MIN_TOPN_THRESHOLD;
     private int mergeBufferCount;
 
     public Builder(QueryComponentSupplier componentSupplier)
     {
       this.componentSupplier = componentSupplier;
+    }
+
+    public Builder injector(Injector injector)
+    {
+      this.injector = injector;
+      return this;
     }
 
     public Builder minTopNThreshold(int minTopNThreshold)
@@ -165,7 +178,10 @@ public class QueryFramework
     }
   }
 
+  public static final DruidViewMacroFactory DRUID_VIEW_MACRO_FACTORY = new TestDruidViewMacroFactory();
+
   private final Closer resourceCloser = Closer.create();
+  private final Injector injector;
   private final QueryRunnerFactoryConglomerate conglomerate;
   private final SpecificSegmentsQuerySegmentWalker walker;
   private final DruidOperatorTable operatorTable;
@@ -177,35 +193,36 @@ public class QueryFramework
 
   private QueryFramework(Builder builder)
   {
+    this.injector = builder.injector;
     if (builder.mergeBufferCount == 0) {
-      conglomerate = QueryStackTests.createQueryRunnerFactoryConglomerate(
+      this.conglomerate = QueryStackTests.createQueryRunnerFactoryConglomerate(
           resourceCloser,
           () -> builder.minTopNThreshold
       );
     } else {
-      conglomerate = QueryStackTests.createQueryRunnerFactoryConglomerate(
+      this.conglomerate = QueryStackTests.createQueryRunnerFactoryConglomerate(
           resourceCloser,
           QueryStackTests.getProcessingConfig(true, builder.mergeBufferCount)
       );
     }
     try {
-      walker = builder.componentSupplier.createQuerySegmentWalker(conglomerate);
+      this.walker = builder.componentSupplier.createQuerySegmentWalker(conglomerate);
     }
     catch (IOException e) {
       throw new RE(e);
     }
-    resourceCloser.register(walker);
+    this.resourceCloser.register(walker);
 
-    operatorTable = builder.componentSupplier.createOperatorTable();
-    macroTable = builder.componentSupplier.createMacroTable();
+    this.operatorTable = builder.componentSupplier.createOperatorTable();
+    this.macroTable = builder.componentSupplier.createMacroTable();
 
     // also register the static injected mapper, though across multiple test runs
-    objectMapper = new DefaultObjectMapper().registerModules(
+    this.objectMapper = new DefaultObjectMapper().registerModules(
         builder.componentSupplier.getJacksonModules());
     setMapperInjectableValues(builder.componentSupplier.getJacksonInjectables());
 
-    qlf = CalciteTests.createMockQueryLifecycleFactory(walker, conglomerate);
-    engine = builder.componentSupplier.createEngine(qlf, objectMapper);
+    this.qlf = QueryFrameworkUtils.createMockQueryLifecycleFactory(walker, conglomerate);
+    this.engine = builder.componentSupplier.createEngine(qlf, objectMapper);
   }
 
   public final void setMapperInjectableValues(Map<String, Object> injectables)
@@ -213,7 +230,7 @@ public class QueryFramework
     // duplicate the injectable values from CalciteTests.INJECTOR initialization, mainly to update the injectable
     // macro table, or whatever else you feel like injecting to a mapper
     LookupExtractorFactoryContainerProvider lookupProvider =
-        CalciteTests.INJECTOR.getInstance(LookupExtractorFactoryContainerProvider.class);
+        injector.getInstance(LookupExtractorFactoryContainerProvider.class);
     objectMapper.setInjectableValues(new InjectableValues.Std(injectables)
                                    .addValue(ExprMacroTable.class.getName(), macroTable)
                                    .addValue(ObjectMapper.class.getName(), objectMapper)
@@ -254,9 +271,9 @@ public class QueryFramework
       AuthConfig authConfig
   )
   {
-    final InProcessViewManager viewManager = new InProcessViewManager(CalciteTests.DRUID_VIEW_MACRO_FACTORY);
+    final InProcessViewManager viewManager = new InProcessViewManager(DRUID_VIEW_MACRO_FACTORY);
     DruidSchemaCatalog rootSchema = QueryFrameworkUtils.createMockRootSchema(
-        CalciteTests.INJECTOR,
+        injector,
         conglomerate,
         walker,
         plannerConfig,
@@ -275,7 +292,7 @@ public class QueryFramework
         CalciteTests.DRUID_SCHEMA_NAME,
         new CalciteRulesManager(ImmutableSet.of())
     );
-    final SqlStatementFactory sqlStatementFactory = CalciteTests.createSqlStatementFactory(
+    final SqlStatementFactory sqlStatementFactory = QueryFrameworkUtils.createSqlStatementFactory(
         engine,
         plannerFactory,
         authConfig
