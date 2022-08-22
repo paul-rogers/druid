@@ -28,6 +28,7 @@ import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryDataSource;
+import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.FilteredAggregatorFactory;
@@ -77,7 +78,9 @@ public class FixedBucketsHistogramQuantileSqlAggregatorTest extends BaseCalciteQ
   }
 
   @Override
-  public SpecificSegmentsQuerySegmentWalker createQuerySegmentWalker() throws IOException
+  public SpecificSegmentsQuerySegmentWalker createQuerySegmentWalker(
+      QueryRunnerFactoryConglomerate conglomerate
+  ) throws IOException
   {
     ApproximateHistogramDruidModule.registerSerde();
 

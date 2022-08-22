@@ -37,6 +37,7 @@ import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.guice.BloomFilterExtensionModule;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.Druids;
+import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.FilteredAggregatorFactory;
@@ -85,7 +86,9 @@ public class BloomFilterSqlAggregatorTest extends BaseCalciteQueryTest
   }
 
   @Override
-  public SpecificSegmentsQuerySegmentWalker createQuerySegmentWalker() throws IOException
+  public SpecificSegmentsQuerySegmentWalker createQuerySegmentWalker(
+      QueryRunnerFactoryConglomerate conglomerate
+  ) throws IOException
   {
     InputRowParser parser = new MapInputRowParser(
         new TimeAndDimsParseSpec(

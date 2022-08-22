@@ -25,12 +25,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.apache.druid.common.config.NullHandling;
+import org.apache.druid.java.util.common.RE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.PeriodGranularity;
 import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryDataSource;
+import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.FilteredAggregatorFactory;
@@ -70,6 +72,7 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.Period;
 import org.junit.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -87,7 +90,9 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
 
   @SuppressWarnings("resource")
   @Override
-  public SpecificSegmentsQuerySegmentWalker createQuerySegmentWalker() throws IOException
+  public SpecificSegmentsQuerySegmentWalker createQuerySegmentWalker(
+      QueryRunnerFactoryConglomerate conglomerate
+  ) throws IOException
   {
     HllSketchModule.registerSerde();
     final QueryableIndex index = IndexBuilder.create()
@@ -112,7 +117,7 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
                                              .rows(CalciteTests.ROWS1)
                                              .buildMMappedIndex();
 
-    walker = new SpecificSegmentsQuerySegmentWalker(conglomerate).add(
+    return new SpecificSegmentsQuerySegmentWalker(conglomerate).add(
         DataSegment.builder()
                    .dataSource(CalciteTests.DATASOURCE1)
                    .interval(index.getDataInterval())
@@ -122,7 +127,6 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
                    .build(),
         index
     );
-    return walker;
   }
 
   @Override

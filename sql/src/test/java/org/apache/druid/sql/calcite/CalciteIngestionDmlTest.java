@@ -20,6 +20,7 @@
 package org.apache.druid.sql.calcite;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -96,11 +97,8 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
   }
 
   @After
-  @Override
   public void tearDown() throws Exception
   {
-    super.tearDown();
-
     // Catch situations where tests forgot to call "verify" on their tester.
     if (!didTest) {
       throw new ISE("Test was not run; did you call verify() on a tester?");
@@ -109,6 +107,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
 
   protected String externSql(final ExternalDataSource externalDataSource)
   {
+    ObjectMapper queryJsonMapper = queryFramework().queryJsonMapper();
     try {
       return StringUtils.format(
           "TABLE(extern(%s, %s, %s))",
@@ -124,6 +123,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
 
   protected Map<String, Object> queryContextWithGranularity(Granularity granularity)
   {
+    ObjectMapper queryJsonMapper = queryFramework().queryJsonMapper();
     String granularityString = null;
     try {
       granularityString = queryJsonMapper.writeValueAsString(granularity);
