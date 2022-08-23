@@ -1049,7 +1049,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
     skipVectorize = true;
   }
 
-  protected static boolean isRewriteJoinToFilter(final Map<String, Object> queryContext)
+  public static boolean isRewriteJoinToFilter(final Map<String, Object> queryContext)
   {
     return (boolean) queryContext.getOrDefault(
         QueryContexts.REWRITE_JOIN_TO_FILTER_ENABLE_KEY,

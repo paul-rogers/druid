@@ -453,7 +453,6 @@ public class CalciteTests
     }
   }
 
-
   /**
    * A fake {@link ServerInventoryView} for {@link #createMockSystemSchema}.
    */

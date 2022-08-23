@@ -20,6 +20,7 @@
 package org.apache.druid.sql;
 
 import com.google.common.annotations.VisibleForTesting;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.tools.ValidationException;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
@@ -29,7 +30,9 @@ import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.SqlLifecycleManager.Cancelable;
 import org.apache.druid.sql.calcite.planner.DruidPlanner;
+import org.apache.druid.sql.calcite.planner.NoOpCapture;
 import org.apache.druid.sql.calcite.planner.PlannerResult;
+import org.apache.druid.sql.calcite.planner.PlannerStateCapture;
 import org.apache.druid.sql.calcite.planner.PrepareResult;
 
 import java.util.Set;
@@ -94,6 +97,11 @@ public class DirectStatement extends AbstractStatement implements Cancelable
       return plannerResult != null && plannerResult.runnable();
     }
 
+    public RelDataType rowType()
+    {
+      return plannerResult.rowType();
+    }
+
     /**
      * Do the actual execute step which allows subclasses to wrap the sequence,
      * as is sometimes needed for testing.
@@ -136,6 +144,11 @@ public class DirectStatement extends AbstractStatement implements Cancelable
     public void close()
     {
       DirectStatement.this.close();
+    }
+
+    public void closeQuietly()
+    {
+      DirectStatement.this.closeQuietly();
     }
   }
 
@@ -198,6 +211,12 @@ public class DirectStatement extends AbstractStatement implements Cancelable
    * Call {@link ResultSet#run()} to run the resulting plan.
    */
   public ResultSet plan()
+  {
+    return plan(NoOpCapture.INSTANCE);
+  }
+
+  @VisibleForTesting
+  public ResultSet plan(PlannerStateCapture capture)
   {
     if (state != State.START) {
       throw new ISE("Can plan a query only once.");

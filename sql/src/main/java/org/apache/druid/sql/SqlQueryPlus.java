@@ -19,6 +19,7 @@
 
 package org.apache.druid.sql;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.calcite.avatica.remote.TypedValue;
 import org.apache.druid.query.QueryContext;
@@ -27,6 +28,7 @@ import org.apache.druid.sql.http.SqlParameter;
 import org.apache.druid.sql.http.SqlQuery;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -112,6 +114,23 @@ public class SqlQueryPlus
   public SqlQueryPlus withParameters(List<TypedValue> parameters)
   {
     return new SqlQueryPlus(sql, queryContext, parameters, authResult);
+  }
+
+  @VisibleForTesting
+  public SqlQueryPlus withOverrides(Map<String, Object> overrides)
+  {
+    if (overrides == null || overrides.isEmpty()) {
+      return this;
+    }
+    Map<String, Object> newContext;
+    if (queryContext.isEmpty()) {
+      newContext = overrides;
+    } else {
+      newContext = new HashMap<>();
+      newContext.putAll(queryContext.getUserParams());
+      newContext.putAll(overrides);
+    }
+    return new SqlQueryPlus(sql, new QueryContext(newContext), parameters, authResult);
   }
 
   public static class Builder
