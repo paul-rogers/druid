@@ -91,14 +91,17 @@ import java.util.function.BooleanSupplier;
  */
 public class CalciteTests
 {
-  public static final String DATASOURCE1 = TestDataBuilder.DATASOURCE1;
-  public static final String DATASOURCE2 = TestDataBuilder.DATASOURCE2;
-  public static final String DATASOURCE3 = TestDataBuilder.DATASOURCE3;
-  public static final String DATASOURCE4 = TestDataBuilder.DATASOURCE4;
-  public static final String DATASOURCE5 = TestDataBuilder.DATASOURCE5;
-  public static final String BROADCAST_DATASOURCE = TestDataBuilder.BROADCAST_DATASOURCE;
-  public static final String FORBIDDEN_DATASOURCE = TestDataBuilder.FORBIDDEN_DATASOURCE;
-  public static final String USERVISITDATASOURCE = TestDataBuilder.USERVISITDATASOURCE;
+  public static final String DATASOURCE1 = "foo";
+  public static final String DATASOURCE2 = "foo2";
+  public static final String DATASOURCE3 = "numfoo";
+  public static final String DATASOURCE4 = "foo4";
+  public static final String DATASOURCE5 = "lotsocolumns";
+  public static final String BROADCAST_DATASOURCE = "broadcast";
+  public static final String FORBIDDEN_DATASOURCE = "forbiddenDatasource";
+  public static final String SOME_DATASOURCE = "some_datasource";
+  public static final String SOME_DATSOURCE_ESCAPED = "some\\_datasource";
+  public static final String SOMEXDATASOURCE = "somexdatasource";
+  public static final String USERVISITDATASOURCE = "visits";
   public static final String DRUID_SCHEMA_NAME = "druid";
 
   public static final String TEST_SUPERUSER_NAME = "testSuperuser";

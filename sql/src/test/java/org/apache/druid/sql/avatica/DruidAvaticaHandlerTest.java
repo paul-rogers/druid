@@ -81,7 +81,6 @@ import org.apache.druid.sql.calcite.util.CalciteTestBase;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.QueryLogHook;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
-import org.apache.druid.sql.calcite.util.TestDataBuilder;
 import org.eclipse.jetty.server.Server;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -479,19 +478,19 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
             ),
             row(
                 Pair.of("TABLE_CAT", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE),
+                Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE),
                 Pair.of("TABLE_SCHEM", "druid"),
                 Pair.of("TABLE_TYPE", "TABLE")
             ),
             row(
                 Pair.of("TABLE_CAT", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOMEXDATASOURCE),
+                Pair.of("TABLE_NAME", CalciteTests.SOMEXDATASOURCE),
                 Pair.of("TABLE_SCHEM", "druid"),
                 Pair.of("TABLE_TYPE", "TABLE")
             ),
             row(
                 Pair.of("TABLE_CAT", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.USERVISITDATASOURCE),
+                Pair.of("TABLE_NAME", CalciteTests.USERVISITDATASOURCE),
                 Pair.of("TABLE_SCHEM", "druid"),
                 Pair.of("TABLE_TYPE", "TABLE")
             )
@@ -553,19 +552,19 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
             ),
             row(
                 Pair.of("TABLE_CAT", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE),
+                Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE),
                 Pair.of("TABLE_SCHEM", "druid"),
                 Pair.of("TABLE_TYPE", "TABLE")
             ),
             row(
                 Pair.of("TABLE_CAT", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOMEXDATASOURCE),
+                Pair.of("TABLE_NAME", CalciteTests.SOMEXDATASOURCE),
                 Pair.of("TABLE_SCHEM", "druid"),
                 Pair.of("TABLE_TYPE", "TABLE")
             ),
             row(
                 Pair.of("TABLE_CAT", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.USERVISITDATASOURCE),
+                Pair.of("TABLE_NAME", CalciteTests.USERVISITDATASOURCE),
                 Pair.of("TABLE_SCHEM", "druid"),
                 Pair.of("TABLE_TYPE", "TABLE")
             )
@@ -1301,42 +1300,42 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
     ImmutableList<Map<String, Object>> someDatasourceColumns = ImmutableList.of(
         row(
             Pair.of("TABLE_SCHEM", "druid"),
-            Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE),
+            Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE),
             Pair.of("COLUMN_NAME", "__time")
         ),
         row(
             Pair.of("TABLE_SCHEM", "druid"),
-            Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE),
+            Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE),
             Pair.of("COLUMN_NAME", "dim1")
         ),
         row(
             Pair.of("TABLE_SCHEM", "druid"),
-            Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE),
+            Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE),
             Pair.of("COLUMN_NAME", "dim2")
         ),
         row(
             Pair.of("TABLE_SCHEM", "druid"),
-            Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE),
+            Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE),
             Pair.of("COLUMN_NAME", "dim3")
         ),
         row(
             Pair.of("TABLE_SCHEM", "druid"),
-            Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE),
+            Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE),
             Pair.of("COLUMN_NAME", "cnt")
         ),
         row(
             Pair.of("TABLE_SCHEM", "druid"),
-            Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE),
+            Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE),
             Pair.of("COLUMN_NAME", "m1")
         ),
         row(
             Pair.of("TABLE_SCHEM", "druid"),
-            Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE),
+            Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE),
             Pair.of("COLUMN_NAME", "m2")
         ),
         row(
             Pair.of("TABLE_SCHEM", "druid"),
-            Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE),
+            Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE),
             Pair.of("COLUMN_NAME", "unique_dim1")
         )
     );
@@ -1345,7 +1344,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
     Assert.assertEquals(
         someDatasourceColumns,
         getRows(
-            metaData.getColumns(null, "dr_id", TestDataBuilder.SOME_DATSOURCE_ESCAPED, null),
+            metaData.getColumns(null, "dr_id", CalciteTests.SOME_DATSOURCE_ESCAPED, null),
             ImmutableSet.of("TABLE_NAME", "TABLE_SCHEM", "COLUMN_NAME")
         )
     );
@@ -1353,27 +1352,27 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
     ImmutableList<Map<String, Object>> someXDatasourceColumns = ImmutableList.of(
         row(
             Pair.of("TABLE_SCHEM", "druid"),
-            Pair.of("TABLE_NAME", TestDataBuilder.SOMEXDATASOURCE),
+            Pair.of("TABLE_NAME", CalciteTests.SOMEXDATASOURCE),
             Pair.of("COLUMN_NAME", "__time")
         ),
         row(
             Pair.of("TABLE_SCHEM", "druid"),
-            Pair.of("TABLE_NAME", TestDataBuilder.SOMEXDATASOURCE),
+            Pair.of("TABLE_NAME", CalciteTests.SOMEXDATASOURCE),
             Pair.of("COLUMN_NAME", "cnt_x")
         ),
         row(
             Pair.of("TABLE_SCHEM", "druid"),
-            Pair.of("TABLE_NAME", TestDataBuilder.SOMEXDATASOURCE),
+            Pair.of("TABLE_NAME", CalciteTests.SOMEXDATASOURCE),
             Pair.of("COLUMN_NAME", "m1_x")
         ),
         row(
             Pair.of("TABLE_SCHEM", "druid"),
-            Pair.of("TABLE_NAME", TestDataBuilder.SOMEXDATASOURCE),
+            Pair.of("TABLE_NAME", CalciteTests.SOMEXDATASOURCE),
             Pair.of("COLUMN_NAME", "m2_x")
         ),
         row(
             Pair.of("TABLE_SCHEM", "druid"),
-            Pair.of("TABLE_NAME", TestDataBuilder.SOMEXDATASOURCE),
+            Pair.of("TABLE_NAME", CalciteTests.SOMEXDATASOURCE),
             Pair.of("COLUMN_NAME", "unique_dim1_x")
         )
     );
@@ -1401,17 +1400,17 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
         ImmutableList.of(
             row(
                 Pair.of("TABLE_SCHEM", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOMEXDATASOURCE),
+                Pair.of("TABLE_NAME", CalciteTests.SOMEXDATASOURCE),
                 Pair.of("COLUMN_NAME", "m1_x")
             ),
             row(
                 Pair.of("TABLE_SCHEM", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOMEXDATASOURCE),
+                Pair.of("TABLE_NAME", CalciteTests.SOMEXDATASOURCE),
                 Pair.of("COLUMN_NAME", "m2_x")
             )
         ),
         getRows(
-            metaData.getColumns("druid", "dr_id", TestDataBuilder.SOMEXDATASOURCE, "m_\\_x"),
+            metaData.getColumns("druid", "dr_id", CalciteTests.SOMEXDATASOURCE, "m_\\_x"),
             ImmutableSet.of("TABLE_NAME", "TABLE_SCHEM", "COLUMN_NAME")
         )
     );
@@ -1421,27 +1420,27 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
         ImmutableList.of(
             row(
                 Pair.of("TABLE_SCHEM", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE),
+                Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE),
                 Pair.of("COLUMN_NAME", "m1")
             ),
             row(
                 Pair.of("TABLE_SCHEM", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE),
+                Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE),
                 Pair.of("COLUMN_NAME", "m2")
             ),
             row(
                 Pair.of("TABLE_SCHEM", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOMEXDATASOURCE),
+                Pair.of("TABLE_NAME", CalciteTests.SOMEXDATASOURCE),
                 Pair.of("COLUMN_NAME", "m1_x")
             ),
             row(
                 Pair.of("TABLE_SCHEM", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOMEXDATASOURCE),
+                Pair.of("TABLE_NAME", CalciteTests.SOMEXDATASOURCE),
                 Pair.of("COLUMN_NAME", "m2_x")
             )
         ),
         getRows(
-            metaData.getColumns("druid", "dr_id", TestDataBuilder.SOME_DATASOURCE, "m%"),
+            metaData.getColumns("druid", "dr_id", CalciteTests.SOME_DATASOURCE, "m%"),
             ImmutableSet.of("TABLE_NAME", "TABLE_SCHEM", "COLUMN_NAME")
         )
     );
@@ -1456,11 +1455,11 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
         ImmutableList.of(
             row(
                 Pair.of("TABLE_SCHEM", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE)
+                Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE)
             )
         ),
         getRows(
-            metaData.getTables("druid", "dr_id", TestDataBuilder.SOME_DATSOURCE_ESCAPED, null),
+            metaData.getTables("druid", "dr_id", CalciteTests.SOME_DATSOURCE_ESCAPED, null),
             ImmutableSet.of("TABLE_SCHEM", "TABLE_NAME")
         )
     );
@@ -1469,11 +1468,11 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
         ImmutableList.of(
             row(
                 Pair.of("TABLE_SCHEM", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOMEXDATASOURCE)
+                Pair.of("TABLE_NAME", CalciteTests.SOMEXDATASOURCE)
             )
         ),
         getRows(
-            metaData.getTables("druid", "dr_id", TestDataBuilder.SOMEXDATASOURCE, null),
+            metaData.getTables("druid", "dr_id", CalciteTests.SOMEXDATASOURCE, null),
             ImmutableSet.of("TABLE_SCHEM", "TABLE_NAME")
         )
     );
@@ -1483,15 +1482,15 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
         ImmutableList.of(
             row(
                 Pair.of("TABLE_SCHEM", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOME_DATASOURCE)
+                Pair.of("TABLE_NAME", CalciteTests.SOME_DATASOURCE)
             ),
             row(
                 Pair.of("TABLE_SCHEM", "druid"),
-                Pair.of("TABLE_NAME", TestDataBuilder.SOMEXDATASOURCE)
+                Pair.of("TABLE_NAME", CalciteTests.SOMEXDATASOURCE)
             )
         ),
         getRows(
-            metaData.getTables("druid", "dr_id", TestDataBuilder.SOME_DATASOURCE, null),
+            metaData.getTables("druid", "dr_id", CalciteTests.SOME_DATASOURCE, null),
             ImmutableSet.of("TABLE_SCHEM", "TABLE_NAME")
         )
     );

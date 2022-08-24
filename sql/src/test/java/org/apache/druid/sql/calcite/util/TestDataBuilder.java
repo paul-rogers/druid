@@ -75,20 +75,8 @@ import java.util.stream.Collectors;
 
 public class TestDataBuilder
 {
-  public static final String DATASOURCE1 = "foo";
-  public static final String DATASOURCE2 = "foo2";
-  public static final String DATASOURCE3 = "numfoo";
-  public static final String DATASOURCE4 = "foo4";
-  public static final String DATASOURCE5 = "lotsocolumns";
-  public static final String BROADCAST_DATASOURCE = "broadcast";
-  public static final String FORBIDDEN_DATASOURCE = "forbiddenDatasource";
-  public static final String SOME_DATASOURCE = "some_datasource";
-  public static final String SOME_DATSOURCE_ESCAPED = "some\\_datasource";
-  public static final String SOMEXDATASOURCE = "somexdatasource";
-  public static final String USERVISITDATASOURCE = "visits";
-
   private static final String TIMESTAMP_COLUMN = "t";
-  public static final GlobalTableDataSource CUSTOM_TABLE = new GlobalTableDataSource(BROADCAST_DATASOURCE);
+  public static final GlobalTableDataSource CUSTOM_TABLE = new GlobalTableDataSource(CalciteTests.BROADCAST_DATASOURCE);
 
   public static final JoinableFactory CUSTOM_ROW_TABLE_JOINABLE = new JoinableFactory()
   {
@@ -726,7 +714,7 @@ public class TestDataBuilder
         scheduler
     ).add(
         DataSegment.builder()
-                   .dataSource(DATASOURCE1)
+                   .dataSource(CalciteTests.DATASOURCE1)
                    .interval(index1.getDataInterval())
                    .version("1")
                    .shardSpec(new LinearShardSpec(0))
@@ -735,7 +723,7 @@ public class TestDataBuilder
         index1
     ).add(
         DataSegment.builder()
-                   .dataSource(DATASOURCE2)
+                   .dataSource(CalciteTests.DATASOURCE2)
                    .interval(index2.getDataInterval())
                    .version("1")
                    .shardSpec(new LinearShardSpec(0))
@@ -744,7 +732,7 @@ public class TestDataBuilder
         index2
     ).add(
         DataSegment.builder()
-                   .dataSource(FORBIDDEN_DATASOURCE)
+                   .dataSource(CalciteTests.FORBIDDEN_DATASOURCE)
                    .interval(forbiddenIndex.getDataInterval())
                    .version("1")
                    .shardSpec(new LinearShardSpec(0))
@@ -753,7 +741,7 @@ public class TestDataBuilder
         forbiddenIndex
     ).add(
         DataSegment.builder()
-                   .dataSource(DATASOURCE3)
+                   .dataSource(CalciteTests.DATASOURCE3)
                    .interval(indexNumericDims.getDataInterval())
                    .version("1")
                    .shardSpec(new LinearShardSpec(0))
@@ -762,7 +750,7 @@ public class TestDataBuilder
         indexNumericDims
     ).add(
         DataSegment.builder()
-                   .dataSource(DATASOURCE4)
+                   .dataSource(CalciteTests.DATASOURCE4)
                    .interval(index4.getDataInterval())
                    .version("1")
                    .shardSpec(new LinearShardSpec(0))
@@ -771,7 +759,7 @@ public class TestDataBuilder
         index4
     ).add(
         DataSegment.builder()
-                   .dataSource(DATASOURCE5)
+                   .dataSource(CalciteTests.DATASOURCE5)
                    .interval(indexLotsOfColumns.getDataInterval())
                    .version("1")
                    .shardSpec(new LinearShardSpec(0))
@@ -780,7 +768,7 @@ public class TestDataBuilder
         indexLotsOfColumns
     ).add(
         DataSegment.builder()
-                   .dataSource(SOME_DATASOURCE)
+                   .dataSource(CalciteTests.SOME_DATASOURCE)
                    .interval(indexLotsOfColumns.getDataInterval())
                    .version("1")
                    .shardSpec(new LinearShardSpec(0))
@@ -789,7 +777,7 @@ public class TestDataBuilder
         someDatasourceIndex
     ).add(
         DataSegment.builder()
-                   .dataSource(SOMEXDATASOURCE)
+                   .dataSource(CalciteTests.SOMEXDATASOURCE)
                    .interval(indexLotsOfColumns.getDataInterval())
                    .version("1")
                    .shardSpec(new LinearShardSpec(0))
@@ -798,7 +786,7 @@ public class TestDataBuilder
         someXDatasourceIndex
     ).add(
         DataSegment.builder()
-                   .dataSource(BROADCAST_DATASOURCE)
+                   .dataSource(CalciteTests.BROADCAST_DATASOURCE)
                    .interval(indexNumericDims.getDataInterval())
                    .version("1")
                    .shardSpec(new LinearShardSpec(0))
@@ -807,7 +795,7 @@ public class TestDataBuilder
         indexNumericDims
     ).add(
         DataSegment.builder()
-                   .dataSource(USERVISITDATASOURCE)
+                   .dataSource(CalciteTests.USERVISITDATASOURCE)
                    .interval(userVisitIndex.getDataInterval())
                    .version("1")
                    .shardSpec(new LinearShardSpec(0))
