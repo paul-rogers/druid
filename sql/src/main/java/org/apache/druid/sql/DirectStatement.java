@@ -225,6 +225,7 @@ public class DirectStatement extends AbstractStatement implements Cancelable
         sqlToolbox.engine,
         queryPlus.sql(),
         queryPlus.context())) {
+      planner.captureState(capture);
       validate(planner);
       authorize(planner, authorizer());
 

@@ -116,7 +116,10 @@ public class SqlExecutionReporter
       } else {
         statsMap.put("identity", plannerContext.getAuthenticationResult().getIdentity());
         queryContext = stmt.queryPlus.context();
-        queryContext.addSystemParam("nativeQueryIds", plannerContext.getNativeQueryIds().toString());
+        // Avoid cluttering the context with empty IDs. Primarily for tests.
+        if (!plannerContext.getNativeQueryIds().isEmpty()) {
+          queryContext.addSystemParam("nativeQueryIds", plannerContext.getNativeQueryIds().toString());
+        }
       }
       final Map<String, Object> context = queryContext.getMergedParams();
       statsMap.put("context", context);

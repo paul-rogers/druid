@@ -25,7 +25,6 @@ import org.apache.druid.java.util.common.FileUtils;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.logger.Logger;
-import org.apache.druid.sql.calcite.util.QueryFramework;
 
 import java.io.File;
 import java.io.FileOutputStream;

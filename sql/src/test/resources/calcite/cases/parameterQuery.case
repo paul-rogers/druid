@@ -49,6 +49,9 @@ LogicalProject(EXPR$0=[+(1, 1)])
   "resultFormat" : "compactedList",
   "columns" : [ "EXPR$0" ],
   "legacy" : false,
+  "context" : {
+    "sqlQueryId" : "dummy"
+  },
   "granularity" : {
     "type" : "all"
   }
@@ -97,6 +100,9 @@ LogicalSort(fetch=[1])
   "limit" : 1,
   "columns" : [ "dim1", "v0" ],
   "legacy" : false,
+  "context" : {
+    "sqlQueryId" : "dummy"
+  },
   "granularity" : {
     "type" : "all"
   }
@@ -162,7 +168,10 @@ LogicalProject(EXPR$0=[+(EXP($0), 10)], EXPR$1=[$1])
     "type" : "expression",
     "name" : "p0",
     "expression" : "(exp(\"a0\") + 10)"
-  } ]
+  } ],
+  "context" : {
+    "sqlQueryId" : "dummy"
+  }
 }
 === run
 === options
@@ -295,7 +304,10 @@ LogicalProject(EXPR$0=[TRIM(FLAG(BOTH), 'x', 'xfoox')], EXPR$1=[TRIM(FLAG(TRAILI
     "type" : "expression",
     "name" : "p10",
     "expression" : "'xfoo'"
-  } ]
+  } ],
+  "context" : {
+    "sqlQueryId" : "dummy"
+  }
 }
 === results
 ["foo","xfoo","foo"," foo","foo","foo","foo","foo ","foox"," foo","xfoo",6]
@@ -391,6 +403,9 @@ LogicalSort(fetch=[2])
   "limit" : 2,
   "columns" : [ "v0" ],
   "legacy" : false,
+  "context" : {
+    "sqlQueryId" : "dummy"
+  },
   "granularity" : {
     "type" : "all"
   }
@@ -464,6 +479,9 @@ LogicalAggregate(group=[{0, 1}], EXPR$2=[COUNT()])
   } ],
   "limitSpec" : {
     "type" : "NoopLimitSpec"
+  },
+  "context" : {
+    "sqlQueryId" : "dummy"
   }
 }
 === run
@@ -558,6 +576,9 @@ LogicalProject(dim1=[$0], ratio=[/($1, $2)])
   },
   "limitSpec" : {
     "type" : "NoopLimitSpec"
+  },
+  "context" : {
+    "sqlQueryId" : "dummy"
   }
 }
 === results
@@ -617,7 +638,10 @@ LogicalProject(EXPR$0=[/($1, 10)])
     "type" : "expression",
     "name" : "p0",
     "expression" : "(\"a0\" / 10)"
-  } ]
+  } ],
+  "context" : {
+    "sqlQueryId" : "dummy"
+  }
 }
 === results
 [2.1]
@@ -670,7 +694,10 @@ LogicalProject(EXPR$0=[+(EXP($0), 10)], EXPR$1=[$1])
     "type" : "expression",
     "name" : "p0",
     "expression" : "(exp(\"a0\") + 10)"
-  } ]
+  } ],
+  "context" : {
+    "sqlQueryId" : "dummy"
+  }
 }
 === run
 === options
@@ -731,7 +758,10 @@ LogicalProject(EXPR$0=[+(EXP($0), 10)], EXPR$1=[$1])
     "type" : "expression",
     "name" : "p0",
     "expression" : "(exp(\"a0\") + 10)"
-  } ]
+  } ],
+  "context" : {
+    "sqlQueryId" : "dummy"
+  }
 }
 === run
 === options
@@ -792,7 +822,10 @@ LogicalProject(EXPR$0=[+(EXP($0), 10)], EXPR$1=[$1])
     "type" : "expression",
     "name" : "p0",
     "expression" : "(exp(\"a0\") + 10)"
-  } ]
+  } ],
+  "context" : {
+    "sqlQueryId" : "dummy"
+  }
 }
 === run
 === options
@@ -853,7 +886,10 @@ LogicalAggregate(group=[{}], EXPR$0=[COUNT()])
   "aggregations" : [ {
     "type" : "count",
     "name" : "a0"
-  } ]
+  } ],
+  "context" : {
+    "sqlQueryId" : "dummy"
+  }
 }
 === results
 [0]
@@ -898,7 +934,10 @@ LogicalAggregate(group=[{}], EXPR$0=[COUNT()])
   "aggregations" : [ {
     "type" : "count",
     "name" : "a0"
-  } ]
+  } ],
+  "context" : {
+    "sqlQueryId" : "dummy"
+  }
 }
 === results
 [6]
@@ -959,7 +998,10 @@ LogicalAggregate(group=[{}], EXPR$0=[COUNT()])
   "aggregations" : [ {
     "type" : "count",
     "name" : "a0"
-  } ]
+  } ],
+  "context" : {
+    "sqlQueryId" : "dummy"
+  }
 }
 === results
 [6]
@@ -1028,7 +1070,10 @@ LogicalAggregate(group=[{}], EXPR$0=[COUNT()])
   "aggregations" : [ {
     "type" : "count",
     "name" : "a0"
-  } ]
+  } ],
+  "context" : {
+    "sqlQueryId" : "dummy"
+  }
 }
 === results
 [2]
@@ -1043,7 +1088,7 @@ WHERE l1 > ?
 === exception
 SqlPlanningException
 === error
-Parameter at position[0] is not bound
+Parameter at position [0] is not bound
 ==============================================================
 Converted from testPartiallyMissingParameter()
 Why are the exception forms different here and above?
@@ -1056,7 +1101,7 @@ WHERE l1 > ? AND f1 = ?
 === parameters
 bigint: 3
 === error
-!.* Parameter at position\[1\] is not bound
+!.* Parameter at position \[1\] is not bound
 ==============================================================
 Converted from testPartiallyMissingParameterInTheMiddle()
 === case
@@ -1067,7 +1112,7 @@ SELECT 1 + ?, dim1 FROM foo LIMIT ?
 null
 integer: 1
 === error
-!.* Parameter at position\[0\] is not bound
+!.* Parameter at position \[0\] is not bound
 ==============================================================
 Converted from testWrongTypeParameter()
 
@@ -1125,7 +1170,10 @@ LogicalAggregate(group=[{}], EXPR$0=[COUNT()])
   "aggregations" : [ {
     "type" : "count",
     "name" : "a0"
-  } ]
+  } ],
+  "context" : {
+    "sqlQueryId" : "dummy"
+  }
 }
 === results
 [0]
@@ -1268,6 +1316,9 @@ LogicalAggregate(group=[{0}], EXPR$1=[COUNT()])
   } ],
   "limitSpec" : {
     "type" : "NoopLimitSpec"
+  },
+  "context" : {
+    "sqlQueryId" : "dummy"
   }
 }
 === run
@@ -1339,6 +1390,9 @@ LogicalAggregate(group=[{0}], EXPR$1=[COUNT()])
   } ],
   "limitSpec" : {
     "type" : "NoopLimitSpec"
+  },
+  "context" : {
+    "sqlQueryId" : "dummy"
   }
 }
 === run

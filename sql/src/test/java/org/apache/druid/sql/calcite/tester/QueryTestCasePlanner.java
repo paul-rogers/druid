@@ -33,10 +33,12 @@ import org.apache.druid.sql.calcite.planner.CapturedState;
  * specific language governing permissions and limitations
  * under the License.
  */
-
+import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.rel.DruidRel;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class QueryTestCasePlanner
 {
@@ -61,11 +63,15 @@ public class QueryTestCasePlanner
     this.testCase = testCase;
     this.results = results;
     this.statementFactory = stmtFactory;
+
+    // Apply a dummy ID so that the captures are determinstic.
+    Map<String, Object> context = new HashMap<>(plannerFixture.applyDefaultPlanningContext(testCase.context()));
+    context.put(PlannerContext.CTX_SQL_QUERY_ID, "dummy");
     this.queryPlus = SqlQueryPlus
         .builder(testCase.sql())
         // Plan with only the context in the test case. Ensures that the
         // case with no extra context works. Makes native queries smaller.
-        .context(plannerFixture.applyDefaultPlanningContext(testCase.context()))
+        .context(context)
         .sqlParameters(testCase.parameters())
         .auth(plannerFixture.authResultFor(testCase.user()))
         .build();

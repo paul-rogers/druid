@@ -97,15 +97,15 @@ public class SqlStatementFactoryFactory
     }
 
     @Override
-    public DirectStatement directStatement(final SqlQueryPlus sqlRequest)
+    public DirectStatement directStatement(final SqlQueryPlus queryPlus)
     {
-      return new DirectStatement(lifecycleToolbox, sqlRequest);
+      return new DirectStatement(lifecycleToolbox, queryPlus);
     }
 
     @Override
-    public PreparedStatement preparedStatement(final SqlQueryPlus sqlRequest)
+    public PreparedStatement preparedStatement(final SqlQueryPlus queryPlus)
     {
-      return new PreparedStatement(lifecycleToolbox, sqlRequest);
+      return new PreparedStatement(lifecycleToolbox, queryPlus);
     }
   }
 }

@@ -83,11 +83,15 @@ public abstract class AbstractStatement implements Closeable
   {
     // "bySegment" results are never valid to use with SQL because the result format is incompatible
     // so, overwrite any user specified context to avoid exceptions down the line
-
     if (queryContext.removeUserParam(QueryContexts.BY_SEGMENT_KEY) != null) {
       log.warn("'bySegment' results are not supported for SQL queries, ignoring query context parameter");
     }
-    queryContext.addDefaultParam(PlannerContext.CTX_SQL_QUERY_ID, UUID.randomUUID().toString());
+
+    // Assign a Query ID, but only if one is not already set. A pre-set ID is
+    // primarily for testing.
+    if (queryContext.getAsString(PlannerContext.CTX_SQL_QUERY_ID) == null) {
+      queryContext.addDefaultParam(PlannerContext.CTX_SQL_QUERY_ID, UUID.randomUUID().toString());
+    }
     return queryContext;
   }
 

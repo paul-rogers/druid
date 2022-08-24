@@ -142,6 +142,7 @@ public class DruidPlanner implements Closeable
   private Set<ResourceAction> resourceActions;
   private RelRoot rootQueryRel;
   private RexBuilder rexBuilder;
+  private PlannerStateCapture stateCapture;
 
   DruidPlanner(
       final FrameworkConfig frameworkConfig,
@@ -153,6 +154,12 @@ public class DruidPlanner implements Closeable
     this.planner = new CalcitePlanner(frameworkConfig);
     this.plannerContext = plannerContext;
     this.engine = engine;
+  }
+
+  public void captureState(PlannerStateCapture capture)
+  {
+    this.stateCapture = capture;
+    this.stateCapture.capturePlannerContext(plannerContext);
   }
 
   /**
@@ -169,8 +176,11 @@ public class DruidPlanner implements Closeable
     engine.validateContext(plannerContext.getQueryContext());
 
     // Parse the query string.
+    stateCapture.captureSql(plannerContext.getSql());
     SqlNode root = planner.parse(plannerContext.getSql());
+    stateCapture.captureParse(root);
     parsed = ParsedNodes.create(root, plannerContext.getTimeZone());
+    stateCapture.captureInsert(parsed.getInsertOrReplace());
 
     if (parsed.isSelect() && !plannerContext.engineHasFeature(EngineFeature.CAN_SELECT)) {
       throw new ValidationException(StringUtils.format("Cannot execute SELECT with SQL engine '%s'.", engine.name()));
@@ -213,6 +223,7 @@ public class DruidPlanner implements Closeable
         queryNode = queryNode.accept(new SqlParameterizerShuttle(plannerContext));
       }
       validatedQueryNode = planner.validate(queryNode);
+      stateCapture.captureQuery(validatedQueryNode);
     }
     catch (RuntimeException e) {
       throw new ValidationException(e);
@@ -239,6 +250,7 @@ public class DruidPlanner implements Closeable
       final String targetDataSource = validateAndGetDataSourceForIngest(parsed.getInsertOrReplace());
       resourceActions.add(new ResourceAction(new Resource(targetDataSource, ResourceType.DATASOURCE), Action.WRITE));
     }
+    stateCapture.captureResources(resourceActions);
 
     state = State.VALIDATED;
     plannerContext.setResourceActions(resourceActions);
@@ -262,6 +274,7 @@ public class DruidPlanner implements Closeable
     Preconditions.checkState(state == State.VALIDATED);
 
     rootQueryRel = planner.rel(validatedQueryNode);
+    stateCapture.captureQueryRel(rootQueryRel);
     doPrepare();
     state = State.PREPARED;
     return prepareResult;
@@ -272,6 +285,7 @@ public class DruidPlanner implements Closeable
     final RelDataTypeFactory typeFactory = rootQueryRel.rel.getCluster().getTypeFactory();
     final SqlValidator validator = planner.getValidator();
     final RelDataType parameterTypes = validator.getParameterRowType(validatedQueryNode);
+    stateCapture.captureParameterTypes(parameterTypes);
     final RelDataType returnedRowType;
 
     if (parsed.getExplainNode() != null) {
@@ -342,6 +356,7 @@ public class DruidPlanner implements Closeable
     Preconditions.checkState(authorized);
     if (state == State.VALIDATED) {
       rootQueryRel = planner.rel(validatedQueryNode);
+      stateCapture.captureQueryRel(rootQueryRel);
     }
 
     final Set<RelOptTable> bindableTables = getBindableTables(rootQueryRel.rel);
@@ -421,6 +436,7 @@ public class DruidPlanner implements Closeable
   ) throws ValidationException
   {
     final RelRoot possiblyLimitedRoot = possiblyWrapRootWithOuterLimitFromContext(root);
+    stateCapture.captureQueryRel(possiblyLimitedRoot);
     final QueryMaker queryMaker = buildQueryMaker(possiblyLimitedRoot, insertOrReplace);
     plannerContext.setQueryMaker(queryMaker);
     if (prepareResult == null) {
@@ -446,6 +462,7 @@ public class DruidPlanner implements Closeable
                .plus(root.collation),
         parameterized
     );
+    stateCapture.captureDruidRel(druidRel);
 
     if (explain != null) {
       return planExplanation(druidRel, explain, true);
@@ -511,6 +528,7 @@ public class DruidPlanner implements Closeable
         planner.getEmptyTraitSet().replace(BindableConvention.INSTANCE).plus(root.collation),
         root.rel
     );
+    stateCapture.captureBindableRel(bindableRel);
 
     if (!root.isRefTrivial()) {
       // Add a projection on top to accommodate root.fields.
