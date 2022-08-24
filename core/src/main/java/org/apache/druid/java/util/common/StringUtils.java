@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.IllegalFormatException;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 /**
  * As of OpenJDK / Oracle JDK 8, the JVM is optimized around String charset variable instead of Charset passing, that
@@ -362,6 +363,15 @@ public class StringUtils
     } while (pos > 0);
     sb.append(s, prevPos, sLength);
     return sb.toString();
+  }
+
+  /**
+   * Replacement for String.replaceAll, which forbiddenapi checks forbids.
+   * The implementation simply does what String.replaceAll() does.
+   */
+  public static String replaceAll(String string, String pattern, String replacement)
+  {
+    return Pattern.compile(pattern).matcher(string).replaceAll(replacement);
   }
 
   /**

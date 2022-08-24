@@ -142,7 +142,7 @@ public class DruidPlanner implements Closeable
   private Set<ResourceAction> resourceActions;
   private RelRoot rootQueryRel;
   private RexBuilder rexBuilder;
-  private PlannerStateCapture stateCapture;
+  private PlannerStateCapture stateCapture = NoOpCapture.INSTANCE;
 
   DruidPlanner(
       final FrameworkConfig frameworkConfig,

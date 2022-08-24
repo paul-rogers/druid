@@ -23,6 +23,7 @@ import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
 import org.apache.druid.sql.calcite.tester.PlannerTestFixtureBuilder;
 import org.apache.druid.sql.calcite.tester.QueryTestSet;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -67,6 +68,15 @@ public class DruidPlannerTest
   {
     assertTrue(QueryTestSet
         .fromResource("/calcite/cases/parameterQuery.case")
+        .run(standardBuilder()));
+  }
+
+  @Test
+  @Ignore
+  public void testAdHoc() throws IOException
+  {
+    assertTrue(QueryTestSet
+        .fromResource("/calcite/cases/adhoc.case")
         .run(standardBuilder()));
   }
 }

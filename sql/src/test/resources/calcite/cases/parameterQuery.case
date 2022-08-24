@@ -77,7 +77,7 @@ EXPR$0 INTEGER
 dim1 VARCHAR
 === plan
 LogicalSort(fetch=[1])
-  LogicalProject(EXPR$0=[+(1, 1)], dim1=[$2])
+  LogicalProject(EXPR$0=[+(1, 1)], dim1=[$1])
     LogicalTableScan(table=[[druid, foo]])
 === native
 {
@@ -131,7 +131,7 @@ EXPR$1 DOUBLE
 LogicalProject(EXPR$0=[+(EXP($0), 10)], EXPR$1=[$1])
   LogicalAggregate(group=[{}], agg#0=[COUNT()], EXPR$1=[SUM($0)])
     LogicalProject(m2=[$6])
-      LogicalFilter(condition=[=(CAST($3):INTEGER, 0)])
+      LogicalFilter(condition=[=(CAST($2):INTEGER, 0)])
         LogicalTableScan(table=[[druid, foo]])
 === native
 {
@@ -363,6 +363,39 @@ BindableProject(EXPR$0=[$0], EXPR$1=[CASE(=($0, 0), null:BIGINT, $1)], EXPR$2=[/
       BindableTableScan(table=[[INFORMATION_SCHEMA, COLUMNS]])
 === results copy
 ==============================================================
+Converted from testParamsInInformationSchema()
+=== case
+Params in information schema
+=== SQL
+SELECT
+  COUNT(JDBC_TYPE),
+  SUM(JDBC_TYPE),
+  AVG(JDBC_TYPE),
+  MIN(JDBC_TYPE),
+  MAX(JDBC_TYPE)
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+=== parameters
+varchar: "druid"
+varchar: "foo"
+=== options
+sqlCompatibleNulls=both
+vectorize=true
+=== schema
+EXPR$0 BIGINT
+EXPR$1 BIGINT
+EXPR$2 BIGINT
+EXPR$3 BIGINT
+EXPR$4 BIGINT
+=== plan
+BindableProject(EXPR$0=[$0], EXPR$1=[CASE(=($0, 0), null:BIGINT, $1)], EXPR$2=[/(CASE(=($0, 0), null:BIGINT, $1), $0)], EXPR$3=[$2], EXPR$4=[$3])
+  BindableAggregate(group=[{}], EXPR$0=[COUNT()], EXPR$1=[$SUM0($16)], EXPR$3=[MIN($16)], EXPR$4=[MAX($16)])
+    BindableFilter(condition=[AND(=($1, 'druid'), =($2, 'foo'))])
+      BindableTableScan(table=[[INFORMATION_SCHEMA, COLUMNS]])
+=== run
+=== results
+[8,1249,156,-5,1111]
+==============================================================
 Converted from testParamsInSelectExpressionAndLimit()
 === case
 Params in select expression and limit
@@ -380,7 +413,7 @@ vectorize=true
 EXPR$0 VARCHAR
 === plan
 LogicalSort(fetch=[2])
-  LogicalProject(EXPR$0=[SUBSTRING($3, 1, 1)])
+  LogicalProject(EXPR$0=[SUBSTRING($2, 1, 1)])
     LogicalTableScan(table=[[druid, foo]])
 === native
 {
@@ -441,8 +474,8 @@ m1 FLOAT
 EXPR$2 BIGINT
 === plan
 LogicalAggregate(group=[{0, 1}], EXPR$2=[COUNT()])
-  LogicalProject(dim1=[$2], m1=[$5])
-    LogicalFilter(condition=[=(-($5, 1), CAST($2):FLOAT)])
+  LogicalProject(dim1=[$1], m1=[$5])
+    LogicalFilter(condition=[=(-($5, 1), CAST($1):FLOAT)])
       LogicalTableScan(table=[[druid, foo]])
 === native
 {
@@ -520,7 +553,7 @@ ratio BIGINT
 LogicalProject(dim1=[$0], ratio=[/($1, $2)])
   LogicalFilter(condition=[=(/($1, $2), 1)])
     LogicalAggregate(group=[{0}], agg#0=[COUNT() FILTER $1], agg#1=[COUNT()])
-      LogicalProject(dim1=[$2], $f1=[IS TRUE(<>($3, 'a'))])
+      LogicalProject(dim1=[$1], $f1=[IS TRUE(<>($2, 'a'))])
         LogicalTableScan(table=[[druid, foo]])
 === native
 {
@@ -613,7 +646,7 @@ EXPR$0 DOUBLE
 === plan
 LogicalProject(EXPR$0=[/($1, 10)])
   LogicalAggregate(group=[{}], agg#0=[SUM($0)], agg#1=[SUM($1)], agg#2=[SUM($2)])
-    LogicalProject(cnt=[$1], m1=[$5], m2=[$6])
+    LogicalProject(cnt=[$4], m1=[$5], m2=[$6])
       LogicalTableScan(table=[[druid, foo]])
 === native
 {
@@ -856,7 +889,7 @@ EXPR$0 BIGINT
 === plan
 LogicalAggregate(group=[{}], EXPR$0=[COUNT()])
   LogicalProject($f0=[0])
-    LogicalFilter(condition=[AND(>($1, 1.1E0:DOUBLE), <($1, 1.0E8:DOUBLE))])
+    LogicalFilter(condition=[AND(>($4, 1.1E0:DOUBLE), <($4, 1.0E8:DOUBLE))])
       LogicalTableScan(table=[[druid, foo]])
 === native
 {
@@ -910,7 +943,7 @@ EXPR$0 BIGINT
 === plan
 LogicalAggregate(group=[{}], EXPR$0=[COUNT()])
   LogicalProject($f0=[0])
-    LogicalFilter(condition=[OR(=(CAST($1):DOUBLE NOT NULL, 1.0E0), =(CAST($1):DOUBLE NOT NULL, 1.0E8))])
+    LogicalFilter(condition=[OR(=(CAST($4):DOUBLE NOT NULL, 1.0E0), =(CAST($4):DOUBLE NOT NULL, 1.0E8))])
       LogicalTableScan(table=[[druid, foo]])
 === native
 {
@@ -974,7 +1007,7 @@ EXPR$0 BIGINT
 === plan
 LogicalAggregate(group=[{}], EXPR$0=[COUNT()])
   LogicalProject($f0=[0])
-    LogicalFilter(condition=[=(CAST($1):DOUBLE NOT NULL, 1.0E0)])
+    LogicalFilter(condition=[=(CAST($4):DOUBLE NOT NULL, 1.0E0)])
       LogicalTableScan(table=[[druid, foo]])
 === native
 {
@@ -1042,7 +1075,7 @@ EXPR$0 BIGINT
 === plan
 LogicalAggregate(group=[{}], EXPR$0=[COUNT()])
   LogicalProject($f0=[0])
-    LogicalFilter(condition=[>($12, 3)])
+    LogicalFilter(condition=[>($11, 3)])
       LogicalTableScan(table=[[druid, numfoo]])
 === native
 {
@@ -1135,7 +1168,7 @@ EXPR$0 BIGINT
 === plan
 LogicalAggregate(group=[{}], EXPR$0=[COUNT()])
   LogicalProject($f0=[0])
-    LogicalFilter(condition=[AND(>($12, 3), =($10, CAST('wat'):FLOAT NOT NULL))])
+    LogicalFilter(condition=[AND(>($11, 3), =($9, CAST('wat'):FLOAT NOT NULL))])
       LogicalTableScan(table=[[druid, numfoo]])
 === native
 {
@@ -1282,7 +1315,7 @@ EXPR$0 VARCHAR
 EXPR$1 BIGINT
 === plan
 LogicalAggregate(group=[{0}], EXPR$1=[COUNT()])
-  LogicalProject(EXPR$0=[CASE(IS NOT NULL($3), $3, 'parameter':VARCHAR)])
+  LogicalProject(EXPR$0=[CASE(IS NOT NULL($2), $2, 'parameter':VARCHAR)])
     LogicalTableScan(table=[[druid, foo]])
 === native
 {
@@ -1356,7 +1389,7 @@ EXPR$0 VARCHAR
 EXPR$1 BIGINT
 === plan
 LogicalAggregate(group=[{0}], EXPR$1=[COUNT()])
-  LogicalProject(EXPR$0=[CASE(IS NOT NULL($3), $3, 'parameter':VARCHAR)])
+  LogicalProject(EXPR$0=[CASE(IS NOT NULL($2), $2, 'parameter':VARCHAR)])
     LogicalTableScan(table=[[druid, foo]])
 === native
 {

@@ -75,10 +75,8 @@ public class TestCaseLoader
 
   public static List<QueryTestCase> loadFile(File file)
   {
-    try {
-      try (InputStream is = new FileInputStream(file)) {
-        return load(new InputStreamReader(is, StandardCharsets.UTF_8), file.getName());
-      }
+    try (InputStream is = new FileInputStream(file)) {
+      return load(new InputStreamReader(is, StandardCharsets.UTF_8), file.getName());
     }
     catch (IOException e) {
       throw new IAE("Cannot open file: " + file.getAbsolutePath());

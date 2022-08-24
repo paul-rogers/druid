@@ -88,6 +88,8 @@ import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 import org.apache.druid.sql.calcite.table.RowSignatures;
+import org.apache.druid.sql.calcite.tester.CalciteTestCapture;
+import org.apache.druid.sql.calcite.tester.CalciteTestRecorder;
 import org.apache.druid.sql.calcite.util.CalciteTestBase;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.QueryFramework;
@@ -100,6 +102,7 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Interval;
 import org.joda.time.chrono.ISOChronology;
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -174,10 +177,11 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
 
   public static final String DUMMY_SQL_ID = "dummy";
 
+  public static final String PRETEND_CURRENT_TIME = "2000-01-01T00:00:00Z";
   private static final ImmutableMap.Builder<String, Object> DEFAULT_QUERY_CONTEXT_BUILDER =
       ImmutableMap.<String, Object>builder()
                   .put(PlannerContext.CTX_SQL_QUERY_ID, DUMMY_SQL_ID)
-                  .put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, "2000-01-01T00:00:00Z")
+                  .put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
                   .put(QueryContexts.DEFAULT_TIMEOUT_KEY, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
                   .put(QueryContexts.MAX_SCATTER_GATHER_BYTES_KEY, Long.MAX_VALUE);
   public static final Map<String, Object> QUERY_CONTEXT_DEFAULT = DEFAULT_QUERY_CONTEXT_BUILDER.build();
@@ -188,7 +192,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
 
   public static final Map<String, Object> QUERY_CONTEXT_DONT_SKIP_EMPTY_BUCKETS = ImmutableMap.of(
       PlannerContext.CTX_SQL_QUERY_ID, DUMMY_SQL_ID,
-      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, "2000-01-01T00:00:00Z",
+      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME,
       TimeseriesQuery.SKIP_EMPTY_BUCKETS, false,
       QueryContexts.DEFAULT_TIMEOUT_KEY, QueryContexts.DEFAULT_TIMEOUT_MILLIS,
       QueryContexts.MAX_SCATTER_GATHER_BYTES_KEY, Long.MAX_VALUE
@@ -196,7 +200,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
 
   public static final Map<String, Object> QUERY_CONTEXT_DO_SKIP_EMPTY_BUCKETS = ImmutableMap.of(
       PlannerContext.CTX_SQL_QUERY_ID, DUMMY_SQL_ID,
-      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, "2000-01-01T00:00:00Z",
+      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME,
       TimeseriesQuery.SKIP_EMPTY_BUCKETS, true,
       QueryContexts.DEFAULT_TIMEOUT_KEY, QueryContexts.DEFAULT_TIMEOUT_MILLIS,
       QueryContexts.MAX_SCATTER_GATHER_BYTES_KEY, Long.MAX_VALUE
@@ -204,7 +208,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
 
   public static final Map<String, Object> QUERY_CONTEXT_NO_TOPN = ImmutableMap.of(
       PlannerContext.CTX_SQL_QUERY_ID, DUMMY_SQL_ID,
-      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, "2000-01-01T00:00:00Z",
+      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME,
       PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, "false",
       QueryContexts.DEFAULT_TIMEOUT_KEY, QueryContexts.DEFAULT_TIMEOUT_MILLIS,
       QueryContexts.MAX_SCATTER_GATHER_BYTES_KEY, Long.MAX_VALUE
@@ -212,7 +216,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
 
   public static final Map<String, Object> QUERY_CONTEXT_LOS_ANGELES = ImmutableMap.of(
       PlannerContext.CTX_SQL_QUERY_ID, DUMMY_SQL_ID,
-      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, "2000-01-01T00:00:00Z",
+      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME,
       PlannerContext.CTX_SQL_TIME_ZONE, LOS_ANGELES,
       QueryContexts.DEFAULT_TIMEOUT_KEY, QueryContexts.DEFAULT_TIMEOUT_MILLIS,
       QueryContexts.MAX_SCATTER_GATHER_BYTES_KEY, Long.MAX_VALUE
@@ -221,7 +225,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
   // Matches QUERY_CONTEXT_DEFAULT
   public static final Map<String, Object> TIMESERIES_CONTEXT_BY_GRAN = ImmutableMap.of(
       PlannerContext.CTX_SQL_QUERY_ID, DUMMY_SQL_ID,
-      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, "2000-01-01T00:00:00Z",
+      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME,
       TimeseriesQuery.SKIP_EMPTY_BUCKETS, true,
       QueryContexts.DEFAULT_TIMEOUT_KEY, QueryContexts.DEFAULT_TIMEOUT_MILLIS,
       QueryContexts.MAX_SCATTER_GATHER_BYTES_KEY, Long.MAX_VALUE
@@ -285,6 +289,14 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
 
     OUTER_LIMIT_CONTEXT.put(PlannerContext.CTX_SQL_OUTER_LIMIT, 2);
   }
+
+  /**
+   * Allows recording of the planning details of a test. Enable it to convert a Java test
+   * into the planner test framework ".case" file format. Change OFF to PLAN_AND_RUN to
+   * enable capture.
+   */
+  protected static CalciteTestRecorder recorder =
+      CalciteTestRecorder.create(CalciteTestRecorder.Option.PLAN_AND_RUN);
 
   // Generate timestamps for expected results
   public static long timestamp(final String timeString)
@@ -458,6 +470,12 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
   public static void setUpClass()
   {
     resetFramework();
+  }
+
+  @After
+  public void tearDown() throws Exception
+  {
+    recorder.emit();
   }
 
   @AfterClass
@@ -844,9 +862,33 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
         expectedExceptionInitializer.accept(expectedException);
       }
 
-      final Pair<RowSignature, List<Object[]>> plannerResults = queryRunner.getResults(
-          sqlQuery.withContext(theQueryContext));
-      verifyResults(sql, theQueries, plannerResults, expectedResultsVerifier);
+      final CalciteTestCapture capture;
+      if (recorder.isLive()) {
+        capture = new CalciteTestCapture(
+            plannerConfig,
+            sqlQuery,
+            expectedQueries,
+            expectedResultsVerifier,
+            expectedExceptionInitializer
+            );
+        capture.options(cannotVectorize, 0);
+        recorder.record(capture);
+      } else {
+        capture = null;
+      }
+      try {
+        final Pair<RowSignature, List<Object[]>> plannerResults = queryRunner.getResults(
+            sqlQuery.withContext(theQueryContext),
+            capture
+        );
+        verifyResults(sql, theQueries, plannerResults, expectedResultsVerifier);
+      }
+      catch (Exception e) {
+        if (capture != null) {
+          capture.exception(e);
+        }
+        throw e;
+      }
     }
   }
 
@@ -874,12 +916,24 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
 
     public Pair<RowSignature, List<Object[]>> getResults(SqlQueryPlus query)
     {
+      return getResults(query, null);
+    }
+
+    public Pair<RowSignature, List<Object[]>> getResults(
+        SqlQueryPlus query,
+        CalciteTestCapture capture
+    )
+    {
       final DirectStatement stmt = sqlStatementFactory.directStatement(query);
       Sequence<Object[]> results = stmt.execute();
       RelDataType rowType = stmt.prepareResult().getReturnedRowType();
+      List<Object[]> rows = results.toList();
+      if (capture != null) {
+        capture.results(rowType, rows);
+      }
       return new Pair<>(
           RowSignatures.fromRelDataType(rowType.getFieldNames(), rowType),
-          results.toList()
+          rows
       );
     }
 
@@ -1183,6 +1237,11 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
     }
 
     void verify(String sql, List<Object[]> results);
+
+    default List<Object[]> expectedResults()
+    {
+      return null;
+    }
   }
 
   public class DefaultResultsVerifier implements ResultsVerifier
@@ -1210,6 +1269,12 @@ public class BaseCalciteQueryTest extends CalciteTestBase implements QueryCompon
     {
       Assert.assertEquals(StringUtils.format("result count: %s", sql), expectedResults.size(), results.size());
       assertResultsEquals(sql, expectedResults, results);
+    }
+
+    @Override
+    public List<Object[]> expectedResults()
+    {
+      return expectedResults;
     }
   }
 }

@@ -687,7 +687,7 @@ public class ActualResults
     }
     for (int i = 0; i < runs.size(); i++) {
       if (!written[i]) {
-        runs.get(i).write(writer);;
+        runs.get(i).write(writer);
       }
     }
   }

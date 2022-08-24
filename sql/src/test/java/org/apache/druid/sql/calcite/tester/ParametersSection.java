@@ -85,6 +85,6 @@ public class ParametersSection extends TestSection
   @Override
   public void writeSection(TestCaseWriter writer) throws IOException
   {
-    writer.emitParameters(parameters);
+    writer.emitSqlParameters(parameters);
   }
 }

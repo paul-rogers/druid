@@ -20,6 +20,7 @@
 package org.apache.druid.sql.calcite.tester;
 
 import com.google.common.base.Strings;
+import org.apache.calcite.avatica.remote.TypedValue;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.http.SqlParameter;
@@ -107,7 +108,40 @@ public class TestCaseWriter
     emitSection("user", user);
   }
 
-  public void emitParameters(List<SqlParameter> parameters) throws IOException
+
+  public void emitParameters(List<TypedValue> parameters) throws IOException
+  {
+    emitSection("parameters");
+    for (TypedValue p : parameters) {
+      if (p == null) {
+        writer.append("null\n");
+        continue;
+      }
+      Object value = p.toLocal();
+      if (value == null) {
+        writer.append("null\n");
+        continue;
+      }
+      String type;
+      if (value instanceof Integer) {
+        type = "integer";
+      } else if (value instanceof Long) {
+        type = "bigint";
+      } else if (value instanceof Float) {
+        type = "float";
+      } else if (value instanceof Double) {
+        type = "double";
+      } else {
+        type = "varchar";
+      }
+      writer.append(type)
+            .append(": ")
+            .append(QueryTestCases.valueToString(value))
+            .append("\n");
+    }
+  }
+
+  public void emitSqlParameters(List<SqlParameter> parameters) throws IOException
   {
     emitSection("parameters");
     for (SqlParameter p : parameters) {
