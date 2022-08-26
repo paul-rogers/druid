@@ -216,8 +216,8 @@ public class QueryPlanner
     @SuppressWarnings("unchecked")
     TransformOperator<T, T> op = new TransformOperator<>(
         queryPlus.fragmentBuilder().context(),
-        (Function<T, T>) finalizerFn,
-        inputOp);
+        inputOp,
+        (Function<T, T>) finalizerFn);
     return Operators.toSequence(op);
   }
 

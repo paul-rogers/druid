@@ -33,7 +33,7 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.config.QueryNGConfig;
 import org.apache.druid.queryng.planner.QueryPlanner;
 import org.apache.druid.segment.SegmentMissingException;
 
@@ -63,7 +63,7 @@ public class SpecificSegmentQueryRunner<T> implements QueryRunner<T>
   @Override
   public Sequence<T> run(final QueryPlus<T> input, final ResponseContext responseContext)
   {
-    if (Operators.enabledFor(input)) {
+    if (QueryNGConfig.enabledFor(input)) {
       return QueryPlanner.runSpecificSegment(
           base,
           specificSpec,

@@ -54,19 +54,7 @@ public class CpuMetricOperator<T> extends MappingOperator<T, T>
   }
 
   @Override
-  public boolean hasNext()
-  {
-    final long startRun = JvmUtils.getCurrentThreadCpuTime();
-    try {
-      return super.hasNext();
-    }
-    finally {
-      cpuTimeAccumulator.addAndGet(JvmUtils.getCurrentThreadCpuTime() - startRun);
-    }
-  }
-
-  @Override
-  public T next()
+  public T next() throws EofException
   {
     final long startRun = JvmUtils.getCurrentThreadCpuTime();
     try {

@@ -44,6 +44,7 @@ import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
+import org.apache.druid.queryng.config.QueryNGConfig;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.planner.ServerExecutionPlanner;
 import org.apache.druid.segment.ReferenceCountingSegment;
@@ -167,7 +168,7 @@ public class TestClusterQuerySegmentWalker implements QuerySegmentWalker
     // the LocalQuerySegmentWalker constructor instead since this walker does not
     // mimic remote DruidServer objects to actually serve the queries.
     return (theQuery, responseContext) -> {
-      if (Operators.enabledFor(theQuery)) {
+      if (QueryNGConfig.enabledFor(theQuery)) {
         return ServerExecutionPlanner.testRun(
             theQuery,
             baseRunner,

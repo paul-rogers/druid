@@ -17,42 +17,34 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.operators.scan;
+package org.apache.druid.queryng.operators;
 
-import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operators.MappingOperator;
-import org.apache.druid.queryng.operators.Operator;
 
-import java.util.Iterator;
+import java.util.function.Predicate;
 
 /**
- * Converts an input operator which returns scan query "batches" to individual map records.
- * The record type is assumed to be one of the valid
- * {@link org.apache.druid.query.scan.ScanQuery.ResultFormat
- * ResultFormat} types.
+ * Super-simple filter operator with the filter provided by a
+ * predicate.
  */
-public class ScanBatchToRowOperator<T> extends MappingOperator<ScanResultValue, T>
+public class FilterOperator<T> extends MappingOperator<T, T>
 {
-  private Iterator<Object> batchIter;
+  private final Predicate<T> predicate;
 
-  public ScanBatchToRowOperator(FragmentContext context, Operator<ScanResultValue> input)
+  public FilterOperator(FragmentContext context, Operator<T> input, Predicate<T> pred)
   {
     super(context, input);
+    this.predicate = pred;
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public T next() throws EofException
   {
     while (true) {
-      if (batchIter == null) {
-        batchIter = inputIter.next().getRows().iterator();
+      T nextValue = inputIter.next();
+      if (predicate.test(nextValue)) {
+        return nextValue;
       }
-      if (batchIter.hasNext()) {
-        return (T) batchIter.next();
-      }
-      batchIter = null;
     }
   }
 }

@@ -28,7 +28,7 @@ import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
 import org.apache.druid.query.aggregation.MetricManipulatorFns;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.config.QueryNGConfig;
 import org.apache.druid.queryng.planner.QueryPlanner;
 
 /**
@@ -57,7 +57,7 @@ public class FinalizeResultsQueryRunner<T> implements QueryRunner<T>
   @Override
   public Sequence<T> run(final QueryPlus<T> queryPlus, ResponseContext responseContext)
   {
-    if (Operators.enabledFor(queryPlus)) {
+    if (QueryNGConfig.enabledFor(queryPlus)) {
       return QueryPlanner.runFinalizeResults(baseRunner, toolChest, queryPlus, responseContext);
     }
     final Query<T> query = queryPlus.getQuery();

@@ -21,21 +21,20 @@ package org.apache.druid.queryng.operators.scan;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Maps;
+import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
-import org.apache.druid.queryng.operators.Operator.State;
+import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.joda.time.Interval;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -88,7 +87,7 @@ public class MockScanResultReader implements IterableOperator<ScanResultValue>
       columns.add(ColumnHolder.TIME_COLUMN_NAME);
     }
     for (int i = 1; i < columnCount; i++) {
-      columns.add("Column" + Integer.toString(i));
+      columns.add("Column" + i);
     }
     this.targetCount = targetCount;
     this.batchSize = batchSize;
@@ -108,26 +107,23 @@ public class MockScanResultReader implements IterableOperator<ScanResultValue>
     Instant base = Instant.parse("2021-10-24T00:00:00Z");
     Duration grainOffset = grain.multipliedBy(offset);
     Instant start = base.plus(grainOffset);
-    return new Interval(start.toEpochMilli(), start.plus(grain).toEpochMilli());
+    return Intervals.utc(start.toEpochMilli(), start.plus(grain).toEpochMilli());
   }
 
   @Override
-  public Iterator<ScanResultValue> open()
+  public ResultIterator<ScanResultValue> open()
   {
     state = State.RUN;
     return this;
   }
 
   @Override
-  public boolean hasNext()
+  public ScanResultValue next() throws EofException
   {
     Preconditions.checkState(state == State.RUN);
-    return rowCount < targetCount;
-  }
-
-  @Override
-  public ScanResultValue next()
-  {
+    if (rowCount >= targetCount) {
+      throw Operators.eof();
+    }
     int n = Math.min(targetCount - rowCount, batchSize);
     Object batch;
     if (resultFormat == ResultFormat.RESULT_FORMAT_COMPACTED_LIST) {
@@ -161,7 +157,7 @@ public class MockScanResultReader implements IterableOperator<ScanResultValue>
   {
     List<Map<String, Object>> batch = new ArrayList<>(n);
     for (int i = 0; i < n; i++) {
-      Map<String, Object> values = new HashMap<>(columns.size());
+      Map<String, Object> values = Maps.newHashMapWithExpectedSize(columns.size());
       if (!columns.isEmpty()) {
         values.put(ColumnHolder.TIME_COLUMN_NAME, nextTs);
       }

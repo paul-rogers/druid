@@ -85,7 +85,7 @@ public class ProjectResultsOperator extends MappingOperator<Object[], Object[]>
   }
 
   @Override
-  public Object[] next()
+  public Object[] next() throws EofException
   {
     final Object[] array = inputIter.next();
     final Object[] newArray = new Object[mapping.length];

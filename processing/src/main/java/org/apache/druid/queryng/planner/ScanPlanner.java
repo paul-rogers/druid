@@ -34,14 +34,17 @@ import org.apache.druid.query.scan.ScanQueryConfig;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.ConcatOperator;
+import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.scan.GroupedScanResultLimitOperator;
 import org.apache.druid.queryng.operators.scan.ScanBatchToRowOperator;
 import org.apache.druid.queryng.operators.scan.ScanCompactListToArrayOperator;
 import org.apache.druid.queryng.operators.scan.ScanListToArrayOperator;
 import org.apache.druid.queryng.operators.scan.ScanQueryOperator;
-import org.apache.druid.queryng.operators.scan.ScanResultLimitOperator;
 import org.apache.druid.queryng.operators.scan.ScanResultOffsetOperator;
+import org.apache.druid.queryng.operators.scan.UngroupedScanResultLimitOperator;
+import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.Segment;
 
 import java.util.ArrayList;
@@ -50,13 +53,29 @@ import java.util.Map;
 
 /**
  * Scan-specific parts of the hybrid query planner.
- *
- * @see {@link QueryPlanner}
  */
 public class ScanPlanner
 {
   /**
-   * @see {@link org.apache.druid.query.scan.ScanQueryQueryToolChest.mergeResults}
+   * Sets up an operator over a ScanResultValue operator.  Its behaviour
+   * varies depending on whether the query is returning time-ordered values
+   * and whether the CTX_KEY_OUTERMOST flag is false.
+   * <p>
+   * Behaviours:
+   * <ol>
+   * <li>No time ordering: expects the child to produce ScanResultValues which
+   *     each contain up to query.batchSize events. The operator will be "done"
+   *     when the limit of events is reached.  The final ScanResultValue might contain
+   *     fewer than batchSize events so that the limit number of events is returned.</li>
+   * <li>Time Ordering, CTX_KEY_OUTERMOST false: Same behaviour as no time ordering.</li>
+   * <li>Time Ordering, CTX_KEY_OUTERMOST=true or null: The child operator in this
+   *     case should produce ScanResultValues that contain only one event each for
+   *     the CachingClusteredClient n-way merge.  This operator will perform
+   *     batching according to query batch size until the limit is reached.</li>
+   * </ol>
+   *
+   * @see {@link org.apache.druid.query.scan.ScanQueryLimitRowIterator}
+   * @see {@link org.apache.druid.query.scan.ScanQueryQueryToolChest#mergeResults}
    */
   public static Sequence<ScanResultValue> runLimitAndOffset(
       final QueryPlus<ScanResultValue> queryPlus,
@@ -64,33 +83,37 @@ public class ScanPlanner
       final ResponseContext responseContext,
       final ScanQueryConfig scanQueryConfig)
   {
-    // Remove "offset" and add it to the "limit" (we won't push the offset down, just apply it here, at the
-    // merge at the top of the stack).
-    final ScanQuery originalQuery = ((ScanQuery) (queryPlus.getQuery()));
+    // Remove "offset" and add it to the "limit" (we won't push the offset
+    // down, just apply it here, at the merge at the top of the stack).
+    final ScanQuery originalQuery = (ScanQuery) queryPlus.getQuery();
     ScanQuery.verifyOrderByForNativeExecution(originalQuery);
 
+    final boolean hasLimit = originalQuery.isLimited();
+    final long limit = hasLimit ? originalQuery.getScanRowsLimit() : Long.MAX_VALUE;
+    final long offset = originalQuery.getScanRowsOffset();
     final long newLimit;
-    if (!originalQuery.isLimited()) {
+    if (!hasLimit) {
       // Unlimited stays unlimited.
-      newLimit = Long.MAX_VALUE;
-    } else if (originalQuery.getScanRowsLimit() > Long.MAX_VALUE - originalQuery.getScanRowsOffset()) {
+      newLimit = limit;
+    } else if (limit > Long.MAX_VALUE - offset) {
       throw new ISE(
-          "Cannot apply limit[%d] with offset[%d] due to overflow",
-          originalQuery.getScanRowsLimit(),
-          originalQuery.getScanRowsOffset()
+          "Cannot apply limit [%d] with offset [%d] due to overflow",
+          limit,
+          offset
       );
     } else {
-      newLimit = originalQuery.getScanRowsLimit() + originalQuery.getScanRowsOffset();
+      newLimit = limit + offset;
     }
 
-    // Ensure "legacy" is a non-null value, such that all other nodes this query is forwarded to will treat it
-    // the same way, even if they have different default legacy values.
+    // Ensure "legacy" is a non-null value, such that all other nodes this
+    // query is forwarded to will treat it the same way, even if they have
+    // different default legacy values.
     final ScanQuery queryToRun = originalQuery.withNonNullLegacy(scanQueryConfig)
                                               .withOffset(0)
                                               .withLimit(newLimit);
 
-    final boolean hasLimit = queryToRun.isLimited();
-    final boolean hasOffset = originalQuery.getScanRowsOffset() > 0;
+    final boolean hasOffset = offset > 0;
+    final boolean isGrouped = isGrouped(queryToRun);
 
     // Short-circuit if no limit or offset.
     if (!hasLimit && !hasOffset) {
@@ -106,30 +129,36 @@ public class ScanPlanner
       historicalQuery =
           queryToRun.withOverriddenContext(ImmutableMap.of(ScanQuery.CTX_KEY_OUTERMOST, false));
     }
-    QueryPlus<ScanResultValue> historicalQueryPlus = queryPlus.withQuery(historicalQuery);
-    Operator<ScanResultValue> inputOp = Operators.toOperator(
+    // No metrics past this point: metrics are not thread-safe.
+    QueryPlus<ScanResultValue> historicalQueryPlus = queryPlus.withQuery(historicalQuery).withoutMetrics();
+    FragmentContext fragmentContext = queryPlus.fragmentBuilder().context();
+    Operator<ScanResultValue> oper = Operators.toOperator(
         input,
         historicalQueryPlus);
-    if (hasLimit) {
-      final ScanQuery limitedQuery = (ScanQuery) historicalQuery;
-      ScanResultLimitOperator op = new ScanResultLimitOperator(
-          queryPlus.fragmentBuilder().context(),
-          limitedQuery.getScanRowsLimit(),
-          isGrouped(queryToRun),
-          limitedQuery.getBatchSize(),
-          inputOp
-          );
-      inputOp = op;
-    }
     if (hasOffset) {
-      ScanResultOffsetOperator op = new ScanResultOffsetOperator(
-          queryPlus.fragmentBuilder().context(),
-          queryToRun.getScanRowsOffset(),
-          inputOp
+      oper = new ScanResultOffsetOperator(
+          fragmentContext,
+          oper,
+          offset
           );
-      inputOp = op;
     }
-    return Operators.toSequence(inputOp);
+    if (hasLimit) {
+      if (isGrouped) {
+        oper = new GroupedScanResultLimitOperator(
+            fragmentContext,
+            oper,
+            limit
+            );
+      } else {
+        oper = new UngroupedScanResultLimitOperator(
+            fragmentContext,
+            oper,
+            limit,
+            queryToRun.getBatchSize()
+            );
+      }
+    }
+    return Operators.toSequence(oper);
   }
 
   private static boolean isGrouped(ScanQuery query)
@@ -140,12 +169,12 @@ public class ScanPlanner
   }
 
   /**
-   * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory.mergeRunners}
+   * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory#mergeRunners}
    */
   private static Sequence<ScanResultValue> runConcatMerge(
       final QueryPlus<ScanResultValue> queryPlus,
-      final Iterable<QueryRunner<ScanResultValue>> queryRunners,
-      final ResponseContext responseContext)
+      final Iterable<QueryRunner<ScanResultValue>> queryRunners
+  )
   {
     List<Operator<ScanResultValue>> inputs = new ArrayList<>();
     for (QueryRunner<ScanResultValue> qr : queryRunners) {
@@ -175,8 +204,8 @@ public class ScanPlanner
   }
 
   /**
-   * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory.mergeRunners}
-   * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory.nWayMergeAndLimit}
+   * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory#mergeRunners}
+   * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory#nWayMergeAndLimit}
    */
   public static Sequence<ScanResultValue> runMerge(
       final QueryPlus<ScanResultValue> queryPlus,
@@ -195,8 +224,7 @@ public class ScanPlanner
       // Use normal strategy
       return runConcatMerge(
           queryPlus,
-          queryRunners,
-          responseContext);
+          queryRunners);
     }
     return null;
   }
@@ -206,12 +234,17 @@ public class ScanPlanner
    * query runner.
    *
    * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory.ScanQueryRunner}
+   * @see {@link org.apache.druid.query.scan.ScanQueryEngine}
    */
   public static Sequence<ScanResultValue> runScan(
       final QueryPlus<ScanResultValue> queryPlus,
       final Segment segment,
       final ResponseContext responseContext)
   {
+    FragmentContext fragmentContext = queryPlus.fragmentBuilder().context();
+    if (isTombstone(segment)) {
+      return Operators.toSequence(new NullOperator<>(fragmentContext));
+    }
     if (!(queryPlus.getQuery() instanceof ScanQuery)) {
       throw new ISE("Got a [%s] which isn't a %s", queryPlus.getQuery().getClass(), ScanQuery.class);
     }
@@ -224,9 +257,16 @@ public class ScanPlanner
     // TODO (paul): Set the timeout at the overall fragment context level.
     return Operators.toSequence(
         new ScanQueryOperator(
-            queryPlus.fragmentBuilder().context(),
+            fragmentContext,
             query,
-            segment));
+            segment,
+            queryPlus.getQueryMetrics()));
+  }
+
+  private static boolean isTombstone(final Segment segment)
+  {
+    QueryableIndex queryableIndex = segment.asQueryableIndex();
+    return queryableIndex != null && queryableIndex.isFromTombstone();
   }
 
   public static Sequence<Object[]> resultsAsArrays(

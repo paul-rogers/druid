@@ -1,19 +1,38 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.druid.queryng.operators.sql;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import net.thisptr.jackson.jq.internal.misc.Lists;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
+import org.apache.druid.queryng.operators.Operators;
 import org.joda.time.DateTimeZone;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -43,20 +62,17 @@ public class ProjectResultsOperatorTest
     }
 
     @Override
-    public Iterator<Object[]> open()
+    public ResultIterator<Object[]> open()
     {
       return this;
     }
 
     @Override
-    public boolean hasNext()
+    public Object[] next() throws EofException
     {
-      return (posn + 1) < results.size();
-    }
-
-    @Override
-    public Object[] next()
-    {
+      if (posn + 1 == results.size()) {
+        throw Operators.eof();
+      }
       return results.get(++posn);
     }
 
@@ -126,7 +142,7 @@ public class ProjectResultsOperatorTest
           timeZone,
           serializeComplexValues,
           stringifyArrays);
-      output = Lists.newArrayList(op.open());
+      output = Iterators.toList(op.open());
       verify();
 
       context = FragmentContext.defaultContext();
@@ -140,7 +156,7 @@ public class ProjectResultsOperatorTest
           timeZone,
           serializeComplexValues,
           stringifyArrays);
-      output = Lists.newArrayList(op.open());
+      output = Iterators.toList(op.open());
       verify();
     }
 
@@ -148,7 +164,8 @@ public class ProjectResultsOperatorTest
      * Do-it-ourselves equality check since the JUnit one uses sameness
      * as the equality check for arrays.
      */
-    private void verify() {
+    private void verify()
+    {
       assertEquals(expected.size(), output.size());
       for (int i = 0; i < output.size(); i++) {
         Object[] expectedRow = expected.get(i);
@@ -233,6 +250,8 @@ public class ProjectResultsOperatorTest
   @Test
   public void testCastToBoolean()
   {
+    //@SuppressWarnings("SingleSpaceSeparator")
+    // noinspection SingleSpaceSeparator
     testConversion(
         Arrays.asList(null, "true", "false", 0,     1,    20L,  0F,    30.3F, 0D,    40.4D),
         SqlTypeName.BOOLEAN,
@@ -283,13 +302,13 @@ public class ProjectResultsOperatorTest
   public void testArrayStringify()
   {
     TestFixture fixture = new TestFixture()
-      .withInput(
-          toRows(
-              Arrays.asList(null, "foo", 10, 20L, 30.25F, 40.5D, new long[] {50, 60})))
-      .toTypes(Arrays.asList(SqlTypeName.ARRAY))
-      .expect(
-          toRows(
-              Arrays.asList(null, "foo", "10", "20", "30.25", "40.5", "[50,60]")));
+        .withInput(
+            toRows(
+                Arrays.asList(null, "foo", 10, 20L, 30.25F, 40.5D, new long[] {50, 60})))
+        .toTypes(Arrays.asList(SqlTypeName.ARRAY))
+        .expect(
+            toRows(
+                Arrays.asList(null, "foo", "10", "20", "30.25", "40.5", "[50,60]")));
     fixture.stringifyArrays = true;
     fixture.run();
   }
@@ -298,25 +317,25 @@ public class ProjectResultsOperatorTest
   public void testArrayWitoutStringify()
   {
     TestFixture fixture = new TestFixture()
-      .withInput(
-          toRows(
-              Arrays.asList(
-                  null,
-                  Arrays.asList("foo", 10),
-                  new String[] {"a1", "a2"},
-                  new Long[] {10L, 20L},
-                  new Double[] {10.25D, 20.5D},
-                  new Object[] {"bar", 20})))
-      .toTypes(Arrays.asList(SqlTypeName.ARRAY))
-      .expect(
-          toRows(
-              Arrays.asList(
-                  null,
-                  Arrays.asList("foo", 10),
-                  Arrays.asList("a1", "a2"),
-                  Arrays.asList(10L, 20L),
-                  Arrays.asList(10.25D, 20.5D),
-                  Arrays.asList("bar", 20))));
+        .withInput(
+            toRows(
+                Arrays.asList(
+                    null,
+                    Arrays.asList("foo", 10),
+                    new String[] {"a1", "a2"},
+                    new Long[] {10L, 20L},
+                    new Double[] {10.25D, 20.5D},
+                    new Object[] {"bar", 20})))
+        .toTypes(Arrays.asList(SqlTypeName.ARRAY))
+        .expect(
+            toRows(
+                Arrays.asList(
+                    null,
+                    Arrays.asList("foo", 10),
+                    Arrays.asList("a1", "a2"),
+                    Arrays.asList(10L, 20L),
+                    Arrays.asList(10.25D, 20.5D),
+                    Arrays.asList("bar", 20))));
     fixture.stringifyArrays = false;
     fixture.run();
   }

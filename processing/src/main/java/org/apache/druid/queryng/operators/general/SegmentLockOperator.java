@@ -22,13 +22,12 @@ package org.apache.druid.queryng.operators.general;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.segment.SegmentReference;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.Optional;
 
 /**
@@ -70,7 +69,7 @@ public class SegmentLockOperator<T> implements Operator<T>
   }
 
   @Override
-  public Iterator<T> open()
+  public ResultIterator<T> open()
   {
     Optional<Closeable> maybeLock = segment.acquireReferences();
     if (maybeLock.isPresent()) {
@@ -79,7 +78,7 @@ public class SegmentLockOperator<T> implements Operator<T>
     } else {
       LOG.debug("Reporting a missing segment [%s] for query [%s]", descriptor, context.queryId());
       context.missingSegment(descriptor);
-      return Collections.emptyIterator();
+      return Iterators.emptyIterator();
     }
   }
 

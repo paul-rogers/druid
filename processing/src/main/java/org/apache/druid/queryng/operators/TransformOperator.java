@@ -47,15 +47,15 @@ public class TransformOperator<IN, OUT> extends MappingOperator<IN, OUT>
 
   public TransformOperator(
       FragmentContext context,
-      final Function<IN, OUT> transformFn,
-      final Operator<IN> input)
+      final Operator<IN> input,
+      final Function<IN, OUT> transformFn)
   {
     super(context, input);
     this.transformFn = transformFn;
   }
 
   @Override
-  public OUT next()
+  public OUT next() throws EofException
   {
     return transformFn.apply(inputIter.next());
   }

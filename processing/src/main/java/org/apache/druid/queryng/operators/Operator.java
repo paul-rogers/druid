@@ -150,7 +150,7 @@ public interface Operator<T>
    * {@link static <T> Iterator<T> Operators#toIterator(Operator<T>)},
    * but that approach adds overhead.
    */
-  interface ResultIterator<T>
+  public interface ResultIterator<T>
   {
     T next() throws EofException;
   }

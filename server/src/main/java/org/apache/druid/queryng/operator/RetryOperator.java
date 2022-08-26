@@ -121,7 +121,7 @@ public class RetryOperator<T> implements Operator<T>
   }
 
   @Override
-  public Iterator<T> open()
+  public ResultIterator<T> open()
   {
     Operator<T> inputOp = baseOperator;
     for (int retryCount = 0; inputOp != null; retryCount++) {

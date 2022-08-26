@@ -26,12 +26,14 @@ import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.fragment.FragmentRun;
+import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Operator;
-import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.Operator.EofException;
+import org.apache.druid.queryng.operators.Operator.ResultIterator;
+import org.apache.druid.queryng.operators.OperatorTests;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.junit.Test;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -81,26 +83,25 @@ public class ScanQueryOperatorsTest
     FragmentBuilder builder = FragmentBuilder.defaultBuilder();
     Operator<ScanResultValue> op = scan(builder.context(), 0, 0, 3);
     FragmentRun<ScanResultValue> run = builder.run(op);
-    Iterator<ScanResultValue> iter = run.iterator();
-    assertFalse(iter.hasNext());
+    ResultIterator<ScanResultValue> iter = run.iterator();
+    OperatorTests.assertEof(iter);
     run.close();
   }
 
   @Test
-  public void testMockReaderEmpty()
+  public void testMockReaderEmpty() throws EofException
   {
     FragmentBuilder builder = FragmentBuilder.defaultBuilder();
     MockScanResultReader scan = scan(builder.context(), 0, 1, 3);
     assertFalse(Strings.isNullOrEmpty(scan.segmentId));
     FragmentRun<ScanResultValue> run = builder.run(scan);
-    Iterator<ScanResultValue> iter = run.iterator();
-    assertTrue(iter.hasNext());
+    ResultIterator<ScanResultValue> iter = run.iterator();
     ScanResultValue value = iter.next();
     assertTrue(value.getColumns().isEmpty());
     List<List<String>> events = value.getRows();
     assertEquals(1, events.size());
     assertTrue(events.get(0).isEmpty());
-    assertFalse(iter.hasNext());
+    OperatorTests.assertEof(iter);
     run.close();
   }
 
@@ -110,10 +111,9 @@ public class ScanQueryOperatorsTest
     FragmentBuilder builder = FragmentBuilder.defaultBuilder();
     Operator<ScanResultValue> scan = scan(builder.context(), 3, 10, 4);
     FragmentRun<ScanResultValue> run = builder.run(scan);
-    Iterator<ScanResultValue> iter = run.iterator();
+    ResultIterator<ScanResultValue> iter = run.iterator();
     int rowCount = 0;
-    while (iter.hasNext()) {
-      ScanResultValue value = iter.next();
+    for (ScanResultValue value : Iterators.toIterable(iter)) {
       assertEquals(3, value.getColumns().size());
       assertEquals(ColumnHolder.TIME_COLUMN_NAME, value.getColumns().get(0));
       assertEquals("Column1", value.getColumns().get(1));
@@ -154,12 +154,12 @@ public class ScanQueryOperatorsTest
       FragmentBuilder builder = FragmentBuilder.defaultBuilder();
       Operator<ScanResultValue> scan = scan(builder.context(), 3, totalRows, 4);
       Operator<ScanResultValue> root =
-          new ScanResultOffsetOperator(builder.context(), offset, scan);
+          new ScanResultOffsetOperator(builder.context(), scan, offset);
       int rowCount = 0;
       final String firstVal = StringUtils.format("Value %d.1", offset);
       FragmentRun<ScanResultValue> run = builder.run(root);
-      Iterator<ScanResultValue> iter = run.iterator();
-      for (ScanResultValue row : Operators.toIterable(iter)) {
+      ResultIterator<ScanResultValue> iter = run.iterator();
+      for (ScanResultValue row : Iterators.toIterable(iter)) {
         ScanResultValue value = row;
         List<List<Object>> events = value.getRows();
         if (rowCount == 0) {
@@ -178,18 +178,39 @@ public class ScanQueryOperatorsTest
    * and within a batch.
    */
   @Test
-  public void testLimit()
+  public void testGroupedLimit()
   {
     final int totalRows = 10;
     for (int limit = 0; limit < totalRows + 1; limit++) {
       FragmentBuilder builder = FragmentBuilder.defaultBuilder();
       Operator<ScanResultValue> scan = scan(builder.context(), 3, totalRows, 4);
-      ScanResultLimitOperator root =
-          new ScanResultLimitOperator(builder.context(), limit, true, 4, scan);
+      Operator<ScanResultValue> root =
+          new GroupedScanResultLimitOperator(builder.context(), scan, limit);
       FragmentRun<ScanResultValue> run = builder.run(root);
-      Iterator<ScanResultValue> iter = run.iterator();
+      ResultIterator<ScanResultValue> iter = run.iterator();
       int rowCount = 0;
-      for (ScanResultValue row : Operators.toIterable(iter)) {
+      for (ScanResultValue row : Iterators.toIterable(iter)) {
+        ScanResultValue value = row;
+        rowCount += value.rowCount();
+      }
+      assertEquals(Math.min(totalRows, limit), rowCount);
+      run.close();
+    }
+  }
+
+  @Test
+  public void testUngroupedLimit()
+  {
+    final int totalRows = 10;
+    for (int limit = 0; limit < totalRows + 1; limit++) {
+      FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+      Operator<ScanResultValue> scan = scan(builder.context(), 3, totalRows, 1);
+      Operator<ScanResultValue> root =
+          new UngroupedScanResultLimitOperator(builder.context(), scan, limit, 4);
+      FragmentRun<ScanResultValue> run = builder.run(root);
+      ResultIterator<ScanResultValue> iter = run.iterator();
+      int rowCount = 0;
+      for (ScanResultValue row : Iterators.toIterable(iter)) {
         ScanResultValue value = row;
         rowCount += value.rowCount();
       }

@@ -26,8 +26,8 @@ import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
+import org.apache.druid.queryng.operators.Operators;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
 
@@ -55,10 +55,10 @@ public class ScanResultMergeOperator implements IterableOperator<ScanResultValue
   private static class Entry
   {
     final Operator<ScanResultValue> child;
-    final Iterator<ScanResultValue> childIter;
+    final ResultIterator<ScanResultValue> childIter;
     ScanResultValue row;
 
-    public Entry(Operator<ScanResultValue> child, Iterator<ScanResultValue> childIter, ScanResultValue row)
+    public Entry(Operator<ScanResultValue> child, ResultIterator<ScanResultValue> childIter, ScanResultValue row)
     {
       this.child = child;
       this.childIter = childIter;
@@ -85,13 +85,14 @@ public class ScanResultMergeOperator implements IterableOperator<ScanResultValue
   }
 
   @Override
-  public Iterator<ScanResultValue> open()
+  public ResultIterator<ScanResultValue> open()
   {
     for (Operator<ScanResultValue> child : children) {
-      Iterator<ScanResultValue> childIter = child.open();
-      if (childIter.hasNext()) {
+      ResultIterator<ScanResultValue> childIter = child.open();
+      try {
         pQueue.add(new Entry(child, childIter, childIter.next()));
-      } else {
+      }
+      catch (EofException e) {
         child.close(true);
       }
     }
@@ -99,20 +100,18 @@ public class ScanResultMergeOperator implements IterableOperator<ScanResultValue
   }
 
   @Override
-  public boolean hasNext()
+  public ScanResultValue next() throws EofException
   {
-    return !pQueue.isEmpty();
-  }
-
-  @Override
-  public ScanResultValue next()
-  {
+    if (pQueue.isEmpty()) {
+      throw Operators.eof();
+    }
     Entry entry = pQueue.remove();
     ScanResultValue row = entry.row;
-    if (entry.childIter.hasNext()) {
+    try {
       entry.row = (ScanResultValue) entry.childIter.next();
       pQueue.add(entry);
-    } else {
+    }
+    catch (EofException e) {
       entry.child.close(true);
     }
     return row;

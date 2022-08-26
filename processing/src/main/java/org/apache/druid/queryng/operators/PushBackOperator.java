@@ -4,8 +4,6 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
-import java.util.Iterator;
-
 /**
  * Operator which allows pushing a row back onto the input. The "pushed"
  * row can occur at construction time, or during execution.
@@ -13,13 +11,13 @@ import java.util.Iterator;
 public class PushBackOperator<T> implements IterableOperator<T>
 {
   private final Operator<T> input;
-  private Iterator<T> inputIter;
+  private ResultIterator<T> inputIter;
   private T pushed;
 
   public PushBackOperator(
       FragmentContext context,
       Operator<T> input,
-      Iterator<T> inputIter,
+      ResultIterator<T> inputIter,
       T pushed)
   {
     this.input = input;
@@ -34,7 +32,7 @@ public class PushBackOperator<T> implements IterableOperator<T>
   }
 
   @Override
-  public Iterator<T> open()
+  public ResultIterator<T> open()
   {
     if (inputIter == null) {
       inputIter = input.open();
@@ -43,13 +41,7 @@ public class PushBackOperator<T> implements IterableOperator<T>
   }
 
   @Override
-  public boolean hasNext()
-  {
-    return pushed != null || inputIter != null && inputIter.hasNext();
-  }
-
-  @Override
-  public T next()
+  public T next() throws EofException
   {
     if (pushed != null) {
       T ret = pushed;

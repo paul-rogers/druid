@@ -26,8 +26,6 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
 
-import java.util.Iterator;
-
 /**
  * Operator which wraps a query runner. When used in the interim
  * "shim" architecture, this operator allows a query runner to be
@@ -52,7 +50,7 @@ public class QueryRunnerOperator<T> implements Operator<T>
   }
 
   @Override
-  public Iterator<T> open()
+  public ResultIterator<T> open()
   {
     Sequence<T> seq = runner.run(query, context.responseContext());
     child = Operators.toOperator(context, seq);

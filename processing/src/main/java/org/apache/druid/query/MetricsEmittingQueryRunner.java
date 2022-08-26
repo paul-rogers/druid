@@ -26,7 +26,7 @@ import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.config.QueryNGConfig;
 import org.apache.druid.queryng.planner.QueryPlanner;
 
 import java.util.function.Consumer;
@@ -88,7 +88,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
   @Override
   public Sequence<T> run(final QueryPlus<T> queryPlus, final ResponseContext responseContext)
   {
-    if (Operators.enabledFor(queryPlus)) {
+    if (QueryNGConfig.enabledFor(queryPlus)) {
       return QueryPlanner.runMetrics(
           emitter,
           queryToolChest,

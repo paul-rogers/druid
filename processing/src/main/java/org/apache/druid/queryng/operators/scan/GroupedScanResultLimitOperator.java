@@ -19,59 +19,59 @@
 
 package org.apache.druid.queryng.operators.scan;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.Operators;
 
 import java.util.List;
 
 /**
- * Offset that skips a given number of rows on top of a skips ScanQuery. It is
- * used to implement the "offset" feature.
+ * Limit scan query results when each batch has multiple rows.
  *
- * @see {@link org.apache.druid.query.scan.ScanQueryOffsetSequence}
+ * @see {@link org.apache.druid.query.scan.ScanQueryLimitRowIterator}
  */
-public class ScanResultOffsetOperator extends MappingOperator<ScanResultValue, ScanResultValue>
+public class GroupedScanResultLimitOperator extends MappingOperator<ScanResultValue, ScanResultValue>
 {
-  private final long offset;
+  private final long limit;
   private long rowCount;
 
-  public ScanResultOffsetOperator(
+  @VisibleForTesting
+  public GroupedScanResultLimitOperator(
       FragmentContext context,
-      Operator<ScanResultValue> input,
-      long offset)
+      Operator<ScanResultValue> child,
+      long limit)
   {
-    super(context, input);
-    this.offset = offset;
+    super(context, child);
+    this.limit = limit;
   }
 
   @Override
   public ScanResultValue next() throws EofException
   {
-    if (rowCount == 0) {
-      return skip();
-    } else {
-      return inputIter.next();
+    if (rowCount >= limit) {
+      // Already at limit.
+      throw Operators.eof();
     }
-  }
 
-  private ScanResultValue skip() throws EofException
-  {
-    while (true) {
-      ScanResultValue batch = inputIter.next();
-      final List<Object> rows = batch.getRows();
-      final int eventCount = rows.size();
-      final long toSkip = offset - rowCount;
-      if (toSkip >= eventCount) {
-        rowCount += eventCount;
-        continue;
-      }
-      rowCount += eventCount - toSkip;
+    // With throw EofException if no more input rows.
+    ScanResultValue batch = inputIter.next();
+    List<?> events = (List<?>) batch.getEvents();
+    if (events.size() <= limit - rowCount) {
+      // Entire batch is below limit.
+      rowCount += events.size();
+      return batch;
+    } else {
+      // last batch
+      // single batch length is <= rowCount.MAX_VALUE, so this should not overflow
+      int numLeft = (int) (limit - rowCount);
+      rowCount = limit;
       return new ScanResultValue(
           batch.getSegmentId(),
           batch.getColumns(),
-          rows.subList((int) toSkip, eventCount));
+          events.subList(0, numLeft));
     }
   }
 }

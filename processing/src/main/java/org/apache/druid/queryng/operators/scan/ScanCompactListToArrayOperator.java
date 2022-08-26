@@ -49,7 +49,7 @@ public class ScanCompactListToArrayOperator extends MappingOperator<List<Object>
   }
 
   @Override
-  public Object[] next()
+  public Object[] next() throws EofException
   {
     List<Object> row = inputIter.next();
     if (row.size() == fields.size()) {

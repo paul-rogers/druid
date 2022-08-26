@@ -23,10 +23,10 @@ import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Operator;
 
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -55,11 +55,11 @@ public class MissingSegmentsOperator<T> implements Operator<T>
   }
 
   @Override
-  public Iterator<T> open()
+  public ResultIterator<T> open()
   {
     LOG.debug("Reporting a missing segments[%s] for query[%s]", descriptors, context.queryId());
     context.responseContext().add(ResponseContext.Keys.MISSING_SEGMENTS, descriptors);
-    return Collections.emptyIterator();
+    return Iterators.emptyIterator();
   }
 
   @Override

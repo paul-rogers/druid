@@ -26,7 +26,6 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
 
-import java.util.Iterator;
 import java.util.function.Supplier;
 
 /**
@@ -53,7 +52,7 @@ public class QueryRunnerFactoryOperator<T> implements Operator<T>
   }
 
   @Override
-  public Iterator<T> open()
+  public ResultIterator<T> open()
   {
     QueryRunner<T> runner = factory.get();
     Sequence<T> seq = runner.run(query, context.responseContext());

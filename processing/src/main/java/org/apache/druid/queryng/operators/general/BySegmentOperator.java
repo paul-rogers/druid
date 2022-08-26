@@ -24,13 +24,12 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.Result;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -73,7 +72,7 @@ public class BySegmentOperator<T> implements Operator<Result<T>>
   }
 
   @Override
-  public Iterator<Result<T>> open()
+  public ResultIterator<Result<T>> open()
   {
     // Read the entire input result set into a list
     Operator<T> child = inputSupplier.get();
@@ -85,7 +84,7 @@ public class BySegmentOperator<T> implements Operator<Result<T>>
     // If no results, return an empty result set.
     // TODO: Seems reasonable, but is different than original code.
     if (results.isEmpty()) {
-      return Collections.emptyIterator();
+      return Iterators.emptyIterator();
     }
 
     // Put into the result object then return an iterator over a list
@@ -100,7 +99,7 @@ public class BySegmentOperator<T> implements Operator<Result<T>>
             interval
         )
     );
-    return Collections.singletonList(result).iterator();
+    return Iterators.singletonIterator(result);
   }
 
   @Override
