@@ -28,11 +28,13 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.fragment.FragmentRun;
 import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorTest;
 import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.apache.druid.queryng.operators.OperatorTests;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.List;
 import java.util.Map;
@@ -42,6 +44,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+@Category(OperatorTest.class)
 public class ScanQueryOperatorsTest
 {
   private MockScanResultReader scan(

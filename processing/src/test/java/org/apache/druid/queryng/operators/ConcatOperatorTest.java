@@ -24,6 +24,7 @@ import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.apache.druid.queryng.operators.Operator.State;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -33,6 +34,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+@Category(OperatorTest.class)
 public class ConcatOperatorTest
 {
   @Test

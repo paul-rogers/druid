@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.operators;
+package org.apache.druid.queryng.operators.general;
 
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;

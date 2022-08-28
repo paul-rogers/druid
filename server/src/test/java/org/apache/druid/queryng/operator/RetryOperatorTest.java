@@ -9,10 +9,12 @@ import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorTest;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.scan.MockScanResultReader;
 import org.apache.druid.segment.SegmentMissingException;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -24,6 +26,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+@Category(OperatorTest.class)
 public class RetryOperatorTest
 {
   /**

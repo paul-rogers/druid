@@ -25,6 +25,7 @@ import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.MockOperator;
 import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorTest;
 import org.apache.druid.queryng.operators.OperatorTests;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.OrderedMergeOperator;
@@ -32,6 +33,7 @@ import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.apache.druid.queryng.operators.Operator.State;
 import org.apache.druid.queryng.operators.OrderedMergeOperator.Input;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,6 +45,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+@Category(OperatorTest.class)
 public class OrderedMergeOperatorTest
 {
   @Test

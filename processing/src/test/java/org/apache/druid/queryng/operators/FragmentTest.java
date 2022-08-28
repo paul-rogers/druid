@@ -42,6 +42,7 @@ import org.apache.druid.queryng.fragment.NullFragmentBuilderFactory;
 import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -62,6 +63,7 @@ import static org.junit.Assert.fail;
  * are convenience wrappers around the first, each test uses the wrappers
  * to indirectly test the builder.
  */
+@Category(OperatorTest.class)
 public class FragmentTest
 {
   @Test

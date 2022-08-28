@@ -25,6 +25,7 @@ import org.apache.druid.queryng.fragment.FragmentRun;
 import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.List;
 
@@ -34,6 +35,7 @@ import static org.junit.Assert.assertEquals;
  * Use a mock operator to test (and illustrate) the basic operator
  * mechanisms.
  */
+@Category(OperatorTest.class)
 public class MockOperatorTest
 {
   @Test

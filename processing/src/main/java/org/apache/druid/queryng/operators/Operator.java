@@ -30,7 +30,7 @@ package org.apache.druid.queryng.operators;
  * <li>Closed.</li>
  * </ul>
  * <p>
- * Opening an operator returns a {@link Operator.ResultIterator RowIterator}
+ * Opening an operator returns a {@link Operator.ResultIterator ResultIterator}
  * which returns rows. The Java {@code Iterator} class has extra overhead
  * which we want to avoid on the per-row inner loop code path. A
  * {@code RowIterator} has one method: {@link Operator.ResultIterator#next() next()},
