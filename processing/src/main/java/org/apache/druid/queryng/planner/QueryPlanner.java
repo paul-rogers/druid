@@ -267,7 +267,7 @@ public class QueryPlanner
       final QueryToolChest<T, ? extends Query<T>> queryToolChest,
       final QueryRunner<T> queryRunner,
       final long creationTimeNs,
-      final ObjLongConsumer<? super QueryMetrics<?>> reportMetric,
+      final ObjLongConsumer<QueryMetrics<?>> reportMetric,
       final Consumer<QueryMetrics<?>> applyCustomDimensions,
       final QueryPlus<T> queryPlus,
       final ResponseContext responseContext

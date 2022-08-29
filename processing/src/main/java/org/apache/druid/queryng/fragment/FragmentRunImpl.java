@@ -66,6 +66,10 @@ public class FragmentRunImpl<T> implements FragmentRun<T>
     try {
       return Iterators.toList(rootIter);
     }
+    catch (RuntimeException e) {
+      context.failed(e);
+      throw e;
+    }
     finally {
       close();
     }

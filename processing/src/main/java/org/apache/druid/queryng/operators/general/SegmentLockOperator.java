@@ -19,6 +19,7 @@
 
 package org.apache.druid.queryng.operators.general;
 
+import org.apache.druid.java.util.common.RE;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.queryng.fragment.FragmentContext;
@@ -100,7 +101,7 @@ public class SegmentLockOperator<T> implements Operator<T>
         lock.close();
       }
       catch (IOException e) {
-        throw new RuntimeException("Failed to close segment " + descriptor.toString(), e);
+        throw new RE(e, "Failed to close segment %s", descriptor);
       }
       finally {
         lock = null;

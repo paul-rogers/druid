@@ -53,20 +53,20 @@ import java.util.function.BiFunction;
  * Retries the scatter phase based on missing segments. Designed to mimic
  * the {@link RetryQueryRunner} behavior. Executes a series of input operators,
  * each of which performs a scatter/gather phase. Each phase merges its results.
- * After each phase, we check if any missing segments were reported. If so, we
- * launch another scatter/gather phase for just those missing segments. We repeat
+ * After each phase, checks if any missing segments were reported. If so,
+ * launches another scatter/gather phase for just those missing segments. Repeats
  * until there are no more missing segments, or until we reach a limit.
  * <p>
  * The result is a list of input operators, each with the results for a
- * single phase. We then use an ordered merge operator to combine the multiple
+ * single phase. Then uses an ordered merge operator to combine the multiple
  * phases. An ordered merge means we can't start reading from any of the inputs
- * until we've seen all of them. The merge itself is delegated to the
+ * until it has seen all of them. The merge itself is delegated to the
  * {@link OrderedMergeOperator}: this operator creates the {@code Input} objects
  * which the ordered merge requires. Those inputs cause the sub-DAG to read the
  * first row, which forces the query to start running and report its missing
  * fragments.
  * <p>
- * We short-circuit the merge if the first phase had no missing segments.
+ * Short-circuits the merge if the first phase had no missing segments.
  * In this case, we simply return the "base" operator as our output.
  *
  * @see {@link RetryQueryRunner}

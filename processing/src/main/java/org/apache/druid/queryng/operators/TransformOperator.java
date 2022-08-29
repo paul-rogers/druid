@@ -28,7 +28,7 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 
 /**
  * Operator that applies a function to each input item to produce the output item.
- *
+ * <p>
  * Generalization of {@link QueryToolChest#makePostComputeManipulatorFn(Query, MetricManipulationFn)} to the
  * result stream. When used in this role, the operator is expected to be the operator in the pipeline,
  * after results are fully merged.
@@ -46,7 +46,7 @@ public class TransformOperator<IN, OUT> extends MappingOperator<IN, OUT>
   private final Function<IN, OUT> transformFn;
 
   public TransformOperator(
-      FragmentContext context,
+      final FragmentContext context,
       final Operator<IN> input,
       final Function<IN, OUT> transformFn)
   {

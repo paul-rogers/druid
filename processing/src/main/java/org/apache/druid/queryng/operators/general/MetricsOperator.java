@@ -43,14 +43,14 @@ public class MetricsOperator<T> extends WrappingOperator<T>
   private final Timer waitTimer;
   private final ServiceEmitter emitter;
   private final QueryMetrics<?> queryMetrics;
-  private final ObjLongConsumer<? super QueryMetrics<?>> reportMetric;
+  private final ObjLongConsumer<QueryMetrics<?>> reportMetric;
   private final Timer runTimer = Timer.create();
 
   public MetricsOperator(
       final FragmentContext context,
       final ServiceEmitter emitter,
       final QueryMetrics<?> queryMetrics,
-      final ObjLongConsumer<? super QueryMetrics<?>> reportMetric,
+      final ObjLongConsumer<QueryMetrics<?>> reportMetric,
       final Timer waitTimer,
       final Operator<T> child
   )
@@ -74,8 +74,8 @@ public class MetricsOperator<T> extends WrappingOperator<T>
     if (context.state() == FragmentContext.State.FAILED) {
       queryMetrics.status("failed");
     }
-    reportMetric.accept(queryMetrics, runTimer.get());
 
+    reportMetric.accept(queryMetrics, runTimer.get());
     // Wait time is reported only in the outer-most metric operator.
     if (waitTimer != null) {
       queryMetrics.reportWaitTime(waitTimer.get() - runTimer.get());
@@ -84,7 +84,7 @@ public class MetricsOperator<T> extends WrappingOperator<T>
       queryMetrics.emit(emitter);
     }
     catch (Exception e) {
-      // Query should not fail, because of emitter failure. Swallowing the exception.
+      // Query should not fail because of emitter failure. Swallow the exception.
       log.error("Failure while trying to emit [%s] with stacktrace [%s]", emitter.toString(), e);
     }
   }

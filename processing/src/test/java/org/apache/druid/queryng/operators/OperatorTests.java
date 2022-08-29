@@ -19,8 +19,11 @@
 
 package org.apache.druid.queryng.operators;
 
+import org.apache.druid.java.util.common.RE;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.Operator.ResultIterator;
+import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
 import static org.junit.Assert.fail;
 
@@ -35,5 +38,82 @@ public class OperatorTests
     catch (EofException e) {
       // Expected
     }
+  }
+
+  public static <T> Operator<T> sleepOperator(
+      FragmentContext context,
+      Operator<T> in,
+      long sleepMs
+  )
+  {
+    return new TransformOperator<T, T>(
+        context,
+        in,
+        row -> {
+          try {
+            Thread.sleep(sleepMs);
+          } catch (InterruptedException e) {
+            // Ignore
+          }
+          return row;
+        }
+    );
+  }
+
+  /**
+   * Operator to insert a failure after the nth result. Clearly only for testing.
+   */
+  public static class FailOperator<T> implements IterableOperator<T>
+  {
+    private final Operator<T> inputOp;
+    private final int failAt;
+    private int batchCount;
+    private ResultIterator<T> inputIter;
+
+    public FailOperator(FragmentContext context, Operator<T> input, int failAt)
+    {
+      this.inputOp = input;
+      this.failAt = failAt;
+      context.register(this);
+    }
+
+    @Override
+    public ResultIterator<T> open()
+    {
+      inputIter = inputOp.open();
+      return this;
+    }
+
+    @Override
+    public T next() throws EofException
+    {
+      if (batchCount == failAt) {
+        throw new RE("Failed");
+      }
+      T row = inputIter.next();
+      batchCount++;
+      return row;
+    }
+
+    @Override
+    public void close(boolean cascade)
+    {
+      if (cascade && inputIter != null) {
+        inputOp.close(cascade);
+      }
+      inputIter = null;
+    }
+  }
+
+  /**
+   * Operator to insert a wait between results for testing.
+   */
+  public static <T> Operator<T> failOperator(
+      final FragmentContext context,
+      final Operator<T> in,
+      final int onRow
+  )
+  {
+    return new FailOperator<T>(context, in, onRow);
   }
 }

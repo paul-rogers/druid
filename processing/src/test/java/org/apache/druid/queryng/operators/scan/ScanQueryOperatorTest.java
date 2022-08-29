@@ -32,13 +32,12 @@ import org.apache.druid.queryng.operators.ConcatOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.general.MockCursor;
 import org.apache.druid.queryng.operators.general.MockStorageAdapter;
+import org.apache.druid.queryng.operators.general.MockStorageAdapter.MockSegment;
 import org.apache.druid.segment.Cursor;
-import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnHolder;
-import org.apache.druid.timeline.SegmentId;
 import org.joda.time.Interval;
 import org.junit.Test;
 
@@ -52,49 +51,6 @@ import static org.junit.Assert.assertTrue;
 
 public class ScanQueryOperatorTest
 {
-  private static class MockSegment implements Segment
-  {
-    final int segmentSize;
-
-    public MockSegment(int segmentSize)
-    {
-      this.segmentSize = segmentSize;
-    }
-
-    @Override
-    public void close()
-    {
-    }
-
-    @Override
-    public SegmentId getId()
-    {
-      return SegmentId.of("dummyDs", MockStorageAdapter.MOCK_INTERVAL, "1", 1);
-    }
-
-    @Override
-    public Interval getDataInterval()
-    {
-      return MockStorageAdapter.MOCK_INTERVAL;
-    }
-
-    @Override
-    public QueryableIndex asQueryableIndex()
-    {
-      return null;
-    }
-
-    @Override
-    public StorageAdapter asStorageAdapter()
-    {
-      if (segmentSize < 0) {
-        // Simulate no segment available
-        return null;
-      }
-      return new MockStorageAdapter(segmentSize);
-    }
-  }
-
   /**
    * Segment that creates two cursors. Not very realistic, but realism
    * isn't needed: just the two cursors are needed.

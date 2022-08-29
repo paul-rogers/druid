@@ -42,7 +42,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
   private final QueryToolChest<T, ? extends Query<T>> queryToolChest;
   private final QueryRunner<T> queryRunner;
   private final long creationTimeNs;
-  private final ObjLongConsumer<? super QueryMetrics<?>> reportMetric;
+  private final ObjLongConsumer<QueryMetrics<?>> reportMetric;
   private final Consumer<QueryMetrics<?>> applyCustomDimensions;
 
   private MetricsEmittingQueryRunner(
@@ -50,7 +50,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
       QueryToolChest<T, ? extends Query<T>> queryToolChest,
       QueryRunner<T> queryRunner,
       long creationTimeNs,
-      ObjLongConsumer<? super QueryMetrics<?>> reportMetric,
+      ObjLongConsumer<QueryMetrics<?>> reportMetric,
       Consumer<QueryMetrics<?>> applyCustomDimensions
   )
   {
@@ -66,7 +66,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
       ServiceEmitter emitter,
       QueryToolChest<T, ? extends Query<T>> queryToolChest,
       QueryRunner<T> queryRunner,
-      ObjLongConsumer<? super QueryMetrics<?>> reportMetric,
+      ObjLongConsumer<QueryMetrics<?>> reportMetric,
       Consumer<QueryMetrics<?>> applyCustomDimensions
   )
   {

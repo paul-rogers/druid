@@ -27,6 +27,7 @@ import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.operators.Operator;
 
+import java.util.Collections;
 import java.util.Deque;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
@@ -125,7 +126,10 @@ public class FragmentContextImpl implements FragmentContext
   @Override
   public void missingSegment(SegmentDescriptor descriptor)
   {
-    responseContext.add(ResponseContext.Keys.MISSING_SEGMENTS, descriptor);
+    responseContext.add(
+        ResponseContext.Keys.MISSING_SEGMENTS,
+        Collections.singletonList(descriptor)
+    );
   }
 
   /**
