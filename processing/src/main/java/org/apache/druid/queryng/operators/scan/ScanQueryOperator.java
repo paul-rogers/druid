@@ -263,8 +263,9 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
     if (order == Order.NONE) {
       limit = scanLimit - responseContext.getRowScanCount();
     } else {
-      // If we're performing time-ordering, we want to scan through the first `limit` rows in each segment ignoring the number
-      // of rows already counted on other segments.
+      // If we're performing time-ordering, we want to scan through the first
+      // `limit` rows in each segment ignoring the number of rows already
+      // counted on other segments.
       limit = scanLimit;
     }
 

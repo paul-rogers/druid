@@ -28,6 +28,7 @@ import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.operators.ConcatOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.general.MockCursor;
 import org.apache.druid.queryng.operators.general.MockStorageAdapter;
@@ -397,5 +398,168 @@ public class ScanQueryOperatorTest
     assertEquals(10, results.get(0).getRows().size());
     assertEquals(10, results.get(1).getRows().size());
     assertEquals(5, results.get(2).getRows().size());
+  }
+
+  /**
+   * Test the case when there are two distinct segment scans within a
+   * single fragment. The row count is carried from one to the next
+   * using the response context.
+   * <p>
+   * Note: using the response context emulates the current approach, but
+   * is not very satisfying in an operator context: better to provide a
+   * distinct operator to do the work.
+   */
+  @Test
+  public void testLimitOnSecondScan()
+  {
+    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    Segment segment = new MockSegment(20); // 20 rows per cursor
+    Operator<ScanResultValue> op1 = new ScanQueryOperator(
+        builder.context(),
+        "dummy",
+        null, // No filter
+        10, // Batch size
+        false, // Not legacy
+        null, // No columns AKA "wildcard"
+        VirtualColumns.EMPTY,
+        ScanQueryOperator.Order.NONE,
+        25, // Limit in second scan
+        ResultFormat.RESULT_FORMAT_COMPACTED_LIST,
+        Long.MAX_VALUE, // No timeout
+        segment,
+        MockStorageAdapter.MOCK_INTERVAL, // Whole segment
+        null // No query metrics
+    );
+    Operator<ScanResultValue> op2 = new ScanQueryOperator(
+        builder.context(),
+        "dummy",
+        null, // No filter
+        10, // Batch size
+        false, // Not legacy
+        null, // No columns AKA "wildcard"
+        VirtualColumns.EMPTY,
+        ScanQueryOperator.Order.NONE,
+        25, // Limit in second scan
+        ResultFormat.RESULT_FORMAT_COMPACTED_LIST,
+        Long.MAX_VALUE, // No timeout
+        segment,
+        MockStorageAdapter.MOCK_INTERVAL, // Whole segment
+        null // No query metrics
+    );
+    ConcatOperator<ScanResultValue> concat = new ConcatOperator<>(
+        builder.context(),
+        Arrays.asList(op1, op2)
+    );
+    List<ScanResultValue> results = builder.run(concat).toList();
+    assertEquals(3, results.size());
+    assertEquals(10, results.get(0).getRows().size());
+    assertEquals(10, results.get(1).getRows().size());
+    assertEquals(5, results.get(2).getRows().size());
+  }
+
+  /**
+   * DAG has two scans, but the limit is satisfied on the first.
+   * An outer operator would normally omit calling the second,
+   * but the converted code does handle the case anyway.
+   */
+  @Test
+  public void testLimitOnFirstScan()
+  {
+    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    Segment segment = new MockSegment(20); // 20 rows per cursor
+    Operator<ScanResultValue> op1 = new ScanQueryOperator(
+        builder.context(),
+        "dummy",
+        null, // No filter
+        10, // Batch size
+        false, // Not legacy
+        null, // No columns AKA "wildcard"
+        VirtualColumns.EMPTY,
+        ScanQueryOperator.Order.NONE,
+        15, // Limit in second scan
+        ResultFormat.RESULT_FORMAT_COMPACTED_LIST,
+        Long.MAX_VALUE, // No timeout
+        segment,
+        MockStorageAdapter.MOCK_INTERVAL, // Whole segment
+        null // No query metrics
+    );
+    Operator<ScanResultValue> op2 = new ScanQueryOperator(
+        builder.context(),
+        "dummy",
+        null, // No filter
+        10, // Batch size
+        false, // Not legacy
+        null, // No columns AKA "wildcard"
+        VirtualColumns.EMPTY,
+        ScanQueryOperator.Order.NONE,
+        15, // Limit in second scan
+        ResultFormat.RESULT_FORMAT_COMPACTED_LIST,
+        Long.MAX_VALUE, // No timeout
+        segment,
+        MockStorageAdapter.MOCK_INTERVAL, // Whole segment
+        null // No query metrics
+    );
+    ConcatOperator<ScanResultValue> concat = new ConcatOperator<>(
+        builder.context(),
+        Arrays.asList(op1, op2)
+    );
+    List<ScanResultValue> results = builder.run(concat).toList();
+    assertEquals(2, results.size());
+    assertEquals(10, results.get(0).getRows().size());
+    assertEquals(5, results.get(1).getRows().size());
+  }
+
+  /**
+   * Test an overall limit on ordered results, but each scan applies
+   * the entire order separately. A merge, not shown here, would create
+   * the final list that can be limited.
+   */
+  @Test
+  public void testLocalLimitWhenOrdered()
+  {
+    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    Segment segment = new MockSegment(20); // 20 rows per cursor
+    Operator<ScanResultValue> op1 = new ScanQueryOperator(
+        builder.context(),
+        "dummy",
+        null, // No filter
+        10, // Batch size
+        false, // Not legacy
+        null, // No columns AKA "wildcard"
+        VirtualColumns.EMPTY,
+        ScanQueryOperator.Order.ASCENDING,
+        25, // Limit in second scan
+        ResultFormat.RESULT_FORMAT_COMPACTED_LIST,
+        Long.MAX_VALUE, // No timeout
+        segment,
+        MockStorageAdapter.MOCK_INTERVAL, // Whole segment
+        null // No query metrics
+    );
+    Operator<ScanResultValue> op2 = new ScanQueryOperator(
+        builder.context(),
+        "dummy",
+        null, // No filter
+        10, // Batch size
+        false, // Not legacy
+        null, // No columns AKA "wildcard"
+        VirtualColumns.EMPTY,
+        ScanQueryOperator.Order.ASCENDING,
+        25, // Limit in second scan
+        ResultFormat.RESULT_FORMAT_COMPACTED_LIST,
+        Long.MAX_VALUE, // No timeout
+        segment,
+        MockStorageAdapter.MOCK_INTERVAL, // Whole segment
+        null // No query metrics
+    );
+    ConcatOperator<ScanResultValue> concat = new ConcatOperator<>(
+        builder.context(),
+        Arrays.asList(op1, op2)
+    );
+    List<ScanResultValue> results = builder.run(concat).toList();
+    assertEquals(4, results.size());
+    assertEquals(10, results.get(0).getRows().size());
+    assertEquals(10, results.get(1).getRows().size());
+    assertEquals(10, results.get(2).getRows().size());
+    assertEquals(10, results.get(3).getRows().size());
   }
 }
