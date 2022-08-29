@@ -29,6 +29,7 @@ import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.DimensionSelector;
 import org.apache.druid.segment.LongColumnSelector;
 import org.apache.druid.segment.column.ColumnCapabilities;
+import org.apache.druid.segment.column.ColumnHolder;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 
@@ -59,7 +60,7 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
     @Override
     public long getLong()
     {
-      return posn;
+      return posn % 10_000;
     }
 
     @Override
@@ -74,8 +75,7 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
     }
   }
 
-  // Must be static to avoid Java 11 compile errors.
-  private static class MockStringColumn implements ColumnValueSelector<String>
+  private class MockStringColumn implements ColumnValueSelector<String>
   {
     @Override
     public long getLong()
@@ -109,7 +109,7 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
     @Override
     public String getObject()
     {
-      return "string value";
+      return "row " + (posn + 1);
     }
 
     @Override
@@ -119,19 +119,20 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
     }
   }
 
-  private final int targetRowCount = 5_000_000;
+  private final int targetRowCount;
   private final long segmentBase;
   private final int divideBy;
   private int posn;
 
-  public MockCursor(Interval interval)
+  public MockCursor(Interval interval, int segmentSize)
   {
-    segmentBase = interval.getStartMillis();
+    this.segmentBase = interval.getStartMillis();
+    this.targetRowCount = segmentSize;
     long span = interval.getEndMillis() - segmentBase;
     if (span > targetRowCount) {
-      divideBy = 1;
+      this.divideBy = 1;
     } else {
-      divideBy = (int) (targetRowCount / span);
+      this.divideBy = (int) (targetRowCount / span);
     }
   }
 
@@ -152,7 +153,7 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
   public ColumnValueSelector<?> makeColumnValueSelector(String columnName)
   {
     switch (columnName) {
-      case "__time":
+      case ColumnHolder.TIME_COLUMN_NAME:
         return new MockTimeColumn();
       case "delta":
         return new MockLongColumn();

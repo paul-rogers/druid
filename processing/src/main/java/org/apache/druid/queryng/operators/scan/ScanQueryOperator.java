@@ -19,16 +19,14 @@
 
 package org.apache.druid.queryng.operators.scan;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.granularity.Granularities;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.Filter;
-import org.apache.druid.query.scan.ScanQuery;
+import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Iterators;
@@ -39,8 +37,8 @@ import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.VirtualColumn;
+import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnHolder;
-import org.apache.druid.segment.filter.Filters;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
@@ -61,14 +59,21 @@ import java.util.Set;
  */
 public class ScanQueryOperator implements Operator<ScanResultValue>
 {
-  static final String LEGACY_TIMESTAMP_KEY = "timestamp";
+  public static final String LEGACY_TIMESTAMP_KEY = "timestamp";
+
+  public enum Order
+  {
+    NONE,
+    ASCENDING,
+    DESCENDING
+  }
 
   /**
-   * Manages the run state for this operator.
+   * Inner class which holds the state for reading a cursor. Allows
+   * some read state to be final.
    */
   private class Impl implements ResultIterator<ScanResultValue>
   {
-    private final FragmentContext context;
     private final SequenceIterator<Cursor> iter;
     private final List<String> selectedColumns;
     private final long limit;
@@ -77,13 +82,9 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
     @SuppressWarnings("unused")
     private int batchCount;
 
-    private Impl(FragmentContext context)
+    private Impl(long limit)
     {
-      this.context = context;
-      ResponseContext responseContext = context.responseContext();
-      // If the row count is not set, set it to 0, else do nothing.
-      responseContext.addRowScanCount(0);
-      limit = calculateRemainingScanRowsLimit(query, responseContext);
+      this.limit = limit;
       final StorageAdapter adapter = segment.asStorageAdapter();
       //final StorageAdapter adapter = new MockStorageAdapter();
       if (adapter == null) {
@@ -91,40 +92,28 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
             "Null storage adapter found. Probably trying to issue a query against a segment being memory unmapped."
         );
       }
-      if (isWildcard()) {
-        selectedColumns = inferColumns(adapter, isLegacy);
+      if (columns == null) {
+        selectedColumns = inferColumns(adapter);
       } else {
         selectedColumns = columns;
       }
       iter = SequenceIterator.of(adapter.makeCursors(
               filter,
-              interval(),
-              query.getVirtualColumns(),
+              interval,
+              virtualColumns,
               Granularities.ALL,
-              isDescendingOrder(),
+              order == Order.DESCENDING,
               queryMetrics
           ));
     }
 
-    /**
-     * If we're performing time-ordering, we want to scan through the first `limit` rows in each segment ignoring the number
-     * of rows already counted on other segments.
-     */
-    private long calculateRemainingScanRowsLimit(ScanQuery query, ResponseContext responseContext)
-    {
-      if (query.getTimeOrder().equals(ScanQuery.Order.NONE)) {
-        return query.getScanRowsLimit() - (Long) responseContext.getRowScanCount();
-      }
-      return query.getScanRowsLimit();
-    }
-
-    protected List<String> inferColumns(StorageAdapter adapter, boolean isLegacy)
+    protected List<String> inferColumns(StorageAdapter adapter)
     {
       final Set<String> availableColumns = Sets.newLinkedHashSet(
           Iterables.concat(
               Collections.singleton(isLegacy ? LEGACY_TIMESTAMP_KEY : ColumnHolder.TIME_COLUMN_NAME),
               Iterables.transform(
-                  Arrays.asList(query.getVirtualColumns().getVirtualColumns()),
+                  Arrays.asList(virtualColumns.getVirtualColumns()),
                   VirtualColumn::getOutputName
               ),
               adapter.getAvailableDimensions(),
@@ -139,8 +128,7 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
     }
 
     /**
-     * Return the next batch of events from a cursor. Enforce the
-     * timeout limit.
+     * Return the next batch of events from a cursor. Enforce the timeout limit.
      * Another batch of events is available if
      * we have (or can get) a cursor which has rows, and we are not at the
      * limit set for this operator.
@@ -186,10 +174,10 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
             selectedColumns,
             limit - rowCount,
             batchSize,
-            query.getResultFormat(),
+            resultFormat,
             isLegacy,
             timeoutAt,
-            query.getId());
+            queryId);
       }
     }
 
@@ -203,7 +191,7 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
     private void finish()
     {
       closeCursorReader();
-      context.responseContext().add(ResponseContext.Keys.NUM_SCANNED_ROWS, rowCount);
+      context.responseContext().addRowScanCount(rowCount);
       try {
         iter.close();
       }
@@ -214,101 +202,76 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
   }
 
   protected final FragmentContext context;
-  private final ScanQuery query;
+  private final String queryId;
   private final Segment segment;
   private final String segmentId;
+  private final Interval interval;
   private final List<String> columns;
+  private final VirtualColumns virtualColumns;
   private final Filter filter;
   private final boolean isLegacy;
   private final int batchSize;
+  private final Order order;
+  private final long scanLimit;
+  private final ResultFormat resultFormat;
   private final long timeoutAt;
   @Nullable final QueryMetrics<?> queryMetrics;
   private Impl impl;
 
   public ScanQueryOperator(
       final FragmentContext context,
-      final ScanQuery query,
+      final String queryId,
+      final Filter filter,
+      final int batchSize,
+      final boolean isLegacy,
+      final List<String> columns,
+      final VirtualColumns virtualColumns,
+      final Order order,
+      final long scanLimit,
+      final ResultFormat resultFormat,
+      final long timeoutAt,
       final Segment segment,
-      @Nullable final QueryMetrics<?> queryMetrics)
+      final Interval interval,
+      @Nullable final QueryMetrics<?> queryMetrics
+  )
   {
     this.context = context;
-    this.query = query;
+    this.queryId = queryId;
     this.segment = segment;
     this.segmentId = segment.getId().toString();
-    List<Interval> intervals = query.getQuerySegmentSpec().getIntervals();
-    Preconditions.checkArgument(intervals.size() == 1, "Can only handle a single interval, got [%s]", intervals);
-    this.filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
-    // "legacy" should be non-null due to toolChest.mergeResults
-    this.isLegacy = Preconditions.checkNotNull(query.isLegacy(), "Expected non-null 'legacy' parameter");
-    this.batchSize = query.getBatchSize();
+    this.interval = interval;
+    this.filter = filter;
+    this.isLegacy = isLegacy;
+    this.batchSize = batchSize;
     this.queryMetrics = queryMetrics;
-    this.columns = defineColumns(query);
-    if (hasTimeout()) {
-      timeoutAt = context.responseContext().getTimeoutTime();
-    } else {
-      timeoutAt = Long.MAX_VALUE;
-    }
+    this.columns = columns;
+    this.virtualColumns = virtualColumns;
+    this.order = order;
+    this.scanLimit = scanLimit;
+    this.resultFormat = resultFormat;
+    this.timeoutAt = timeoutAt;
     context.register(this);
-  }
-
-  /**
-   * Define the query columns when the list is given by the query.
-   */
-  private List<String> defineColumns(ScanQuery query)
-  {
-    if (isWildcard(query)) {
-      return null;
-    }
-    // Unless we're in legacy mode, planCols equals query.getColumns() exactly. This is nice since it makes
-    // the compactedList form easier to use.
-    List<String> queryCols = query.getColumns();
-    if (isLegacy && !queryCols.contains(LEGACY_TIMESTAMP_KEY)) {
-      final List<String> planCols = new ArrayList<>();
-      planCols.add(LEGACY_TIMESTAMP_KEY);
-      planCols.addAll(queryCols);
-      return planCols;
-    } else {
-      return queryCols;
-    }
-  }
-
-  public boolean isWildcard(ScanQuery query)
-  {
-    // Missing or empty list means wildcard
-    List<String> queryCols = query.getColumns();
-    return (queryCols == null || queryCols.isEmpty());
-  }
-
-  // TODO: Review against latest
-  public boolean isDescendingOrder()
-  {
-    return query.getTimeOrder().equals(ScanQuery.Order.DESCENDING) ||
-        (query.getTimeOrder().equals(ScanQuery.Order.NONE) && query.isDescending());
-  }
-
-  public boolean hasTimeout()
-  {
-    return QueryContexts.hasTimeout(query);
-  }
-
-  public boolean isWildcard()
-  {
-    return columns == null;
-  }
-
-  public Interval interval()
-  {
-    return query.getQuerySegmentSpec().getIntervals().get(0);
   }
 
   @Override
   public ResultIterator<ScanResultValue> open()
   {
-    final Long numScannedRows = context.responseContext().getRowScanCount();
-    if (numScannedRows != null && numScannedRows >= query.getScanRowsLimit() && query.getTimeOrder().equals(ScanQuery.Order.NONE)) {
+    ResponseContext responseContext = context.responseContext();
+    // If the row count is not set, set it to 0, else do nothing.
+    responseContext.addRowScanCount(0);
+    final long limit;
+    if (order == Order.NONE) {
+      limit = scanLimit - responseContext.getRowScanCount();
+    } else {
+      // If we're performing time-ordering, we want to scan through the first `limit` rows in each segment ignoring the number
+      // of rows already counted on other segments.
+      limit = scanLimit;
+    }
+
+    if (limit <= 0) {
       return Iterators.emptyIterator();
     } else {
-      impl = new Impl(context);
+      impl = new Impl(limit);
       return impl;
     }
   }

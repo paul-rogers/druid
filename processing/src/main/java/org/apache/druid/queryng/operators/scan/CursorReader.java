@@ -156,9 +156,9 @@ public class CursorReader implements ResultIterator<List<?>>
     rowCount++;
   }
 
-  private boolean hasNextRow()
+  private boolean hasNextRow(int batchRowCount)
   {
-    return !cursor.isDone() && rowCount < targetCount;
+    return !cursor.isDone() && batchRowCount < targetCount;
   }
 
   private Object getColumnValue(int i)
@@ -173,7 +173,7 @@ public class CursorReader implements ResultIterator<List<?>>
   public List<?> nextAsListOfMaps()
   {
     final List<Map<String, Object>> events = new ArrayList<>(batchSize);
-    while (hasNextRow()) {
+    for (int i = 0; hasNextRow(i); i++) {
       final Map<String, Object> theEvent = new LinkedHashMap<>();
       for (int j = 0; j < selectedColumns.size(); j++) {
         theEvent.put(selectedColumns.get(j), getColumnValue(j));
@@ -187,7 +187,7 @@ public class CursorReader implements ResultIterator<List<?>>
   public List<?> nextAsCompactList()
   {
     final List<List<Object>> events = new ArrayList<>(batchSize);
-    while (hasNextRow()) {
+    for (int i = 0; hasNextRow(i); i++) {
       final List<Object> theEvent = new ArrayList<>(selectedColumns.size());
       for (int j = 0; j < selectedColumns.size(); j++) {
         theEvent.add(getColumnValue(j));

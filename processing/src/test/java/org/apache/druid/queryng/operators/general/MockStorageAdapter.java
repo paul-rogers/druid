@@ -31,6 +31,7 @@ import org.apache.druid.segment.Metadata;
 import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnCapabilities;
+import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.data.Indexed;
 import org.apache.druid.segment.data.ListIndexed;
 import org.joda.time.DateTime;
@@ -41,6 +42,20 @@ import java.util.Collections;
 
 public class MockStorageAdapter implements StorageAdapter
 {
+  public static final Interval MOCK_INTERVAL = Intervals.of("2015-09-12T13:00:00.000Z/2015-09-12T14:00:00.000Z");;
+
+  private final int segmentSize;
+
+  public MockStorageAdapter()
+  {
+    this.segmentSize = 5_000_000;
+  }
+
+  public MockStorageAdapter(int segmentSize)
+  {
+    this.segmentSize = segmentSize;
+  }
+
   @Override
   public Sequence<Cursor> makeCursors(
       Filter filter,
@@ -50,19 +65,19 @@ public class MockStorageAdapter implements StorageAdapter
       boolean descending,
       QueryMetrics<?> queryMetrics)
   {
-    return Sequences.simple(Collections.singletonList(new MockCursor(interval)));
+    return Sequences.simple(Collections.singletonList(new MockCursor(interval, segmentSize)));
   }
 
   @Override
   public Interval getInterval()
   {
-    return Intervals.of("2015-09-12T13:00:00.000Z/2015-09-12T14:00:00.000Z");
+    return MOCK_INTERVAL;
   }
 
   @Override
   public Indexed<String> getAvailableDimensions()
   {
-    return new ListIndexed<>(Arrays.asList("__time", "page"));
+    return new ListIndexed<>(Arrays.asList(ColumnHolder.TIME_COLUMN_NAME, "page"));
   }
 
   @Override
@@ -74,7 +89,7 @@ public class MockStorageAdapter implements StorageAdapter
   @Override
   public int getDimensionCardinality(String column)
   {
-    return Integer.MAX_VALUE;
+    return segmentSize;
   }
 
   @Override
@@ -126,7 +141,7 @@ public class MockStorageAdapter implements StorageAdapter
   @Override
   public int getNumRows()
   {
-    return 5_000_000;
+    return segmentSize;
   }
 
   @Override
