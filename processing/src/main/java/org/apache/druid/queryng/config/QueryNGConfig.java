@@ -62,7 +62,7 @@ public class QueryNGConfig
   /**
    * Determine if Query NG should be enabled for the given query. Only scan
    * queries are currently supported. For safety, the default config also
-   * requires that a context variable be set to enable the operatore-based
+   * requires that a context variable be set to enable the operator-based
    * engine. However, the configuration can skip the context check. A present,
    * the skip-context option is primarily for testing.
    *  that is, if the query should have a fragment context attached.
