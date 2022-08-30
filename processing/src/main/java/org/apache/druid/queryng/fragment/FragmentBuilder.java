@@ -28,14 +28,17 @@ import org.apache.druid.queryng.operators.Operator;
  * build operators. Once built, the fragment can be run as a root operator, a
  * sequence, or materialized into a list. The fragment can be run only once.
  */
-public interface FragmentBuilder extends DAGBuilder
+public interface FragmentBuilder
 {
+  FragmentContext context();
+
   <T> FragmentHandle<T> emptyHandle();
   <T> FragmentHandle<T> handle(Operator<T> rootOp);
   <T> FragmentHandle<T> handle(Sequence<T> rootOp);
 
   <T> FragmentRun<T> run(Operator<T> rootOp);
   <T> Sequence<T> runAsSequence(Operator<T> rootOp);
+  <T> Sequence<T> runAsSequence(Sequence<T> sequence);
 
   /**
    * A simple fragment builder for testing.

@@ -36,6 +36,7 @@ public class FragmentRunImpl<T> implements FragmentRun<T>
   {
     Preconditions.checkState(context.state == State.START);
     this.context = context;
+    context.profileBuilder().registerRoot(root);
     try {
       rootIter = root.open();
       context.state = State.RUN;

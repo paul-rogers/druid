@@ -168,7 +168,7 @@ public class BasicOperatorTest
     FragmentBuilder builder = FragmentBuilder.defaultBuilder();
     MockOperator<String> op = MockOperator.strings(builder.context(), 2);
     Sequence<String> seq = Operators.toSequence(op);
-    Operator<String> outer = Operators.toOperator(builder, seq);
+    Operator<String> outer = Operators.toOperator(builder.context(), seq);
     FragmentRun<String> run = builder.run(outer);
     ResultIterator<String> iter = run.iterator();
     assertEquals("Mock row 0", iter.next());

@@ -21,12 +21,20 @@ package org.apache.druid.queryng.fragment;
 
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorProfile;
+
+import java.util.function.Consumer;
 
 /**
  * Provides fragment-level context to operators within a single
  * fragment.
+ * <p>
+ * Passed around while building a DAG of operators:
+ * provides access to the {@link FragmentContext} which each operator
+ * may use, and a method to register operators with the fragment.
  */
-public interface FragmentContext extends DAGBuilder
+public interface FragmentContext
 {
   long NO_TIMEOUT = -1;
 
@@ -38,6 +46,22 @@ public interface FragmentContext extends DAGBuilder
   State state();
   String queryId();
   ResponseContext responseContext();
+
+  /**
+   * Register an operator for this fragment. The operator will be
+   * closed automatically upon fragment completion both for the success
+   * and error cases. An operator <i>may</i> be closed earlier, if a
+   * DAG branch detects it is done during a run. Thus, every operator
+   * must handle a call to {@code close()} when the operator is already
+   * closed.
+   *
+   * Operators may be registered during a run, which is useful in the
+   * conversion from query runners as sometimes the query runner decides
+   * late what child to create.
+   */
+  void register(Operator<?> op);
+
+  void registerChild(Operator<?> parent, Operator<?> child);
 
   /**
    * Checks if a query timeout has occurred. If so, will throw
@@ -55,6 +79,8 @@ public interface FragmentContext extends DAGBuilder
    */
   Exception exception();
 
+  void updateProfile(Operator<?> op, OperatorProfile profile);
+
   /**
    * A simple fragment context for testing.
    */
@@ -65,4 +91,5 @@ public interface FragmentContext extends DAGBuilder
         NO_TIMEOUT,
         ResponseContext.createEmpty());
   }
+  void onClose(Consumer<FragmentContext> listener);
 }

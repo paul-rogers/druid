@@ -129,13 +129,15 @@ public class QueryPlanner
     }
     Operator<T> inputOp = Operators.toOperator(
         delegate,
-        queryWithMetrics);
+        queryWithMetrics
+    );
     CpuMetricOperator<T> op = new CpuMetricOperator<T>(
         queryPlus.fragmentBuilder().context(),
         cpuTimeAccumulator,
         queryWithMetrics.getQueryMetrics(),
         emitter,
-        inputOp);
+        inputOp
+    );
     return Operators.toSequence(op);
   }
 

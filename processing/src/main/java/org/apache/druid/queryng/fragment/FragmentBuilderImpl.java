@@ -21,6 +21,8 @@ package org.apache.druid.queryng.fragment;
 
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.java.util.common.guava.SequenceWrapper;
+import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.fragment.FragmentHandleImpl.EmptyFragmentHandle;
 import org.apache.druid.queryng.fragment.FragmentHandleImpl.FragmentOperatorHandle;
@@ -48,17 +50,6 @@ public class FragmentBuilderImpl implements FragmentBuilder
       final ResponseContext responseContext)
   {
     this.context = new FragmentContextImpl(queryId, timeoutMs, responseContext);
-  }
-
-  /**
-   * Adds an operator to the list of operators to close. Assumes operators are
-   * added bottom-up (as is required so that operators are given their inputs)
-   * so that the last operator in the list is the root we want to execute.
-   */
-  @Override
-  public void register(Operator<?> op)
-  {
-    context.register(op);
   }
 
   @Override
@@ -111,5 +102,29 @@ public class FragmentBuilderImpl implements FragmentBuilder
           }
         }
     );
+  }
+
+  @Override
+  public <T> Sequence<T> runAsSequence(Sequence<T> sequence)
+  {
+    return Sequences.wrap(sequence, new SequenceWrapper()
+    {
+      @Override
+      public void after(boolean isDone, Throwable thrown) throws Exception
+      {
+        if (!isDone) {
+          return;
+        }
+        if (thrown == null) {
+        }
+        else if (thrown instanceof RuntimeException) {
+          context.failed((RuntimeException) thrown);
+        }
+        else {
+          context.failed(new RuntimeException(thrown));
+        }
+        context.close();
+      }
+    });
   }
 }

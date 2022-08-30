@@ -24,7 +24,7 @@ import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
-import org.apache.druid.queryng.fragment.DAGBuilder;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.general.QueryRunnerOperator;
 
@@ -112,12 +112,12 @@ public class Operators
    * If the input sequence is a wrapper around an operator, then
    * (clumsily) unwraps that operator and returns it directly.
    */
-  public static <T> Operator<T> toOperator(DAGBuilder builder, Sequence<T> sequence)
+  public static <T> Operator<T> toOperator(FragmentContext context, Sequence<T> sequence)
   {
     if (sequence instanceof OperatorWrapperSequence) {
       return ((OperatorWrapperSequence<T>) sequence).unwrap();
     }
-    return new SequenceOperator<T>(builder.context(), sequence);
+    return new SequenceOperator<T>(context, sequence);
   }
 
   public static <T> Operator<T> unwrapOperator(Sequence<T> sequence)

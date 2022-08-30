@@ -238,10 +238,7 @@ public class NativeQueryMaker implements QueryMaker
     QueryPlus<T> queryPlus = QueryPlus.wrap(query).withFragmentBuilder(response.fragmentBuilder());
     final Sequence<Object[]> resultArrays = toolChest.resultsAsArrays(queryPlus, results);
 
-    if (response.fragmentHandle() == null) {
-      return response.withSequence(
-          mapResultSequence(resultArrays, resultArrayFields, newFields, newTypes));
-    } else {
+    if (response.isFragment()) {
       return response.withRoot(
           SqlPlanner.projectResults(
               response.fragmentHandle().context(),
@@ -250,7 +247,12 @@ public class NativeQueryMaker implements QueryMaker
               jsonMapper,
               resultArrayFields,
               newFields,
-              newTypes));
+              newTypes
+          )
+      );
+    } else {
+      return response.withSequence(
+          mapResultSequence(resultArrays, resultArrayFields, newFields, newTypes));
     }
   }
 

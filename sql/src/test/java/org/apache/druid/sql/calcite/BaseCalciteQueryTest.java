@@ -892,7 +892,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   )
   {
     if (expectedQueries != null) {
-      final List<Query> recordedQueries = queryLogHook.getRecordedQueries();
+      final List<Query<?>> recordedQueries = queryLogHook.getRecordedQueries();
 
       Assert.assertEquals(
           StringUtils.format("query count: %s", sql),

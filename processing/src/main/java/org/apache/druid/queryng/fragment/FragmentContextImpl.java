@@ -26,21 +26,27 @@ import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorProfile;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.function.Consumer;
 
 public class FragmentContextImpl implements FragmentContext
 {
   private final long timeoutMs;
-  protected final Deque<Operator<?>> operators = new ConcurrentLinkedDeque<>();
+  private final Deque<Operator<?>> operators = new ConcurrentLinkedDeque<>();
   private final ResponseContext responseContext;
   private final String queryId;
   private final long startTimeMillis;
   private final long timeoutAt;
   protected State state = State.START;
   private Deque<Exception> exceptions = new ConcurrentLinkedDeque<>();
+  private final List<Consumer<FragmentContext>> closeListeners = new ArrayList<>();
+  private final ProfileBuilder profileBuilder = new ProfileBuilder();
 
   protected FragmentContextImpl(
       final String queryId,
@@ -59,12 +65,6 @@ public class FragmentContextImpl implements FragmentContext
   }
 
   @Override
-  public FragmentContext context()
-  {
-    return this;
-  }
-
-  @Override
   public State state()
   {
     return state;
@@ -75,6 +75,13 @@ public class FragmentContextImpl implements FragmentContext
   {
     Preconditions.checkState(state == State.START || state == State.RUN);
     operators.add(op);
+  }
+
+  @Override
+  public void registerChild(Operator<?> parent, Operator<?> child)
+  {
+    Preconditions.checkState(state == State.START || state == State.RUN);
+    profileBuilder.registerChild(parent, child);
   }
 
   @Override
@@ -146,8 +153,7 @@ public class FragmentContextImpl implements FragmentContext
     if (state == State.CLOSED) {
       return;
     }
-    Operator<?> op;
-    while ((op = operators.pollFirst()) != null) {
+    for (Operator<?> op : operators) {
       try {
         op.close(false);
       }
@@ -156,5 +162,30 @@ public class FragmentContextImpl implements FragmentContext
       }
     }
     state = State.CLOSED;
+    for (Consumer<FragmentContext> listener : closeListeners) {
+      listener.accept(this);
+    }
+  }
+
+  @Override
+  public synchronized void updateProfile(Operator<?> op, OperatorProfile profile)
+  {
+    profileBuilder.updateProfile(op, profile);
+  }
+
+  protected ProfileBuilder profileBuilder()
+  {
+    return profileBuilder;
+  }
+
+  public FragmentProfile buildProfile()
+  {
+    return profileBuilder.build(operators);
+  }
+
+  @Override
+  public void onClose(Consumer<FragmentContext> listener)
+  {
+    closeListeners.add(listener);
   }
 }
