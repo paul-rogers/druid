@@ -13,6 +13,8 @@ import java.util.Map.Entry;
 
 public class ProfileBuilder
 {
+  private long runTimeMs;
+  private Exception error;
   private Operator<?> root;
   private final Map<Operator<?>, List<Operator<?>>> relationships = new IdentityHashMap<>();
   private final Map<Operator<?>, OperatorProfile> profiles = new IdentityHashMap<>();
@@ -33,8 +35,9 @@ public class ProfileBuilder
     profiles.put(op, profile);
   }
 
-  public FragmentProfile build(Collection<Operator<?>> operators)
+  public FragmentProfile build(FragmentContextImpl context)
   {
+    Collection<Operator<?>> operators = context.operators();
     Map<Operator<?>, Boolean> rootCandidates = new IdentityHashMap<>();
     for (Operator<?> op : operators) {
       rootCandidates.put(op, true);
@@ -54,7 +57,7 @@ public class ProfileBuilder
         rootProfiles.add(buildProfile(entry.getKey()));
       }
     }
-    return new FragmentProfile(rootProfiles);
+    return new FragmentProfile(context, rootProfiles);
   }
 
   private ProfileNode buildProfile(Operator<?> root)
@@ -74,7 +77,7 @@ public class ProfileBuilder
       rootProfile = new OperatorProfile(root.getClass().getSimpleName());
     }
     return new ProfileNode(
-        new OperatorProfile(root.getClass().getSimpleName()),
+        rootProfile,
         childProfiles
     );
   }

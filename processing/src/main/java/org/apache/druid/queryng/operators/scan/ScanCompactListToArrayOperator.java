@@ -23,6 +23,8 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorProfile;
+import org.apache.druid.queryng.operators.Operator.State;
 
 import java.util.List;
 
@@ -52,6 +54,8 @@ public class ScanCompactListToArrayOperator extends MappingOperator<List<Object>
   public Object[] next() throws EofException
   {
     List<Object> row = inputIter.next();
+    batchCount++;
+    rowCount += row.size();
     if (row.size() == fields.size()) {
       return row.toArray();
     } else if (fields.isEmpty()) {
@@ -62,5 +66,17 @@ public class ScanCompactListToArrayOperator extends MappingOperator<List<Object>
       // the result row here.
       throw new ISE("Mismatch in expected [%d] vs actual [%s] field count", fields.size(), row.size());
     }
+  }
+
+  @Override
+  public void close(boolean cascade)
+  {
+    if (state == State.RUN) {
+      OperatorProfile profile = new OperatorProfile("compact-list-to-array");
+      profile.add(OperatorProfile.BATCH_COUNT_METRIC, batchCount);
+      profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
+      context.updateProfile(this, profile);
+    }
+    super.close(cascade);
   }
 }

@@ -24,6 +24,7 @@ import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.utils.JvmUtils;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -78,5 +79,8 @@ public class CpuMetricOperator<T> extends MappingOperator<T, T>
       context.responseContext().addCpuNanos(cpuTimeNs);
       queryMetrics.reportCpuTime(cpuTimeNs).emit(emitter);
     }
+    OperatorProfile profile = new OperatorProfile("cpu-time");
+    profile.add(OperatorProfile.CPU_TIME_NS, cpuTimeNs);
+    context.updateProfile(this, profile);
   }
 }

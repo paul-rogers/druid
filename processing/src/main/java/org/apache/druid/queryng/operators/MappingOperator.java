@@ -34,12 +34,15 @@ public abstract class MappingOperator<IN, OUT> implements IterableOperator<OUT>
   private final Operator<IN> input;
   protected ResultIterator<IN> inputIter;
   protected State state = State.START;
+  protected int rowCount;
+  protected int batchCount;
 
   public MappingOperator(FragmentContext context, Operator<IN> input)
   {
     this.context = context;
     this.input = input;
     context.register(this);
+    context.registerChild(this, input);
   }
 
   @Override

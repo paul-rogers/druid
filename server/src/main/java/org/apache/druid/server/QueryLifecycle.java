@@ -158,7 +158,7 @@ public class QueryLifecycle
 
   /**
    * Runs the query directly when the query is part of a query chain, such as
-   * when being run from SQL.
+   * when run from SQL.
    *
    * @return a {@link QueryResponse} that provides both the Sequence and
    * operator form of the query. The Sequence form is always available; the operator

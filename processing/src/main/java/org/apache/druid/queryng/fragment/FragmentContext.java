@@ -23,6 +23,7 @@ import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
+import org.apache.druid.queryng.operators.scan.ScanQueryOperator;
 
 import java.util.function.Consumer;
 
@@ -46,6 +47,8 @@ public interface FragmentContext
   State state();
   String queryId();
   ResponseContext responseContext();
+
+  void onClose(Consumer<FragmentContext> listener);
 
   /**
    * Register an operator for this fragment. The operator will be
@@ -91,5 +94,4 @@ public interface FragmentContext
         NO_TIMEOUT,
         ResponseContext.createEmpty());
   }
-  void onClose(Consumer<FragmentContext> listener);
 }

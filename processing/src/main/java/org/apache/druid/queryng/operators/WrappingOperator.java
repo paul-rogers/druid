@@ -38,6 +38,8 @@ public abstract class WrappingOperator<T> implements Operator<T>
     this.context = context;
     this.input = input;
     context.register(this);
+    context.registerChild(this, input);
+    context.updateProfile(this, OperatorProfile.silentOperator(this));
   }
 
   @Override

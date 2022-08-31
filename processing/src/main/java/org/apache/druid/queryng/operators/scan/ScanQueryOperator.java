@@ -31,6 +31,7 @@ import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.SequenceIterator;
 import org.apache.druid.segment.Cursor;
@@ -78,9 +79,6 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
     private final List<String> selectedColumns;
     private final long limit;
     private CursorReader cursorReader;
-    private long rowCount;
-    @SuppressWarnings("unused")
-    private int batchCount;
 
     private Impl(long limit)
     {
@@ -148,7 +146,8 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
             return new ScanResultValue(
                 segmentId,
                 selectedColumns,
-                result);
+                result
+            );
           } catch (EofException e) {
             // Cursor is done or was empty.
             closeCursorReader();
@@ -177,7 +176,9 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
             resultFormat,
             isLegacy,
             timeoutAt,
-            queryId);
+            queryId
+        );
+        cursorCount++;
       }
     }
 
@@ -217,6 +218,9 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
   private final long timeoutAt;
   @Nullable final QueryMetrics<?> queryMetrics;
   private Impl impl;
+  private int rowCount;
+  private int batchCount;
+  private int cursorCount;
 
   public ScanQueryOperator(
       final FragmentContext context,
@@ -282,6 +286,11 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
   {
     if (impl != null) {
       impl.closeCursorReader();
+      OperatorProfile profile = new OperatorProfile("Scan-Query");
+      profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
+      profile.add(OperatorProfile.BATCH_COUNT_METRIC, rowCount);
+      profile.add("cursorCount", cursorCount);
+      context.updateProfile(this, profile);
     }
     impl = null;
   }

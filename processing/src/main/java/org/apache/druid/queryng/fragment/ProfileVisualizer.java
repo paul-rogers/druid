@@ -22,7 +22,22 @@ public class ProfileVisualizer
   public String render()
   {
     buf.setLength(0);
-    for (ProfileNode root : profile.root()) {
+    buf.append("----------\n")
+       .append("Query ID: ")
+       .append(profile.queryId)
+       .append("\n")
+       .append("Runtime (ms): ")
+       .append(profile.runTimeMs)
+       .append("\n");
+    if (profile.error != null) {
+      buf.append("Error: ")
+         .append(profile.error.getClass().getSimpleName())
+         .append(" - ")
+         .append(profile.error.getMessage())
+         .append("\n");
+    }
+    buf.append("\n");
+    for (ProfileNode root : profile.roots) {
       renderNode(0, root);
     }
     return buf.toString();
@@ -30,14 +45,18 @@ public class ProfileVisualizer
 
   private void renderNode(int level, ProfileNode node)
   {
+    if (node.profile.omitFromProfile && node.children.size() == 1) {
+      renderNode(level, node.children.get(0));
+      return;
+    }
     String indent = StringUtils.repeat(INDENT, level);
     buf.append(indent)
-       .append(node.operatorName())
+       .append(node.profile.operatorName)
        .append("\n");
-    List<ProfileNode> children = node.children();
+    List<ProfileNode> children = node.children;
     int childCount = children == null ? 0 : children.size();
     String innerIndent = indent + StringUtils.repeat(INDENT, childCount);
-    for (Entry<String, Long> entry : node.metrics().entrySet()) {
+    for (Entry<String, Long> entry : node.profile.metrics().entrySet()) {
       buf.append(innerIndent)
          .append(METRIC_INDENT)
          .append(entry.getKey())

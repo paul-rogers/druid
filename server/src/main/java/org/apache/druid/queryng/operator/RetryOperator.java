@@ -38,6 +38,7 @@ import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.ConcatOperator;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.OrderedMergeOperator;
 import org.apache.druid.queryng.operators.OrderedMergeOperator.Input;
@@ -85,6 +86,8 @@ public class RetryOperator<T> implements Operator<T>
   private final boolean allowPartialResults;
   private Operator<T> mergeOp;
   private State state = State.START;
+  private int tryCount;
+  private int missingSegmentCount;
 
   /**
    * Runnable executed after the broker creates the query distribution tree
@@ -117,16 +120,19 @@ public class RetryOperator<T> implements Operator<T>
         queryPlus.getQuery(),
         allowPartialResults);
     this.runnableAfterFirstAttempt = runnableAfterFirstAttempt;
+    context.register(this);
   }
 
   @Override
   public ResultIterator<T> open()
   {
     Operator<T> inputOp = baseOperator;
-    for (int retryCount = 0; inputOp != null; retryCount++) {
-      inputOp = launchRound(retryCount, inputOp);
+    while (inputOp != null) {
+      tryCount++;
+      inputOp = launchRound(inputOp);
     }
     mergeOp = chooseMerge();
+    context.registerChild(this, mergeOp);
     state = State.RUN;
     return mergeOp.open();
   }
@@ -161,12 +167,12 @@ public class RetryOperator<T> implements Operator<T>
         () -> inputs);
   }
 
-  private Operator<T> launchRound(int retryCount, Operator<T> inputOp)
+  private Operator<T> launchRound(Operator<T> inputOp)
   {
     // Create a merge input. Doing so runs the base operator and fetches
     // the first row. That causes the missing segments to be available.
     inputs.add(new Input<T>(inputOp));
-    if (retryCount == 0) {
+    if (tryCount == 1) {
       // runnableAfterFirstAttempt is only for testing, it must be no-op for production code.
       runnableAfterFirstAttempt.run();
     }
@@ -180,8 +186,10 @@ public class RetryOperator<T> implements Operator<T>
       return null;
     }
 
+    missingSegmentCount += missingSegments.size();
+
     // Too many retries?
-    if (retryCount >= maxRetries) {
+    if (tryCount - 1 >= maxRetries) {
       if (!allowPartialResults) {
         throw new SegmentMissingException("No results found for segments [%s]", missingSegments);
       } else {
@@ -190,7 +198,7 @@ public class RetryOperator<T> implements Operator<T>
     }
 
     // Retry
-    LOG.info("[%,d] missing segments found. Retry attempt [%,d]", missingSegments.size(), retryCount);
+    LOG.info("[%,d] missing segments found. Retry attempt [%,d]", missingSegments.size(), tryCount - 1);
 
     ResponseContext context = this.context.responseContext();
     context.initializeMissingSegments();
@@ -204,14 +212,20 @@ public class RetryOperator<T> implements Operator<T>
   @Override
   public void close(boolean cascade)
   {
-    if (state == State.RUN && cascade) {
-      if (mergeOp != null) {
-        mergeOp.close(cascade);
-      } else {
-        for (Input<T> input : inputs) {
-          input.close(cascade);
+    if (state == State.RUN) {
+      if (cascade) {
+        if (mergeOp != null) {
+          mergeOp.close(cascade);
+        } else {
+          for (Input<T> input : inputs) {
+            input.close(cascade);
+          }
         }
       }
+      OperatorProfile profile = new OperatorProfile("segment-retry");
+      profile.add("try-count", tryCount);
+      profile.add("missing-segment-count", missingSegmentCount);
+      context.updateProfile(this, profile);
     }
     state = State.CLOSED;
   }

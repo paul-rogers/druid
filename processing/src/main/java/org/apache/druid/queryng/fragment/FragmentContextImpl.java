@@ -25,10 +25,12 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.queryng.fragment.FragmentProfile.ProfileNode;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
@@ -38,13 +40,14 @@ import java.util.function.Consumer;
 public class FragmentContextImpl implements FragmentContext
 {
   private final long timeoutMs;
-  private final Deque<Operator<?>> operators = new ConcurrentLinkedDeque<>();
+  private final List<Operator<?>> operators = new ArrayList<>();
   private final ResponseContext responseContext;
   private final String queryId;
   private final long startTimeMillis;
+  private long closeTimeMillis;
   private final long timeoutAt;
   protected State state = State.START;
-  private Deque<Exception> exceptions = new ConcurrentLinkedDeque<>();
+  private List<Exception> exceptions = new ArrayList<>();
   private final List<Consumer<FragmentContext>> closeListeners = new ArrayList<>();
   private final ProfileBuilder profileBuilder = new ProfileBuilder();
 
@@ -71,14 +74,14 @@ public class FragmentContextImpl implements FragmentContext
   }
 
   @Override
-  public void register(Operator<?> op)
+  public synchronized void register(Operator<?> op)
   {
     Preconditions.checkState(state == State.START || state == State.RUN);
     operators.add(op);
   }
 
   @Override
-  public void registerChild(Operator<?> parent, Operator<?> child)
+  public synchronized void registerChild(Operator<?> parent, Operator<?> child)
   {
     Preconditions.checkState(state == State.START || state == State.RUN);
     profileBuilder.registerChild(parent, child);
@@ -87,7 +90,11 @@ public class FragmentContextImpl implements FragmentContext
   @Override
   public Exception exception()
   {
-    return exceptions.peek();
+    if (exceptions.isEmpty()) {
+      return null;
+    } else {
+      return exceptions.get(0);
+    }
   }
 
   @Override
@@ -162,6 +169,7 @@ public class FragmentContextImpl implements FragmentContext
       }
     }
     state = State.CLOSED;
+    closeTimeMillis = System.currentTimeMillis();
     for (Consumer<FragmentContext> listener : closeListeners) {
       listener.accept(this);
     }
@@ -180,12 +188,22 @@ public class FragmentContextImpl implements FragmentContext
 
   public FragmentProfile buildProfile()
   {
-    return profileBuilder.build(operators);
+    return profileBuilder.build(this);
   }
 
   @Override
   public void onClose(Consumer<FragmentContext> listener)
   {
     closeListeners.add(listener);
+  }
+
+  public Collection<Operator<?>> operators()
+  {
+    return operators;
+  }
+
+  public long elapsedTimeMs()
+  {
+    return closeTimeMillis - startTimeMillis;
   }
 }

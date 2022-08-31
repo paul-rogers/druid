@@ -24,6 +24,7 @@ import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.Operators;
 
 /**
@@ -47,6 +48,7 @@ public class QueryRunnerOperator<T> implements Operator<T>
     this.runner = runner;
     this.query = query;
     context.register(this);
+    context.updateProfile(this, OperatorProfile.silentOperator(this));
   }
 
   @Override
@@ -54,6 +56,7 @@ public class QueryRunnerOperator<T> implements Operator<T>
   {
     Sequence<T> seq = runner.run(query, context.responseContext());
     child = Operators.toOperator(context, seq);
+    context.registerChild(this, child);
     return child.open();
   }
 

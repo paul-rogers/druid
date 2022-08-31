@@ -31,6 +31,8 @@ import org.apache.druid.math.expr.Evals;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorProfile;
+import org.apache.druid.queryng.operators.Operator.State;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.data.ComparableList;
 import org.apache.druid.segment.data.ComparableStringArray;
@@ -95,6 +97,8 @@ public class ProjectResultsOperatorEx extends MappingOperator<Object[], Object[]
   public Object[] next() throws EofException
   {
     final Object[] array = inputIter.next();
+    batchCount++;
+    rowCount += array.length;
     final Object[] newArray = new Object[mapping.length];
     for (int i = 0; i < mapping.length; i++) {
       newArray[i] = conversions[i].apply(array[mapping[i]]);
@@ -302,5 +306,17 @@ public class ProjectResultsOperatorEx extends MappingOperator<Object[], Object[]
       throw conversionFailed(value, SqlTypeName.ARRAY);
     }
     return dateTime;
+  }
+
+  @Override
+  public void close(boolean cascade)
+  {
+    if (state == State.RUN) {
+      OperatorProfile profile = new OperatorProfile("project-sql-results");
+      profile.add(OperatorProfile.BATCH_COUNT_METRIC, batchCount);
+      profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
+      context.updateProfile(this, profile);
+    }
+    super.close(cascade);
   }
 }

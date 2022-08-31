@@ -23,6 +23,8 @@ import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorProfile;
+import org.apache.druid.queryng.operators.Operator.State;
 
 import java.util.Iterator;
 
@@ -47,12 +49,27 @@ public class ScanBatchToRowOperator<T> extends MappingOperator<ScanResultValue, 
   {
     while (true) {
       if (batchIter == null) {
-        batchIter = inputIter.next().getRows().iterator();
+        ScanResultValue result = inputIter.next();
+        batchCount++;
+        batchIter = result.getRows().iterator();
       }
       if (batchIter.hasNext()) {
+        rowCount++;
         return (T) batchIter.next();
       }
       batchIter = null;
     }
+  }
+
+  @Override
+  public void close(boolean cascade)
+  {
+    if (state == State.RUN) {
+      OperatorProfile profile = new OperatorProfile("scan-batch-to-row");
+      profile.add(OperatorProfile.BATCH_COUNT_METRIC, batchCount);
+      profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
+      context.updateProfile(this, profile);
+    }
+    super.close(cascade);
   }
 }

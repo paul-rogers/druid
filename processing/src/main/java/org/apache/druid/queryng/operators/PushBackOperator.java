@@ -18,17 +18,21 @@ public class PushBackOperator<T> implements IterableOperator<T>
       FragmentContext context,
       Operator<T> input,
       ResultIterator<T> inputIter,
-      T pushed)
+      T pushed
+  )
   {
     this.input = input;
     this.inputIter = inputIter;
     this.pushed = pushed;
     context.register(this);
+    context.registerChild(this, input);
+    context.updateProfile(this, OperatorProfile.silentOperator(this));
   }
 
   public PushBackOperator(FragmentContext context, Operator<T> input)
   {
     this(context, input, null, null);
+    context.updateProfile(this, OperatorProfile.silentOperator(this));
   }
 
   @Override

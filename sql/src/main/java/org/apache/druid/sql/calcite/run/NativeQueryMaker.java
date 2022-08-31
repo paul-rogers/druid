@@ -51,6 +51,8 @@ import org.apache.druid.query.filter.OrDimFilter;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
+import org.apache.druid.queryng.fragment.FragmentHandle;
+import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.planner.SqlPlanner;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.column.ColumnHolder;
@@ -204,12 +206,6 @@ public class NativeQueryMaker implements QueryMaker
 
   private <T> Sequence<Object[]> execute(Query<T> query, final List<String> newFields, final List<SqlTypeName> newTypes)
   {
-    QueryResponse<Object[]> response = doExecute(query, newFields, newTypes);
-    return response.getResults();
-  }
-
-  private <T> QueryResponse<Object[]> doExecute(Query<T> query, final List<String> newFields, final List<SqlTypeName> newTypes)
-  {
     Hook.QUERY_PLAN.run(query);
 
     if (query.getId() == null) {
@@ -229,30 +225,30 @@ public class NativeQueryMaker implements QueryMaker
     // array-based results before starting the query; but in practice we don't expect this to happen since we keep
     // tight control over which query types we generate in the SQL layer. They all support array-based results.)
     final QueryResponse<T> response = queryLifecycle.runSimpleWithResponse(query, authenticationResult, authorizationResult);
-    final Sequence<T> results = response.getResults();
 
     //noinspection unchecked
     @SuppressWarnings("unchecked")
     final QueryToolChest<T, Query<T>> toolChest = queryLifecycle.getToolChest();
     final List<String> resultArrayFields = toolChest.resultArraySignature(query).getColumnNames();
     QueryPlus<T> queryPlus = QueryPlus.wrap(query).withFragmentBuilder(response.fragmentBuilder());
-    final Sequence<Object[]> resultArrays = toolChest.resultsAsArrays(queryPlus, results);
 
     if (response.isFragment()) {
-      return response.withRoot(
-          SqlPlanner.projectResults(
-              response.fragmentHandle().context(),
-              resultArrays,
-              plannerContext,
-              jsonMapper,
-              resultArrayFields,
-              newFields,
-              newTypes
-          )
+      final Sequence<T> results = response.fragmentHandle().rootSequence();
+      final Sequence<Object[]> resultArrays = toolChest.resultsAsArrays(queryPlus, results);
+      Operator<Object[]> root = SqlPlanner.projectResults(
+          response.fragmentHandle().context(),
+          resultArrays,
+          plannerContext,
+          jsonMapper,
+          resultArrayFields,
+          newFields,
+          newTypes
       );
+      return response.fragmentHandle().compose(root).runAsSequence();
     } else {
-      return response.withSequence(
-          mapResultSequence(resultArrays, resultArrayFields, newFields, newTypes));
+      final Sequence<T> results = response.getResults();
+      final Sequence<Object[]> resultArrays = toolChest.resultsAsArrays(queryPlus, results);
+      return mapResultSequence(resultArrays, resultArrayFields, newFields, newTypes);
     }
   }
 

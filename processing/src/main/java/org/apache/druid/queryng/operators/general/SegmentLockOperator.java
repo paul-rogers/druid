@@ -25,6 +25,7 @@ import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.segment.SegmentReference;
 
 import java.io.Closeable;
@@ -67,6 +68,8 @@ public class SegmentLockOperator<T> implements Operator<T>
     this.child = child;
     this.context = context;
     context.register(this);
+    context.registerChild(this, child);
+    context.updateProfile(this, OperatorProfile.silentOperator(this));
   }
 
   @Override
