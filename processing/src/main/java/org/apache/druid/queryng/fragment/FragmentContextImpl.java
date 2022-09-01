@@ -25,16 +25,13 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.queryng.fragment.FragmentProfile.ProfileNode;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.List;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Consumer;
 
 public class FragmentContextImpl implements FragmentContext

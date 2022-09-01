@@ -65,7 +65,8 @@ public class DeferredMergeOperatorTest
     try {
       ResultIterator<T> iter = op.open();
       return new Input<T>(op, iter, iter.next());
-    } catch (EofException e) {
+    }
+    catch (EofException e) {
       fail();
       return null;
     }

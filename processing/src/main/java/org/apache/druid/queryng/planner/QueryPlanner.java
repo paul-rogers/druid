@@ -350,8 +350,7 @@ public class QueryPlanner
     }
 
     List<Operator<T>> inputs = new ArrayList<>();
-    for (int i = 0; i < unionDataSource.getDataSources().size(); i++)
-    {
+    for (int i = 0; i < unionDataSource.getDataSources().size(); i++) {
       TableDataSource dataSource = unionDataSource.getDataSources().get(i);
       Query<T> childQuery = Queries
                 .withBaseDataSource(query, dataSource)

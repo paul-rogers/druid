@@ -46,7 +46,7 @@ import java.util.Collections;
 
 public class MockStorageAdapter implements StorageAdapter
 {
-  public static final Interval MOCK_INTERVAL = Intervals.of("2015-09-12T13:00:00.000Z/2015-09-12T14:00:00.000Z");;
+  public static final Interval MOCK_INTERVAL = Intervals.of("2015-09-12T13:00:00.000Z/2015-09-12T14:00:00.000Z");
   public static final SegmentDescriptor MOCK_DESCRIPTOR = new SegmentDescriptor(
       MOCK_INTERVAL,
       "1",

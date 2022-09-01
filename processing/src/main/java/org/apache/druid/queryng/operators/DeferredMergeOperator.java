@@ -21,10 +21,6 @@ package org.apache.druid.queryng.operators;
 
 import com.google.common.collect.Ordering;
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operators.Operator.IterableOperator;
-
-import java.util.PriorityQueue;
-import java.util.function.Supplier;
 
 /**
  * Ordered merge of "operators to be named later" by client that

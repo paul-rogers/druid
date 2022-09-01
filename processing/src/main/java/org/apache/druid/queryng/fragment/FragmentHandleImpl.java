@@ -22,7 +22,6 @@ package org.apache.druid.queryng.fragment;
 import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.guava.Sequence;
-import org.apache.druid.java.util.common.guava.SequenceWrapper;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.queryng.fragment.FragmentContext.State;
 import org.apache.druid.queryng.operators.NullOperator;

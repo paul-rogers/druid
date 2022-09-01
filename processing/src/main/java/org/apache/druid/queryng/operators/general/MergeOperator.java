@@ -70,7 +70,7 @@ public class MergeOperator<T> extends AbstractMergeOperator<T>
         ResultIterator<T> childIter = child.open();
         pQueue.add(new Input<T>(child, childIter, childIter.next()));
       }
-      catch (EofException e){
+      catch (EofException e) {
         child.close(true);
       }
     }

@@ -148,7 +148,8 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
                 selectedColumns,
                 result
             );
-          } catch (EofException e) {
+          }
+          catch (EofException e) {
             // Cursor is done or was empty.
             closeCursorReader();
           }

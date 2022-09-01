@@ -24,7 +24,6 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
-import org.apache.druid.queryng.operators.Operator.State;
 
 import java.util.List;
 

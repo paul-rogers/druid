@@ -116,11 +116,10 @@ public class FragmentBuilderImpl implements FragmentBuilder
           return;
         }
         if (thrown == null) {
-        }
-        else if (thrown instanceof RuntimeException) {
+          // Success
+        } else if (thrown instanceof RuntimeException) {
           context.failed((RuntimeException) thrown);
-        }
-        else {
+        } else {
           context.failed(new RuntimeException(thrown));
         }
         context.close();

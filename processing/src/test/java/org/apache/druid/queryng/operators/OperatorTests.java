@@ -22,8 +22,8 @@ package org.apache.druid.queryng.operators;
 import org.apache.druid.java.util.common.RE;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator.EofException;
-import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
+import org.apache.druid.queryng.operators.Operator.ResultIterator;
 
 import static org.junit.Assert.fail;
 
@@ -52,7 +52,8 @@ public class OperatorTests
         row -> {
           try {
             Thread.sleep(sleepMs);
-          } catch (InterruptedException e) {
+          }
+          catch (InterruptedException e) {
             // Ignore
           }
           return row;
