@@ -25,40 +25,33 @@ import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.MockOperator;
 import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
-import org.apache.druid.queryng.operators.OperatorTest;
-import org.apache.druid.queryng.operators.OperatorTests;
-import org.apache.druid.queryng.operators.Operators;
-import org.apache.druid.queryng.operators.OrderedMergeOperator;
+import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.apache.druid.queryng.operators.Operator.State;
-import org.apache.druid.queryng.operators.OrderedMergeOperator.Input;
+import org.apache.druid.queryng.operators.OperatorTest;
+import org.apache.druid.queryng.operators.OperatorTests;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 @Category(OperatorTest.class)
-public class OrderedMergeOperatorTest
+public class MergeOperatorTest
 {
   @Test
   public void testNoInputs()
   {
     FragmentContext context = FragmentContext.defaultContext();
-    Supplier<Iterable<Input<Integer>>> inputs =
-        () -> Collections.emptyList();
-    Operator<Integer> op = new OrderedMergeOperator<>(
+    Operator<Integer> op = new MergeOperator<Integer>(
         context,
         Ordering.natural(),
-        0,
-        inputs);
+        Collections.emptyList()
+    );
     ResultIterator<Integer> iter = op.open();
     OperatorTests.assertEof(iter);
     op.close(true);
@@ -68,15 +61,14 @@ public class OrderedMergeOperatorTest
   public void testEmptyInputs()
   {
     FragmentContext context = FragmentContext.defaultContext();
-    Supplier<Iterable<Input<Integer>>> inputs =
-        () -> Arrays.asList(
-            new Input<Integer>(new NullOperator<Integer>(context)),
-            new Input<Integer>(new NullOperator<Integer>(context)));
-    Operator<Integer> op = new OrderedMergeOperator<>(
+    Operator<Integer> op = new MergeOperator<>(
         context,
         Ordering.natural(),
-        2,
-        inputs);
+        Arrays.asList(
+            new NullOperator<Integer>(context),
+            new NullOperator<Integer>(context)
+        )
+    );
     ResultIterator<Integer> iter = op.open();
     OperatorTests.assertEof(iter);
     op.close(true);
@@ -86,14 +78,11 @@ public class OrderedMergeOperatorTest
   public void testOneInput()
   {
     FragmentContext context = FragmentContext.defaultContext();
-    Supplier<Iterable<Input<Integer>>> inputs =
-        () -> Collections.singletonList(
-            new Input<Integer>(MockOperator.ints(context, 3)));
-    Operator<Integer> op = new OrderedMergeOperator<>(
+    Operator<Integer> op = new MergeOperator<>(
         context,
         Ordering.natural(),
-        1,
-        inputs);
+        Collections.singletonList(MockOperator.ints(context, 3))
+    );
     ResultIterator<Integer> iter = op.open();
     List<Integer> results = Iterators.toList(iter);
     op.close(true);
@@ -104,15 +93,14 @@ public class OrderedMergeOperatorTest
   public void testTwoInputs()
   {
     FragmentContext context = FragmentContext.defaultContext();
-    Supplier<Iterable<Input<Integer>>> inputs =
-        () -> Arrays.asList(
-            new Input<Integer>(MockOperator.ints(context, 3)),
-            new Input<Integer>(MockOperator.ints(context, 5)));
-    Operator<Integer> op = new OrderedMergeOperator<>(
+    Operator<Integer> op = new MergeOperator<>(
         context,
         Ordering.natural(),
-        2,
-        inputs);
+        Arrays.asList(
+            MockOperator.ints(context, 3),
+            MockOperator.ints(context, 5)
+        )
+    );
     ResultIterator<Integer> iter = op.open();
     List<Integer> results = Iterators.toList(iter);
     op.close(true);
@@ -125,15 +113,11 @@ public class OrderedMergeOperatorTest
     FragmentContext context = FragmentContext.defaultContext();
     MockOperator<Integer> input1 = MockOperator.ints(context, 2);
     MockOperator<Integer> input2 = MockOperator.ints(context, 2);
-    Supplier<Iterable<Input<Integer>>> inputs =
-        () -> Arrays.asList(
-            new Input<Integer>(input1),
-            new Input<Integer>(input2));
-    Operator<Integer> op = new OrderedMergeOperator<>(
+    Operator<Integer> op = new MergeOperator<>(
         context,
         Ordering.natural(),
-        2,
-        inputs);
+        Arrays.asList(input1, input2)
+    );
     ResultIterator<Integer> iter = op.open();
     List<Integer> results = Iterators.toList(iter);
     assertEquals(Arrays.asList(0, 0, 1, 1), results);
@@ -144,38 +128,23 @@ public class OrderedMergeOperatorTest
     op.close(true);
   }
 
-  /**
-   * Test the case where the input to the ordered merge is, instead,
-   * used directly as an operator (because it turns out there is only
-   * one such input, so a merge is unnecessary).
-   */
   @Test
-  public void testInput()
+  public void testEarlyClose() throws EofException
   {
     FragmentContext context = FragmentContext.defaultContext();
     MockOperator<Integer> input1 = MockOperator.ints(context, 2);
-    Input<Integer> input = new Input<>(input1);
-    assertFalse(input.eof());
-    assertEquals(0, (int) input.get());
-    Operator<Integer> op2 = input.toOperator(context);
-    List<Integer> results = Operators.toList(op2);
-    assertEquals(Arrays.asList(0, 1), results);
-    assertTrue(input1.state == State.CLOSED);
-  }
+    MockOperator<Integer> input2 = MockOperator.ints(context, 2);
+    Operator<Integer> op = new MergeOperator<>(
+        context,
+        Ordering.natural(),
+        Arrays.asList(input1, input2)
+    );
+    ResultIterator<Integer> iter = op.open();
+    assertEquals(0, (int) iter.next());
+    op.close(true);
 
-  /**
-   * As above, but with a no-rows input.
-   */
-  @Test
-  public void testEmptyInput()
-  {
-    FragmentContext context = FragmentContext.defaultContext();
-    Operator<Integer> input1 = new NullOperator<>(context);
-    Input<Integer> input = new Input<>(input1);
-    assertTrue(input.eof());
-    assertNull(input.get());
-    Operator<Integer> op2 = input.toOperator(context);
-    List<Integer> results = Operators.toList(op2);
-    assertTrue(results.isEmpty());
+    // Inputs are closed as exhausted.
+    assertTrue(input1.state == State.CLOSED);
+    assertTrue(input2.state == State.CLOSED);
   }
 }

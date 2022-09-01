@@ -1,5 +1,6 @@
 package org.apache.druid.queryng.operator;
 
+import com.google.common.collect.Ordering;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
@@ -7,6 +8,7 @@ import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operator.general.RetryOperator;
 import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorTest;
@@ -46,6 +48,7 @@ public class RetryOperatorTest
         context,
         queryPlus,
         new NullOperator<ScanResultValue>(context),
+        Ordering.natural(),
         null,
         (id, ctx) -> Collections.emptyList(),
         1,
@@ -73,6 +76,7 @@ public class RetryOperatorTest
         context,
         queryPlus,
         scan,
+        Ordering.natural(),
         null,
         (id, ctx) -> Collections.emptyList(),
         1,
@@ -105,6 +109,7 @@ public class RetryOperatorTest
         context,
         queryPlus,
         scan,
+        Ordering.natural(),
         (q, segs) -> runner2,
         (id, ctx) -> {
           if (counter.getAndAdd(1) == 0) {
@@ -140,6 +145,7 @@ public class RetryOperatorTest
         context,
         queryPlus,
         scan,
+        Ordering.natural(),
         (q, segs) -> {
           Operator<ScanResultValue> scan2 = new MockScanResultReader(context, 3, 5, 4, MockScanResultReader.interval(0));
           return (qp, qc) -> Operators.toSequence(scan2);
@@ -173,6 +179,7 @@ public class RetryOperatorTest
         context,
         queryPlus,
         scan,
+        Ordering.natural(),
         (q, segs) -> {
           Operator<ScanResultValue> scan2 = new MockScanResultReader(context, 3, 5, 4, MockScanResultReader.interval(0));
           return (qp, qc) -> Operators.toSequence(scan2);

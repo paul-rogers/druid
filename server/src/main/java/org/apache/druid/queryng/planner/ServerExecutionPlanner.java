@@ -21,17 +21,20 @@ package org.apache.druid.queryng.planner;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
+import io.github.resilience4j.bulkhead.Bulkhead;
 import org.apache.druid.client.SegmentServerSelector;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Queries;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.RetryQueryRunnerConfig;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operator.RetryOperator;
+import org.apache.druid.queryng.operator.general.RetryOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.general.QueryRunnerOperator;
@@ -114,7 +117,10 @@ public class ServerExecutionPlanner
                 scheduler,
                 scheduler.prioritizeAndLaneQuery(
                     queryPlus,
-                    segments)));
+                    segments
+                )
+            )
+      );
     }
     op = new ResponseContextInitializationOperator<T>(
         fragmentContext,
@@ -135,12 +141,33 @@ public class ServerExecutionPlanner
         queryPlus.fragmentBuilder().context(),
         queryPlus,
         new QueryRunnerOperator<T>(baseRunner, queryPlus),
+        queryPlus.getQuery().getResultOrdering(),
         retryRunnerCreateFn,
         (id, rc) -> RetryOperator.getMissingSegments(id, rc, jsonMapper),
-        config.getNumTries(),
-        config.isReturnPartialResults(),
+        QueryContexts.getNumRetriesOnMissingSegments(
+            queryPlus.getQuery(),
+            config.getNumTries()
+        ),
+        QueryContexts.allowReturnPartialResults(
+            queryPlus.getQuery(),
+            config.isReturnPartialResults()
+        ),
         () -> { }
-        );
+    );
+    return Operators.toSequence(op);
+  }
+
+  public static <T> Sequence<T> throttle(
+      final QueryPlus<T> queryPlus,
+      final QueryRunner<T> baseRunner,
+      final Throttle throttle
+  )
+  {
+    Operator<T> op = new ThrottleOperator<T>(
+        queryPlus.fragmentBuilder().context(),
+        new QueryRunnerOperator<T>(baseRunner, queryPlus),
+        throttle
+    );
     return Operators.toSequence(op);
   }
 }

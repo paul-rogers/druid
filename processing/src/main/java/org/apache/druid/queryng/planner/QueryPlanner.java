@@ -23,6 +23,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
@@ -39,24 +40,31 @@ import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.query.TableDataSource;
+import org.apache.druid.query.UnionDataSource;
+import org.apache.druid.query.UnionQueryRunner;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
 import org.apache.druid.query.aggregation.MetricManipulatorFns;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
 import org.apache.druid.queryng.Timer;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.ConcatOperator;
+import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.TransformOperator;
 import org.apache.druid.queryng.operators.general.CpuMetricOperator;
+import org.apache.druid.queryng.operators.general.MergeOperator;
 import org.apache.druid.queryng.operators.general.MetricsOperator;
 import org.apache.druid.queryng.operators.general.QueryRunnerFactoryOperator;
 import org.apache.druid.queryng.operators.general.SegmentLockOperator;
 import org.apache.druid.queryng.operators.general.ThreadLabelOperator;
 import org.apache.druid.segment.SegmentReference;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -224,7 +232,7 @@ public class QueryPlanner
   }
 
   /**
-   * Plans for a specific segment. The {@code SpecificSegmentQueryRunner}
+   * Plan for a specific segment. The {@code SpecificSegmentQueryRunner}
    * does two things: renames the thread and reports missing segments by
    * catching the {@code SegmentMissingException}. In the operator model,
    * the missing segment is caught in the
@@ -315,5 +323,63 @@ public class QueryPlanner
         descriptor,
         inputOp);
     return Operators.toSequence(op);
+  }
+
+  public static <T> Sequence<T> runUnionQuery(
+      final QueryPlus<T> queryPlus,
+      final QueryRunner<T> baseRunner,
+      final ResponseContext responseContext
+  )
+  {
+    FragmentContext fragmentContext = queryPlus.fragmentBuilder().context();
+    Query<T> query = queryPlus.getQuery();
+    final DataSourceAnalysis analysis = DataSourceAnalysis.forDataSource(query.getDataSource());
+
+    if (!analysis.isConcreteTableBased() || !analysis.getBaseUnionDataSource().isPresent()) {
+      // Not a union of tables. Do nothing special.
+      return baseRunner.run(queryPlus, responseContext);
+    }
+
+    // Union of tables.
+    final UnionDataSource unionDataSource = analysis.getBaseUnionDataSource().get();
+    if (unionDataSource.getDataSources().isEmpty()) {
+      // Shouldn't happen, because UnionDataSource doesn't allow empty unions.
+      return Operators.toSequence(
+          new NullOperator<T>(fragmentContext)
+      );
+    }
+
+    List<Operator<T>> inputs = new ArrayList<>();
+    for (int i = 0; i < unionDataSource.getDataSources().size(); i++)
+    {
+      TableDataSource dataSource = unionDataSource.getDataSources().get(i);
+      Query<T> childQuery = Queries
+                .withBaseDataSource(query, dataSource)
+                 // assign the subqueryId. this will be used to validate that every query servers
+                 // have responded per subquery in RetryQueryRunner
+                 .withSubQueryId(
+                     UnionQueryRunner.generateSubqueryId(
+                       query.getSubQueryId(),
+                       dataSource.getName(),
+                       i
+                     )
+                  );
+      Operator<T> inputOp = Operators.toOperator(
+          fragmentContext,
+          baseRunner.run(
+              queryPlus.withQuery(childQuery),
+              responseContext
+          )
+      );
+      inputs.add(inputOp);
+    }
+    Ordering<T> ordering = query.getResultOrdering();
+    Operator<T> mergeOp;
+    if (ordering.equals(Ordering.natural())) {
+      mergeOp = new ConcatOperator<T>(fragmentContext, inputs);
+    } else {
+      mergeOp = new MergeOperator<T>(fragmentContext, ordering, inputs);
+    }
+    return Operators.toSequence(mergeOp);
   }
 }

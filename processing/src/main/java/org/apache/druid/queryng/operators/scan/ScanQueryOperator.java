@@ -286,9 +286,9 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
   {
     if (impl != null) {
       impl.closeCursorReader();
-      OperatorProfile profile = new OperatorProfile("Scan-Query");
+      OperatorProfile profile = new OperatorProfile("scan-query");
       profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
-      profile.add(OperatorProfile.BATCH_COUNT_METRIC, rowCount);
+      profile.add(OperatorProfile.BATCH_COUNT_METRIC, batchCount);
       profile.add("cursorCount", cursorCount);
       context.updateProfile(this, profile);
     }

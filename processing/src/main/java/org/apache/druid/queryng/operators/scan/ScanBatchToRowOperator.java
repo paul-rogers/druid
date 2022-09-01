@@ -24,7 +24,6 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
-import org.apache.druid.queryng.operators.Operator.State;
 
 import java.util.Iterator;
 
@@ -37,6 +36,8 @@ import java.util.Iterator;
 public class ScanBatchToRowOperator<T> extends MappingOperator<ScanResultValue, T>
 {
   private Iterator<Object> batchIter;
+  private int batchCount;
+  private int rowCount;
 
   public ScanBatchToRowOperator(FragmentContext context, Operator<ScanResultValue> input)
   {

@@ -24,7 +24,6 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
-import org.apache.druid.queryng.operators.Operator.State;
 
 import java.util.List;
 
@@ -40,6 +39,7 @@ import java.util.List;
 public class ScanCompactListToArrayOperator extends MappingOperator<List<Object>, Object[]>
 {
   private final List<String> fields;
+  private int rowCount;
 
   public ScanCompactListToArrayOperator(
       FragmentContext context,
@@ -54,8 +54,7 @@ public class ScanCompactListToArrayOperator extends MappingOperator<List<Object>
   public Object[] next() throws EofException
   {
     List<Object> row = inputIter.next();
-    batchCount++;
-    rowCount += row.size();
+    rowCount++;
     if (row.size() == fields.size()) {
       return row.toArray();
     } else if (fields.isEmpty()) {
@@ -73,7 +72,6 @@ public class ScanCompactListToArrayOperator extends MappingOperator<List<Object>
   {
     if (state == State.RUN) {
       OperatorProfile profile = new OperatorProfile("compact-list-to-array");
-      profile.add(OperatorProfile.BATCH_COUNT_METRIC, batchCount);
       profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
       context.updateProfile(this, profile);
     }

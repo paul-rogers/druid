@@ -23,6 +23,8 @@ import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorProfile;
+import org.apache.druid.queryng.operators.Operator.State;
 
 import java.util.List;
 
@@ -73,5 +75,16 @@ public class ScanResultOffsetOperator extends MappingOperator<ScanResultValue, S
           batch.getColumns(),
           rows.subList((int) toSkip, eventCount));
     }
+  }
+
+  @Override
+  public void close(boolean cascade)
+  {
+    if (state == State.RUN) {
+      OperatorProfile profile = new OperatorProfile("offset");
+      profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
+      context.updateProfile(this, profile);
+    }
+    super.close(cascade);
   }
 }

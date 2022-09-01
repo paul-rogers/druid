@@ -68,6 +68,7 @@ public class ProjectResultsOperatorEx extends MappingOperator<Object[], Object[]
   private final boolean serializeComplexValues;
   private final boolean stringifyArrays;
   private final Function<Object, Object>[] conversions;
+  private int rowCount;
 
   @SuppressWarnings("unchecked")
   public ProjectResultsOperatorEx(
@@ -97,8 +98,7 @@ public class ProjectResultsOperatorEx extends MappingOperator<Object[], Object[]
   public Object[] next() throws EofException
   {
     final Object[] array = inputIter.next();
-    batchCount++;
-    rowCount += array.length;
+    rowCount++;
     final Object[] newArray = new Object[mapping.length];
     for (int i = 0; i < mapping.length; i++) {
       newArray[i] = conversions[i].apply(array[mapping[i]]);
@@ -313,7 +313,6 @@ public class ProjectResultsOperatorEx extends MappingOperator<Object[], Object[]
   {
     if (state == State.RUN) {
       OperatorProfile profile = new OperatorProfile("project-sql-results");
-      profile.add(OperatorProfile.BATCH_COUNT_METRIC, batchCount);
       profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
       context.updateProfile(this, profile);
     }

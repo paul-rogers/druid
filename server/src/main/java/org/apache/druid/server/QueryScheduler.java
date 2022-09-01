@@ -42,6 +42,9 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryWatcher;
+import org.apache.druid.queryng.config.QueryNGConfig;
+import org.apache.druid.queryng.operators.general.ThrottleOperator.Throttle;
+import org.apache.druid.queryng.planner.ServerExecutionPlanner;
 import org.apache.druid.server.initialization.ServerConfig;
 
 import java.time.Duration;
@@ -89,6 +92,29 @@ public class QueryScheduler implements QueryWatcher
     {
       releaseLanes(lanes);
       lanes.clear();
+    }
+  }
+
+  public class AcceptThrottleImpl implements Throttle
+  {
+    private final Query<?> query;
+    List<Bulkhead> bulkheads;
+
+    public AcceptThrottleImpl(Query<?> query)
+    {
+      this.query = query;
+    }
+
+    @Override
+    public void accept()
+    {
+      bulkheads = acquireLanes(query);
+    }
+
+    @Override
+    public void release()
+    {
+      finishLanes(bulkheads);
     }
   }
 
@@ -226,10 +252,19 @@ public class QueryScheduler implements QueryWatcher
    */
   public <T> QueryRunner<T> wrapQueryRunner(QueryRunner<T> baseRunner)
   {
-    return (queryPlus, responseContext) ->
-        QueryScheduler.this.run(
+    return (queryPlus, responseContext) -> {
+      if (QueryNGConfig.enabledFor(queryPlus)) {
+        return ServerExecutionPlanner.throttle(
+            queryPlus,
+            baseRunner,
+            new AcceptThrottleImpl(queryPlus.getQuery())
+        );
+      } else {
+        return QueryScheduler.this.run(
             queryPlus.getQuery(), new LazySequence<>(() -> baseRunner.run(queryPlus, responseContext))
         );
+      }
+    };
   }
 
   /**

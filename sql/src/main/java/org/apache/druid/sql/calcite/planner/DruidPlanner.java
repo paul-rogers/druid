@@ -280,7 +280,7 @@ public class DruidPlanner implements Closeable
   }
 
   /**
-   * While the actual query might not have changed, if the druid planner is re-used, we still have the need to reset the
+   * While the actual query might not have changed, if the Druid planner is re-used, we still have the need to reset the
    * {@link #planner} since we do not re-use artifacts or keep track of state between
    * {@link #validate}, {@link #prepare}, and {@link #plan} and instead repeat parsing and validation
    * for each step.

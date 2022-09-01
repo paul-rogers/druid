@@ -1,7 +1,6 @@
 package org.apache.druid.queryng.operators.general;
 
-import org.apache.druid.queryng.operators.Operator;
-import org.apache.druid.queryng.operators.OrderedMergeOperator.Input;
+import org.apache.druid.queryng.operators.AbstractMergeOperator.Input;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,11 +24,6 @@ import java.util.function.Supplier;
  */
 public class LocalFragmentScatter<T> implements Supplier<Iterable<Input<T>>>
 {
-  private interface ScatterOperatorFactory<T>
-  {
-    Operator<T> create();
-  }
-
   private final List<Input<T>> inputs = new ArrayList<>();
 
   @Override

@@ -25,6 +25,8 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.Operator.State;
+import org.apache.druid.queryng.operators.OperatorProfile;
 
 import java.util.List;
 
@@ -36,6 +38,7 @@ import java.util.List;
 public class GroupedScanResultLimitOperator extends MappingOperator<ScanResultValue, ScanResultValue>
 {
   private final long limit;
+  private int batchCount;
   private long rowCount;
 
   @VisibleForTesting
@@ -58,20 +61,33 @@ public class GroupedScanResultLimitOperator extends MappingOperator<ScanResultVa
 
     // With throw EofException if no more input rows.
     ScanResultValue batch = inputIter.next();
+    long prevRowCount = rowCount;
+    batchCount++;
     List<?> events = (List<?>) batch.getEvents();
-    if (events.size() <= limit - rowCount) {
+    rowCount += events.size();
+    if (rowCount < limit) {
       // Entire batch is below limit.
-      rowCount += events.size();
       return batch;
     } else {
       // last batch
       // single batch length is <= rowCount.MAX_VALUE, so this should not overflow
-      int numLeft = (int) (limit - rowCount);
-      rowCount = limit;
       return new ScanResultValue(
           batch.getSegmentId(),
           batch.getColumns(),
-          events.subList(0, numLeft));
+          events.subList(0, (int) (limit - prevRowCount))
+      );
     }
+  }
+
+  @Override
+  public void close(boolean cascade)
+  {
+    if (state == State.RUN) {
+      OperatorProfile profile = new OperatorProfile("grouped-limit");
+      profile.add(OperatorProfile.BATCH_COUNT_METRIC, batchCount);
+      profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
+      context.updateProfile(this, profile);
+    }
+    super.close(cascade);
   }
 }

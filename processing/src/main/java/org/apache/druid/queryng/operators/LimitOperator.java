@@ -20,6 +20,7 @@
 package org.apache.druid.queryng.operators;
 
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operators.Operator.State;
 
 /**
  * Limits the results from the input operator to the given number
@@ -34,7 +35,6 @@ public class LimitOperator<T> extends MappingOperator<T, T>
   {
     super(context, input);
     this.limit = limit;
-    context.register(this);
   }
 
   @Override
@@ -46,5 +46,16 @@ public class LimitOperator<T> extends MappingOperator<T, T>
     T item = inputIter.next();
     rowCount++;
     return item;
+  }
+
+  @Override
+  public void close(boolean cascade)
+  {
+    if (state == State.RUN) {
+      OperatorProfile profile = new OperatorProfile("limit");
+      profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
+      context.updateProfile(this, profile);
+    }
+    super.close(cascade);
   }
 }

@@ -21,6 +21,7 @@ package org.apache.druid.queryng.operators.general;
 
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.WrappingOperator;
 
 /**
@@ -57,6 +58,8 @@ public class ThrottleOperator<T> extends WrappingOperator<T>
   }
 
   private final Throttle throttle;
+  private State state = State.START;
+  private long waitTimeMs;
 
   public ThrottleOperator(
       FragmentContext context,
@@ -65,18 +68,26 @@ public class ThrottleOperator<T> extends WrappingOperator<T>
   {
     super(context, input);
     this.throttle = throttle;
-    context.register(this);
   }
 
   @Override
   protected void onOpen()
   {
+    long startTimeMs = System.currentTimeMillis();
     throttle.accept();
+    waitTimeMs = System.currentTimeMillis() - startTimeMs;
+    state = State.RUN;
   }
 
   @Override
   protected void onClose()
   {
-    throttle.release();
+    if (state == State.RUN) {
+      throttle.release();
+      OperatorProfile profile = new OperatorProfile("throttle");
+      profile.add("wait-time-ms", waitTimeMs);
+      context.updateProfile(this, profile);
+    }
+    state = State.CLOSED;
   }
 }

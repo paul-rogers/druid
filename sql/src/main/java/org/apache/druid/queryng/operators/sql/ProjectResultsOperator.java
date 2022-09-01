@@ -58,12 +58,13 @@ import java.util.stream.Collectors;
  */
 public class ProjectResultsOperator extends MappingOperator<Object[], Object[]>
 {
-  final int[] mapping;
-  final List<SqlTypeName> newTypes;
-  final ObjectMapper jsonMapper;
-  final DateTimeZone timeZone;
-  final boolean serializeComplexValues;
-  final boolean stringifyArrays;
+  private final int[] mapping;
+  private final List<SqlTypeName> newTypes;
+  private final ObjectMapper jsonMapper;
+  private final DateTimeZone timeZone;
+  private final boolean serializeComplexValues;
+  private final boolean stringifyArrays;
+  private int rowCount;
 
   public ProjectResultsOperator(
       final FragmentContext context,
@@ -92,6 +93,7 @@ public class ProjectResultsOperator extends MappingOperator<Object[], Object[]>
     for (int i = 0; i < mapping.length; i++) {
       newArray[i] = coerce(array[mapping[i]], newTypes.get(i));
     }
+    rowCount++;
     return newArray;
   }
 

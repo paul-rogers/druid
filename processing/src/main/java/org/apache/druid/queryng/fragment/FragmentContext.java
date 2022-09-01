@@ -23,7 +23,6 @@ import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
-import org.apache.druid.queryng.operators.scan.ScanQueryOperator;
 
 import java.util.function.Consumer;
 
