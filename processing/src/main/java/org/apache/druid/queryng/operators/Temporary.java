@@ -17,19 +17,18 @@
  * under the License.
  */
 
-package org.apache.druid.java.util.common.guava;
+package org.apache.druid.queryng.operators;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Target;
 
 /**
- * Stateless aggregator. Given a previous value and the current input value,
- * produce a new output value. The previous value is either an initial value
- * (for the first value in a group), or the previous output of the accumulator.
- * <p>
- * Used in multiple ways. Can create a collection of values if the accumulated
- * value is a collection, and the implementation adds to that collection. Can
- * aggregate values if the accumulated value is a total and the function adds
- * a new value to that total (where "total" and "add" can be any aggregation.)
+ * Indicates a type, field, method, etc. which is temporary during the transition
+ * to operators, but which is to be removed once the transition is complete. Such
+ * items usually adapt to constraints in the existing model: sequences, older
+ * types, etc.
  */
-public interface Accumulator<AccumulatedType, InType>
+@Target({ ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.CONSTRUCTOR })
+public @interface Temporary
 {
-  AccumulatedType accumulate(AccumulatedType accumulated, InType in);
 }

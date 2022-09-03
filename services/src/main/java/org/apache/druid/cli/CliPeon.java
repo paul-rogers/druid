@@ -100,6 +100,7 @@ import org.apache.druid.metadata.IndexerSQLMetadataStorageCoordinator;
 import org.apache.druid.metadata.input.InputSourceModule;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.lookup.LookupModule;
+import org.apache.druid.queryng.guice.QueryNGModule;
 import org.apache.druid.segment.handoff.CoordinatorBasedSegmentHandoffNotifierConfig;
 import org.apache.druid.segment.handoff.CoordinatorBasedSegmentHandoffNotifierFactory;
 import org.apache.druid.segment.handoff.SegmentHandoffNotifierFactory;
@@ -195,6 +196,7 @@ public class CliPeon extends GuiceRunnable
     return ImmutableList.of(
         new DruidProcessingModule(),
         new QueryableModule(),
+        new QueryNGModule(),
         new QueryRunnerFactoryModule(),
         new JoinableFactoryModule(),
         new Module()

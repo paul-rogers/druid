@@ -21,6 +21,7 @@ package org.apache.druid.queryng.fragment;
 
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.Temporary;
 
 /**
  * Provides a handle to a fragment and the root operator or sequence.
@@ -54,6 +55,7 @@ public interface FragmentHandle<T>
   /**
    * Reports whether the root of this DAG is an operator.
    */
+  @Temporary
   boolean rootIsOperator();
 
   /**
@@ -69,6 +71,7 @@ public interface FragmentHandle<T>
   /**
    * Reports whether the root of this DAG is a sequence.
    */
+  @Temporary
   boolean rootIsSequence();
 
   /**
@@ -76,6 +79,7 @@ public interface FragmentHandle<T>
    * {@code null}. Note: the reliable way to get a root sequence is to
    * call: {@code toSequence().rootSequence()}.
    */
+  @Temporary
   Sequence<T> rootSequence();
 
   /**
@@ -91,6 +95,7 @@ public interface FragmentHandle<T>
    * handle if this is already a sequence, else wraps the root operator
    * in a sequence.
    */
+  @Temporary
   FragmentHandle<T> toSequence();
 
   /**
@@ -111,6 +116,7 @@ public interface FragmentHandle<T>
    * The sequence may change the type of the elements returned by the
    * new DAG.
    */
+  @Temporary
   <U> FragmentHandle<U> compose(Sequence<U> newRoot);
 
   /**
@@ -124,5 +130,6 @@ public interface FragmentHandle<T>
    * fragment at sequence closure. Handles the operator-to-sequence
    * conversion if needed.
    */
+  @Temporary
   Sequence<T> runAsSequence();
 }

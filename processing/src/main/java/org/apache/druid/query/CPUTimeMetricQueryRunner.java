@@ -69,7 +69,8 @@ public class CPUTimeMetricQueryRunner<T> implements QueryRunner<T>
           emitter,
           report,
           queryPlus,
-          responseContext);
+          responseContext
+      );
     }
     final long startRun = JvmUtils.getCurrentThreadCpuTime();
     final QueryPlus<T> queryWithMetrics = queryPlus.withQueryMetrics(queryToolChest);

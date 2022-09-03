@@ -22,7 +22,6 @@ package org.apache.druid.queryng.config;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
-import org.apache.druid.query.scan.ScanQuery;
 
 /**
  * Configuration for the "NG" query engine.
@@ -74,9 +73,7 @@ public class QueryNGConfig
    */
   public boolean isEnabled(Query<?> query)
   {
-    // Query has to be of the currently-supported type
     return enabled
-        && (query instanceof ScanQuery)
         && (!requireContext || query.getContextBoolean(CONTEXT_VAR, false));
   }
 
