@@ -84,6 +84,6 @@ public class QueryNGConfig
    */
   public static boolean enabledFor(final QueryPlus<?> queryPlus)
   {
-    return queryPlus.fragmentBuilder() != null;
+    return queryPlus.fragment() != null;
   }
 }

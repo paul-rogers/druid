@@ -20,16 +20,11 @@
 package org.apache.druid.queryng.fragment;
 
 import org.apache.druid.query.Query;
-import org.apache.druid.query.context.ResponseContext;
 
-/**
- * Do-nothing version for testing. Tests do not (yet) use the NG engine.
- */
-public class NullFragmentBuilderFactory implements FragmentBuilderFactory
+import javax.annotation.Nullable;
+
+public interface QueryManagerFactory
 {
-  @Override
-  public FragmentBuilder create(Query<?> query, ResponseContext responseContext)
-  {
-    return null;
-  }
+  @Nullable
+  QueryManager create(Query<?> query);
 }

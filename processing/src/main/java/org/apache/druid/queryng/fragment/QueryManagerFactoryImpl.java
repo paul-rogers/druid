@@ -20,7 +20,6 @@
 package org.apache.druid.queryng.fragment;
 
 import org.apache.druid.query.Query;
-import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.config.QueryNGConfig;
 
 import javax.inject.Inject;
@@ -31,27 +30,23 @@ import javax.inject.Inject;
  * take the existence of the fragment context as their indication to use
  * the NG engine, else stick with the "classic" engine.
  */
-public class FragmentBuilderFactoryImpl implements FragmentBuilderFactory
+public class QueryManagerFactoryImpl implements QueryManagerFactory
 {
   private final QueryNGConfig config;
 
   @Inject
-  public FragmentBuilderFactoryImpl(QueryNGConfig config)
+  public QueryManagerFactoryImpl(QueryNGConfig config)
   {
     this.config = config;
   }
 
   @Override
-  public FragmentBuilder create(
-      final Query<?> query,
-      final ResponseContext responseContext)
+  public QueryManager create(final Query<?> query)
   {
     // Config imposes a number of obstacles.
     if (!config.isEnabled(query)) {
       return null;
     }
-    // Only then do we create a fragment builder which, implicitly,
-    // enables the NG engine.
-    return new FragmentBuilderImpl(query.getId(), 0, responseContext);
+    return new QueryManager(query.getId());
   }
 }

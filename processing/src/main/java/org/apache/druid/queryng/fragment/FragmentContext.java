@@ -24,8 +24,6 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
 
-import java.util.function.Consumer;
-
 /**
  * Provides fragment-level context to operators within a single
  * fragment.
@@ -46,8 +44,6 @@ public interface FragmentContext
   State state();
   String queryId();
   ResponseContext responseContext();
-
-  void onClose(Consumer<FragmentContext> listener);
 
   /**
    * Register an operator for this fragment. The operator will be
@@ -75,22 +71,5 @@ public interface FragmentContext
 
   void missingSegment(SegmentDescriptor descriptor);
 
-  /**
-   * Reports the exception, if any, that terminated the fragment.
-   * Should be non-null only if the state is {@code FAILED}.
-   */
-  Exception exception();
-
   void updateProfile(Operator<?> op, OperatorProfile profile);
-
-  /**
-   * A simple fragment context for testing.
-   */
-  static FragmentContext defaultContext()
-  {
-    return new FragmentContextImpl(
-        "unknown",
-        NO_TIMEOUT,
-        ResponseContext.createEmpty());
-  }
 }

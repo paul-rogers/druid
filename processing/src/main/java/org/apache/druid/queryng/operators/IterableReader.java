@@ -20,41 +20,47 @@
 package org.apache.druid.queryng.operators;
 
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operators.Operator.IterableOperator;
 
-/**
- * Limits the results from the input operator to the given number
- * of rows.
- */
-public class LimitOperator<T> extends MappingOperator<T, T>
+import java.util.Iterator;
+import java.util.function.Supplier;
+
+public class IterableReader<T> implements IterableOperator<T>
 {
-  protected final long limit;
-  protected long rowCount;
+  private final FragmentContext context;
+  private final Supplier<? extends Iterable<T>> source;
+  private Iterator<T> inputIter;
+  private int rowCount;
 
-  public LimitOperator(FragmentContext context, Operator<T> input, long limit)
+  public IterableReader(FragmentContext context, Supplier<? extends Iterable<T>> source)
   {
-    super(context, input);
-    this.limit = limit;
+    this.context = context;
+    this.source = source;
+    context.register(this);
+  }
+
+  @Override
+  public ResultIterator<T> open()
+  {
+    inputIter = source.get().iterator();
+    return this;
   }
 
   @Override
   public T next() throws EofException
   {
-    if (rowCount >= limit) {
+    if (!inputIter.hasNext()) {
       throw Operators.eof();
     }
-    T item = inputIter.next();
     rowCount++;
-    return item;
+    return inputIter.next();
   }
 
   @Override
   public void close(boolean cascade)
   {
-    if (state == State.RUN) {
-      OperatorProfile profile = new OperatorProfile("limit");
-      profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
-      context.updateProfile(this, profile);
-    }
-    super.close(cascade);
+    OperatorProfile profile = new OperatorProfile("list-reader");
+    profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
+    context.updateProfile(this, profile);
   }
 }

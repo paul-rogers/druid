@@ -54,9 +54,9 @@ public class ProfileBuilder
     profiles.put(op, profile);
   }
 
-  public FragmentProfile build(FragmentContextImpl context)
+  public FragmentProfile build(FragmentManager fragment)
   {
-    Collection<Operator<?>> operators = context.operators();
+    Collection<Operator<?>> operators = fragment.operators();
     Map<Operator<?>, Boolean> rootCandidates = new IdentityHashMap<>();
     for (Operator<?> op : operators) {
       rootCandidates.put(op, true);
@@ -76,7 +76,7 @@ public class ProfileBuilder
         rootProfiles.add(buildProfile(entry.getKey()));
       }
     }
-    return new FragmentProfile(context, rootProfiles);
+    return new FragmentProfile(fragment, rootProfiles);
   }
 
   private ProfileNode buildProfile(Operator<?> root)

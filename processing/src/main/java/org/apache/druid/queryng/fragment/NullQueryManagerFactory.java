@@ -19,32 +19,16 @@
 
 package org.apache.druid.queryng.fragment;
 
-import org.apache.druid.queryng.operators.Operator.ResultIterator;
-
-import java.util.List;
+import org.apache.druid.query.Query;
 
 /**
- * Runs the DAG. The fragment is opened (open is called on the root
- * operator) upon construction. Callers can then obtain the iterator,
- * or convert the DAG to a sequence or list. Callers <b>must</b> close
- * this object at the end of the run.
- *
- * Callers should generally use only one of the access methods: obtain
- * the iterator, a sequence, or convert the results to a list. The
- * fragment is not reentrant: results can be obtained only once.
+ * Do-nothing version for testing. Tests do not (yet) use the NG engine.
  */
-public interface FragmentRun<T> extends AutoCloseable
+public class NullQueryManagerFactory implements QueryManagerFactory
 {
-  FragmentContext context();
-
-  ResultIterator<T> iterator();
-
-  /**
-   * Materializes the entire result set as a list. Primarily for testing.
-   * Opens the fragment, reads results, and closes the fragment.
-   */
-  List<T> toList();
-
   @Override
-  void close();
+  public QueryManager create(Query<?> query)
+  {
+    return null;
+  }
 }

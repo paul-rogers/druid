@@ -26,7 +26,6 @@ import org.apache.druid.client.DirectDruidClient;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.SequenceWrapper;
 import org.apache.druid.java.util.common.guava.Sequences;
@@ -47,11 +46,10 @@ import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryToolChestWarehouse;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
-import org.apache.druid.queryng.fragment.FragmentBuilderFactory;
-import org.apache.druid.queryng.fragment.FragmentHandle;
+import org.apache.druid.queryng.fragment.FragmentManager;
 import org.apache.druid.queryng.fragment.Fragments;
-import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.fragment.QueryManager;
+import org.apache.druid.queryng.fragment.QueryManagerFactory;
 import org.apache.druid.server.QueryResource.ResourceIOReaderWriter;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
@@ -100,7 +98,7 @@ public class QueryLifecycle
   private final AuthorizerMapper authorizerMapper;
   private final DefaultQueryConfig defaultQueryConfig;
   private final AuthConfig authConfig;
-  private final FragmentBuilderFactory fragmentContextFactory;
+  private final QueryManagerFactory fragmentContextFactory;
   private final long startMs;
   private final long startNs;
 
@@ -120,7 +118,7 @@ public class QueryLifecycle
       final AuthorizerMapper authorizerMapper,
       final DefaultQueryConfig defaultQueryConfig,
       final AuthConfig authConfig,
-      final FragmentBuilderFactory fragmentContextFactory,
+      final QueryManagerFactory fragmentContextFactory,
       final long startMs,
       final long startNs
   )
@@ -313,15 +311,15 @@ public class QueryLifecycle
 
     final ResponseContext responseContext = DirectDruidClient.makeResponseContextForQuery();
 
-    final FragmentBuilder fragmentBuilder = fragmentContextFactory.create(baseQuery, responseContext);
+    final QueryManager queryManager = fragmentContextFactory.create(baseQuery);
+    final FragmentManager fragment = queryManager == null ? null : queryManager.createRootFragment(responseContext);
     @SuppressWarnings("unchecked")
     final Sequence<T> res = QueryPlus.wrap((Query<T>) baseQuery)
                                   .withIdentity(authenticationResult.getIdentity())
-                                  .withFragmentBuilder(fragmentBuilder)
+                                  .withFragment(fragment)
                                   .run(texasRanger, responseContext);
 
-    return new QueryResponse<T>(res == null ? Sequences.empty() : res, responseContext);
-    if (fragmentBuilder == null) {
+    if (fragment == null) {
       Sequence<T> wrapped = Sequences.wrap(
           res,
           new SequenceWrapper()
@@ -338,15 +336,16 @@ public class QueryLifecycle
       // Operator version of the above.
       // TODO: Move to an actual operator class, which will require refactoring
       // the emitLogsAndMetrics method.
-      fragmentBuilder.context().onClose(context -> {
-          emitLogsAndMetrics(context.exception(), null, -1);
+      fragment.onClose(f -> {
+          emitLogsAndMetrics(f.exception(), null, -1);
         }
       );
-      fragmentBuilder.context().onClose(context -> {
-          Fragments.logProfile(context);
+      fragment.onClose(f -> {
+          Fragments.logProfile(f);
         }
       );
-      return new FragmentResponse<>(responseContext, fragmentBuilder.handle(res));
+      fragment.registerRoot(res);
+      return new FragmentResponse<>(responseContext, fragment);
     }
   }
 
@@ -524,26 +523,10 @@ public class QueryLifecycle
 
     public abstract Sequence<T> getResults();
 
-    public FragmentHandle<T> fragmentHandle()
+    public FragmentManager fragment()
     {
       return null;
     }
-
-    public FragmentBuilder fragmentBuilder()
-    {
-      return null;
-    }
-
-    public <U> QueryResponse<U> withSequence(final Sequence<U> results)
-    {
-      throw new UOE("withSequence");
-    }
-
-    public <U> QueryResponse<U> withRoot(final Operator<U> root)
-    {
-      throw new UOE("withRoot");
-    }
-
   }
 
   public static class FragmentResponse<T> extends QueryResponse<T>
@@ -553,15 +536,15 @@ public class QueryLifecycle
      * operator on top of the sequence returned here, and that operator
      * (if enabled), needs visibility to the fragment context.
      */
-    private final FragmentHandle<T> fragmentHandle;
+    private final FragmentManager fragment;
 
     private FragmentResponse(
         final ResponseContext responseContext,
-        final FragmentHandle<T> fragmentHandle
+        final FragmentManager fragment
     )
     {
       super(responseContext);
-      this.fragmentHandle = fragmentHandle;
+      this.fragment = fragment;
     }
 
     @Override
@@ -573,25 +556,13 @@ public class QueryLifecycle
     @Override
     public Sequence<T> getResults()
     {
-      return fragmentHandle.runAsSequence();
+      return fragment.runAsSequence();
     }
 
     @Override
-    public FragmentHandle<T> fragmentHandle()
+    public FragmentManager fragment()
     {
-      return fragmentHandle;
-    }
-
-    @Override
-    public FragmentBuilder fragmentBuilder()
-    {
-      return fragmentHandle.builder();
-    }
-
-    @Override
-    public <U> QueryResponse<U> withRoot(final Operator<U> root)
-    {
-      return new FragmentResponse<U>(getResponseContext(), fragmentHandle.compose(root));
+      return fragment;
     }
   }
 
@@ -620,7 +591,6 @@ public class QueryLifecycle
       return results;
     }
 
-    @Override
     public <U> QueryResponse<U> withSequence(final Sequence<U> results)
     {
       return new SequenceResponse<U>(getResponseContext(), results);

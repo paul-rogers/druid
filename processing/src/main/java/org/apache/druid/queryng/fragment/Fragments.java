@@ -21,24 +21,30 @@ package org.apache.druid.queryng.fragment;
 
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.query.context.ResponseContext;
 
 public class Fragments
 {
   private static final Logger log = new Logger(Fragments.class);
 
-  public static void logProfile(FragmentContext context)
+  public static void logProfile(FragmentManager fragment)
   {
-    if (!(context instanceof FragmentContextImpl)) {
-      return;
-    }
-    FragmentContextImpl contextImpl = (FragmentContextImpl) context;
-    ProfileVisualizer vis = new ProfileVisualizer(contextImpl.buildProfile());
+    ProfileVisualizer vis = new ProfileVisualizer(fragment.buildProfile());
     log.info(
         StringUtils.format(
             "Query [%s] profile:\n%s",
-            context.queryId(),
+            fragment.queryId(),
             vis.render()
         )
     );
+  }
+
+  /**
+   * A simple fragment context for testing.
+   */
+  public static FragmentManager defaultFragment()
+  {
+    QueryManager query = QueryManager.createWithRoot("unknown", ResponseContext.createEmpty());
+    return query.rootFragment();
   }
 }

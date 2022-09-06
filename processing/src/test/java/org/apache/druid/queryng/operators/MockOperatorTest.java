@@ -19,15 +19,13 @@
 
 package org.apache.druid.queryng.operators;
 
-import org.apache.druid.queryng.fragment.FragmentBuilder;
-import org.apache.druid.queryng.fragment.FragmentHandle;
-import org.apache.druid.queryng.fragment.FragmentRun;
+import org.apache.druid.queryng.fragment.FragmentManager;
+import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.Operator.EofException;
-import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-import java.util.List;
+import java.util.Arrays;
 
 import static org.junit.Assert.assertEquals;
 
@@ -41,15 +39,10 @@ public class MockOperatorTest
   @Test
   public void testMockStringOperator() throws EofException
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<String> op = MockOperator.strings(builder.context(), 2);
-    FragmentHandle<String> handle = builder.handle(op);
-    try (FragmentRun<String> run = handle.run()) {
-      ResultIterator<String> iter = run.iterator();
-      assertEquals("Mock row 0", iter.next());
-      assertEquals("Mock row 1", iter.next());
-      OperatorTests.assertEof(iter);
-    }
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockOperator<String> op = MockOperator.strings(fragment, 2);
+    fragment.registerRoot(op);
+    assertEquals(Arrays.asList("Mock row 0", "Mock row 1"), fragment.toList());
     assertEquals(Operator.State.CLOSED, op.state);
   }
 
@@ -57,11 +50,10 @@ public class MockOperatorTest
   public void testMockIntOperator()
   {
     // Test using the toList feature.
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder.context(), 2);
-    List<Integer> results = builder.run(op).toList();
-    assertEquals(0, (int) results.get(0));
-    assertEquals(1, (int) results.get(1));
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockOperator<Integer> op = MockOperator.ints(fragment, 2);
+    fragment.registerRoot(op);
+    assertEquals(Arrays.asList(0, 1), fragment.toList());
     assertEquals(Operator.State.CLOSED, op.state);
   }
 }

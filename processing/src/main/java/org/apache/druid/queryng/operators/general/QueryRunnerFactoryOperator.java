@@ -46,7 +46,7 @@ public class QueryRunnerFactoryOperator<T> implements Operator<T>
 
   public QueryRunnerFactoryOperator(Supplier<QueryRunner<T>> factory, QueryPlus<T> query)
   {
-    this.context = query.fragmentBuilder().context();
+    this.context = query.fragment();
     this.factory = factory;
     this.query = query;
     context.register(this);

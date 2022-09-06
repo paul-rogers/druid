@@ -19,7 +19,8 @@
 
 package org.apache.druid.queryng.operators;
 
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentManager;
+import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.junit.Test;
@@ -37,19 +38,22 @@ public class PushBackOperatorTest
   @Test
   public void testEmptyInput()
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    Operator<String> input = new NullOperator<String>(context);
-    Operator<String> op = new PushBackOperator<String>(context, input);
-    assertTrue(Operators.toList(op).isEmpty());
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<String> input = new NullOperator<String>(fragment);
+    Operator<String> op = new PushBackOperator<String>(fragment, input);
+    fragment.registerRoot(op);
+    List<String> results = fragment.toList();
+    assertTrue(results.isEmpty());
   }
 
   @Test
   public void testSimpleInput()
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    Operator<Integer> input = MockOperator.ints(context, 2);
-    Operator<Integer> op = new PushBackOperator<Integer>(context, input);
-    List<Integer> results = Operators.toList(op);
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<Integer> input = MockOperator.ints(fragment, 2);
+    Operator<Integer> op = new PushBackOperator<Integer>(fragment, input);
+    fragment.registerRoot(op);
+    List<Integer> results = fragment.toList();
     List<Integer> expected = Arrays.asList(0, 1);
     assertEquals(expected, results);
   }
@@ -57,26 +61,29 @@ public class PushBackOperatorTest
   @Test
   public void testPush() throws EofException
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    Operator<Integer> input = MockOperator.ints(context, 2);
-    PushBackOperator<Integer> op = new PushBackOperator<Integer>(context, input);
-    ResultIterator<Integer> iter = op.open();
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<Integer> input = MockOperator.ints(fragment, 2);
+    PushBackOperator<Integer> op = new PushBackOperator<Integer>(fragment, input);
+    fragment.registerRoot(op);
+    ResultIterator<Integer> iter = fragment.run();
     Integer item = iter.next();
     op.push(item);
     List<Integer> results = Operators.toList(op);
     List<Integer> expected = Arrays.asList(0, 1);
     assertEquals(expected, results);
+    fragment.close();
   }
 
   @Test
   public void testInitialPush() throws EofException
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    Operator<Integer> input = MockOperator.ints(context, 2);
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<Integer> input = MockOperator.ints(fragment, 2);
     ResultIterator<Integer> iter = input.open();
     Integer item = iter.next();
-    PushBackOperator<Integer> op = new PushBackOperator<Integer>(context, input, iter, item);
-    List<Integer> results = Operators.toList(op);
+    PushBackOperator<Integer> op = new PushBackOperator<Integer>(fragment, input, iter, item);
+    fragment.registerRoot(op);
+    List<Integer> results = fragment.toList();
     List<Integer> expected = Arrays.asList(0, 1);
     assertEquals(expected, results);
   }

@@ -107,7 +107,7 @@ public class TimeSeriesPlanner
       Function<Query<Result<TimeseriesResultValue>>, BinaryOperator<Result<TimeseriesResultValue>>> mergeFnGenerator
   )
   {
-    FragmentContext fragmentContext = queryPlus.fragmentBuilder().context();
+    FragmentContext fragmentContext = queryPlus.fragment();
     final TimeseriesQuery query = (TimeseriesQuery) queryPlus.getQuery();
     Operator<Result<TimeseriesResultValue>> inputOp = Operators.toOperator(inputQueryRunner, queryPlus);
 

@@ -1,3 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.druid.queryng.operator;
 
 import com.google.common.collect.Ordering;
@@ -7,7 +26,8 @@ import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentManager;
+import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operator.general.RetryOperator;
 import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
@@ -37,7 +57,7 @@ public class RetryOperatorTest
   @Test
   public void testEmptyInput()
   {
-    FragmentContext context = FragmentContext.defaultContext();
+    FragmentManager fragment = Fragments.defaultFragment();
     ScanQuery query = Druids.newScanQueryBuilder()
         .dataSource("foo")
         .eternityInterval()
@@ -45,17 +65,18 @@ public class RetryOperatorTest
     QueryPlus<ScanResultValue> queryPlus = QueryPlus.wrap(query.withId("dummy"));
     AtomicBoolean didRun = new AtomicBoolean();
     Operator<ScanResultValue> op = new RetryOperator<ScanResultValue>(
-        context,
+        fragment,
         queryPlus,
-        new NullOperator<ScanResultValue>(context),
+        new NullOperator<ScanResultValue>(fragment),
         Ordering.natural(),
         null,
         (id, ctx) -> Collections.emptyList(),
         1,
         true,
         () -> { didRun.set(true); }
-        );
-    assertTrue(Operators.toList(op).isEmpty());
+    );
+    fragment.registerRoot(op);
+    assertTrue(fragment.toList().isEmpty());
     assertTrue(didRun.get());
   }
 
@@ -65,15 +86,15 @@ public class RetryOperatorTest
   @Test
   public void testSimpleInput()
   {
-    FragmentContext context = FragmentContext.defaultContext();
+    FragmentManager fragment = Fragments.defaultFragment();
     ScanQuery query = Druids.newScanQueryBuilder()
         .dataSource("foo")
         .eternityInterval()
         .build();
     QueryPlus<ScanResultValue> queryPlus = QueryPlus.wrap(query.withId("dummy"));
-    Operator<ScanResultValue> scan = new MockScanResultReader(context, 3, 10, 4, MockScanResultReader.interval(0));
+    Operator<ScanResultValue> scan = new MockScanResultReader(fragment, 3, 10, 4, MockScanResultReader.interval(0));
     Operator<ScanResultValue> op = new RetryOperator<ScanResultValue>(
-        context,
+        fragment,
         queryPlus,
         scan,
         Ordering.natural(),
@@ -82,9 +103,9 @@ public class RetryOperatorTest
         1,
         true,
         () -> { }
-        );
-    List<ScanResultValue> results = Operators.toList(op);
-    assertEquals(3, results.size());
+    );
+    fragment.registerRoot(op);
+    assertEquals(3, fragment.toList().size());
   }
 
   /**
@@ -93,20 +114,20 @@ public class RetryOperatorTest
   @Test
   public void testRetryInput()
   {
-    FragmentContext context = FragmentContext.defaultContext();
+    FragmentManager fragment = Fragments.defaultFragment();
     ScanQuery query = Druids.newScanQueryBuilder()
         .dataSource("foo")
         .eternityInterval()
         .build();
     QueryPlus<ScanResultValue> queryPlus = QueryPlus.wrap(query.withId("dummy"));
-    Operator<ScanResultValue> scan = new MockScanResultReader(context, 3, 10, 4, MockScanResultReader.interval(0));
-    Operator<ScanResultValue> scan2 = new MockScanResultReader(context, 3, 5, 4, MockScanResultReader.interval(0));
+    Operator<ScanResultValue> scan = new MockScanResultReader(fragment, 3, 10, 4, MockScanResultReader.interval(0));
+    Operator<ScanResultValue> scan2 = new MockScanResultReader(fragment, 3, 5, 4, MockScanResultReader.interval(0));
     QueryRunner<ScanResultValue> runner2 = (qp, qc) -> Operators.toSequence(scan2);
     AtomicInteger counter = new AtomicInteger();
     List<SegmentDescriptor> dummySegs = Arrays.asList(
         new SegmentDescriptor(MockScanResultReader.interval(0), "vers", 1));
     Operator<ScanResultValue> op = new RetryOperator<ScanResultValue>(
-        context,
+        fragment,
         queryPlus,
         scan,
         Ordering.natural(),
@@ -121,9 +142,9 @@ public class RetryOperatorTest
         2,
         true,
         () -> { }
-        );
-    List<ScanResultValue> results = Operators.toList(op);
-    assertEquals(5, results.size());
+    );
+    fragment.registerRoot(op);
+    assertEquals(5, fragment.toList().size());
   }
 
   /**
@@ -132,63 +153,63 @@ public class RetryOperatorTest
   @Test
   public void testRetryLimitPartial()
   {
-    FragmentContext context = FragmentContext.defaultContext();
+    FragmentManager fragment = Fragments.defaultFragment();
     ScanQuery query = Druids.newScanQueryBuilder()
         .dataSource("foo")
         .eternityInterval()
         .build();
     QueryPlus<ScanResultValue> queryPlus = QueryPlus.wrap(query.withId("dummy"));
-    Operator<ScanResultValue> scan = new MockScanResultReader(context, 3, 10, 4, MockScanResultReader.interval(0));
+    Operator<ScanResultValue> scan = new MockScanResultReader(fragment, 3, 10, 4, MockScanResultReader.interval(0));
     List<SegmentDescriptor> dummySegs = Arrays.asList(
         new SegmentDescriptor(MockScanResultReader.interval(0), "vers", 1));
     Operator<ScanResultValue> op = new RetryOperator<ScanResultValue>(
-        context,
+        fragment,
         queryPlus,
         scan,
         Ordering.natural(),
         (q, segs) -> {
-          Operator<ScanResultValue> scan2 = new MockScanResultReader(context, 3, 5, 4, MockScanResultReader.interval(0));
+          Operator<ScanResultValue> scan2 = new MockScanResultReader(fragment, 3, 5, 4, MockScanResultReader.interval(0));
           return (qp, qc) -> Operators.toSequence(scan2);
         },
         (id, ctx) -> dummySegs,
         2,
         true,
         () -> { }
-        );
-    List<ScanResultValue> results = Operators.toList(op);
-    assertEquals(7, results.size());
+    );
+    fragment.registerRoot(op);
+    assertEquals(7, fragment.toList().size());
   }
 
   /**
-   * Continuous missing segments, hit limit of 2, no partial results,
-   * so fails.
+   * Continuous missing segments, hit limit of 2, no partial results, so fails.
    */
   @Test
   public void testRetryLimit()
   {
-    FragmentContext context = FragmentContext.defaultContext();
+    FragmentManager fragment = Fragments.defaultFragment();
     ScanQuery query = Druids.newScanQueryBuilder()
         .dataSource("foo")
         .eternityInterval()
         .build();
     QueryPlus<ScanResultValue> queryPlus = QueryPlus.wrap(query.withId("dummy"));
-    Operator<ScanResultValue> scan = new MockScanResultReader(context, 3, 10, 4, MockScanResultReader.interval(0));
+    Operator<ScanResultValue> scan = new MockScanResultReader(fragment, 3, 10, 4, MockScanResultReader.interval(0));
     List<SegmentDescriptor> dummySegs = Arrays.asList(
         new SegmentDescriptor(MockScanResultReader.interval(0), "vers", 1));
     Operator<ScanResultValue> op = new RetryOperator<ScanResultValue>(
-        context,
+        fragment,
         queryPlus,
         scan,
         Ordering.natural(),
         (q, segs) -> {
-          Operator<ScanResultValue> scan2 = new MockScanResultReader(context, 3, 5, 4, MockScanResultReader.interval(0));
+          Operator<ScanResultValue> scan2 = new MockScanResultReader(fragment, 3, 5, 4, MockScanResultReader.interval(0));
           return (qp, qc) -> Operators.toSequence(scan2);
         },
         (id, ctx) -> dummySegs,
         2,
         false,
         () -> { }
-        );
+    );
+    fragment.registerRoot(op);
     try {
       Operators.toList(op);
       fail();

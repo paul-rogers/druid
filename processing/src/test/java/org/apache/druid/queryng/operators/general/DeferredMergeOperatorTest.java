@@ -20,23 +20,21 @@
 package org.apache.druid.queryng.operators.general;
 
 import com.google.common.collect.Ordering;
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentManager;
+import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.AbstractMergeOperator.Input;
 import org.apache.druid.queryng.operators.DeferredMergeOperator;
-import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.MockOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.apache.druid.queryng.operators.Operator.State;
 import org.apache.druid.queryng.operators.OperatorTest;
-import org.apache.druid.queryng.operators.OperatorTests;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -48,16 +46,15 @@ public class DeferredMergeOperatorTest
   @Test
   public void testNoInputs()
   {
-    FragmentContext context = FragmentContext.defaultContext();
+    FragmentManager fragment = Fragments.defaultFragment();
     Operator<Integer> op = new DeferredMergeOperator<>(
-        context,
+        fragment,
         Ordering.natural(),
         0,
         Collections.emptyList()
     );
-    ResultIterator<Integer> iter = op.open();
-    OperatorTests.assertEof(iter);
-    op.close(true);
+    fragment.registerRoot(op);
+    assertTrue(fragment.toList().isEmpty());
   }
 
   private static <T> Input<T> makeInput(Operator<T> op)
@@ -75,48 +72,44 @@ public class DeferredMergeOperatorTest
   @Test
   public void testOneInput()
   {
-    FragmentContext context = FragmentContext.defaultContext();
+    FragmentManager fragment = Fragments.defaultFragment();
     Operator<Integer> op = new DeferredMergeOperator<>(
-        context,
+        fragment,
         Ordering.natural(),
         1,
         Collections.singletonList(
-            makeInput(MockOperator.ints(context, 3))
+            makeInput(MockOperator.ints(fragment, 3))
         )
     );
-    ResultIterator<Integer> iter = op.open();
-    List<Integer> results = Iterators.toList(iter);
-    op.close(true);
-    assertEquals(Arrays.asList(0, 1, 2), results);
+    fragment.registerRoot(op);
+    assertEquals(Arrays.asList(0, 1, 2), fragment.toList());
   }
 
   @Test
   public void testTwoInputs()
   {
-    FragmentContext context = FragmentContext.defaultContext();
+    FragmentManager fragment = Fragments.defaultFragment();
     Operator<Integer> op = new DeferredMergeOperator<>(
-        context,
+        fragment,
         Ordering.natural(),
         2,
         Arrays.asList(
-            makeInput(MockOperator.ints(context, 3)),
-            makeInput(MockOperator.ints(context, 5))
+            makeInput(MockOperator.ints(fragment, 3)),
+            makeInput(MockOperator.ints(fragment, 5))
         )
     );
-    ResultIterator<Integer> iter = op.open();
-    List<Integer> results = Iterators.toList(iter);
-    op.close(true);
-    assertEquals(Arrays.asList(0, 0, 1, 1, 2, 2, 3, 4), results);
+    fragment.registerRoot(op);
+    assertEquals(Arrays.asList(0, 0, 1, 1, 2, 2, 3, 4), fragment.toList());
   }
 
   @Test
   public void testClose()
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    MockOperator<Integer> input1 = MockOperator.ints(context, 2);
-    MockOperator<Integer> input2 = MockOperator.ints(context, 2);
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockOperator<Integer> input1 = MockOperator.ints(fragment, 2);
+    MockOperator<Integer> input2 = MockOperator.ints(fragment, 2);
     Operator<Integer> op = new DeferredMergeOperator<>(
-        context,
+        fragment,
         Ordering.natural(),
         2,
         Arrays.asList(
@@ -124,13 +117,11 @@ public class DeferredMergeOperatorTest
             makeInput(input2)
         )
     );
-    ResultIterator<Integer> iter = op.open();
-    List<Integer> results = Iterators.toList(iter);
-    assertEquals(Arrays.asList(0, 0, 1, 1), results);
+    fragment.registerRoot(op);
+    assertEquals(Arrays.asList(0, 0, 1, 1), fragment.toList());
 
     // Inputs are closed as exhausted.
     assertTrue(input1.state == State.CLOSED);
     assertTrue(input2.state == State.CLOSED);
-    op.close(true);
   }
 }

@@ -44,7 +44,7 @@ public class QueryRunnerOperator<T> implements Operator<T>
 
   public QueryRunnerOperator(QueryRunner<T> runner, QueryPlus<T> query)
   {
-    this.context = query.fragmentBuilder().context();
+    this.context = query.fragment();
     this.runner = runner;
     this.query = query;
     context.register(this);

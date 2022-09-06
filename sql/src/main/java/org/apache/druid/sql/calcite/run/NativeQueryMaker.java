@@ -50,8 +50,7 @@ import org.apache.druid.query.filter.OrDimFilter;
 import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
-import org.apache.druid.queryng.fragment.FragmentHandle;
-import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.fragment.FragmentManager;
 import org.apache.druid.queryng.planner.SqlPlanner;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.column.ColumnHolder;
@@ -207,21 +206,24 @@ public class NativeQueryMaker implements QueryMaker
     @SuppressWarnings("unchecked")
     final QueryToolChest<T, Query<T>> toolChest = queryLifecycle.getToolChest();
     final List<String> resultArrayFields = toolChest.resultArraySignature(query).getColumnNames();
-    QueryPlus<T> queryPlus = QueryPlus.wrap(query).withFragmentBuilder(response.fragmentBuilder());
+    QueryPlus<T> queryPlus = QueryPlus.wrap(query).withFragment(response.fragment());
 
     if (response.isFragment()) {
-      final Sequence<T> results = response.fragmentHandle().rootSequence();
+      FragmentManager fragment = response.fragment();
+      final Sequence<T> results = fragment.rootSequence();
       final Sequence<Object[]> resultArrays = toolChest.resultsAsArrays(queryPlus, results);
-      Operator<Object[]> root = SqlPlanner.projectResults(
-          response.fragmentHandle().context(),
-          resultArrays,
-          plannerContext,
-          jsonMapper,
-          resultArrayFields,
-          newFields,
-          newTypes
+      fragment.registerRoot(
+          SqlPlanner.projectResults(
+              fragment,
+              resultArrays,
+              plannerContext,
+              jsonMapper,
+              resultArrayFields,
+              newFields,
+              newTypes
+          )
       );
-      return response.fragmentHandle().compose(root).runAsSequence();
+      return fragment.runAsSequence();
     } else {
       final Sequence<T> results = response.getResults();
       final Sequence<Object[]> resultArrays = toolChest.resultsAsArrays(queryPlus, results);

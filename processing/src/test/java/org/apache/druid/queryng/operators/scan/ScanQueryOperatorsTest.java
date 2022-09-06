@@ -23,9 +23,9 @@ import com.google.common.base.Strings;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.fragment.FragmentRun;
+import org.apache.druid.queryng.fragment.FragmentManager;
+import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.EofException;
@@ -83,38 +83,38 @@ public class ScanQueryOperatorsTest
   @Test
   public void testMockReaderNull()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    Operator<ScanResultValue> op = scan(builder.context(), 0, 0, 3);
-    FragmentRun<ScanResultValue> run = builder.run(op);
-    ResultIterator<ScanResultValue> iter = run.iterator();
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<ScanResultValue> op = scan(fragment, 0, 0, 3);
+    fragment.registerRoot(op);
+    ResultIterator<ScanResultValue> iter = fragment.run();
     OperatorTests.assertEof(iter);
-    run.close();
+    fragment.close();
   }
 
   @Test
   public void testMockReaderEmpty() throws EofException
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockScanResultReader scan = scan(builder.context(), 0, 1, 3);
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockScanResultReader scan = scan(fragment, 0, 1, 3);
     assertFalse(Strings.isNullOrEmpty(scan.segmentId));
-    FragmentRun<ScanResultValue> run = builder.run(scan);
-    ResultIterator<ScanResultValue> iter = run.iterator();
+    fragment.registerRoot(scan);
+    ResultIterator<ScanResultValue> iter = fragment.run();
     ScanResultValue value = iter.next();
     assertTrue(value.getColumns().isEmpty());
     List<List<String>> events = value.getRows();
     assertEquals(1, events.size());
     assertTrue(events.get(0).isEmpty());
     OperatorTests.assertEof(iter);
-    run.close();
+    fragment.close();
   }
 
   @Test
   public void testMockReader()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    Operator<ScanResultValue> scan = scan(builder.context(), 3, 10, 4);
-    FragmentRun<ScanResultValue> run = builder.run(scan);
-    ResultIterator<ScanResultValue> iter = run.iterator();
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<ScanResultValue> scan = scan(fragment, 3, 10, 4);
+    fragment.registerRoot(scan);
+    ResultIterator<ScanResultValue> iter = fragment.run();
     int rowCount = 0;
     for (ScanResultValue value : Iterators.toIterable(iter)) {
       assertEquals(3, value.getColumns().size());
@@ -141,7 +141,7 @@ public class ScanQueryOperatorsTest
       }
     }
     assertEquals(10, rowCount);
-    run.close();
+    fragment.close();
   }
 
   /**
@@ -154,14 +154,14 @@ public class ScanQueryOperatorsTest
   {
     final int totalRows = 10;
     for (int offset = 1; offset < 2 * totalRows; offset++) {
-      FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-      Operator<ScanResultValue> scan = scan(builder.context(), 3, totalRows, 4);
+      FragmentManager fragment = Fragments.defaultFragment();
+      Operator<ScanResultValue> scan = scan(fragment, 3, totalRows, 4);
       Operator<ScanResultValue> root =
-          new ScanResultOffsetOperator(builder.context(), scan, offset);
+          new ScanResultOffsetOperator(fragment, scan, offset);
       int rowCount = 0;
       final String firstVal = StringUtils.format("Value %d.1", offset);
-      FragmentRun<ScanResultValue> run = builder.run(root);
-      ResultIterator<ScanResultValue> iter = run.iterator();
+      fragment.registerRoot(root);
+      ResultIterator<ScanResultValue> iter = fragment.run();
       for (ScanResultValue row : Iterators.toIterable(iter)) {
         ScanResultValue value = row;
         List<List<Object>> events = value.getRows();
@@ -171,7 +171,7 @@ public class ScanQueryOperatorsTest
         rowCount += events.size();
       }
       assertEquals(Math.max(0, totalRows - offset), rowCount);
-      run.close();
+      fragment.close();
     }
   }
 
@@ -185,19 +185,19 @@ public class ScanQueryOperatorsTest
   {
     final int totalRows = 10;
     for (int limit = 0; limit < totalRows + 1; limit++) {
-      FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-      Operator<ScanResultValue> scan = scan(builder.context(), 3, totalRows, 4);
+      FragmentManager fragment = Fragments.defaultFragment();
+      Operator<ScanResultValue> scan = scan(fragment, 3, totalRows, 4);
       Operator<ScanResultValue> root =
-          new GroupedScanResultLimitOperator(builder.context(), scan, limit);
-      FragmentRun<ScanResultValue> run = builder.run(root);
-      ResultIterator<ScanResultValue> iter = run.iterator();
+          new GroupedScanResultLimitOperator(fragment, scan, limit);
+      fragment.registerRoot(root);
+      ResultIterator<ScanResultValue> iter = fragment.run();
       int rowCount = 0;
       for (ScanResultValue row : Iterators.toIterable(iter)) {
         ScanResultValue value = row;
         rowCount += value.rowCount();
       }
       assertEquals(Math.min(totalRows, limit), rowCount);
-      run.close();
+      fragment.close();
     }
   }
 
@@ -206,19 +206,19 @@ public class ScanQueryOperatorsTest
   {
     final int totalRows = 10;
     for (int limit = 0; limit < totalRows + 1; limit++) {
-      FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-      Operator<ScanResultValue> scan = scan(builder.context(), 3, totalRows, 1);
+      FragmentManager fragment = Fragments.defaultFragment();
+      Operator<ScanResultValue> scan = scan(fragment, 3, totalRows, 1);
       Operator<ScanResultValue> root =
-          new UngroupedScanResultLimitOperator(builder.context(), scan, limit, 4);
-      FragmentRun<ScanResultValue> run = builder.run(root);
-      ResultIterator<ScanResultValue> iter = run.iterator();
+          new UngroupedScanResultLimitOperator(fragment, scan, limit, 4);
+      fragment.registerRoot(root);
+      ResultIterator<ScanResultValue> iter = fragment.run();
       int rowCount = 0;
       for (ScanResultValue row : Iterators.toIterable(iter)) {
         ScanResultValue value = row;
         rowCount += value.rowCount();
       }
       assertEquals(Math.min(totalRows, limit), rowCount);
-      run.close();
+      fragment.close();
     }
   }
 
@@ -226,23 +226,25 @@ public class ScanQueryOperatorsTest
   public void testBatchToRow()
   {
     {
-      FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-      MockScanResultReader scan = scan(builder.context(), 3, 25, 4, ResultFormat.RESULT_FORMAT_COMPACTED_LIST);
+      FragmentManager fragment = Fragments.defaultFragment();
+      MockScanResultReader scan = scan(fragment, 3, 25, 4, ResultFormat.RESULT_FORMAT_COMPACTED_LIST);
       Operator<List<Object>> op =
-          new ScanBatchToRowOperator<List<Object>>(builder.context(), scan);
+          new ScanBatchToRowOperator<List<Object>>(fragment, scan);
       Operator<Object[]> root =
-          new ScanCompactListToArrayOperator(builder.context(), op, scan.columns);
-      List<Object[]> results = builder.run(root).toList();
+          new ScanCompactListToArrayOperator(fragment, op, scan.columns);
+      fragment.registerRoot(root);
+      List<Object[]> results = fragment.toList();
       assertEquals(25, results.size());
     }
     {
-      FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-      MockScanResultReader scan = scan(builder.context(), 3, 25, 4, ResultFormat.RESULT_FORMAT_LIST);
+      FragmentManager fragment = Fragments.defaultFragment();
+      MockScanResultReader scan = scan(fragment, 3, 25, 4, ResultFormat.RESULT_FORMAT_LIST);
       Operator<Map<String, Object>> op =
-          new ScanBatchToRowOperator<Map<String, Object>>(builder.context(), scan);
+          new ScanBatchToRowOperator<Map<String, Object>>(fragment, scan);
       Operator<Object[]> root =
-          new ScanListToArrayOperator(builder.context(), op, scan.columns);
-      List<Object[]> results = builder.run(root).toList();
+          new ScanListToArrayOperator(fragment, op, scan.columns);
+      fragment.registerRoot(root);
+      List<Object[]> results = fragment.toList();
       assertEquals(25, results.size());
     }
   }

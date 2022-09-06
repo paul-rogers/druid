@@ -20,9 +20,9 @@
 package org.apache.druid.queryng.operators;
 
 import org.apache.druid.java.util.common.guava.Sequence;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.fragment.FragmentRun;
+import org.apache.druid.queryng.fragment.FragmentManager;
+import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.junit.Test;
@@ -32,7 +32,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 @Category(OperatorTest.class)
@@ -41,8 +40,8 @@ public class BasicOperatorTest
   @Test
   public void testToIterable()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder.context(), 2);
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockOperator<Integer> op = MockOperator.ints(fragment, 2);
     int count = 0;
     for (Integer row : Operators.toIterable(op)) {
       assertEquals(count++, (int) row);
@@ -54,13 +53,14 @@ public class BasicOperatorTest
   @Test
   public void testFilter()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder.context(), 4);
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockOperator<Integer> op = MockOperator.ints(fragment, 4);
     Operator<Integer> op2 = new FilterOperator<Integer>(
-        builder.context(),
+        fragment,
         op,
         x -> x % 2 == 0);
-    List<Integer> results = builder.run(op2).toList();
+    fragment.registerRoot(op2);
+    List<Integer> results = fragment.toList();
     assertEquals(Arrays.asList(0, 2), results);
     assertEquals(Operator.State.CLOSED, op.state);
   }
@@ -68,13 +68,14 @@ public class BasicOperatorTest
   @Test
   public void testTransform()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder.context(), 4);
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockOperator<Integer> op = MockOperator.ints(fragment, 4);
     Operator<Integer> op2 = new TransformOperator<Integer, Integer>(
-        builder.context(),
+        fragment,
         op,
         x -> x * 2);
-    List<Integer> results = builder.run(op2).toList();
+    fragment.registerRoot(op2);
+    List<Integer> results = fragment.toList();
     assertEquals(Arrays.asList(0, 2, 4, 6), results);
     assertEquals(Operator.State.CLOSED, op.state);
   }
@@ -82,13 +83,14 @@ public class BasicOperatorTest
   @Test
   public void testLimit0()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder.context(), 4);
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockOperator<Integer> op = MockOperator.ints(fragment, 4);
     Operator<Integer> op2 = new LimitOperator<Integer>(
-        builder.context(),
+        fragment,
         op,
         0);
-    List<Integer> results = builder.run(op2).toList();
+    fragment.registerRoot(op2);
+    List<Integer> results = fragment.toList();
     assertTrue(results.isEmpty());
     assertEquals(Operator.State.CLOSED, op.state);
   }
@@ -96,26 +98,28 @@ public class BasicOperatorTest
   @Test
   public void testLimitNotHit()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder.context(), 4);
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockOperator<Integer> op = MockOperator.ints(fragment, 4);
     Operator<Integer> op2 = new LimitOperator<Integer>(
-        builder.context(),
+        fragment,
         op,
         8);
-    List<Integer> results = builder.run(op2).toList();
+    fragment.registerRoot(op2);
+    List<Integer> results = fragment.toList();
     assertEquals(Arrays.asList(0, 1, 2, 3), results);
   }
 
   @Test
   public void testLimitHit()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder.context(), 4);
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockOperator<Integer> op = MockOperator.ints(fragment, 4);
     Operator<Integer> op2 = new LimitOperator<Integer>(
-        builder.context(),
+        fragment,
         op,
         2);
-    List<Integer> results = builder.run(op2).toList();
+    fragment.registerRoot(op2);
+    List<Integer> results = fragment.toList();
     assertEquals(Arrays.asList(0, 1), results);
   }
 
@@ -134,7 +138,7 @@ public class BasicOperatorTest
     {
       openCalled = true;
       // Silly check just to create a reference to the context variable.
-      assertNull(context.exception());
+      assertEquals(FragmentContext.State.RUN, context.state());
     }
 
     @Override
@@ -147,12 +151,13 @@ public class BasicOperatorTest
   @Test
   public void testWrappingOperator()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<Integer> op = MockOperator.ints(builder.context(), 4);
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockOperator<Integer> op = MockOperator.ints(fragment, 4);
     MockWrappingOperator<Integer> op2 = new MockWrappingOperator<Integer>(
-        builder.context(),
+        fragment,
         op);
-    List<Integer> results = builder.run(op2).toList();
+    fragment.registerRoot(op2);
+    List<Integer> results = fragment.toList();
     assertEquals(Arrays.asList(0, 1, 2, 3), results);
     assertTrue(op2.openCalled);
     assertTrue(op2.closeCalled);
@@ -165,16 +170,16 @@ public class BasicOperatorTest
   @Test
   public void testSequenceOperator() throws EofException
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    MockOperator<String> op = MockOperator.strings(builder.context(), 2);
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockOperator<String> op = MockOperator.strings(fragment, 2);
     Sequence<String> seq = Operators.toSequence(op);
-    Operator<String> outer = Operators.toOperator(builder.context(), seq);
-    FragmentRun<String> run = builder.run(outer);
-    ResultIterator<String> iter = run.iterator();
+    Operator<String> outer = Operators.toOperator(fragment, seq);
+    fragment.registerRoot(outer);
+    ResultIterator<String> iter = fragment.run();
     assertEquals("Mock row 0", iter.next());
     assertEquals("Mock row 1", iter.next());
     OperatorTests.assertEof(iter);
-    run.close();
+    fragment.close();
     assertEquals(Operator.State.CLOSED, op.state);
   }
 }

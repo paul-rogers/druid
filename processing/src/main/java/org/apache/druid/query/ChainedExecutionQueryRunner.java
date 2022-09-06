@@ -62,7 +62,6 @@ public class ChainedExecutionQueryRunner<T> implements QueryRunner<T>
   private final Iterable<QueryRunner<T>> queryables;
   private final QueryWatcher queryWatcher;
 
-
   public ChainedExecutionQueryRunner(
       QueryProcessingPool queryProcessingPool,
       QueryWatcher queryWatcher,
@@ -168,7 +167,6 @@ public class ChainedExecutionQueryRunner<T> implements QueryRunner<T>
           @Override
           public void cleanup(Iterator<T> tIterator)
           {
-
           }
         }
     );

@@ -56,7 +56,7 @@ import org.apache.druid.query.Result;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.TruncatedResponseContextException;
 import org.apache.druid.query.timeboundary.TimeBoundaryResultValue;
-import org.apache.druid.queryng.fragment.NullFragmentBuilderFactory;
+import org.apache.druid.queryng.fragment.NullQueryManagerFactory;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.log.TestRequestLogger;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
@@ -222,7 +222,7 @@ public class QueryResourceTest
             new AuthConfig(),
             AuthTestUtils.TEST_AUTHORIZER_MAPPER,
             Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of())),
-            new NullFragmentBuilderFactory()
+            new NullQueryManagerFactory()
         ),
         jsonMapper,
         smileMapper,
@@ -269,7 +269,7 @@ public class QueryResourceTest
             new AuthConfig(),
             AuthTestUtils.TEST_AUTHORIZER_MAPPER,
             Suppliers.ofInstance(overrideConfig),
-            new NullFragmentBuilderFactory()
+            new NullQueryManagerFactory()
         ),
         jsonMapper,
         smileMapper,
@@ -322,7 +322,7 @@ public class QueryResourceTest
             new AuthConfig(),
             AuthTestUtils.TEST_AUTHORIZER_MAPPER,
             Suppliers.ofInstance(overrideConfig),
-            new NullFragmentBuilderFactory()
+            new NullQueryManagerFactory()
         ),
         jsonMapper,
         smileMapper,
@@ -710,7 +710,7 @@ public class QueryResourceTest
             new AuthConfig(),
             authMapper,
             Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of())),
-            new NullFragmentBuilderFactory()
+            new NullQueryManagerFactory()
         ),
         jsonMapper,
         smileMapper,
@@ -787,7 +787,7 @@ public class QueryResourceTest
             new AuthConfig(),
             AuthTestUtils.TEST_AUTHORIZER_MAPPER,
             Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of())),
-            new NullFragmentBuilderFactory()
+            new NullQueryManagerFactory()
         ),
         jsonMapper,
         jsonMapper,
@@ -886,7 +886,7 @@ public class QueryResourceTest
             new AuthConfig(),
             authMapper,
             Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of())),
-            new NullFragmentBuilderFactory()
+            new NullQueryManagerFactory()
         ),
         jsonMapper,
         smileMapper,
@@ -1011,7 +1011,7 @@ public class QueryResourceTest
             new AuthConfig(),
             authMapper,
             Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of())),
-            new NullFragmentBuilderFactory()
+            new NullQueryManagerFactory()
         ),
         jsonMapper,
         smileMapper,
@@ -1271,7 +1271,7 @@ public class QueryResourceTest
             new AuthConfig(),
             AuthTestUtils.TEST_AUTHORIZER_MAPPER,
             Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of())),
-            new NullFragmentBuilderFactory()
+            new NullQueryManagerFactory()
         ),
         jsonMapper,
         smileMapper,

@@ -27,7 +27,8 @@ import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentManager;
+import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.ConcatOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.general.MockCursor;
@@ -90,10 +91,10 @@ public class ScanQueryOperatorTest
   @Test
   public void testWildcard()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    FragmentManager fragment = Fragments.defaultFragment();
     Segment segment = new MockSegment(20); // 20 rows
     Operator<ScanResultValue> op = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         10, // Batch size
@@ -108,7 +109,8 @@ public class ScanQueryOperatorTest
         MockStorageAdapter.MOCK_INTERVAL, // Whole segment
         null // No query metrics
     );
-    List<ScanResultValue> results = builder.run(op).toList();
+    fragment.registerRoot(op);
+    List<ScanResultValue> results = fragment.toList();
     assertEquals(2, results.size());
     ScanResultValue first = results.get(0);
     assertEquals(3, first.getColumns().size());
@@ -136,16 +138,16 @@ public class ScanQueryOperatorTest
     op.close(false);
 
     // Context was updated
-    assertEquals((Long) 20L, builder.context().responseContext().getRowScanCount());
+    assertEquals((Long) 20L, fragment.responseContext().getRowScanCount());
   }
 
   @Test
   public void testProjection()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    FragmentManager fragment = Fragments.defaultFragment();
     Segment segment = new MockSegment(5); // 5 rows
     Operator<ScanResultValue> op = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         10, // Batch size
@@ -161,7 +163,8 @@ public class ScanQueryOperatorTest
         MockStorageAdapter.MOCK_INTERVAL, // Whole segment
         null // No query metrics
     );
-    List<ScanResultValue> results = builder.run(op).toList();
+    fragment.registerRoot(op);
+    List<ScanResultValue> results = fragment.toList();
     assertEquals(1, results.size());
     ScanResultValue first = results.get(0);
     assertEquals(3, first.getColumns().size());
@@ -186,10 +189,10 @@ public class ScanQueryOperatorTest
   @Test
   public void testZeroRows()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    FragmentManager fragment = Fragments.defaultFragment();
     Segment segment = new MockSegment(0); // 0 rows
     Operator<ScanResultValue> op = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         10, // Batch size
@@ -204,17 +207,18 @@ public class ScanQueryOperatorTest
         MockStorageAdapter.MOCK_INTERVAL, // Whole segment
         null // No query metrics
     );
-    List<ScanResultValue> results = builder.run(op).toList();
+    fragment.registerRoot(op);
+    List<ScanResultValue> results = fragment.toList();
     assertTrue(results.isEmpty());
   }
 
   @Test
   public void testNoSegment()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    FragmentManager fragment = Fragments.defaultFragment();
     Segment segment = new MockSegment(-1); // simulate no segment
     Operator<ScanResultValue> op = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         10, // Batch size
@@ -229,16 +233,17 @@ public class ScanQueryOperatorTest
         MockStorageAdapter.MOCK_INTERVAL, // Whole segment
         null // No query metrics
     );
-    assertThrows(ISE.class, () -> builder.run(op).toList());
+    fragment.registerRoot(op);
+    assertThrows(ISE.class, () -> fragment.toList());
   }
 
   @Test
   public void testTwoCursors()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    FragmentManager fragment = Fragments.defaultFragment();
     Segment segment = new MockDualCursorSegment(20); // 20 rows per cursor
     Operator<ScanResultValue> op = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         100, // Batch size
@@ -253,7 +258,8 @@ public class ScanQueryOperatorTest
         MockStorageAdapter.MOCK_INTERVAL, // Whole segment
         null // No query metrics
     );
-    List<ScanResultValue> results = builder.run(op).toList();
+    fragment.registerRoot(op);
+    List<ScanResultValue> results = fragment.toList();
     assertEquals(2, results.size());
     assertEquals(20, results.get(0).getRows().size());
     assertEquals(20, results.get(1).getRows().size());
@@ -262,10 +268,10 @@ public class ScanQueryOperatorTest
   @Test
   public void testMultipleCursorsZeroRows()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    FragmentManager fragment = Fragments.defaultFragment();
     Segment segment = new MockSegment(0); // 0 rows
     Operator<ScanResultValue> op = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         10, // Batch size
@@ -280,17 +286,18 @@ public class ScanQueryOperatorTest
         MockStorageAdapter.MOCK_INTERVAL, // Whole segment
         null // No query metrics
     );
-    List<ScanResultValue> results = builder.run(op).toList();
+    fragment.registerRoot(op);
+    List<ScanResultValue> results = fragment.toList();
     assertTrue(results.isEmpty());
 
   }
 
   private List<ScanResultValue> opWithLimit(int limit)
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    FragmentManager fragment = Fragments.defaultFragment();
     Segment segment = new MockSegment(20); // 20 rows
     Operator<ScanResultValue> op = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         10, // Batch size
@@ -305,7 +312,8 @@ public class ScanQueryOperatorTest
         MockStorageAdapter.MOCK_INTERVAL, // Whole segment
         null // No query metrics
     );
-    return builder.run(op).toList();
+    fragment.registerRoot(op);
+    return fragment.toList();
   }
 
   @Test
@@ -331,10 +339,10 @@ public class ScanQueryOperatorTest
   @Test
   public void testLimitOnSecondCursor()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    FragmentManager fragment = Fragments.defaultFragment();
     Segment segment = new MockDualCursorSegment(20); // 20 rows per cursor
     Operator<ScanResultValue> op = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         10, // Batch size
@@ -349,7 +357,8 @@ public class ScanQueryOperatorTest
         MockStorageAdapter.MOCK_INTERVAL, // Whole segment
         null // No query metrics
     );
-    List<ScanResultValue> results = builder.run(op).toList();
+    fragment.registerRoot(op);
+    List<ScanResultValue> results = fragment.toList();
     assertEquals(3, results.size());
     assertEquals(10, results.get(0).getRows().size());
     assertEquals(10, results.get(1).getRows().size());
@@ -368,10 +377,10 @@ public class ScanQueryOperatorTest
   @Test
   public void testLimitOnSecondScan()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    FragmentManager fragment = Fragments.defaultFragment();
     Segment segment = new MockSegment(20); // 20 rows per cursor
     Operator<ScanResultValue> op1 = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         10, // Batch size
@@ -387,7 +396,7 @@ public class ScanQueryOperatorTest
         null // No query metrics
     );
     Operator<ScanResultValue> op2 = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         10, // Batch size
@@ -403,10 +412,11 @@ public class ScanQueryOperatorTest
         null // No query metrics
     );
     ConcatOperator<ScanResultValue> concat = new ConcatOperator<>(
-        builder.context(),
+        fragment,
         Arrays.asList(op1, op2)
     );
-    List<ScanResultValue> results = builder.run(concat).toList();
+    fragment.registerRoot(concat);
+    List<ScanResultValue> results = fragment.toList();
     assertEquals(3, results.size());
     assertEquals(10, results.get(0).getRows().size());
     assertEquals(10, results.get(1).getRows().size());
@@ -421,10 +431,10 @@ public class ScanQueryOperatorTest
   @Test
   public void testLimitOnFirstScan()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    FragmentManager fragment = Fragments.defaultFragment();
     Segment segment = new MockSegment(20); // 20 rows per cursor
     Operator<ScanResultValue> op1 = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         10, // Batch size
@@ -440,7 +450,7 @@ public class ScanQueryOperatorTest
         null // No query metrics
     );
     Operator<ScanResultValue> op2 = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         10, // Batch size
@@ -456,10 +466,11 @@ public class ScanQueryOperatorTest
         null // No query metrics
     );
     ConcatOperator<ScanResultValue> concat = new ConcatOperator<>(
-        builder.context(),
+        fragment,
         Arrays.asList(op1, op2)
     );
-    List<ScanResultValue> results = builder.run(concat).toList();
+    fragment.registerRoot(concat);
+    List<ScanResultValue> results = fragment.toList();
     assertEquals(2, results.size());
     assertEquals(10, results.get(0).getRows().size());
     assertEquals(5, results.get(1).getRows().size());
@@ -473,10 +484,10 @@ public class ScanQueryOperatorTest
   @Test
   public void testLocalLimitWhenOrdered()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    FragmentManager fragment = Fragments.defaultFragment();
     Segment segment = new MockSegment(20); // 20 rows per cursor
     Operator<ScanResultValue> op1 = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         10, // Batch size
@@ -492,7 +503,7 @@ public class ScanQueryOperatorTest
         null // No query metrics
     );
     Operator<ScanResultValue> op2 = new ScanQueryOperator(
-        builder.context(),
+        fragment,
         "dummy",
         null, // No filter
         10, // Batch size
@@ -508,10 +519,11 @@ public class ScanQueryOperatorTest
         null // No query metrics
     );
     ConcatOperator<ScanResultValue> concat = new ConcatOperator<>(
-        builder.context(),
+        fragment,
         Arrays.asList(op1, op2)
     );
-    List<ScanResultValue> results = builder.run(concat).toList();
+    fragment.registerRoot(concat);
+    List<ScanResultValue> results = fragment.toList();
     assertEquals(4, results.size());
     assertEquals(10, results.get(0).getRows().size());
     assertEquals(10, results.get(1).getRows().size());

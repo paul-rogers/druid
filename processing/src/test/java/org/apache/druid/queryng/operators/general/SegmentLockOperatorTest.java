@@ -19,7 +19,8 @@
 
 package org.apache.druid.queryng.operators.general;
 
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentManager;
+import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.general.MockStorageAdapter.MockSegment;
@@ -75,15 +76,16 @@ public class SegmentLockOperatorTest
   @Test
   public void testLock()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    FragmentManager fragment = Fragments.defaultFragment();
     MockReference segment = new MockReference();
     Operator<Object> op = new SegmentLockOperator<>(
-        builder.context(),
+        fragment,
         segment,
         MockStorageAdapter.MOCK_DESCRIPTOR,
-        new NullOperator<Object>(builder.context())
+        new NullOperator<Object>(fragment)
     );
-    List<Object> results = builder.run(op).toList();
+    fragment.registerRoot(op);
+    List<Object> results = fragment.toList();
     assertTrue(results.isEmpty());
     assertFalse(segment.isLocked);
     assertTrue(segment.wasLocked);
@@ -92,22 +94,23 @@ public class SegmentLockOperatorTest
   @Test
   public void testMissingSegment()
   {
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
+    FragmentManager fragment = Fragments.defaultFragment();
     MockReference segment = new MockMissingSegment();
     Operator<Object> op = new SegmentLockOperator<>(
-        builder.context(),
+        fragment,
         segment,
         MockStorageAdapter.MOCK_DESCRIPTOR,
-        new NullOperator<Object>(builder.context())
+        new NullOperator<Object>(fragment)
     );
-    List<Object> results = builder.run(op).toList();
+    fragment.registerRoot(op);
+    List<Object> results = fragment.toList();
     assertTrue(results.isEmpty());
     assertFalse(segment.isLocked);
     assertFalse(segment.wasLocked);
-    assertFalse(builder.context().responseContext().getMissingSegments().isEmpty());
+    assertFalse(fragment.responseContext().getMissingSegments().isEmpty());
     assertEquals(
         MockStorageAdapter.MOCK_DESCRIPTOR,
-        builder.context().responseContext().getMissingSegments().get(0)
+        fragment.responseContext().getMissingSegments().get(0)
     );
   }
 }

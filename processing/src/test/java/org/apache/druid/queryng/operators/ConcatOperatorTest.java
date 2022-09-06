@@ -19,7 +19,8 @@
 
 package org.apache.druid.queryng.operators;
 
-import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.fragment.FragmentManager;
+import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.apache.druid.queryng.operators.Operator.State;
@@ -40,55 +41,59 @@ public class ConcatOperatorTest
   @Test
   public void testEmpty()
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    Operator<String> op = new ConcatOperator<String>(context, Collections.emptyList());
-    List<String> results = Operators.toList(op);
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<String> op = new ConcatOperator<String>(fragment, Collections.emptyList());
+    fragment.registerRoot(op);
+    List<String> results = fragment.toList();
     assertTrue(results.isEmpty());
   }
 
   @Test
   public void testOneEmptyInput()
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    Operator<String> input = new NullOperator<String>(context);
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<String> input = new NullOperator<String>(fragment);
     Operator<String> op = new ConcatOperator<String>(
-        context,
+        fragment,
         Collections.singletonList(input));
-    List<String> results = Operators.toList(op);
+    fragment.registerRoot(op);
+    List<String> results = fragment.toList();
     assertTrue(results.isEmpty());
   }
 
   @Test
   public void testHelperNoConcat()
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    MockOperator<Integer> input1 = MockOperator.ints(context, 2);
-    Operator<Integer> op = ConcatOperator.concatOrNot(context, Collections.singletonList(input1));
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockOperator<Integer> input1 = MockOperator.ints(fragment, 2);
+    Operator<Integer> op = ConcatOperator.concatOrNot(fragment, Collections.singletonList(input1));
     assertSame(input1, op);
   }
 
   @Test
   public void testTwoEmptyInputs()
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    Operator<String> input1 = new NullOperator<String>(context);
-    Operator<String> input2 = new NullOperator<String>(context);
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<String> input1 = new NullOperator<String>(fragment);
+    Operator<String> input2 = new NullOperator<String>(fragment);
     Operator<String> op = new ConcatOperator<String>(
-        context,
+        fragment,
         Arrays.asList(input1, input2));
-    List<String> results = Operators.toList(op);
+    fragment.registerRoot(op);
+    List<String> results = fragment.toList();
     assertTrue(results.isEmpty());
   }
 
   @Test
   public void testOneInput()
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    Operator<Integer> input = MockOperator.ints(context, 2);
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<Integer> input = MockOperator.ints(fragment, 2);
     Operator<Integer> op = new ConcatOperator<Integer>(
-        context,
+        fragment,
         Collections.singletonList(input));
-    List<Integer> results = Operators.toList(op);
+    fragment.registerRoot(op);
+    List<String> results = fragment.toList();
     List<Integer> expected = Arrays.asList(0, 1);
     assertEquals(expected, results);
   }
@@ -96,13 +101,14 @@ public class ConcatOperatorTest
   @Test
   public void testEmptyThenNonEmptyInputs()
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    Operator<Integer> input1 = new NullOperator<Integer>(context);
-    Operator<Integer> input2 = MockOperator.ints(context, 2);
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<Integer> input1 = new NullOperator<Integer>(fragment);
+    Operator<Integer> input2 = MockOperator.ints(fragment, 2);
     Operator<Integer> op = ConcatOperator.concatOrNot(
-        context,
+        fragment,
         Arrays.asList(input1, input2));
-    List<Integer> results = Operators.toList(op);
+    fragment.registerRoot(op);
+    List<String> results = fragment.toList();
     List<Integer> expected = Arrays.asList(0, 1);
     assertEquals(expected, results);
   }
@@ -110,13 +116,14 @@ public class ConcatOperatorTest
   @Test
   public void testNonEmptyThenEmptyInputs()
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    Operator<Integer> input1 = MockOperator.ints(context, 2);
-    Operator<Integer> input2 = new NullOperator<Integer>(context);
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<Integer> input1 = MockOperator.ints(fragment, 2);
+    Operator<Integer> input2 = new NullOperator<Integer>(fragment);
     Operator<Integer> op = ConcatOperator.concatOrNot(
-        context,
+        fragment,
         Arrays.asList(input1, input2));
-    List<Integer> results = Operators.toList(op);
+    fragment.registerRoot(op);
+    List<String> results = fragment.toList();
     List<Integer> expected = Arrays.asList(0, 1);
     assertEquals(expected, results);
   }
@@ -124,13 +131,14 @@ public class ConcatOperatorTest
   @Test
   public void testTwoInputs()
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    Operator<Integer> input1 = MockOperator.ints(context, 2);
-    Operator<Integer> input2 = MockOperator.ints(context, 2);
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<Integer> input1 = MockOperator.ints(fragment, 2);
+    Operator<Integer> input2 = MockOperator.ints(fragment, 2);
     Operator<Integer> op = ConcatOperator.concatOrNot(
-        context,
+        fragment,
         Arrays.asList(input1, input2));
-    List<Integer> results = Operators.toList(op);
+    fragment.registerRoot(op);
+    List<String> results = fragment.toList();
     List<Integer> expected = Arrays.asList(0, 1, 0, 1);
     assertEquals(expected, results);
   }
@@ -138,13 +146,14 @@ public class ConcatOperatorTest
   @Test
   public void testClose() throws EofException
   {
-    FragmentContext context = FragmentContext.defaultContext();
-    MockOperator<Integer> input1 = MockOperator.ints(context, 2);
-    MockOperator<Integer> input2 = MockOperator.ints(context, 2);
+    FragmentManager fragment = Fragments.defaultFragment();
+    MockOperator<Integer> input1 = MockOperator.ints(fragment, 2);
+    MockOperator<Integer> input2 = MockOperator.ints(fragment, 2);
     Operator<Integer> op = ConcatOperator.concatOrNot(
-        context,
+        fragment,
         Arrays.asList(input1, input2));
-    ResultIterator<Integer> iter = op.open();
+    fragment.registerRoot(op);
+    ResultIterator<Integer> iter = fragment.run();
     assertEquals(0, (int) iter.next());
 
     // Only first input has been opened.

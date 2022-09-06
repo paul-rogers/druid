@@ -25,7 +25,8 @@ import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.queryng.Timer;
-import org.apache.druid.queryng.fragment.FragmentBuilder;
+import org.apache.druid.queryng.fragment.FragmentManager;
+import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.MockOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorTests;
@@ -78,18 +79,19 @@ public class MetricsOperatorTest
       // Ignore
     }
     MockReportMetric reportMetric = new MockReportMetric();
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    Operator<Integer> leaf = MockOperator.ints(builder.context(), 5);
-    Operator<Integer> sleepOp = OperatorTests.sleepOperator(builder.context(), leaf, 1);
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<Integer> leaf = MockOperator.ints(fragment, 5);
+    Operator<Integer> sleepOp = OperatorTests.sleepOperator(fragment, leaf, 1);
     Operator<Integer> op = new MetricsOperator<Integer>(
-        builder.context(),
+        fragment,
         emitter,
         metrics,
         reportMetric,
         waitTimer,
         sleepOp
     );
-    List<Integer> results = builder.run(op).toList();
+    fragment.registerRoot(op);
+    List<Integer> results = fragment.toList();
     assertEquals(5, results.size());
     assertSame(metrics, reportMetric.metrics);
     assertTrue(reportMetric.value > 0);
@@ -106,18 +108,19 @@ public class MetricsOperatorTest
     QueryMetrics<ScanQuery> metrics = new DefaultQueryMetrics<>();
     StubServiceEmitter emitter = new StubServiceEmitter("service", "host");
     MockReportMetric reportMetric = new MockReportMetric();
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    Operator<Integer> leaf = MockOperator.ints(builder.context(), 5);
-    Operator<Integer> sleepOp = OperatorTests.sleepOperator(builder.context(), leaf, 1);
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<Integer> leaf = MockOperator.ints(fragment, 5);
+    Operator<Integer> sleepOp = OperatorTests.sleepOperator(fragment, leaf, 1);
     Operator<Integer> op = new MetricsOperator<Integer>(
-        builder.context(),
+        fragment,
         emitter,
         metrics,
         reportMetric,
         null,
         sleepOp
     );
-    List<Integer> results = builder.run(op).toList();
+    fragment.registerRoot(op);
+    List<Integer> results = fragment.toList();
     assertEquals(5, results.size());
     assertSame(metrics, reportMetric.metrics);
     assertTrue(reportMetric.value > 0);
@@ -142,21 +145,22 @@ public class MetricsOperatorTest
       // Ignore
     }
     MockReportMetric reportMetric = new MockReportMetric();
-    FragmentBuilder builder = FragmentBuilder.defaultBuilder();
-    Operator<Integer> leaf = MockOperator.ints(builder.context(), 5);
-    Operator<Integer> sleepOp = OperatorTests.sleepOperator(builder.context(), leaf, 1);
-    Operator<Integer> failOp = OperatorTests.failOperator(builder.context(), sleepOp, 3);
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<Integer> leaf = MockOperator.ints(fragment, 5);
+    Operator<Integer> sleepOp = OperatorTests.sleepOperator(fragment, leaf, 1);
+    Operator<Integer> failOp = OperatorTests.failOperator(fragment, sleepOp, 3);
     Operator<Integer> op = new MetricsOperator<Integer>(
-        builder.context(),
+        fragment,
         emitter,
         metrics,
         reportMetric,
         waitTimer,
         failOp
     );
+    fragment.registerRoot(op);
 
     try {
-      builder.run(op).toList();
+      fragment.toList();
       fail();
     }
     catch (RuntimeException e) {

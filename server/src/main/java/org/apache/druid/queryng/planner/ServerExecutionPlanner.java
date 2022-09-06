@@ -21,8 +21,6 @@ package org.apache.druid.queryng.planner;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
-import io.github.resilience4j.bulkhead.Bulkhead;
 import org.apache.druid.client.SegmentServerSelector;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Queries;
@@ -106,7 +104,7 @@ public class ServerExecutionPlanner
             queryPlus.getQuery(),
             ImmutableList.copyOf(specs)));
     Operator<T> op = Operators.toOperator(input, rewrittenQuery);
-    FragmentContext fragmentContext = queryPlus.fragmentBuilder().context();
+    FragmentContext fragmentContext = queryPlus.fragment();
     if (scheduler != null) {
       Set<SegmentServerSelector> segments = new HashSet<>();
       specs.forEach(spec -> segments.add(new SegmentServerSelector(spec)));
@@ -138,7 +136,7 @@ public class ServerExecutionPlanner
   )
   {
     Operator<T> op = new RetryOperator<T>(
-        queryPlus.fragmentBuilder().context(),
+        queryPlus.fragment(),
         queryPlus,
         new QueryRunnerOperator<T>(baseRunner, queryPlus),
         queryPlus.getQuery().getResultOrdering(),
@@ -164,7 +162,7 @@ public class ServerExecutionPlanner
   )
   {
     Operator<T> op = new ThrottleOperator<T>(
-        queryPlus.fragmentBuilder().context(),
+        queryPlus.fragment(),
         new QueryRunnerOperator<T>(baseRunner, queryPlus),
         throttle
     );

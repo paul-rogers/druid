@@ -139,7 +139,7 @@ public class ScanPlanner
     }
     // No metrics past this point: metrics are not thread-safe.
     QueryPlus<ScanResultValue> historicalQueryPlus = queryPlus.withQuery(historicalQuery).withoutMetrics();
-    FragmentContext fragmentContext = queryPlus.fragmentBuilder().context();
+    FragmentContext fragmentContext = queryPlus.fragment();
     Operator<ScanResultValue> oper = Operators.toOperator(
         input,
         historicalQueryPlus);
@@ -189,7 +189,7 @@ public class ScanPlanner
       inputs.add(Operators.toOperator(qr, queryPlus));
     }
     Operator<ScanResultValue> op = ConcatOperator.concatOrNot(
-        queryPlus.fragmentBuilder().context(),
+        queryPlus.fragment(),
         inputs);
     // TODO(paul): The original code applies a limit. Yet, when
     // run, the stack shows two limits one top of one another,
@@ -212,6 +212,8 @@ public class ScanPlanner
   }
 
   /**
+   * Given a set of scattered runners, gather the results via a merge.
+   *
    * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory#mergeRunners}
    * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory#nWayMergeAndLimit}
    */
@@ -249,7 +251,7 @@ public class ScanPlanner
       final Segment segment,
       final ResponseContext responseContext)
   {
-    FragmentContext fragmentContext = queryPlus.fragmentBuilder().context();
+    FragmentContext fragmentContext = queryPlus.fragment();
     if (isTombstone(segment)) {
       return Operators.toSequence(new NullOperator<>(fragmentContext));
     }
@@ -366,7 +368,7 @@ public class ScanPlanner
       final List<String> fields,
       final Sequence<ScanResultValue> resultSequence)
   {
-    FragmentContext context = queryPlus.fragmentBuilder().context();
+    FragmentContext context = queryPlus.fragment();
     Operator<ScanResultValue> inputOp = Operators.toOperator(
         context,
         resultSequence);

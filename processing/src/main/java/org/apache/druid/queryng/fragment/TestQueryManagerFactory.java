@@ -20,14 +20,35 @@
 package org.apache.druid.queryng.fragment;
 
 import org.apache.druid.query.Query;
-import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.queryng.config.QueryNGConfig;
 
-import javax.annotation.Nullable;
-
-public interface FragmentBuilderFactory
+/**
+ * Test version of the fragment factory which enables Query NG only if
+ * the {@code druid.queryng.enable} system property is set, and then,
+ * only for scan queries.
+ */
+public class TestQueryManagerFactory implements QueryManagerFactory
 {
-  @Nullable
-  FragmentBuilder create(
-      Query<?> query,
-      ResponseContext responseContext);
+  private static final String ENABLED_KEY = QueryNGConfig.CONFIG_ROOT + ".enabled";
+
+  private boolean enabled;
+
+  public TestQueryManagerFactory()
+  {
+    this.enabled = Boolean.parseBoolean(System.getProperty(ENABLED_KEY));
+  }
+
+  public TestQueryManagerFactory(boolean enabled)
+  {
+    this.enabled = enabled;
+  }
+
+  @Override
+  public QueryManager create(Query<?> query)
+  {
+    if (!enabled) {
+      return null;
+    }
+    return new QueryManager(query.getId());
+  }
 }

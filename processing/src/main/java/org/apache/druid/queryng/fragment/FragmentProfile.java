@@ -48,11 +48,11 @@ public class FragmentProfile
   public final Exception error;
   public final List<ProfileNode> roots;
 
-  protected FragmentProfile(FragmentContextImpl context, final List<ProfileNode> roots)
+  protected FragmentProfile(FragmentManager fragment, final List<ProfileNode> roots)
   {
-    this.queryId = context.queryId();
-    this.runTimeMs = context.elapsedTimeMs();
-    this.error = context.exception();
+    this.queryId = fragment.queryId();
+    this.runTimeMs = fragment.elapsedTimeMs();
+    this.error = fragment.exception();
     this.roots = roots;
   }
 }

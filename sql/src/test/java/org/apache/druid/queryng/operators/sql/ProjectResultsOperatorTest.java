@@ -22,13 +22,15 @@ package org.apache.druid.queryng.operators.sql;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.druid.common.config.NullHandling;
-import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operators.Iterators;
+import org.apache.druid.queryng.fragment.FragmentManager;
+import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
+import org.apache.druid.queryng.operators.OperatorTest;
 import org.apache.druid.queryng.operators.Operators;
 import org.joda.time.DateTimeZone;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,6 +44,7 @@ import static org.junit.Assert.assertEquals;
  * an interpreted version which is a literal copy/paste of the original
  * NativeQueryBuilder code, and a sped-up cached version.
  */
+@Category(OperatorTest.class)
 public class ProjectResultsOperatorTest
 {
   private final ObjectMapper jsonMapper = new ObjectMapper();
@@ -131,24 +134,26 @@ public class ProjectResultsOperatorTest
           }
         }
       }
-      FragmentContext context = FragmentContext.defaultContext();
+      FragmentManager fragment = Fragments.defaultFragment();
       MockResultsOperator inputOp = new MockResultsOperator(input);
       Operator<Object[]> op = new ProjectResultsOperator(
-          context,
+          fragment,
           inputOp,
           mapping,
           newTypes,
           jsonMapper,
           timeZone,
           serializeComplexValues,
-          stringifyArrays);
-      output = Iterators.toList(op.open());
+          stringifyArrays
+      );
+      fragment.registerRoot(op);
+      output = fragment.toList();
       verify();
 
-      context = FragmentContext.defaultContext();
+      fragment = Fragments.defaultFragment();
       inputOp = new MockResultsOperator(input);
       op = new ProjectResultsOperatorEx(
-          context,
+          fragment,
           inputOp,
           mapping,
           newTypes,
@@ -156,7 +161,8 @@ public class ProjectResultsOperatorTest
           timeZone,
           serializeComplexValues,
           stringifyArrays);
-      output = Iterators.toList(op.open());
+      fragment.registerRoot(op);
+      output = fragment.toList();
       verify();
     }
 

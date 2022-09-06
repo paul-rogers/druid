@@ -140,7 +140,7 @@ public class QueryPlanner
         queryWithMetrics
     );
     CpuMetricOperator<T> op = new CpuMetricOperator<T>(
-        queryPlus.fragmentBuilder().context(),
+        queryPlus.fragment(),
         cpuTimeAccumulator,
         queryWithMetrics.getQueryMetrics(),
         emitter,
@@ -225,7 +225,7 @@ public class QueryPlanner
         queryPlusToRun);
     @SuppressWarnings("unchecked")
     TransformOperator<T, T> op = new TransformOperator<>(
-        queryPlus.fragmentBuilder().context(),
+        queryPlus.fragment(),
         inputOp,
         (Function<T, T>) finalizerFn);
     return Operators.toSequence(op);
@@ -265,7 +265,7 @@ public class QueryPlanner
         true);
     if (setName) {
       op = new ThreadLabelOperator<T>(
-          queryPlus.fragmentBuilder().context(),
+          queryPlus.fragment(),
           newName,
           op);
     }
@@ -296,7 +296,7 @@ public class QueryPlanner
         queryRunner,
         queryWithMetrics);
     MetricsOperator<T> op = new MetricsOperator<>(
-        queryPlus.fragmentBuilder().context(),
+        queryPlus.fragment(),
         emitter,
         queryMetrics,
         reportMetric,
@@ -318,7 +318,7 @@ public class QueryPlanner
         () -> factory.createRunner(segment),
         queryPlus);
     SegmentLockOperator<T> op = new SegmentLockOperator<>(
-        queryPlus.fragmentBuilder().context(),
+        queryPlus.fragment(),
         segment,
         descriptor,
         inputOp);
@@ -331,7 +331,7 @@ public class QueryPlanner
       final ResponseContext responseContext
   )
   {
-    FragmentContext fragmentContext = queryPlus.fragmentBuilder().context();
+    FragmentContext fragmentContext = queryPlus.fragment();
     Query<T> query = queryPlus.getQuery();
     final DataSourceAnalysis analysis = DataSourceAnalysis.forDataSource(query.getDataSource());
 

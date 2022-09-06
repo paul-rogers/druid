@@ -24,8 +24,8 @@ import com.google.inject.Module;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.queryng.config.QueryNGConfig;
-import org.apache.druid.queryng.fragment.FragmentBuilderFactory;
-import org.apache.druid.queryng.fragment.FragmentBuilderFactoryImpl;
+import org.apache.druid.queryng.fragment.QueryManagerFactory;
+import org.apache.druid.queryng.fragment.QueryManagerFactoryImpl;
 
 /**
  * Configure the "shim" version of the NG query engine which entails
@@ -41,11 +41,11 @@ public class QueryNGModule implements Module
   {
     JsonConfigProvider.bind(binder, QueryNGConfig.CONFIG_ROOT, QueryNGConfig.class);
     binder
-      .bind(FragmentBuilderFactory.class)
+      .bind(QueryManagerFactory.class)
       // Query NG disabled in production nodes for now.
       //.to(NullFragmentBuilderFactory.class)
       // Enabled here just for debugging.
-      .to(FragmentBuilderFactoryImpl.class)
+      .to(QueryManagerFactoryImpl.class)
       .in(LazySingleton.class);
   }
 }
