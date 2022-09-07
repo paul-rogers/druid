@@ -22,21 +22,44 @@ package org.apache.druid.queryng.fragment;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.queryng.operators.Operator;
 
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
+/**
+ * Tracker for fragments that make up a query. For the current two-tier
+ * scatter-gather architecture, the root is logical fragment 1, and there
+ * is only one instance. The second tier occurs on the broker where there
+ * is logical fragment 2 that handles the Broker-side scatter. Then, there
+ * is a third tier on data nodes, not represented here, with logical
+ * level 3.
+ */
 public class QueryManager
 {
+  public static class FragmentTracker
+  {
+    public final FragmentManager fragment;
+    public final int logicalId;
+    public final int instanceId;
+
+    public FragmentTracker(FragmentManager fragment, int logicalId, int instanceId)
+    {
+      this.fragment = fragment;
+      this.logicalId = logicalId;
+      this.instanceId = instanceId;
+    }
+  }
+
   private final String queryId;
-  private final Map<FragmentManager, Map<Operator<?>, FragmentManager>> relationships = new IdentityHashMap<>();
+  private final Map<FragmentManager, FragmentTracker> fragments = new IdentityHashMap<>();
+  private final long startTimeMs;
   private FragmentManager rootFragment;
+  private long endTimeMs;
 
   public QueryManager(String queryId)
   {
     this.queryId = queryId;
+    this.startTimeMs = System.currentTimeMillis();
   }
 
   @VisibleForTesting
@@ -52,12 +75,28 @@ public class QueryManager
 
   public FragmentManager createRootFragment(final ResponseContext responseContext)
   {
+    rootFragment = new FragmentManager(
+        this,
+        queryId,
+        responseContext
+    );
+    FragmentTracker tracker = new FragmentTracker(rootFragment, 1, 1);
+    fragments.put(rootFragment, tracker);
+    return rootFragment;
+  }
+
+  public FragmentManager createChildFragment(
+      String queryId,
+      ResponseContext responseContext
+  )
+  {
     FragmentManager fragment = new FragmentManager(
         this,
         queryId,
         responseContext
     );
-    registerRootFragment(fragment);
+    FragmentTracker tracker = new FragmentTracker(fragment, 2, fragments.size() + 1);
+    fragments.put(fragment, tracker);
     return fragment;
   }
 
@@ -66,28 +105,34 @@ public class QueryManager
     return queryId;
   }
 
-  public void registerRootFragment(FragmentManager root)
-  {
-    Preconditions.checkState(rootFragment == null);
-    rootFragment = root;
-  }
-
-  public synchronized void registerFragment(
-      FragmentManager parentFagment,
-      Operator<?> parentLeaf,
-      FragmentManager child
-  )
-  {
-    Map<Operator<?>, FragmentManager> children = relationships.get(parentFagment);
-    if (children == null) {
-      children = new HashMap<>();
-      relationships.put(parentFagment, children);
-    }
-    children.put(parentLeaf, child);
-  }
-
   public FragmentManager rootFragment()
   {
     return rootFragment;
+  }
+
+  public void close()
+  {
+    if (endTimeMs != 0) {
+      return;
+    }
+    try {
+      if (rootFragment != null) {
+        rootFragment.close();
+      }
+    }
+    catch (Exception e) {
+      rootFragment.failed(e);
+    }
+    finally {
+      endTimeMs = System.currentTimeMillis();
+    }
+    for (FragmentManager fragment : fragments.keySet()) {
+      Preconditions.checkState(fragment.state() == FragmentContext.State.CLOSED);
+    }
+  }
+
+  public long runTimeMs()
+  {
+    return endTimeMs - startTimeMs;
   }
 }

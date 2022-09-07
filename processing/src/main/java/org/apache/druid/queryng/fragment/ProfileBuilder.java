@@ -32,6 +32,19 @@ import java.util.Map.Entry;
 
 public class ProfileBuilder
 {
+  private final QueryManager query;
+
+  public ProfileBuilder(QueryManager query)
+  {
+    this.query = query;
+  }
+
+  public QueryProfile build()
+  {
+
+  }
+
+  //----------------------------------------------------------
   private long runTimeMs;
   private Exception error;
   private Operator<?> root;

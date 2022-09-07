@@ -37,15 +37,32 @@ import org.apache.druid.queryng.operators.Temporary;
 
 import java.io.Closeable;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public class FragmentManager implements FragmentContext, Closeable
 {
+  public static class OperatorTracker
+  {
+    public final Operator<?> operator;
+    public final int operatorId;
+    public final List<Operator<?>> children = new ArrayList<>();
+    public List<Integer> logicalChildFragmentId;
+    public OperatorProfile profile;
+
+    private OperatorTracker(Operator<?> op, int id)
+    {
+      this.operator = op;
+      this.operatorId = id;
+    }
+  }
+
   private final QueryManager query;
-  private final List<Operator<?>> operators = new ArrayList<>();
+  private final Map<Operator<?>, OperatorTracker> operators = new IdentityHashMap<>();
   private final ResponseContext responseContext;
   private final String queryId;
   private long startTimeMillis;
@@ -54,10 +71,10 @@ public class FragmentManager implements FragmentContext, Closeable
   private long timeoutAt;
   private final List<Exception> exceptions = new ArrayList<>();
   private final List<Consumer<FragmentManager>> closeListeners = new ArrayList<>();
-  private final ProfileBuilder profileBuilder = new ProfileBuilder();
   private State state = State.START;
   private Operator<?> rootOperator;
   @Temporary
+  private Operator<?> topMostOperator;
   private Sequence<?> rootSequence;
 
   public FragmentManager(
@@ -97,6 +114,7 @@ public class FragmentManager implements FragmentContext, Closeable
   {
     rootOperator = op;
     rootSequence = null;
+    topMostOperator = op;
   }
 
   @Temporary
@@ -110,14 +128,17 @@ public class FragmentManager implements FragmentContext, Closeable
   public synchronized void register(Operator<?> op)
   {
     Preconditions.checkState(state == State.START || state == State.RUN);
-    operators.add(op);
+    OperatorTracker tracker = new OperatorTracker(op, operators.size() + 1);
+    operators.put(op, tracker);
   }
 
   @Override
   public synchronized void registerChild(Operator<?> parent, Operator<?> child)
   {
     Preconditions.checkState(state == State.START || state == State.RUN);
-    profileBuilder.registerChild(parent, child);
+    OperatorTracker tracker = operators.get(parent);
+    Preconditions.checkNotNull(tracker);
+    tracker.children.add(child);
   }
 
   /**
@@ -311,7 +332,7 @@ public class FragmentManager implements FragmentContext, Closeable
     if (state == State.CLOSED) {
       return;
     }
-    for (Operator<?> op : operators) {
+    for (Operator<?> op : operators.keySet()) {
       try {
         op.close(false);
       }
@@ -329,17 +350,9 @@ public class FragmentManager implements FragmentContext, Closeable
   @Override
   public synchronized void updateProfile(Operator<?> op, OperatorProfile profile)
   {
-    profileBuilder.updateProfile(op, profile);
-  }
-
-  protected ProfileBuilder profileBuilder()
-  {
-    return profileBuilder;
-  }
-
-  public FragmentProfile buildProfile()
-  {
-    return profileBuilder.build(this);
+    OperatorTracker tracker = operators.get(op);
+    Preconditions.checkNotNull(tracker);
+    tracker.profile = profile;
   }
 
   public void onClose(Consumer<FragmentManager> listener)
@@ -347,13 +360,18 @@ public class FragmentManager implements FragmentContext, Closeable
     closeListeners.add(listener);
   }
 
-  public Collection<Operator<?>> operators()
+  public long elapsedTimeMs()
+  {
+    return closeTimeMillis - startTimeMillis;
+  }
+
+  protected Map<Operator<?>, OperatorTracker> operators()
   {
     return operators;
   }
 
-  public long elapsedTimeMs()
+  protected Operator<?> topMostOperator()
   {
-    return closeTimeMillis - startTimeMillis;
+    return topMostOperator;
   }
 }
