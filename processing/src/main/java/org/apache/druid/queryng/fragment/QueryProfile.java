@@ -24,7 +24,7 @@ import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
 
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,8 +46,7 @@ public class QueryProfile
   }
 
   /**
-   * Profile for an operator fragment with operators organized into
-   * a tree.
+   * Profile for an operator fragment with operators organized into a tree.
    */
   public static class FragmentNode
   {
@@ -89,7 +88,7 @@ public class QueryProfile
   {
     private final QueryManager query;
     private Exception error;
-    private FragmentNode rootFragment;
+    private SliceNode rootSlice;
 
     public Builder(QueryManager query)
     {
@@ -99,11 +98,11 @@ public class QueryProfile
     public QueryProfile build()
     {
       error = query.rootFragment().exception();
-      rootFragment = profileFragment(query.rootFragment());
+      rootSlice = profileRootFragment(query.rootFragment());
       return new QueryProfile(this);
     }
 
-    public FragmentNode profileFragment(FragmentManager fragment)
+    public SliceNode profileRootFragment(FragmentManager fragment)
     {
       Map<Operator<?>, OperatorTracker> operators = fragment.operators();
       Map<Operator<?>, Boolean> rootCandidates = new IdentityHashMap<>();
@@ -126,7 +125,10 @@ public class QueryProfile
           rootProfiles.add(profileOperator(operators, entry.getKey()));
         }
       }
-      return new FragmentNode(fragment, rootProfiles);
+      return new SliceNode(
+          1,
+          Collections.singletonList(new FragmentNode(fragment, 1, rootProfiles))
+      );
     }
 
     private OperatorNode profileOperator(
@@ -160,7 +162,7 @@ public class QueryProfile
   public final String queryId;
   public final long runTimeMs;
   public final Exception error;
-  public final FragmentNode rootFragment;
+  public final SliceNode rootSlice;
 
   public static QueryProfile build(QueryManager query) {
     return new Builder(query).build();
@@ -171,6 +173,6 @@ public class QueryProfile
     this.queryId = builder.query.queryId();
     this.runTimeMs = builder.query.runTimeMs();
     this.error = builder.error;
-    this.rootFragment = builder.rootFragment;
+    this.rootSlice = builder.rootSlice;
   }
 }
