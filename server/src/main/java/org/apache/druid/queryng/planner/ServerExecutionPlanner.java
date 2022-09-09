@@ -21,13 +21,18 @@ package org.apache.druid.queryng.planner;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import org.apache.druid.client.CacheUtil;
 import org.apache.druid.client.SegmentServerSelector;
+import org.apache.druid.client.cache.Cache;
+import org.apache.druid.client.cache.CacheConfig;
 import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.query.CacheStrategy;
 import org.apache.druid.query.Queries;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
+import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.RetryQueryRunnerConfig;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
@@ -167,5 +172,33 @@ public class ServerExecutionPlanner
         throttle
     );
     return Operators.toSequence(op);
+  }
+
+  public static <T> Sequence<T> planCache(
+      QueryRunner<T> baseRunner,
+      QueryToolChest<T, Query<T>> queryToolChest,
+      ObjectMapper objectMapper,
+      Cache cache,
+      CacheConfig cacheConfig,
+      QueryPlus<T> queryPlus,
+      ResponseContext responseContext
+  )
+  {
+    Query<T> query = queryPlus.getQuery();
+    final CacheStrategy<T, Object, Query<T>> strategy = queryToolChest.getCacheStrategy(query);
+    final boolean populateResultCache = CacheUtil.isPopulateResultCache(
+        query,
+        strategy,
+        cacheConfig,
+        CacheUtil.ServerType.BROKER
+    );
+    final boolean useResultCache = CacheUtil.isUseResultCache(query, strategy, cacheConfig, CacheUtil.ServerType.BROKER);
+    if (!useResultCache && !populateResultCache) {
+      return baseRunner.run(
+          queryPlus,
+          responseContext
+      );
+    }
+    return null;
   }
 }
