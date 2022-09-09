@@ -19,12 +19,19 @@
 
 package org.apache.druid.queryng.fragment;
 
+import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.java.util.emitter.EmittingLogger;
+import org.apache.druid.query.Query;
+import org.apache.druid.queryng.fragment.FragmentManager.OperatorChild;
 import org.apache.druid.queryng.fragment.FragmentManager.OperatorTracker;
+import org.apache.druid.queryng.fragment.QueryManager.FragmentTracker;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
+import org.apache.druid.queryng.operators.Operators;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +39,8 @@ import java.util.Map.Entry;
 
 public class QueryProfile
 {
+  protected static final EmittingLogger log = new EmittingLogger(QueryProfile.class);
+
   public static class SliceNode
   {
     public final int sliceId;
@@ -73,14 +82,27 @@ public class QueryProfile
   public static class OperatorNode
   {
     public final OperatorProfile profile;
-    public final List<OperatorNode> children;
+    public final List<OperatorChildNode> children;
 
     protected OperatorNode(
         final OperatorProfile operatorProfile,
-        final List<OperatorNode> children)
+        final List<OperatorChildNode> children)
     {
       this.profile = operatorProfile;
       this.children = children == null || children.isEmpty() ? null : children;
+    }
+  }
+
+  public static class OperatorChildNode
+  {
+    public final OperatorNode operator;
+    public final int slice;
+
+    public OperatorChildNode(OperatorNode operator, int slice)
+    {
+      super();
+      this.operator = operator;
+      this.slice = slice;
     }
   }
 
@@ -88,7 +110,7 @@ public class QueryProfile
   {
     private final QueryManager query;
     private Exception error;
-    private SliceNode rootSlice;
+    private final List<SliceNode> slices = new ArrayList<>();
 
     public Builder(QueryManager query)
     {
@@ -98,11 +120,43 @@ public class QueryProfile
     public QueryProfile build()
     {
       error = query.rootFragment().exception();
-      rootSlice = profileRootFragment(query.rootFragment());
+      profileSlices();
       return new QueryProfile(this);
     }
 
-    public SliceNode profileRootFragment(FragmentManager fragment)
+    private void profileSlices()
+    {
+      Map<FragmentManager, FragmentTracker> allFragments = query.fragments();
+      if (allFragments.size() == 1) {
+        return;
+      }
+      Map<Integer, List<FragmentTracker>> slices = new HashMap<>();
+      for (FragmentTracker tracker : allFragments.values()) {
+        List<FragmentTracker> fragments = slices.get(tracker.sliceId);
+        if (fragments == null) {
+          fragments = new ArrayList<>();
+          slices.put(tracker.sliceId, fragments);
+        }
+        fragments.add(tracker);
+      }
+      List<Integer> keys = new ArrayList<>(slices.keySet());
+      Collections.sort(keys);
+      for (Integer key : keys) {
+        this.slices.add(profileSlice(key, slices.get(key)));
+      }
+    }
+
+    private SliceNode profileSlice(int sliceId, List<FragmentTracker> fragments)
+    {
+      List<FragmentNode> fragmentNodes = new ArrayList<>();
+      Collections.sort(fragments, (f1, f2) -> Integer.compare(f1.instanceId, f2.instanceId));
+      for (int i = 0; i < fragments.size(); i++) {
+        fragmentNodes.add(profileFragment(i + 1, fragments.get(i).fragment));
+      }
+      return new SliceNode(sliceId, fragmentNodes);
+    }
+
+    public FragmentNode profileFragment(int fragmentId, FragmentManager fragment)
     {
       Map<Operator<?>, OperatorTracker> operators = fragment.operators();
       Map<Operator<?>, Boolean> rootCandidates = new IdentityHashMap<>();
@@ -110,12 +164,21 @@ public class QueryProfile
         rootCandidates.put(op, true);
       }
       for (Entry<Operator<?>, OperatorTracker> entry : operators.entrySet()) {
-        for (Operator<?> child : entry.getValue().children) {
-          rootCandidates.put(child, false);
+        for (OperatorChild child : entry.getValue().children) {
+          if (child.operator != null) {
+            rootCandidates.put(child.operator, false);
+          }
         }
       }
       List<OperatorNode> rootProfiles = new ArrayList<>();
-      Operator<?> root = fragment.topMostOperator();
+      Operator<?> root;
+      if (fragment.rootIsOperator()) {
+        root = fragment.rootOperator();
+      } else if (fragment.rootIsSequence()) {
+        root = Operators.unwrapOperator(fragment.rootSequence());
+      } else {
+        root = null;
+      }
       if (root != null) {
         rootCandidates.put(root, false);
         rootProfiles.add(profileOperator(operators, root));
@@ -125,10 +188,7 @@ public class QueryProfile
           rootProfiles.add(profileOperator(operators, entry.getKey()));
         }
       }
-      return new SliceNode(
-          1,
-          Collections.singletonList(new FragmentNode(fragment, 1, rootProfiles))
-      );
+      return new FragmentNode(fragment, fragmentId, rootProfiles);
     }
 
     private OperatorNode profileOperator(
@@ -136,20 +196,39 @@ public class QueryProfile
         Operator<?> root
     )
     {
-      List<OperatorNode> childProfiles;
+      List<OperatorChildNode> childProfiles;
       OperatorProfile rootProfile;
       OperatorTracker tracker = operators.get(root);
       if (tracker == null) {
         childProfiles = null;
         rootProfile = null;
       } else {
+        List<OperatorChild> orderedChildren = new ArrayList<>(tracker.children);
+        Collections.sort(orderedChildren, (a, b) -> Integer.compare(a.position, b.position));
+        // Sanity check
+        for (int i = 0; i < orderedChildren.size(); i++) {
+          if (orderedChildren.get(i).position != i) {
+            log.warn(
+                StringUtils.format("Operator [%]: child at index %d has position %d",
+                    root.getClass(),
+                    i,
+                    orderedChildren.get(i).position
+                )
+            );
+          }
+        }
         childProfiles = new ArrayList<>();
-        for (Operator<?> child : tracker.children) {
-          childProfiles.add(profileOperator(operators, child));
+        for (OperatorChild child : orderedChildren) {
+          if (child.operator == null) {
+            childProfiles.add(new OperatorChildNode(null, child.sliceID));
+          } else {
+            childProfiles.add(
+                new OperatorChildNode(profileOperator(operators, child.operator), 0));
+          }
         }
         rootProfile = tracker.profile;
       }
-       if (rootProfile == null) {
+      if (rootProfile == null) {
         rootProfile = new OperatorProfile(root.getClass().getSimpleName());
       }
       return new OperatorNode(
@@ -159,20 +238,23 @@ public class QueryProfile
     }
   }
 
+  public final Query<?> nativeQuery;
   public final String queryId;
   public final long runTimeMs;
   public final Exception error;
-  public final SliceNode rootSlice;
+  public final List<SliceNode> slices;
 
-  public static QueryProfile build(QueryManager query) {
+  public static QueryProfile build(QueryManager query)
+  {
     return new Builder(query).build();
   }
 
   private QueryProfile(Builder builder)
   {
+    this.nativeQuery = builder.query.rootQuery();
     this.queryId = builder.query.queryId();
     this.runTimeMs = builder.query.runTimeMs();
     this.error = builder.error;
-    this.rootSlice = builder.rootSlice;
+    this.slices = builder.slices;
   }
 }

@@ -25,7 +25,9 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
+import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.QueryRunner;
+import org.apache.druid.query.QueryWatcher;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
@@ -35,6 +37,7 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.LimitOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.general.ScatterGatherOperator.OrderedScatterGatherOperator;
 import org.apache.druid.queryng.operators.timeseries.GrandTotalOperator;
 import org.apache.druid.queryng.operators.timeseries.IntermediateAggOperator;
 
@@ -157,6 +160,23 @@ public class TimeSeriesPlanner
     }
 
     // Return the result as a sequence.
+    return Operators.toSequence(op);
+  }
+
+  public static <T> Sequence<T> scatterGather(
+      final QueryPlus<T> queryPlus,
+      final QueryProcessingPool queryProcessingPool,
+      final Iterable<QueryRunner<T>> queryables,
+      final QueryWatcher queryWatcher
+  )
+  {
+    Operator<T> op = new OrderedScatterGatherOperator<T>(
+        queryPlus,
+        queryProcessingPool,
+        queryables,
+        queryPlus.getQuery().getResultOrdering(),
+        queryWatcher
+    );
     return Operators.toSequence(op);
   }
 }

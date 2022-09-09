@@ -227,7 +227,9 @@ public class QueryPlanner
     TransformOperator<T, T> op = new TransformOperator<>(
         queryPlus.fragment(),
         inputOp,
-        (Function<T, T>) finalizerFn);
+        (Function<T, T>) finalizerFn,
+        "finalizer"
+    );
     return Operators.toSequence(op);
   }
 

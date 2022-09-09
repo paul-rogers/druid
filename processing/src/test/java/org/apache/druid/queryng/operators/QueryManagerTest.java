@@ -154,14 +154,13 @@ public class QueryManagerTest
     rootFragment.registerRoot(op);
 
     // Child fragment
-    FragmentManager childFragment = new FragmentManager(
-        query,
+    FragmentManager childFragment = query.createChildFragment(
         "child",
         ResponseContext.createEmpty()
     );
     MockOperator<Integer> op2 = MockOperator.ints(childFragment, 4);
     childFragment.registerRoot(op2);
-    query.registerFragment(rootFragment, op, childFragment);
+    rootFragment.registerChild(op, 0, 2);
 
     // Simulate a concurrent run.
     innerResults.results = childFragment.toList();

@@ -73,7 +73,9 @@ public class BasicOperatorTest
     Operator<Integer> op2 = new TransformOperator<Integer, Integer>(
         fragment,
         op,
-        x -> x * 2);
+        x -> x * 2,
+        "test"
+    );
     fragment.registerRoot(op2);
     List<Integer> results = fragment.toList();
     assertEquals(Arrays.asList(0, 2, 4, 6), results);

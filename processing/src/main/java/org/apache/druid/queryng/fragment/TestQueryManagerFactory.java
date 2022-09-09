@@ -49,6 +49,6 @@ public class TestQueryManagerFactory implements QueryManagerFactory
     if (!enabled) {
       return null;
     }
-    return new QueryManager(query.getId());
+    return new QueryManager(query);
   }
 }

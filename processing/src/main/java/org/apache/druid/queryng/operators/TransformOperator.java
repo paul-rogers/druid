@@ -25,6 +25,7 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operators.Operator.State;
 
 /**
  * Operator that applies a function to each input item to produce the output item.
@@ -44,19 +45,37 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 public class TransformOperator<IN, OUT> extends MappingOperator<IN, OUT>
 {
   private final Function<IN, OUT> transformFn;
+  private final String operatorName;
+  protected int rowCount;
 
   public TransformOperator(
       final FragmentContext context,
       final Operator<IN> input,
-      final Function<IN, OUT> transformFn)
+      final Function<IN, OUT> transformFn,
+      final String name
+  )
   {
     super(context, input);
     this.transformFn = transformFn;
+    this.operatorName = name;
   }
 
   @Override
   public OUT next() throws EofException
   {
-    return transformFn.apply(inputIter.next());
+    OUT out = transformFn.apply(inputIter.next());
+    rowCount++;
+    return out;
+  }
+
+  @Override
+  public void close(boolean cascade)
+  {
+    if (state == State.RUN) {
+      OperatorProfile profile = new OperatorProfile(operatorName);
+      profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
+      context.updateProfile(this, profile);
+    }
+    super.close(cascade);
   }
 }

@@ -46,6 +46,7 @@ public class ResponseContextInitializationOperator<T> extends WrappingOperator<T
     super(context, input);
     this.query = query;
     context.register(this);
+    context.registerChild(this, input);
   }
 
   @Override

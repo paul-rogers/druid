@@ -33,6 +33,8 @@ import org.apache.druid.java.util.common.guava.MergeIterable;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.queryng.config.QueryNGConfig;
+import org.apache.druid.queryng.planner.TimeSeriesPlanner;
 
 import java.util.Iterator;
 import java.util.List;
@@ -76,9 +78,17 @@ public class ChainedExecutionQueryRunner<T> implements QueryRunner<T>
   @Override
   public Sequence<T> run(final QueryPlus<T> queryPlus, final ResponseContext responseContext)
   {
+    if (QueryNGConfig.enabledFor(queryPlus)) {
+      return TimeSeriesPlanner.scatterGather(
+          queryPlus,
+          queryProcessingPool,
+          queryables,
+          queryWatcher
+      );
+    }
     Query<T> query = queryPlus.getQuery();
     final int priority = QueryContexts.getPriority(query);
-    final Ordering ordering = query.getResultOrdering();
+    final Ordering<T> ordering = query.getResultOrdering();
     final QueryPlus<T> threadSafeQueryPlus = queryPlus.withoutThreadUnsafeState();
     return new BaseSequence<T, Iterator<T>>(
         new BaseSequence.IteratorMaker<T, Iterator<T>>()

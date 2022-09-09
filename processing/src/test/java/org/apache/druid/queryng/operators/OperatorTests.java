@@ -57,7 +57,8 @@ public class OperatorTests
             // Ignore
           }
           return row;
-        }
+        },
+        "test"
     );
   }
 

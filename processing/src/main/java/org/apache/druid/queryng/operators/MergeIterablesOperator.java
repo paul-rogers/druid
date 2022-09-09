@@ -21,82 +21,75 @@ package org.apache.druid.queryng.operators;
 
 import com.google.common.collect.Ordering;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operators.MergeResultIterator.Input;
+
+import java.util.Iterator;
+import java.util.List;
 
 /**
- * Performs an n-way merge on n ordered child operators.
- * Ordering is given by an {@link Ordering} which defines
- * the set of fields to order by, and their comparison
- * functions.
- * <p>
- * The form of the entry is defined by a subclass.
- *
- * @see {@link org.apache.druid.query.RetryQueryRunner}
- * @see {@link org.apache.druid.java.util.common.guava.MergeSequence}
- * @see {@link org.apache.druid.query.scan.ScanQueryRunnerFactory#nWayMergeAndLimit}
+ * Performs an n-way ordered merge on materialized results presented as
+ * a list of iterables.
  */
-public abstract class AbstractMergeOperator<T> implements Operator<T>
+public class MergeIterablesOperator<T> implements Operator<T>
 {
-  /**
-   * Supplier of input rows. Holds the input operator and the current
-   * (look-ahead) row for each operator.
-   */
-  public static class OperatorInput<T> implements MergeResultIterator.Input<T>
+  private static class IteratorInput<T> implements MergeResultIterator.Input<T>
   {
-    public final Operator<T> child;
-    public final ResultIterator<T> childIter;
-    public T row;
+    private final Iterator<T> iter;
+    private T currentValue;
 
-    public OperatorInput(
-        Operator<T> child,
-        ResultIterator<T> childIter,
-        T row
-    )
+    public IteratorInput(Iterator<T> iter)
     {
-      this.child = child;
-      this.childIter = childIter;
-      this.row = row;
+      this.iter = iter;
+      this.currentValue = iter.next();
     }
 
     @Override
     public boolean next()
     {
-      try {
-        row = childIter.next();
-        return true;
-      }
-      catch (EofException e) {
-        row = null;
-        child.close(true);
+      if (!iter.hasNext()) {
         return false;
       }
+      currentValue = iter.next();
+      return true;
     }
 
     @Override
     public T get()
     {
-      return row;
+      return currentValue;
     }
 
     @Override
     public void close()
     {
-      row = null;
-      child.close(false);
     }
   }
 
   protected final FragmentContext context;
+  private final List<Iterable<T>> iterables;
   protected MergeResultIterator<T> merger;
 
-  public AbstractMergeOperator(
+  public MergeIterablesOperator(
       FragmentContext context,
       Ordering<? super T> ordering,
-      int approxInputCount
+      List<Iterable<T>> iterables
   )
   {
     this.context = context;
-    this.merger = new MergeResultIterator<>(ordering, approxInputCount);
-    context.register(this);
+    this.iterables = iterables;
+    this.merger = new MergeResultIterator<>(ordering, iterables.size());
+  }
+
+  @Override
+  public ResultIterator<T> open()
+  {
+    for (Iterable<T> iterable : iterables) {
+      Iterator<T> iter = iterable.iterator();
+      if (iter.hasNext()) {
+        merger.add(new IteratorInput<T>(iter));
+      }
+    }
+    return merger;
   }
 
   @Override
@@ -106,8 +99,10 @@ public abstract class AbstractMergeOperator<T> implements Operator<T>
       return;
     }
     merger.close(cascade);
-    OperatorProfile profile = new OperatorProfile("ordered-merge");
+    OperatorProfile profile = new OperatorProfile("ordered-iterable-merge");
+    profile.omitFromProfile = true;
     profile.add(OperatorProfile.ROW_COUNT_METRIC, merger.rowCount);
+    profile.add("input-count", iterables.size());
     context.updateProfile(this, profile);
     merger = null;
   }

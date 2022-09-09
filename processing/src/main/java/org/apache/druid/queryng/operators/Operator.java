@@ -155,6 +155,12 @@ public interface Operator<T>
     T next() throws EofException;
   }
 
+  public interface CloseableResultIterator<T> extends ResultIterator<T>
+  {
+    void close(boolean cascade);
+  }
+
+
   /**
    * Convenience interface for an operator which is its own iterator.
    */

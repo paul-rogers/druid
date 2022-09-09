@@ -63,6 +63,7 @@ public abstract class WrappingOperator<T> implements Operator<T>
     finally {
       onClose();
       state = State.CLOSED;
+      context.updateProfile(this, new OperatorProfile("wrapper", true));
     }
   }
 

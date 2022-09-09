@@ -38,7 +38,6 @@ import org.apache.druid.queryng.operators.Temporary;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,11 +45,26 @@ import java.util.function.Consumer;
 
 public class FragmentManager implements FragmentContext, Closeable
 {
+  public static class OperatorChild
+  {
+    public final int position;
+    public final Operator<?> operator;
+    public final int sliceID;
+
+    public OperatorChild(int position, Operator<?> operator, int sliceID)
+    {
+      super();
+      this.position = position;
+      this.operator = operator;
+      this.sliceID = sliceID;
+    }
+  }
+
   public static class OperatorTracker
   {
     public final Operator<?> operator;
     public final int operatorId;
-    public final List<Operator<?>> children = new ArrayList<>();
+    public final List<OperatorChild> children = new ArrayList<>();
     public List<Integer> logicalChildFragmentId;
     public OperatorProfile profile;
 
@@ -73,8 +87,6 @@ public class FragmentManager implements FragmentContext, Closeable
   private final List<Consumer<FragmentManager>> closeListeners = new ArrayList<>();
   private State state = State.START;
   private Operator<?> rootOperator;
-  @Temporary
-  private Operator<?> topMostOperator;
   private Sequence<?> rootSequence;
 
   public FragmentManager(
@@ -114,7 +126,6 @@ public class FragmentManager implements FragmentContext, Closeable
   {
     rootOperator = op;
     rootSequence = null;
-    topMostOperator = op;
   }
 
   @Temporary
@@ -135,10 +146,25 @@ public class FragmentManager implements FragmentContext, Closeable
   @Override
   public synchronized void registerChild(Operator<?> parent, Operator<?> child)
   {
+    registerChild(parent, 0, child);
+  }
+
+  @Override
+  public synchronized void registerChild(Operator<?> parent, int posn, Operator<?> child)
+  {
     Preconditions.checkState(state == State.START || state == State.RUN);
     OperatorTracker tracker = operators.get(parent);
     Preconditions.checkNotNull(tracker);
-    tracker.children.add(child);
+    tracker.children.add(new OperatorChild(posn, child, 0));
+  }
+
+  @Override
+  public synchronized void registerChild(Operator<?> parent, int posn, int sliceID)
+  {
+    Preconditions.checkState(state == State.START || state == State.RUN);
+    OperatorTracker tracker = operators.get(parent);
+    Preconditions.checkNotNull(tracker);
+    tracker.children.add(new OperatorChild(posn, null, sliceID));
   }
 
   /**
@@ -368,10 +394,5 @@ public class FragmentManager implements FragmentContext, Closeable
   protected Map<Operator<?>, OperatorTracker> operators()
   {
     return operators;
-  }
-
-  protected Operator<?> topMostOperator()
-  {
-    return topMostOperator;
   }
 }

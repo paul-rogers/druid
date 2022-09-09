@@ -39,13 +39,13 @@ public class DeferredMergeOperator<T> extends AbstractMergeOperator<T>
    * final collection that should be merged. That collection is wrapped
    * in a supplier so that it is not started until {@link #open()} time.
    */
-  private final Iterable<Input<T>> inputs;
+  private final Iterable<OperatorInput<T>> inputs;
 
   public DeferredMergeOperator(
       FragmentContext context,
       Ordering<? super T> ordering,
       int approxInputCount,
-      Iterable<Input<T>> inputs
+      Iterable<OperatorInput<T>> inputs
   )
   {
     super(
@@ -59,13 +59,12 @@ public class DeferredMergeOperator<T> extends AbstractMergeOperator<T>
   @Override
   public ResultIterator<T> open()
   {
-    for (Input<T> input : inputs) {
+    for (OperatorInput<T> input : inputs) {
       context.registerChild(this, input.child);
       if (input.childIter != null) {
-        pQueue.add(input);
+        merger.add(input);
       }
     }
-    state = State.RUN;
-    return this;
+    return merger;
   }
 }

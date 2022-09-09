@@ -60,6 +60,8 @@ public interface FragmentContext
   void register(Operator<?> op);
 
   void registerChild(Operator<?> parent, Operator<?> child);
+  void registerChild(Operator<?> parent, int posn, Operator<?> child);
+  void registerChild(Operator<?> parent, int posn, int sliceID);
 
   /**
    * Checks if a query timeout has occurred. If so, will throw

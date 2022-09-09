@@ -21,6 +21,7 @@ package org.apache.druid.queryng.fragment;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import org.apache.druid.query.Query;
 import org.apache.druid.query.context.ResponseContext;
 
 import java.util.IdentityHashMap;
@@ -39,18 +40,19 @@ public class QueryManager
   public static class FragmentTracker
   {
     public final FragmentManager fragment;
-    public final int logicalId;
+    public final int sliceId;
     public final int instanceId;
 
-    public FragmentTracker(FragmentManager fragment, int logicalId, int instanceId)
+    public FragmentTracker(FragmentManager fragment, int sliceId, int instanceId)
     {
       this.fragment = fragment;
-      this.logicalId = logicalId;
+      this.sliceId = sliceId;
       this.instanceId = instanceId;
     }
   }
 
   private final String queryId;
+  private final Query<?> rootQuery;
   private final Map<FragmentManager, FragmentTracker> fragments = new IdentityHashMap<>();
   private final long startTimeMs;
   private FragmentManager rootFragment;
@@ -58,7 +60,15 @@ public class QueryManager
 
   public QueryManager(String queryId)
   {
+    this.rootQuery = null;
     this.queryId = queryId;
+    this.startTimeMs = System.currentTimeMillis();
+  }
+
+  public QueryManager(Query<?> rootQuery)
+  {
+    this.rootQuery = rootQuery;
+    this.queryId = rootQuery.getId();
     this.startTimeMs = System.currentTimeMillis();
   }
 
@@ -100,6 +110,11 @@ public class QueryManager
     return fragment;
   }
 
+  public Query<?> rootQuery()
+  {
+    return rootQuery;
+  }
+
   public String queryId()
   {
     return queryId;
@@ -108,6 +123,11 @@ public class QueryManager
   public FragmentManager rootFragment()
   {
     return rootFragment;
+  }
+
+  public Map<FragmentManager, FragmentTracker> fragments()
+  {
+    return fragments;
   }
 
   public void close()
@@ -133,6 +153,7 @@ public class QueryManager
 
   public long runTimeMs()
   {
-    return endTimeMs - startTimeMs;
+    long endTime = endTimeMs == 0 ? System.currentTimeMillis() : endTimeMs;
+    return endTime - startTimeMs;
   }
 }

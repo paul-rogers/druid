@@ -29,7 +29,8 @@ public class Fragments
 
   public static void logProfile(FragmentManager fragment)
   {
-    ProfileVisualizer vis = new ProfileVisualizer(fragment.buildProfile());
+    QueryProfile profile = QueryProfile.build(fragment.query());
+    ProfileVisualizer vis = new ProfileVisualizer(profile);
     log.info(
         StringUtils.format(
             "Query [%s] profile:\n%s",

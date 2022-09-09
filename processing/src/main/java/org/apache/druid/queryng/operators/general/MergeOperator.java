@@ -68,12 +68,12 @@ public class MergeOperator<T> extends AbstractMergeOperator<T>
     for (Operator<T> child : children) {
       try {
         ResultIterator<T> childIter = child.open();
-        pQueue.add(new Input<T>(child, childIter, childIter.next()));
+        merger.add(new OperatorInput<T>(child, childIter, childIter.next()));
       }
       catch (EofException e) {
         child.close(true);
       }
     }
-    return this;
+    return merger;
   }
 }

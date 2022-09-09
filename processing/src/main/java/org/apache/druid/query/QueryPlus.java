@@ -124,7 +124,7 @@ public final class QueryPlus<T>
    */
   public QueryPlus<T> withoutThreadUnsafeState()
   {
-    return withoutQueryMetrics();
+    return withoutQueryMetrics().withFragment(null);
   }
 
   /**

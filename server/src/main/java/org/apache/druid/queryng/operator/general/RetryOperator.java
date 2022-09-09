@@ -35,9 +35,11 @@ import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.context.ResponseContext.Keys;
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operators.AbstractMergeOperator.Input;
+import org.apache.druid.queryng.operators.AbstractMergeOperator.OperatorInput;
 import org.apache.druid.queryng.operators.ConcatOperator;
 import org.apache.druid.queryng.operators.DeferredMergeOperator;
+import org.apache.druid.queryng.operators.MergeResultIterator;
+import org.apache.druid.queryng.operators.MergeResultIterator.Input;
 import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
@@ -92,7 +94,7 @@ public class RetryOperator<T> implements Operator<T>
   private final QueryPlus<T> queryPlus;
   private final Operator<T> baseOperator;
   private final List<Operator<T>> inputs = new ArrayList<>();
-  private final List<Input<T>> mergeInputs = new ArrayList<>();
+  private final List<OperatorInput<T>> mergeInputs = new ArrayList<>();
   private final Ordering<? super T> ordering;
   private final BiFunction<Query<T>, List<SegmentDescriptor>, QueryRunner<T>> retryRunnerCreateFn;
   private final BiFunction<String, ResponseContext, List<SegmentDescriptor>> missingSegmentFn;
@@ -160,7 +162,7 @@ public class RetryOperator<T> implements Operator<T>
     // TODO: Would be better to ensure that we did the actual distribution
     // in open (not the first read) so we don't need the push-back trick.
     if (mergeInputs.size() == 1) {
-      Input<T> input = mergeInputs.get(0);
+      OperatorInput<T> input = mergeInputs.get(0);
       return new PushBackOperator<T>(context, input.child, input.childIter, input.row);
     }
 
@@ -168,7 +170,7 @@ public class RetryOperator<T> implements Operator<T>
     // unordered and do a concat, which is cheaper than an ordered merge.
     if (ordering == Ordering.natural()) {
       List<Operator<T>> inputOps = new ArrayList<>();
-      for (Input<T> input : mergeInputs) {
+      for (OperatorInput<T> input : mergeInputs) {
         inputOps.add(new PushBackOperator<T>(context, input.child, input.childIter, input.row));
       }
       return new ConcatOperator<T>(context, inputOps);
@@ -190,7 +192,7 @@ public class RetryOperator<T> implements Operator<T>
     inputs.add(inputOp);
     try {
       ResultIterator<T> iter = inputOp.open();
-      mergeInputs.add(new Input<T>(inputOp, iter, iter.next()));
+      mergeInputs.add(new OperatorInput<T>(inputOp, iter, iter.next()));
     } catch (EofException e) {
       inputOp.close(true);
       // Ignore this input
@@ -240,7 +242,7 @@ public class RetryOperator<T> implements Operator<T>
         if (mergeOp != null) {
           mergeOp.close(cascade);
         } else {
-          for (Input<T> input : mergeInputs) {
+          for (MergeResultIterator.Input<T> input : mergeInputs) {
             input.close();
           }
         }

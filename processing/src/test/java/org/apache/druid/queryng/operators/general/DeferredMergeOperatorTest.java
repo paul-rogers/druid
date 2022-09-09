@@ -22,7 +22,7 @@ package org.apache.druid.queryng.operators.general;
 import com.google.common.collect.Ordering;
 import org.apache.druid.queryng.fragment.FragmentManager;
 import org.apache.druid.queryng.fragment.Fragments;
-import org.apache.druid.queryng.operators.AbstractMergeOperator.Input;
+import org.apache.druid.queryng.operators.AbstractMergeOperator.OperatorInput;
 import org.apache.druid.queryng.operators.DeferredMergeOperator;
 import org.apache.druid.queryng.operators.MockOperator;
 import org.apache.druid.queryng.operators.Operator;
@@ -57,11 +57,11 @@ public class DeferredMergeOperatorTest
     assertTrue(fragment.toList().isEmpty());
   }
 
-  private static <T> Input<T> makeInput(Operator<T> op)
+  private static <T> OperatorInput<T> makeInput(Operator<T> op)
   {
     try {
       ResultIterator<T> iter = op.open();
-      return new Input<T>(op, iter, iter.next());
+      return new OperatorInput<T>(op, iter, iter.next());
     }
     catch (EofException e) {
       fail();
