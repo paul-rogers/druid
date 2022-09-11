@@ -41,7 +41,6 @@ import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.math.expr.Evals;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.filter.BoundDimFilter;

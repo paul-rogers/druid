@@ -58,6 +58,17 @@ public class FragmentManager implements FragmentContext, Closeable
       this.operator = operator;
       this.sliceID = sliceID;
     }
+
+    @Override
+    public String toString()
+    {
+      String str = "{" + position + ": ";
+      if (operator == null) {
+        return str + "slice " + sliceID + "}";
+      } else {
+        return str + "operator " + operator.getClass().getSimpleName() + "}";
+      }
+    }
   }
 
   public static class OperatorTracker
@@ -65,13 +76,23 @@ public class FragmentManager implements FragmentContext, Closeable
     public final Operator<?> operator;
     public final int operatorId;
     public final List<OperatorChild> children = new ArrayList<>();
-    public List<Integer> logicalChildFragmentId;
     public OperatorProfile profile;
 
     private OperatorTracker(Operator<?> op, int id)
     {
       this.operator = op;
       this.operatorId = id;
+    }
+
+    @Override
+    public String toString()
+    {
+      String str = "OperatorTracker{"
+          + "operator=" + operator.getClass().getSimpleName();
+      if (!children.isEmpty()) {
+        str += ", children=" + children;
+      }
+      return str + "}";
     }
   }
 

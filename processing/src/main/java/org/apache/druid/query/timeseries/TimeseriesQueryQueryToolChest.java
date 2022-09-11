@@ -447,6 +447,23 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
 
   @Override
   public Sequence<Object[]> resultsAsArrays(
+      final QueryPlus<Result<TimeseriesResultValue>> queryPlus,
+      final Sequence<Result<TimeseriesResultValue>> resultSequence
+  )
+  {
+    TimeseriesQuery query = (TimeseriesQuery) queryPlus.getQuery();
+    if (QueryNGConfig.enabledFor(queryPlus)) {
+      return TimeSeriesPlanner.toArray(
+          queryPlus,
+          resultSequence,
+          resultArraySignature(query)
+      );
+    }
+    return resultsAsArrays(query, resultSequence);
+  }
+
+  @Override
+  public Sequence<Object[]> resultsAsArrays(
       final TimeseriesQuery query,
       final Sequence<Result<TimeseriesResultValue>> resultSequence
   )

@@ -95,6 +95,7 @@ public abstract class QueryRunnerBasedOnClusteredClientTestBase
   private static final boolean USE_PARALLEL_MERGE_POOL_CONFIGURED = false;
   // Query timeout. Set long for debugging, short for automated tests.
   private static final long TIMEOUT_MS = 300_000; // 10_000;
+  protected static final QueryManagerFactory QUERY_MANAGER_FACTORY = new TestQueryManagerFactory();
 
   protected final ObjectMapper objectMapper = new DefaultObjectMapper();
   protected final QueryToolChestWarehouse toolChestWarehouse;
@@ -107,8 +108,6 @@ public abstract class QueryRunnerBasedOnClusteredClientTestBase
   protected List<DruidServer> servers;
 
   private SegmentGenerator segmentGenerator;
-
-  protected static final QueryManagerFactory queryManagerFactory = new TestQueryManagerFactory();
 
   protected QueryRunnerBasedOnClusteredClientTestBase()
   {

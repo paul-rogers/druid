@@ -73,7 +73,9 @@ public class RetryOperatorTest
         (id, ctx) -> Collections.emptyList(),
         1,
         true,
-        () -> { didRun.set(true); }
+        () -> {
+          didRun.set(true);
+        }
     );
     fragment.registerRoot(op);
     assertTrue(fragment.toList().isEmpty());

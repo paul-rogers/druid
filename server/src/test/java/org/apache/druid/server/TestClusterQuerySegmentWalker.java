@@ -45,7 +45,6 @@ import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
 import org.apache.druid.queryng.config.QueryNGConfig;
-import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.planner.ServerExecutionPlanner;
 import org.apache.druid.segment.ReferenceCountingSegment;
 import org.apache.druid.segment.SegmentReference;
@@ -57,6 +56,7 @@ import org.apache.druid.timeline.partition.PartitionChunk;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;

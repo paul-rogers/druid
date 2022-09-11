@@ -81,7 +81,6 @@ import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFactory;
 import org.apache.druid.query.expression.LookupExprMacro;
 import org.apache.druid.query.lookup.LookupExtractorFactoryContainerProvider;
-import org.apache.druid.query.lookup.LookupSerdeModule;
 import org.apache.druid.queryng.fragment.TestQueryManagerFactory;
 import org.apache.druid.segment.IndexBuilder;
 import org.apache.druid.segment.QueryableIndex;

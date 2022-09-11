@@ -32,7 +32,6 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
-import org.apache.druid.queryng.operators.Operator.State;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.data.ComparableList;
 import org.apache.druid.segment.data.ComparableStringArray;

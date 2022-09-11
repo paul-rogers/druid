@@ -218,7 +218,7 @@ public class ProjectResultsOperatorTest
             SqlTypeName.VARCHAR))
         .expect(Arrays.asList(
             new Object[] {10L, "foo"},
-            new Object[] {20L, "bar", }))
+            new Object[] {20L, "bar"}))
         .run();
   }
 
@@ -256,12 +256,10 @@ public class ProjectResultsOperatorTest
   @Test
   public void testCastToBoolean()
   {
-    //@SuppressWarnings("SingleSpaceSeparator")
-    // noinspection SingleSpaceSeparator
     testConversion(
-        Arrays.asList(null, "true", "false", 0,     1,    20L,  0F,    30.3F, 0D,    40.4D),
+        Arrays.asList(null, "true", "false", 0, 1, 20L, 0F, 30.3F, 0D, 40.4D),
         SqlTypeName.BOOLEAN,
-        Arrays.asList(null, true,   false,   false, true, true, false, true,  false, true));
+        Arrays.asList(null, true, false, false, true, true, false, true, false, true));
   }
 
   @Test

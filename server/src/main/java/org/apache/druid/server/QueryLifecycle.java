@@ -337,13 +337,11 @@ public class QueryLifecycle
       // TODO: Move to an actual operator class, which will require refactoring
       // the emitLogsAndMetrics method.
       fragment.onClose(f -> {
-          emitLogsAndMetrics(f.exception(), null, -1);
-        }
-      );
+        emitLogsAndMetrics(f.exception(), null, -1);
+      });
       fragment.onClose(f -> {
-          Fragments.logProfile(f);
-        }
-      );
+        Fragments.logProfile(f);
+      });
       fragment.registerRoot(res);
       return new FragmentResponse<>(responseContext, fragment);
     }

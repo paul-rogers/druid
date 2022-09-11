@@ -193,7 +193,8 @@ public class RetryOperator<T> implements Operator<T>
     try {
       ResultIterator<T> iter = inputOp.open();
       mergeInputs.add(new OperatorInput<T>(inputOp, iter, iter.next()));
-    } catch (EofException e) {
+    }
+    catch (EofException e) {
       inputOp.close(true);
       // Ignore this input
     }

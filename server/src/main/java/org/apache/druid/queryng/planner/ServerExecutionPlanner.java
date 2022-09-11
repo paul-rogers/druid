@@ -34,7 +34,6 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
-import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.ResultLevelCachingQueryRunner;
 import org.apache.druid.query.RetryQueryRunnerConfig;
 import org.apache.druid.query.SegmentDescriptor;
@@ -44,7 +43,6 @@ import org.apache.druid.queryng.operator.general.ResultLevelCacheOperator;
 import org.apache.druid.queryng.operator.general.RetryOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
-import org.apache.druid.queryng.operators.general.QueryRunnerOperator;
 import org.apache.druid.queryng.operators.general.ResponseContextInitializationOperator;
 import org.apache.druid.queryng.operators.general.ThrottleOperator;
 import org.apache.druid.queryng.operators.general.ThrottleOperator.Throttle;
@@ -148,7 +146,7 @@ public class ServerExecutionPlanner
     Operator<T> op = new RetryOperator<T>(
         queryPlus.fragment(),
         queryPlus,
-        new QueryRunnerOperator<T>(baseRunner, queryPlus),
+        Operators.toOperator(baseRunner, queryPlus),
         queryPlus.getQuery().getResultOrdering(),
         retryRunnerCreateFn,
         (id, rc) -> RetryOperator.getMissingSegments(id, rc, jsonMapper),
@@ -173,7 +171,7 @@ public class ServerExecutionPlanner
   {
     Operator<T> op = new ThrottleOperator<T>(
         queryPlus.fragment(),
-        new QueryRunnerOperator<T>(baseRunner, queryPlus),
+        Operators.toOperator(baseRunner, queryPlus),
         throttle
     );
     return Operators.toSequence(op);
@@ -210,10 +208,10 @@ public class ServerExecutionPlanner
       // segment.
       cachedResultSet = cache.get(CacheUtil.computeResultLevelCacheKey(cacheKeyStr));
       if (cachedResultSet == null) {
-          if (!populateResultCache) {
-            return baseRunner.run(queryPlus, queryPlus.fragment().responseContext());
-          }
-          existingResultSetId = "";
+        if (!populateResultCache) {
+          return baseRunner.run(queryPlus, queryPlus.fragment().responseContext());
+        }
+        existingResultSetId = "";
       } else {
         existingResultSetId = ResultLevelCachingQueryRunner.extractEtagFromResults(
             query,
@@ -228,7 +226,7 @@ public class ServerExecutionPlanner
         .getQuery()
         .withOverriddenContext(
             ImmutableMap.of(QueryResource.HEADER_IF_NONE_MATCH, existingResultSetId)));
-    Operator<T> input = new QueryRunnerOperator<T>(baseRunner, childQuery);
+    Operator<T> input = Operators.toOperator(baseRunner, childQuery);
     Operator<T> op = new ResultLevelCacheOperator<T>(
         queryPlus.fragment(),
         input,

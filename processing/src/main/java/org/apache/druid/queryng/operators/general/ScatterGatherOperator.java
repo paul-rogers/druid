@@ -161,7 +161,7 @@ public abstract class ScatterGatherOperator<T> implements Operator<T>
         throw new QueryInterruptedException(e);
       }
       catch (TimeoutException e) {
-        log.warn("Query timeout, cancelling pending results for query ID [%s]", query.getId());
+        log.warn("Query timeout, canceling pending results for query ID [%s]", query.getId());
         GuavaUtils.cancelAll(true, future, children);
         throw new QueryTimeoutException(StringUtils.nonStrictFormat("Query [%s] timed out", query.getId()));
       }
@@ -236,6 +236,7 @@ public abstract class ScatterGatherOperator<T> implements Operator<T>
       }
     }
   }
+
   private static class IteratorInput<T> implements MergeResultIterator.Input<T>
   {
     private final Iterator<T> iter;

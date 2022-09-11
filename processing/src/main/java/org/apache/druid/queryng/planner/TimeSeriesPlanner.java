@@ -40,6 +40,8 @@ import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.general.ScatterGatherOperator.OrderedScatterGatherOperator;
 import org.apache.druid.queryng.operators.timeseries.GrandTotalOperator;
 import org.apache.druid.queryng.operators.timeseries.IntermediateAggOperator;
+import org.apache.druid.queryng.operators.timeseries.ToArrayOperator;
+import org.apache.druid.segment.column.RowSignature;
 
 import java.util.Comparator;
 import java.util.function.BinaryOperator;
@@ -176,6 +178,20 @@ public class TimeSeriesPlanner
         queryables,
         queryPlus.getQuery().getResultOrdering(),
         queryWatcher
+    );
+    return Operators.toSequence(op);
+  }
+
+  public static Sequence<Object[]> toArray(
+      final QueryPlus<Result<TimeseriesResultValue>> queryPlus,
+      final Sequence<Result<TimeseriesResultValue>> resultSequence,
+      final RowSignature signature
+  )
+  {
+    Operator<Object[]> op = new ToArrayOperator(
+        queryPlus.fragment(),
+        Operators.unwrapOperator(resultSequence),
+        signature.getColumnNames()
     );
     return Operators.toSequence(op);
   }

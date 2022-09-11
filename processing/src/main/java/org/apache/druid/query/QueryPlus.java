@@ -172,7 +172,8 @@ public final class QueryPlus<T>
         query.optimizeForSegment(optimizationContext),
         queryMetrics,
         identity,
-        fragmentManager);
+        fragmentManager
+    );
   }
 
   /**

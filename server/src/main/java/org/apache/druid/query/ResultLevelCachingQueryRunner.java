@@ -205,14 +205,14 @@ public class ResultLevelCachingQueryRunner<T> implements QueryRunner<T>
   {
     //Skip the resultsetID and its length bytes
     Sequence<T> cachedSequence = Sequences.simple(() -> {
-        Iterator<T> results = deserializeResults(
-            cachedResult,
-            strategy,
-            resultSetId,
-            objectMapper,
-            query.getId()
-        );
-        return results;
+      Iterator<T> results = deserializeResults(
+          cachedResult,
+          strategy,
+          resultSetId,
+          objectMapper,
+          query.getId()
+      );
+      return results;
     });
 
     final Function<Object, T> pullFromCacheFunction = strategy.pullFromCache(true);
@@ -301,11 +301,11 @@ public class ResultLevelCachingQueryRunner<T> implements QueryRunner<T>
     {
       try {
         //   Save the resultSetId and its length
-        cacheObjectStream
-            .write(ByteBuffer.allocate(Integer.BYTES)
+        cacheObjectStream.write(
+            ByteBuffer.allocate(Integer.BYTES)
                 .putInt(resultSetId.length())
                 .array()
-             );
+        );
         cacheObjectStream.write(StringUtils.toUtf8(resultSetId));
       }
       catch (IOException ioe) {
