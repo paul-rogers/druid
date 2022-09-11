@@ -21,10 +21,12 @@ package org.apache.druid.queryng.planner;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.client.CacheUtil;
 import org.apache.druid.client.SegmentServerSelector;
 import org.apache.druid.client.cache.Cache;
 import org.apache.druid.client.cache.CacheConfig;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.CacheStrategy;
 import org.apache.druid.query.Queries;
@@ -33,10 +35,12 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryToolChest;
+import org.apache.druid.query.ResultLevelCachingQueryRunner;
 import org.apache.druid.query.RetryQueryRunnerConfig;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.fragment.FragmentContext;
+import org.apache.druid.queryng.operator.general.ResultLevelCacheOperator;
 import org.apache.druid.queryng.operator.general.RetryOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
@@ -44,6 +48,7 @@ import org.apache.druid.queryng.operators.general.QueryRunnerOperator;
 import org.apache.druid.queryng.operators.general.ResponseContextInitializationOperator;
 import org.apache.druid.queryng.operators.general.ThrottleOperator;
 import org.apache.druid.queryng.operators.general.ThrottleOperator.Throttle;
+import org.apache.druid.server.QueryResource;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.QueryScheduler.LaneToken;
 
@@ -175,17 +180,15 @@ public class ServerExecutionPlanner
   }
 
   public static <T> Sequence<T> planCache(
-      QueryRunner<T> baseRunner,
-      QueryToolChest<T, Query<T>> queryToolChest,
-      ObjectMapper objectMapper,
-      Cache cache,
-      CacheConfig cacheConfig,
-      QueryPlus<T> queryPlus,
-      ResponseContext responseContext
+      final QueryRunner<T> baseRunner,
+      final CacheStrategy<T, Object, Query<T>> strategy,
+      final ObjectMapper objectMapper,
+      final Cache cache,
+      final CacheConfig cacheConfig,
+      final QueryPlus<T> queryPlus
   )
   {
-    Query<T> query = queryPlus.getQuery();
-    final CacheStrategy<T, Object, Query<T>> strategy = queryToolChest.getCacheStrategy(query);
+    final Query<T> query = queryPlus.getQuery();
     final boolean populateResultCache = CacheUtil.isPopulateResultCache(
         query,
         strategy,
@@ -194,11 +197,50 @@ public class ServerExecutionPlanner
     );
     final boolean useResultCache = CacheUtil.isUseResultCache(query, strategy, cacheConfig, CacheUtil.ServerType.BROKER);
     if (!useResultCache && !populateResultCache) {
-      return baseRunner.run(
-          queryPlus,
-          responseContext
-      );
+      return baseRunner.run(queryPlus, queryPlus.fragment().responseContext());
     }
-    return null;
+    final String cacheKeyStr = StringUtils.fromUtf8(strategy.computeResultLevelCacheKey(query));
+    final byte[] cachedResultSet;
+    final String existingResultSetId;
+    if (useResultCache) {
+      // TODO: This form is not very efficient: materializes the entire cached
+      // result set at plan time. Better to a) verify that the result set exists,
+      // b) lock it in place for the duration of the query so that c) we can stream it
+      // at run time if needed. That is, treat the cache file more like we treat a
+      // segment.
+      cachedResultSet = cache.get(CacheUtil.computeResultLevelCacheKey(cacheKeyStr));
+      if (cachedResultSet == null) {
+          if (!populateResultCache) {
+            return baseRunner.run(queryPlus, queryPlus.fragment().responseContext());
+          }
+          existingResultSetId = "";
+      } else {
+        existingResultSetId = ResultLevelCachingQueryRunner.extractEtagFromResults(
+            query,
+            cachedResultSet
+        );
+      }
+    } else {
+      cachedResultSet = null;
+      existingResultSetId = "";
+    }
+    QueryPlus<T> childQuery = queryPlus.withQuery(queryPlus
+        .getQuery()
+        .withOverriddenContext(
+            ImmutableMap.of(QueryResource.HEADER_IF_NONE_MATCH, existingResultSetId)));
+    Operator<T> input = new QueryRunnerOperator<T>(baseRunner, childQuery);
+    Operator<T> op = new ResultLevelCacheOperator<T>(
+        queryPlus.fragment(),
+        input,
+        strategy,
+        cache,
+        cacheConfig,
+        objectMapper,
+        cacheKeyStr,
+        existingResultSetId,
+        cachedResultSet,
+        populateResultCache
+    );
+    return Operators.toSequence(op);
   }
 }

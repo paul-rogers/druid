@@ -117,7 +117,7 @@ public class ProfileVisualizer
        .append("\n");
     int childCount = node.children == null ? 0 : node.children.size();
     String innerIndent = indent + StringUtils.repeat(INDENT, childCount);
-    for (Entry<String, Long> entry : node.profile.metrics().entrySet()) {
+    for (Entry<String, Object> entry : node.profile.metrics().entrySet()) {
       buf.append(innerIndent)
          .append(METRIC_INDENT)
          .append(entry.getKey())

@@ -35,7 +35,7 @@ public class OperatorProfile
 
   public final String operatorName;
   public boolean omitFromProfile;
-  private Map<String, Long> metrics = new HashMap<>();
+  private Map<String, Object> metrics = new HashMap<>();
 
   public OperatorProfile(String operatorName)
   {
@@ -59,12 +59,12 @@ public class OperatorProfile
     return silentOperator(op.getClass().getSimpleName());
   }
 
-  public void add(String key, long value)
+  public void add(String key, Object value)
   {
     metrics.put(key, value);
   }
 
-  public Map<String, Long> metrics()
+  public Map<String, Object> metrics()
   {
     return metrics;
   }

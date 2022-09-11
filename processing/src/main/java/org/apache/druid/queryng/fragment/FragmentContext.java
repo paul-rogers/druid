@@ -73,5 +73,6 @@ public interface FragmentContext
 
   void missingSegment(SegmentDescriptor descriptor);
 
+  boolean failed();
   void updateProfile(Operator<?> op, OperatorProfile profile);
 }

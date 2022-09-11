@@ -26,6 +26,7 @@ import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.function.Function;
 
 /**
  * Utility methods on top of {@link Operator.ResultIterator RowIterator},
@@ -33,6 +34,16 @@ import java.util.NoSuchElementException;
  */
 public class Iterators
 {
+  public abstract static class CountingResultIterator<T> implements ResultIterator<T>
+  {
+    protected int rowCount;
+
+    public int rowCount()
+    {
+      return rowCount;
+    }
+  }
+
   public static class ShimIterator<T> implements Iterator<T>
   {
     private final ResultIterator<T> operIter;
@@ -68,7 +79,88 @@ public class Iterators
       }
       return lookAhead;
     }
+  }
 
+  public static class IteratorResultIterator<T> extends CountingResultIterator<T>
+  {
+    private final Iterator<T> iter;
+
+    public IteratorResultIterator(Iterator<T> iter)
+    {
+      this.iter = iter;
+    }
+
+    @Override
+    public T next() throws EofException
+    {
+      if (iter.hasNext()) {
+        rowCount++;
+        return iter.next();
+      }
+      throw Operators.eof();
+    }
+  }
+
+  public static class MappingResultIterator<FROM, TO> extends CountingResultIterator<TO>
+  {
+    private final Iterator<FROM> iter;
+    private final Function<FROM, TO> mapper;
+
+    public MappingResultIterator(
+        Iterator<FROM> iter,
+        Function<FROM, TO> mapper
+    )
+    {
+      this.iter = iter;
+      this.mapper = mapper;
+    }
+
+    @Override
+    public TO next() throws EofException
+    {
+      if (iter.hasNext()) {
+        rowCount++;
+        return mapper.apply(iter.next());
+      }
+      throw Operators.eof();
+    }
+
+    @Override
+    public int rowCount()
+    {
+      return rowCount;
+    }
+  }
+
+  public static class GuavaMappingResultIterator<FROM, TO> extends CountingResultIterator<TO>
+  {
+    private final Iterator<FROM> iter;
+    private final com.google.common.base.Function<FROM, TO> mapper;
+
+    public GuavaMappingResultIterator(
+        Iterator<FROM> iter,
+        com.google.common.base.Function<FROM, TO> mapper
+    )
+    {
+      this.iter = iter;
+      this.mapper = mapper;
+    }
+
+    @Override
+    public TO next() throws EofException
+    {
+      if (iter.hasNext()) {
+        rowCount++;
+        return mapper.apply(iter.next());
+      }
+      throw Operators.eof();
+    }
+
+    @Override
+    public int rowCount()
+    {
+      return rowCount;
+    }
   }
 
   public static <T> Iterable<T> toIterable(ResultIterator<T> iter)
@@ -127,4 +219,24 @@ public class Iterators
     };
   }
 
+  public static <T> CountingResultIterator<T> wrap(Iterator<T> iter)
+  {
+    return new IteratorResultIterator<T>(iter);
+  }
+
+  public static <FROM, TO> CountingResultIterator<TO> map(
+      Iterator<FROM> iter,
+      Function<FROM, TO> mapper
+  )
+  {
+    return new MappingResultIterator<FROM, TO>(iter, mapper);
+  }
+
+  public static <FROM, TO> CountingResultIterator<TO> map(
+      Iterator<FROM> iter,
+      com.google.common.base.Function<FROM, TO> mapper
+  )
+  {
+    return new GuavaMappingResultIterator<FROM, TO>(iter, mapper);
+  }
 }

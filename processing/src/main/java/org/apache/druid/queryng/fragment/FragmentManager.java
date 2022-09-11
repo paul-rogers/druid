@@ -112,6 +112,18 @@ public class FragmentManager implements FragmentContext, Closeable
     return state;
   }
 
+  @Override
+  public String queryId()
+  {
+    return queryId;
+  }
+
+  @Override
+  public ResponseContext responseContext()
+  {
+    return responseContext;
+  }
+
   public void setTimeout(long timeoutMs)
   {
     this.timeoutMs = timeoutMs;
@@ -181,15 +193,9 @@ public class FragmentManager implements FragmentContext, Closeable
   }
 
   @Override
-  public String queryId()
+  public boolean failed()
   {
-    return queryId;
-  }
-
-  @Override
-  public ResponseContext responseContext()
-  {
-    return responseContext;
+    return !exceptions.isEmpty();
   }
 
   @Temporary
