@@ -20,17 +20,19 @@
 package org.apache.druid.queryng.operators;
 
 import com.google.common.base.Preconditions;
+import org.apache.druid.java.util.common.RE;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Yielder;
 import org.apache.druid.java.util.common.guava.YieldingAccumulator;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.Iterator;
 
 /**
  * Iterator over a sequence.
  */
-public class SequenceIterator<T> implements Iterator<T>, AutoCloseable
+public class SequenceIterator<T> implements Iterator<T>, Closeable
 {
   private Yielder<T> yielder;
 
@@ -71,10 +73,15 @@ public class SequenceIterator<T> implements Iterator<T>, AutoCloseable
   }
 
   @Override
-  public void close() throws IOException
+  public void close()
   {
     if (yielder != null) {
-      yielder.close();
+      try {
+        yielder.close();
+      }
+      catch (IOException e) {
+        throw new RE(e, "Yielder failed to close");
+      }
       yielder = null;
     }
   }

@@ -124,12 +124,6 @@ public class Iterators
       }
       throw Operators.eof();
     }
-
-    @Override
-    public int rowCount()
-    {
-      return rowCount;
-    }
   }
 
   public static class GuavaMappingResultIterator<FROM, TO> extends CountingResultIterator<TO>
@@ -154,12 +148,6 @@ public class Iterators
         return mapper.apply(iter.next());
       }
       throw Operators.eof();
-    }
-
-    @Override
-    public int rowCount()
-    {
-      return rowCount;
     }
   }
 

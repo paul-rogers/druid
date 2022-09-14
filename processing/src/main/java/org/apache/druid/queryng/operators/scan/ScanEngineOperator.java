@@ -44,7 +44,6 @@ import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -58,7 +57,7 @@ import java.util.Set;
  *
  * @see {@link org.apache.druid.query.scan.ScanQueryEngine}
  */
-public class ScanQueryOperator implements Operator<ScanResultValue>
+public class ScanEngineOperator implements Operator<ScanResultValue>
 {
   public static final String LEGACY_TIMESTAMP_KEY = "timestamp";
 
@@ -194,12 +193,7 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
     {
       closeCursorReader();
       context.responseContext().addRowScanCount(rowCount);
-      try {
-        iter.close();
-      }
-      catch (IOException e) {
-        // Ignore
-      }
+      iter.close();
     }
   }
 
@@ -223,7 +217,7 @@ public class ScanQueryOperator implements Operator<ScanResultValue>
   private int batchCount;
   private int cursorCount;
 
-  public ScanQueryOperator(
+  public ScanEngineOperator(
       final FragmentContext context,
       final String queryId,
       final Filter filter,

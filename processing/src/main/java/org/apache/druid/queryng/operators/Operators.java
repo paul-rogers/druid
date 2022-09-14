@@ -20,14 +20,17 @@
 package org.apache.druid.queryng.operators;
 
 import com.google.common.collect.Lists;
+import org.apache.druid.java.util.common.RE;
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.general.QueryRunnerOperator;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
@@ -158,5 +161,27 @@ public class Operators
   public static EofException eof()
   {
     return new EofException();
+  }
+
+  public static void closeSafely(Closer closer)
+  {
+    try {
+      closer.close();
+    }
+
+    // What the method claims to throw
+    catch (IOException e) {
+      throw new RE(e, "Failed to close");
+    }
+
+    // What can be thrown invisibly, no need to wrap.
+    catch (RuntimeException e) {
+      throw e;
+    }
+
+    // What existing code checks for
+    catch (Throwable t) {
+      throw new RE(t, "Failed to close");
+    }
   }
 }

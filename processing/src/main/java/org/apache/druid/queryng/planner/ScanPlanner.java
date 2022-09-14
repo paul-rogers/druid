@@ -43,9 +43,9 @@ import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.scan.GroupedScanResultLimitOperator;
 import org.apache.druid.queryng.operators.scan.ScanBatchToRowOperator;
 import org.apache.druid.queryng.operators.scan.ScanCompactListToArrayOperator;
+import org.apache.druid.queryng.operators.scan.ScanEngineOperator;
+import org.apache.druid.queryng.operators.scan.ScanEngineOperator.Order;
 import org.apache.druid.queryng.operators.scan.ScanListToArrayOperator;
-import org.apache.druid.queryng.operators.scan.ScanQueryOperator;
-import org.apache.druid.queryng.operators.scan.ScanQueryOperator.Order;
 import org.apache.druid.queryng.operators.scan.ScanResultOffsetOperator;
 import org.apache.druid.queryng.operators.scan.UngroupedScanResultLimitOperator;
 import org.apache.druid.segment.QueryableIndex;
@@ -275,7 +275,7 @@ public class ScanPlanner
         );
   }
 
-  public static ScanQueryOperator buildScanOperator(
+  public static ScanEngineOperator buildScanOperator(
       final FragmentContext context,
       final ScanQuery query,
       final Segment segment,
@@ -290,7 +290,7 @@ public class ScanPlanner
     final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
     final List<String> columns = defineColumns(query, isLegacy);
 
-    final ScanQueryOperator.Order order;
+    final ScanEngineOperator.Order order;
     if (query.getTimeOrder() == ScanQuery.Order.NONE) {
       order = Order.NONE;
     } else if (isDescendingOrder(query)) {
@@ -299,7 +299,7 @@ public class ScanPlanner
       order = Order.ASCENDING;
     }
 
-    return new ScanQueryOperator(
+    return new ScanEngineOperator(
           context,
           query.getId(),
           filter,
@@ -328,9 +328,9 @@ public class ScanPlanner
     // Unless we're in legacy mode, planCols equals query.getColumns() exactly. This is nice since it makes
     // the compactedList form easier to use.
     List<String> queryCols = query.getColumns();
-    if (isLegacy && !queryCols.contains(ScanQueryOperator.LEGACY_TIMESTAMP_KEY)) {
+    if (isLegacy && !queryCols.contains(ScanEngineOperator.LEGACY_TIMESTAMP_KEY)) {
       final List<String> planCols = new ArrayList<>();
-      planCols.add(ScanQueryOperator.LEGACY_TIMESTAMP_KEY);
+      planCols.add(ScanEngineOperator.LEGACY_TIMESTAMP_KEY);
       planCols.addAll(queryCols);
       return planCols;
     } else {

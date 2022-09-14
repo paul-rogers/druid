@@ -20,6 +20,9 @@
 package org.apache.druid.queryng.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import org.apache.druid.collections.NonBlockingPool;
+import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
@@ -30,6 +33,7 @@ import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryWatcher;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.query.timeseries.TimeseriesQueryQueryToolChest;
 import org.apache.druid.query.timeseries.TimeseriesResultValue;
@@ -40,9 +44,17 @@ import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.general.ScatterGatherOperator.OrderedScatterGatherOperator;
 import org.apache.druid.queryng.operators.timeseries.GrandTotalOperator;
 import org.apache.druid.queryng.operators.timeseries.IntermediateAggOperator;
+import org.apache.druid.queryng.operators.timeseries.TimeseriesEngineOperator;
+import org.apache.druid.queryng.operators.timeseries.TimeseriesEngineOperator.CursorDefinition;
 import org.apache.druid.queryng.operators.timeseries.ToArrayOperator;
+import org.apache.druid.segment.ColumnInspector;
+import org.apache.druid.segment.SegmentMissingException;
+import org.apache.druid.segment.StorageAdapter;
+import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.segment.filter.Filters;
 
+import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
@@ -193,6 +205,62 @@ public class TimeSeriesPlanner
         Operators.unwrapOperator(resultSequence),
         signature.getColumnNames()
     );
+    return Operators.toSequence(op);
+  }
+
+  public static Sequence<Result<TimeseriesResultValue>> queryEngine(
+      final QueryPlus<Result<TimeseriesResultValue>> queryPlus,
+      final StorageAdapter adapter,
+      final NonBlockingPool<ByteBuffer> bufferPool
+  )
+  {
+    Query<Result<TimeseriesResultValue>> input = queryPlus.getQuery();
+    if (!(input instanceof TimeseriesQuery)) {
+      throw new ISE("Got a [%s] which isn't a %s", input.getClass(), TimeseriesQuery.class);
+    }
+    final TimeseriesQuery query = (TimeseriesQuery) input;
+
+    if (adapter == null) {
+      throw new SegmentMissingException(
+          "Null storage adapter found. Probably trying to issue a query against a segment being memory unmapped."
+      );
+    }
+
+    final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
+    final boolean descending = query.isDescending();
+    final CursorDefinition cursorDefn = new CursorDefinition(
+        adapter,
+        Iterables.getOnlyElement(query.getIntervals()),
+        filter,
+        query.getVirtualColumns(),
+        descending, // Non-vectorized only
+        query.getGranularity(),
+        queryPlus.getQueryMetrics(),
+        QueryContexts.getVectorSize(query) // Vectorized only
+    );
+
+    final ColumnInspector inspector = query.getVirtualColumns().wrapInspector(adapter);
+    final boolean doVectorize = QueryContexts.getVectorize(query).shouldVectorize(
+        adapter.canVectorize(filter, query.getVirtualColumns(), descending)
+        && VirtualColumns.shouldVectorize(query, query.getVirtualColumns(), adapter)
+        && query.getAggregatorSpecs().stream().allMatch(aggregatorFactory -> aggregatorFactory.canVectorize(inspector))
+    );
+
+    Operator<Result<TimeseriesResultValue>> op = new TimeseriesEngineOperator(
+        queryPlus.fragment(),
+        cursorDefn,
+        query.getAggregatorSpecs(),
+        doVectorize ? bufferPool : null,
+        query.isSkipEmptyBuckets()
+    );
+    final int limit = query.getLimit();
+    if (limit < Integer.MAX_VALUE) {
+      op = new LimitOperator<Result<TimeseriesResultValue>>(
+          queryPlus.fragment(),
+          op,
+          limit
+      );
+    }
     return Operators.toSequence(op);
   }
 }

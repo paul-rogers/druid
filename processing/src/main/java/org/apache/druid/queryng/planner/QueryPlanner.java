@@ -312,7 +312,8 @@ public class QueryPlanner
       final SegmentDescriptor descriptor,
       final QueryPlus<T> queryPlus,
       final QueryRunnerFactory<T, Query<T>> factory,
-      ResponseContext responseContext)
+      final ResponseContext responseContext
+  )
   {
     // The factory operator defers creating the runner until
     // after the lock operator has obtained a segment lock.

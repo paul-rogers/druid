@@ -48,7 +48,7 @@ import java.util.Map;
  * class.
  * <p>
  * As a small performance boost, we create a layer of "accessors" on top of
- * the column selectors. The accesors encode the column-specific logic to
+ * the column selectors. The accessors encode the column-specific logic to
  * avoid the need for if-statements on every row.
  *
  * @see {@link org.apache.druid.query.scan.ScanQueryEngine}
@@ -95,7 +95,7 @@ public class CursorReader implements ResultIterator<List<?>>
     for (String column : selectedColumns) {
       final Supplier<Object> accessor;
       final BaseObjectColumnValueSelector<?> selector;
-      if (isLegacy && ScanQueryOperator.LEGACY_TIMESTAMP_KEY.equals(column)) {
+      if (isLegacy && ScanEngineOperator.LEGACY_TIMESTAMP_KEY.equals(column)) {
         selector = cursor.getColumnSelectorFactory()
                          .makeColumnValueSelector(ColumnHolder.TIME_COLUMN_NAME);
         accessor = new Supplier<Object>() {

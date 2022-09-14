@@ -39,7 +39,7 @@ import java.util.function.Supplier;
  */
 public class QueryRunnerFactoryOperator<T> implements Operator<T>
 {
-  protected final FragmentContext context;
+  private final FragmentContext context;
   private final Supplier<QueryRunner<T>> factory;
   private final QueryPlus<T> query;
   private Operator<T> child;
