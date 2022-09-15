@@ -52,6 +52,16 @@ import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.List;
 
+/**
+ * "Engine" operator for the time series query. Each query performs an aggregation over a
+ * time series for a single segment. The operator supports both vectorized and non-vectorized
+ * operations. The two implementations are in distinct result iterators: allowing the engine
+ * operator to act as a generic holder for both.
+ * <p>
+ * An engine pushes down to the storage layer both filter and aggregation operations. Filtering
+ * is pushed for the query as a whole; aggregations are pushed per group (that is, per time
+ * bucket.)
+ */
 public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResultValue>>
 {
   public static class CursorDefinition
@@ -113,6 +123,9 @@ public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResul
     }
   }
 
+  /**
+   * Class that delivers results on top of the native engine.
+   */
   public abstract static class BaseResultIterator extends CountingResultIterator<Result<TimeseriesResultValue>>
   {
     protected final List<AggregatorFactory> aggregatorSpecs;
@@ -135,6 +148,10 @@ public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResul
     protected abstract void close(OperatorProfile profile);
   }
 
+  /**
+   * Non-vectorized. The storage adapter provides one or more cursors: one for each
+   * contiguous span of times.
+   */
   public static class NonVectorizedResultIterator extends BaseResultIterator
   {
     private final SequenceIterator<Cursor> cursorIter;
@@ -204,13 +221,18 @@ public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResul
     }
   }
 
+  /**
+   * Vectorized result iterator. The cursor provides a vector cursor. The client is obligated
+   * to do time-grouping, which is done via several layers of abstractions.
+   */
   public static class VectorizedResultIterator extends BaseResultIterator
   {
     private final TimeGroupVectorIterator groupIter;
     private final Closer closer;
     private final AggregatorAdapters aggregators;
     private final ByteBuffer buffer;
-    private int bucketCount;
+    private int groupCount;
+    private int batchCount;
 
     public VectorizedResultIterator(
         final CursorDefinition cursorDefinition,
@@ -258,6 +280,7 @@ public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResul
       if (!groupIter.nextGroup()) {
         throw Operators.eof();
       }
+      groupCount++;
 
       // Aggregate totals for the bucket.
       aggregators.init(buffer, 0);
@@ -269,6 +292,8 @@ public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResul
               groupIter.startOffset(),
               groupIter.endOffset()
           );
+          batchCount++;
+          rowCount += groupIter.endOffset() - groupIter.startOffset();
         }
       }
 
@@ -290,7 +315,8 @@ public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResul
     protected void close(OperatorProfile profile)
     {
       profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount());
-      profile.add("bucket-count", bucketCount);
+      profile.add("group-count", groupCount);
+      profile.add("batch-count", batchCount);
       Operators.closeSafely(closer);
     }
   }
