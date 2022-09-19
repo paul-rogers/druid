@@ -29,6 +29,7 @@ import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.ResultIterator;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.joda.time.Interval;
 
@@ -118,7 +119,7 @@ public class MockScanResultReader implements IterableOperator<ScanResultValue>
   }
 
   @Override
-  public ScanResultValue next() throws EofException
+  public ScanResultValue next() throws ResultIterator.EofException
   {
     Preconditions.checkState(state == State.RUN);
     if (rowCount >= targetCount) {

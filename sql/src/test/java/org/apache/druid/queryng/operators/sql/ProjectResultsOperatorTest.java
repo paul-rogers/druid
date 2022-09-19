@@ -28,6 +28,7 @@ import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 import org.apache.druid.queryng.operators.OperatorTest;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.ResultIterator;
 import org.joda.time.DateTimeZone;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -71,7 +72,7 @@ public class ProjectResultsOperatorTest
     }
 
     @Override
-    public Object[] next() throws EofException
+    public Object[] next() throws ResultIterator.EofException
     {
       if (posn + 1 == results.size()) {
         throw Operators.eof();

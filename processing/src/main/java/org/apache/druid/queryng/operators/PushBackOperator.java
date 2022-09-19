@@ -64,7 +64,7 @@ public class PushBackOperator<T> implements IterableOperator<T>
   }
 
   @Override
-  public T next() throws EofException
+  public T next() throws ResultIterator.EofException
   {
     if (pushed != null) {
       T ret = pushed;

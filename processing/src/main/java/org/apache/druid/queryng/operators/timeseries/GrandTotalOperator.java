@@ -27,6 +27,7 @@ import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.ResultIterator;
 
 import java.util.HashMap;
 import java.util.List;
@@ -69,7 +70,7 @@ public class GrandTotalOperator implements IterableOperator<Result<TimeseriesRes
   }
 
   @Override
-  public Result<TimeseriesResultValue> next() throws EofException
+  public Result<TimeseriesResultValue> next() throws ResultIterator.EofException
   {
     if (inputIter == null) {
       // All rows delivered.
@@ -83,7 +84,7 @@ public class GrandTotalOperator implements IterableOperator<Result<TimeseriesRes
       accumulate(resultValue);
       return resultValue;
     }
-    catch (EofException e) {
+    catch (ResultIterator.EofException e) {
       // Last input row. Close the input and generate the grand total row.
       input.close(true);
       inputIter = null;

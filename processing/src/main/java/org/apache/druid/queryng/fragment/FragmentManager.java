@@ -30,9 +30,9 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
-import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.ResultIterator;
 import org.apache.druid.queryng.operators.Temporary;
 
 import java.io.Closeable;

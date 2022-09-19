@@ -111,5 +111,4 @@ public class TimeseriesQueryRunnerFactory
       return engine.process((TimeseriesQuery) input, adapter, (TimeseriesQueryMetrics) queryPlus.getQueryMetrics());
     }
   }
-
 }

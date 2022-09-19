@@ -25,9 +25,9 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
-import org.apache.druid.queryng.operators.Operator.EofException;
-import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.ResultIterator;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 import org.apache.druid.segment.BaseObjectColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.column.ColumnHolder;
@@ -131,7 +131,7 @@ public class CursorReader implements ResultIterator<List<?>>
   }
 
   @Override
-  public List<?> next() throws EofException
+  public List<?> next() throws ResultIterator.EofException
   {
     if (cursor.isDone() || rowCount >= limit) {
       throw Operators.eof();

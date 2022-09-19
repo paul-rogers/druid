@@ -25,6 +25,7 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
+import org.apache.druid.queryng.operators.ResultIterator;
 
 import java.util.List;
 import java.util.Map;
@@ -45,7 +46,7 @@ public class ToArrayOperator extends MappingOperator<Result<TimeseriesResultValu
   }
 
   @Override
-  public Object[] next() throws EofException
+  public Object[] next() throws ResultIterator.EofException
   {
     Result<TimeseriesResultValue> result = inputIter.next();
     rowCount++;

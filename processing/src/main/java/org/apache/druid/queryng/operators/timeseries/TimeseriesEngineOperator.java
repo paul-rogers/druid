@@ -38,6 +38,7 @@ import org.apache.druid.queryng.operators.Iterators.CountingResultIterator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.ResultIterator;
 import org.apache.druid.queryng.operators.SequenceIterator;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.Cursor;
@@ -171,7 +172,7 @@ public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResul
     }
 
     @Override
-    public Result<TimeseriesResultValue> next() throws EofException
+    public Result<TimeseriesResultValue> next() throws ResultIterator.EofException
     {
       while (true) {
         if (!cursorIter.hasNext()) {
@@ -275,7 +276,7 @@ public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResul
     }
 
     @Override
-    public Result<TimeseriesResultValue> next() throws EofException
+    public Result<TimeseriesResultValue> next() throws ResultIterator.EofException
     {
       if (!groupIter.nextGroup()) {
         throw Operators.eof();

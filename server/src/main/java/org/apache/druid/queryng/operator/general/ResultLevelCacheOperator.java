@@ -34,6 +34,7 @@ import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Iterators.CountingResultIterator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
+import org.apache.druid.queryng.operators.ResultIterator;
 
 import java.util.Iterator;
 
@@ -166,7 +167,7 @@ public class ResultLevelCacheOperator<T> implements Operator<T>
     return new ResultIterator<T>()
     {
       @Override
-      public T next() throws EofException
+      public T next() throws ResultIterator.EofException
       {
         T row = inputIter.next();
         cacheWriter.cacheResultEntry(row, cacheFn);

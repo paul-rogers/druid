@@ -64,7 +64,7 @@ public abstract class AbstractMergeOperator<T> implements Operator<T>
         row = childIter.next();
         return true;
       }
-      catch (EofException e) {
+      catch (ResultIterator.EofException e) {
         row = null;
         child.close(true);
         return false;

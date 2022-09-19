@@ -25,8 +25,7 @@ import org.apache.druid.java.util.common.guava.SequenceTestHelper;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.fragment.FragmentManager;
 import org.apache.druid.queryng.fragment.Fragments;
-import org.apache.druid.queryng.operators.Operator.EofException;
-import org.apache.druid.queryng.operators.Operator.ResultIterator;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -220,7 +219,7 @@ public class FragmentTest
   }
 
   @Test
-  public void testFragmentContext() throws EofException
+  public void testFragmentContext() throws ResultIterator.EofException
   {
     FragmentManager fragment = Fragments.defaultFragment();
     FragmentContext context = fragment;

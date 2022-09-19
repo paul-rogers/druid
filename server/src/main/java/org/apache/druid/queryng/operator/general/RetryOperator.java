@@ -45,6 +45,7 @@ import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.PushBackOperator;
+import org.apache.druid.queryng.operators.ResultIterator;
 import org.apache.druid.segment.SegmentMissingException;
 
 import java.util.ArrayList;
@@ -194,7 +195,7 @@ public class RetryOperator<T> implements Operator<T>
       ResultIterator<T> iter = inputOp.open();
       mergeInputs.add(new OperatorInput<T>(inputOp, iter, iter.next()));
     }
-    catch (EofException e) {
+    catch (ResultIterator.EofException e) {
       inputOp.close(true);
       // Ignore this input
     }

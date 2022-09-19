@@ -23,8 +23,7 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.fragment.FragmentManager;
 import org.apache.druid.queryng.fragment.Fragments;
-import org.apache.druid.queryng.operators.Operator.EofException;
-import org.apache.druid.queryng.operators.Operator.ResultIterator;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -167,10 +166,10 @@ public class BasicOperatorTest
 
   /**
    * Getting weird: an operator that wraps a sequence that wraps an operator.
-   * @throws EofException
+   * @throws ResultIterator.EofException
    */
   @Test
-  public void testSequenceOperator() throws EofException
+  public void testSequenceOperator() throws ResultIterator.EofException
   {
     FragmentManager fragment = Fragments.defaultFragment();
     MockOperator<String> op = MockOperator.strings(fragment, 2);

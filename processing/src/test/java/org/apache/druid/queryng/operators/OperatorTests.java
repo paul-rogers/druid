@@ -21,9 +21,8 @@ package org.apache.druid.queryng.operators;
 
 import org.apache.druid.java.util.common.RE;
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
-import org.apache.druid.queryng.operators.Operator.ResultIterator;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 
 import static org.junit.Assert.fail;
 
@@ -35,7 +34,7 @@ public class OperatorTests
       operIter.next();
       fail();
     }
-    catch (EofException e) {
+    catch (ResultIterator.EofException e) {
       // Expected
     }
   }
@@ -87,7 +86,7 @@ public class OperatorTests
     }
 
     @Override
-    public T next() throws EofException
+    public T next() throws ResultIterator.EofException
     {
       if (batchCount == failAt) {
         throw new RE("Failed");

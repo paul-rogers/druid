@@ -28,10 +28,10 @@ import org.apache.druid.queryng.fragment.FragmentManager;
 import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Operator;
-import org.apache.druid.queryng.operators.Operator.EofException;
-import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.apache.druid.queryng.operators.OperatorTest;
 import org.apache.druid.queryng.operators.OperatorTests;
+import org.apache.druid.queryng.operators.ResultIterator;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -92,7 +92,7 @@ public class ScanQueryOperatorsTest
   }
 
   @Test
-  public void testMockReaderEmpty() throws EofException
+  public void testMockReaderEmpty() throws ResultIterator.EofException
   {
     FragmentManager fragment = Fragments.defaultFragment();
     MockScanResultReader scan = scan(fragment, 0, 1, 3);

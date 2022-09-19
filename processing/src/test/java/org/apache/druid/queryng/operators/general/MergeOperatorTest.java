@@ -25,9 +25,10 @@ import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.MockOperator;
 import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
-import org.apache.druid.queryng.operators.Operator.EofException;
 import org.apache.druid.queryng.operators.Operator.State;
 import org.apache.druid.queryng.operators.OperatorTest;
+import org.apache.druid.queryng.operators.ResultIterator;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -119,7 +120,7 @@ public class MergeOperatorTest
   }
 
   @Test
-  public void testEarlyClose() throws EofException
+  public void testEarlyClose() throws ResultIterator.EofException
   {
     FragmentManager fragment = Fragments.defaultFragment();
     MockOperator<Integer> input1 = MockOperator.ints(fragment, 2);

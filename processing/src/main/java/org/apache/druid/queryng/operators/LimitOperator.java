@@ -37,7 +37,7 @@ public class LimitOperator<T> extends MappingOperator<T, T>
   }
 
   @Override
-  public T next() throws EofException
+  public T next() throws ResultIterator.EofException
   {
     if (rowCount >= limit) {
       throw Operators.eof();

@@ -33,6 +33,7 @@ import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.ResultIterator;
 import org.apache.druid.queryng.operators.SequenceIterator;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.Segment;
@@ -129,10 +130,10 @@ public class ScanEngineOperator implements Operator<ScanResultValue>
      * Another batch of events is available if
      * we have (or can get) a cursor which has rows, and we are not at the
      * limit set for this operator.
-     * @throws EofException
+     * @throws ResultIterator.EofException
      */
     @Override
-    public ScanResultValue next() throws EofException
+    public ScanResultValue next() throws ResultIterator.EofException
     {
       while (true) {
         context.checkTimeout();
@@ -148,7 +149,7 @@ public class ScanEngineOperator implements Operator<ScanResultValue>
                 result
             );
           }
-          catch (EofException e) {
+          catch (ResultIterator.EofException e) {
             // Cursor is done or was empty.
             closeCursorReader();
           }

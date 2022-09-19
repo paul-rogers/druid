@@ -25,6 +25,7 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.ResultIterator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +54,7 @@ public class UngroupedScanResultLimitOperator extends MappingOperator<ScanResult
   }
 
   @Override
-  public ScanResultValue next() throws EofException
+  public ScanResultValue next() throws ResultIterator.EofException
   {
     if (rowCount >= limit) {
       throw Operators.eof();
@@ -72,7 +73,7 @@ public class UngroupedScanResultLimitOperator extends MappingOperator<ScanResult
         eventsToAdd.add(srv.getRows().get(0));
         rowCount++;
       }
-      catch (EofException e) {
+      catch (ResultIterator.EofException e) {
         if (eventsToAdd.isEmpty()) {
           throw Operators.eof();
         }

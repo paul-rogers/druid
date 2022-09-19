@@ -42,6 +42,7 @@ import org.apache.druid.queryng.fragment.QueryManager;
 import org.apache.druid.queryng.operators.MergeResultIterator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
+import org.apache.druid.queryng.operators.ResultIterator;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -108,7 +109,7 @@ public abstract class ScatterGatherOperator<T> implements Operator<T>
     return futures;
   }
 
-  protected abstract CloseableResultIterator<T> gather(List<ListenableFuture<Iterable<T>>> children);
+  protected abstract ResultIterator.CloseableResultIterator<T> gather(List<ListenableFuture<Iterable<T>>> children);
 
   public static class OrderedScatterGatherOperator<T> extends ScatterGatherOperator<T>
   {
@@ -128,7 +129,7 @@ public abstract class ScatterGatherOperator<T> implements Operator<T>
     }
 
     @Override
-    protected CloseableResultIterator<T> gather(List<ListenableFuture<Iterable<T>>> children)
+    protected ResultIterator.CloseableResultIterator<T> gather(List<ListenableFuture<Iterable<T>>> children)
     {
       List<Iterable<T>> results = materializeChildren(children);
       resultIter = new MergeResultIterator<T>(ordering, results.size());

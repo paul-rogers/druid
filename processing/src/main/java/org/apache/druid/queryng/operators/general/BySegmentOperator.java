@@ -27,6 +27,7 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Iterators;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.ResultIterator;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 

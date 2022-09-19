@@ -21,7 +21,7 @@ package org.apache.druid.queryng.operators;
 
 import org.apache.druid.queryng.fragment.FragmentManager;
 import org.apache.druid.queryng.fragment.Fragments;
-import org.apache.druid.queryng.operators.Operator.EofException;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -37,7 +37,7 @@ import static org.junit.Assert.assertEquals;
 public class MockOperatorTest
 {
   @Test
-  public void testMockStringOperator() throws EofException
+  public void testMockStringOperator() throws ResultIterator.EofException
   {
     FragmentManager fragment = Fragments.defaultFragment();
     MockOperator<String> op = MockOperator.strings(fragment, 2);

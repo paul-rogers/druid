@@ -22,6 +22,7 @@ package org.apache.druid.queryng.operators.scan;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.ResultIterator;
 
 import java.util.List;
 import java.util.Map;
@@ -49,7 +50,7 @@ public class ScanListToArrayOperator extends MappingOperator<Map<String, Object>
   }
 
   @Override
-  public Object[] next() throws EofException
+  public Object[] next() throws ResultIterator.EofException
   {
     Map<String, Object> row = inputIter.next();
     final Object[] rowArray = new Object[fields.size()];

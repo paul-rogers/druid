@@ -47,7 +47,7 @@ public class NullOperator<T> implements IterableOperator<T>
   }
 
   @Override
-  public T next() throws EofException
+  public T next() throws ResultIterator.EofException
   {
     throw Operators.eof();
   }

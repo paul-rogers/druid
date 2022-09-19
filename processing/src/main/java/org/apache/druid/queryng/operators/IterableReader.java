@@ -47,7 +47,7 @@ public class IterableReader<T> implements IterableOperator<T>
   }
 
   @Override
-  public T next() throws EofException
+  public T next() throws ResultIterator.EofException
   {
     if (!inputIter.hasNext()) {
       throw Operators.eof();

@@ -21,8 +21,7 @@ package org.apache.druid.queryng.operators;
 
 import org.apache.druid.queryng.fragment.FragmentManager;
 import org.apache.druid.queryng.fragment.Fragments;
-import org.apache.druid.queryng.operators.Operator.EofException;
-import org.apache.druid.queryng.operators.Operator.ResultIterator;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -59,7 +58,7 @@ public class PushBackOperatorTest
   }
 
   @Test
-  public void testPush() throws EofException
+  public void testPush() throws ResultIterator.EofException
   {
     FragmentManager fragment = Fragments.defaultFragment();
     Operator<Integer> input = MockOperator.ints(fragment, 2);
@@ -75,7 +74,7 @@ public class PushBackOperatorTest
   }
 
   @Test
-  public void testInitialPush() throws EofException
+  public void testInitialPush() throws ResultIterator.EofException
   {
     FragmentManager fragment = Fragments.defaultFragment();
     Operator<Integer> input = MockOperator.ints(fragment, 2);

@@ -26,6 +26,7 @@ import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
 import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.ResultIterator;
 
 import java.util.Comparator;
 import java.util.function.BinaryOperator;
@@ -79,7 +80,7 @@ public class IntermediateAggOperator implements IterableOperator<Result<Timeseri
   }
 
   @Override
-  public Result<TimeseriesResultValue> next() throws EofException
+  public Result<TimeseriesResultValue> next() throws ResultIterator.EofException
   {
     if (inputIter == null) {
       // EOF in previous group.
@@ -99,7 +100,7 @@ public class IntermediateAggOperator implements IterableOperator<Result<Timeseri
       }
       merged = mergeFn.apply(row, null);
     }
-    catch (EofException e) {
+    catch (ResultIterator.EofException e) {
       // EOF on first row for the first group. Will not happen in the
       // Broker as the Historicals handle this case.
       input.close(true);
@@ -119,7 +120,7 @@ public class IntermediateAggOperator implements IterableOperator<Result<Timeseri
         row = inputIter.next();
         rowCount++;
       }
-      catch (EofException e) {
+      catch (ResultIterator.EofException e) {
         // EOF while looking for the end of a group.
         input.close(true);
         inputIter = null;

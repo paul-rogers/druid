@@ -71,7 +71,7 @@ public class SequenceOperator<T> implements IterableOperator<T>
   }
 
   @Override
-  public T next() throws EofException
+  public T next() throws ResultIterator.EofException
   {
     if (yielder == null || yielder.isDone()) {
       throw Operators.eof();

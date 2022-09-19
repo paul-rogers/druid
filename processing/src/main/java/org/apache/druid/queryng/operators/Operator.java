@@ -25,17 +25,25 @@ package org.apache.druid.queryng.operators;
  * <p>
  * <ul>
  * <li>Created.</li>
- * <li>Opened (once, bottom up in the operator DAG), which provides an
+ * <li>Opened (once, top-down in the operator DAG), which provides an
  * iterator over the results to this operator.</li>
  * <li>Closed.</li>
  * </ul>
  * <p>
- * Opening an operator returns a {@link Operator.ResultIterator ResultIterator}
+ * An operator is typically a two-part abstraction. The iterator, returned from
+ * {@link #open()}, retrieves values. The operator wraps the iterator in setup
+ * and shutdown tasks, and integrates with the fragment in which the operator
+ * resides. Sometimes an operator is its own iterator. Sometimes iterators are
+ * used within a operator in addition to the one returned from {@code open()}.
+ * In a sense, the iterator does the actual data transforms, while the opreator
+ * provides a standardized interface.
+ * <p>
+ * Opening an operator returns a {@link ResultIterator ResultIterator}
  * which returns rows. The Java {@code Iterator} class has extra overhead
  * which we want to avoid on the per-row inner loop code path. A
- * {@code RowIterator} has one method: {@link Operator.ResultIterator#next() next()},
+ * {@code ResultIterator} has one method: {@link ResultIterator#next() next()},
  * which either returns a row (however the operator defines it), or throws an
- * {@link Operator.EofException EofException} when there are no more rows.
+ * {@link ResultIterator.EofException EofException} when there are no more rows.
  * Downstream operators need not do any conditional checking: they can just
  * propagate the exception if they have nothing to add at EOF.
  * <p>
@@ -44,21 +52,26 @@ package org.apache.druid.queryng.operators;
  * children other than that they follow the operator protocol and will produce a
  * result when asked. Operators must agree on the type of the shared results.
  * <p>
- * Unlike traditional <code>QueryRunner</code>s, an operator does not create its
+ * Unlike traditional {@code QueryRunner}s, an operator does not create its
  * children: that is the job of the planner that created a tree of operators
  * The operator simply accepts the previously-created children and does its thing.
+ * This subtle difference is the key to making an operator a reusable Lego-block:
+ * an operator does not care about the source of its input or the disposition of
+ * its output, allowing operators to be composed in multiple structures.
+ * Further, since each operator is independent, operators can be easily unit
+ * tested without mocks.
  *
  * <h4>State</h4>
  *
  * Operators are assumed to be stateful since most data transform operations
  * involve some kind of state.
  * <p>
- * The {@code open()} and {@code close()} methods provide a well-defined way
+ * The {@link #open()} and {@link #close()} methods provide a well-defined way
  * to handle resources. Operators are created as a DAG. Unlike a simple iterator,
  * operators should <i>not</i> obtain resources in their constructors. Instead,
  * they should obtain resources, open files or otherwise start things whirring in
- * the {#code open()} method. In some cases, resource may be obtained a bit later,
- * in the first call to {@code hasNext()}. In either case, resources should be
+ * the {#code open()} method. In some cases, resources may be obtained a bit later,
+ * in the first call to {@code next()}. In either case, resources should be
  * released in {@code close()}.
  * <p>
  * Operators may appear in a branch of the query DAG that can be deferred or
@@ -66,8 +79,8 @@ package org.apache.druid.queryng.operators;
  * runs it, closes it, then moves to the next child. This form of operation ensures
  * resources are held for the briefest possible period of time.
  * <p>
- * To make this work, operators cascade <code>open()</code> and
- * <code>close()</code> operations to their children. The query runner will
+ * To make this work, operators cascade {#code open()} and
+ * {@code close()} operations to their children. The query runner will
  * start the root operator: the root must start is children, and so on. Closing is
  * a bit more complex. Operators should close their children by cascading the
  * close operation: but only if that call came from a parent operator (as
@@ -98,7 +111,7 @@ package org.apache.druid.queryng.operators;
  * <h4>Single-Threaded</h4>
  *
  * Implementations can assume that calls to the operator methods, or to the
- * iterator <code>hasNext()</code> and <code>next()</code> methods, always
+ * iterator {@code next()} method, always
  * occur within a single thread, so state can be maintained
  * in normal (not atomic) variables. If data is to be shuffled across threads,
  * then a thread- (or network-)aware shuffle mechanism is required.
@@ -109,7 +122,6 @@ package org.apache.druid.queryng.operators;
  * Druid native queries use a variety of Java objects: there is no single
  * "row" class or interface.
  * <p>
- * Operator type specifies the type of values returned by its iterator.
  * Most operators require that the input and output types are the same,
  * though some may transform data from one type to another. See
  * {@link TransformOperator} for an example.
@@ -122,7 +134,7 @@ package org.apache.druid.queryng.operators;
  * unwinds the stack up to the fragment runner, which is then responsible
  * for calling close on the fragment context. That then cascades close down
  * to all operators as described above. It may be that one or more operators
- * are not in a bad state, and throw an exception on close. The fragment
+ * are now in a bad state, and throw an exception on close. The fragment
  * context "absorbs" those errors and continues to close all operators.
  * <p>
  * The fragment context has no knowledge of whether an operator was called
@@ -135,32 +147,6 @@ package org.apache.druid.queryng.operators;
  */
 public interface Operator<T>
 {
-  /**
-   * Exception thrown at EOF.
-   */
-  public class EofException extends Exception
-  {
-  }
-
-  /**
-   * Iterator over operator results. Operators do not use the Java
-   * {@code Iterator} class: the simpler implementation here
-   * minimizes per-row overhead. An {@code OperatorIterator} can
-   * be converted to a Java {@code Iterator} by calling
-   * {@link static <T> Iterator<T> Operators#toIterator(Operator<T>)},
-   * but that approach adds overhead.
-   */
-  public interface ResultIterator<T>
-  {
-    T next() throws EofException;
-  }
-
-  public interface CloseableResultIterator<T> extends ResultIterator<T>
-  {
-    void close(boolean cascade);
-  }
-
-
   /**
    * Convenience interface for an operator which is its own iterator.
    */

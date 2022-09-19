@@ -21,9 +21,8 @@ package org.apache.druid.queryng.operators;
 
 import org.apache.druid.queryng.fragment.FragmentManager;
 import org.apache.druid.queryng.fragment.Fragments;
-import org.apache.druid.queryng.operators.Operator.EofException;
-import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.apache.druid.queryng.operators.Operator.State;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -144,7 +143,7 @@ public class ConcatOperatorTest
   }
 
   @Test
-  public void testClose() throws EofException
+  public void testClose() throws ResultIterator.EofException
   {
     FragmentManager fragment = Fragments.defaultFragment();
     MockOperator<Integer> input1 = MockOperator.ints(fragment, 2);

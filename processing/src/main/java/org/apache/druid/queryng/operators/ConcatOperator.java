@@ -61,14 +61,14 @@ public class ConcatOperator<T> implements IterableOperator<T>
   }
 
   @Override
-  public T next() throws EofException
+  public T next() throws ResultIterator.EofException
   {
     while (true) {
       if (current != null) {
         try {
           return currentIter.next();
         }
-        catch (EofException e) {
+        catch (ResultIterator.EofException e) {
           current.close(true);
           current = null;
           currentIter = null;

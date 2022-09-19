@@ -26,6 +26,7 @@ import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.ResultIterator;
 
 import java.util.List;
 
@@ -51,7 +52,7 @@ public class GroupedScanResultLimitOperator extends MappingOperator<ScanResultVa
   }
 
   @Override
-  public ScanResultValue next() throws EofException
+  public ScanResultValue next() throws ResultIterator.EofException
   {
     if (rowCount >= limit) {
       // Already at limit.

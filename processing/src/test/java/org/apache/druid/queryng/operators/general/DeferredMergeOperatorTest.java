@@ -26,10 +26,10 @@ import org.apache.druid.queryng.operators.AbstractMergeOperator.OperatorInput;
 import org.apache.druid.queryng.operators.DeferredMergeOperator;
 import org.apache.druid.queryng.operators.MockOperator;
 import org.apache.druid.queryng.operators.Operator;
-import org.apache.druid.queryng.operators.Operator.EofException;
-import org.apache.druid.queryng.operators.Operator.ResultIterator;
 import org.apache.druid.queryng.operators.Operator.State;
 import org.apache.druid.queryng.operators.OperatorTest;
+import org.apache.druid.queryng.operators.ResultIterator;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -63,7 +63,7 @@ public class DeferredMergeOperatorTest
       ResultIterator<T> iter = op.open();
       return new OperatorInput<T>(op, iter, iter.next());
     }
-    catch (EofException e) {
+    catch (ResultIterator.EofException e) {
       fail();
       return null;
     }

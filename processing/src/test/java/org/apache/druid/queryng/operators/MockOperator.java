@@ -61,7 +61,7 @@ public class MockOperator<T> implements IterableOperator<T>
   }
 
   @Override
-  public T next() throws EofException
+  public T next() throws ResultIterator.EofException
   {
     if (rowPosn >= targetCount) {
       throw Operators.eof();

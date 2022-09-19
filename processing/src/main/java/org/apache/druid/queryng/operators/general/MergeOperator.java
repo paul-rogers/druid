@@ -24,6 +24,7 @@ import org.apache.druid.query.Query;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.AbstractMergeOperator;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.ResultIterator;
 
 import java.util.List;
 
@@ -70,7 +71,7 @@ public class MergeOperator<T> extends AbstractMergeOperator<T>
         ResultIterator<T> childIter = child.open();
         merger.add(new OperatorInput<T>(child, childIter, childIter.next()));
       }
-      catch (EofException e) {
+      catch (ResultIterator.EofException e) {
         child.close(true);
       }
     }

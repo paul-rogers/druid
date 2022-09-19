@@ -61,7 +61,7 @@ public class TransformOperator<IN, OUT> extends MappingOperator<IN, OUT>
   }
 
   @Override
-  public OUT next() throws EofException
+  public OUT next() throws ResultIterator.EofException
   {
     OUT out = transformFn.apply(inputIter.next());
     rowCount++;

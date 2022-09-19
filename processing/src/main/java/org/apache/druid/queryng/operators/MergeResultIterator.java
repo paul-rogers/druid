@@ -20,12 +20,12 @@
 package org.apache.druid.queryng.operators;
 
 import com.google.common.collect.Ordering;
-import org.apache.druid.queryng.operators.Operator.CloseableResultIterator;
-import org.apache.druid.queryng.operators.Operator.EofException;
+import org.apache.druid.queryng.operators.ResultIterator.CloseableResultIterator;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 
 import java.util.PriorityQueue;
 
-public class MergeResultIterator<T> implements CloseableResultIterator<T>
+public class MergeResultIterator<T> implements ResultIterator.CloseableResultIterator<T>
 {
   public interface Input<T>
   {
@@ -54,7 +54,7 @@ public class MergeResultIterator<T> implements CloseableResultIterator<T>
   }
 
   @Override
-  public T next() throws EofException
+  public T next() throws ResultIterator.EofException
   {
     if (pQueue.isEmpty()) {
       throw Operators.eof();

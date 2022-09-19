@@ -27,7 +27,7 @@ import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operators.Operator.EofException;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 import org.apache.druid.queryng.operators.general.QueryRunnerOperator;
 
 import java.io.IOException;
@@ -158,9 +158,9 @@ public class Operators
     return results;
   }
 
-  public static EofException eof()
+  public static ResultIterator.EofException eof()
   {
-    return new EofException();
+    return new ResultIterator.EofException();
   }
 
   public static void closeSafely(Closer closer)

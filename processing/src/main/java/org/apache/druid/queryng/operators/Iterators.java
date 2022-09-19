@@ -20,8 +20,7 @@
 package org.apache.druid.queryng.operators;
 
 import com.google.common.collect.Lists;
-import org.apache.druid.queryng.operators.Operator.EofException;
-import org.apache.druid.queryng.operators.Operator.ResultIterator;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 
 import java.util.Iterator;
 import java.util.List;
@@ -29,7 +28,7 @@ import java.util.NoSuchElementException;
 import java.util.function.Function;
 
 /**
- * Utility methods on top of {@link Operator.ResultIterator RowIterator},
+ * Utility methods on top of {@link ResultIterator RowIterator},
  * including conversion to a Java iterator (primarily for testing.)
  */
 public class Iterators
@@ -65,7 +64,7 @@ public class Iterators
         lookAhead = operIter.next();
         return true;
       }
-      catch (EofException e) {
+      catch (ResultIterator.EofException e) {
         eof = false;
         return false;
       }
@@ -91,7 +90,7 @@ public class Iterators
     }
 
     @Override
-    public T next() throws EofException
+    public T next() throws ResultIterator.EofException
     {
       if (iter.hasNext()) {
         rowCount++;
@@ -116,7 +115,7 @@ public class Iterators
     }
 
     @Override
-    public TO next() throws EofException
+    public TO next() throws ResultIterator.EofException
     {
       if (iter.hasNext()) {
         rowCount++;
@@ -141,7 +140,7 @@ public class Iterators
     }
 
     @Override
-    public TO next() throws EofException
+    public TO next() throws ResultIterator.EofException
     {
       if (iter.hasNext()) {
         rowCount++;
@@ -182,7 +181,7 @@ public class Iterators
     return new ResultIterator<T>()
     {
       @Override
-      public T next() throws EofException
+      public T next() throws ResultIterator.EofException
       {
         throw Operators.eof();
       }
@@ -196,7 +195,7 @@ public class Iterators
       private boolean eof;
 
       @Override
-      public T next() throws EofException
+      public T next() throws ResultIterator.EofException
       {
         if (eof) {
           throw Operators.eof();

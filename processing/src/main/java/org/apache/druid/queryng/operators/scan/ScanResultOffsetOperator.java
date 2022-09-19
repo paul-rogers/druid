@@ -24,6 +24,7 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
+import org.apache.druid.queryng.operators.ResultIterator;
 
 import java.util.List;
 
@@ -48,7 +49,7 @@ public class ScanResultOffsetOperator extends MappingOperator<ScanResultValue, S
   }
 
   @Override
-  public ScanResultValue next() throws EofException
+  public ScanResultValue next() throws ResultIterator.EofException
   {
     if (rowCount == 0) {
       return skip();
@@ -57,7 +58,7 @@ public class ScanResultOffsetOperator extends MappingOperator<ScanResultValue, S
     }
   }
 
-  private ScanResultValue skip() throws EofException
+  private ScanResultValue skip() throws ResultIterator.EofException
   {
     while (true) {
       ScanResultValue batch = inputIter.next();
