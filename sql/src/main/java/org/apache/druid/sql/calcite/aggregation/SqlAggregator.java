@@ -77,7 +77,8 @@ public interface SqlAggregator
       boolean finalizeAggregations
   );
 
-  default List<Class<? extends AggregatorFactory>> factories() {
+  default List<Class<? extends AggregatorFactory>> factories()
+  {
     return Collections.emptyList();
   }
 }

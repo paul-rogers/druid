@@ -350,68 +350,76 @@ public class SQLCatalogManager implements CatalogManager
   @Override
   public long updatePayload(TableId id, Function<TableSpec, TableSpec> transform) throws NotFoundException
   {
-    return dbi.withHandle(
-        new HandleCallback<Long>()
-        {
-          @Override
-          public Long withHandle(Handle handle) throws NotFoundException
+    try {
+      return dbi.withHandle(
+          new HandleCallback<Long>()
           {
-            handle.begin();
-            try {
-              Query<Map<String, Object>> query = handle.createQuery(
-                  StringUtils.format(SELECT_PAYLOAD, tableName)
-              )
-                  .setFetchSize(connector.getStreamingFetchSize())
-                  .bind("schemaName", id.schema())
-                  .bind("name", id.name());
+            @Override
+            public Long withHandle(Handle handle) throws NotFoundException
+            {
+              handle.begin();
+              try {
+                Query<Map<String, Object>> query = handle.createQuery(
+                    StringUtils.format(SELECT_PAYLOAD, tableName)
+                )
+                    .setFetchSize(connector.getStreamingFetchSize())
+                    .bind("schemaName", id.schema())
+                    .bind("name", id.name());
 
-              final ResultIterator<TableMetadata> resultIterator =
-                  query.map((index, r, ctx) ->
-                    new TableMetadata(
-                        id.schema(),
-                        id.name(),
-                        0,
-                        0,
-                        TableState.fromCode(r.getString(1)),
-                        TableSpec.fromBytes(jsonMapper, r.getBytes(2))
-                    ))
-                  .iterator();
-              TableMetadata table;
-              if (resultIterator.hasNext()) {
-                table = resultIterator.next();
-              } else {
+                final ResultIterator<TableMetadata> resultIterator =
+                    query.map((index, r, ctx) ->
+                      new TableMetadata(
+                          id.schema(),
+                          id.name(),
+                          0,
+                          0,
+                          TableState.fromCode(r.getString(1)),
+                          TableSpec.fromBytes(jsonMapper, r.getBytes(2))
+                      ))
+                    .iterator();
+                TableMetadata table;
+                if (resultIterator.hasNext()) {
+                  table = resultIterator.next();
+                } else {
+                  handle.rollback();
+                  throw new NotFoundException(
+                      StringUtils.format("Table %s: not found", id.sqlName())
+                  );
+                }
+                if (table.state() != TableState.ACTIVE) {
+                  throw new ISE("Table is in state [%s] and cannot be updated", table.state());
+                }
+                TableSpec revised = transform.apply(table.spec());
+                long updateTime = System.currentTimeMillis();
+                int updateCount = handle.createStatement(
+                    StringUtils.format(UPDATE_DEFN_UNSAFE, tableName))
+                    .bind("schemaName", id.schema())
+                    .bind("name", id.name())
+                    .bind("payload", revised.toBytes(jsonMapper))
+                    .bind("updateTime", updateTime)
+                    .execute();
+                if (updateCount == 0) {
+                  // Should never occur because we're holding a lock.
+                  throw new ISE("Table %s: not found", id.sqlName());
+                }
+                handle.commit();
+                sendUpdate(id);
+                return updateTime;
+              }
+              catch (RuntimeException e) {
                 handle.rollback();
-                throw new NotFoundException(
-                    StringUtils.format("Table %s: not found", id.sqlName())
-                );
+                throw e;
               }
-              if (table.state() != TableState.ACTIVE) {
-                throw new ISE("Table is in state [%s] and cannot be updated", table.state());
-              }
-              TableSpec revised = transform.apply(table.spec());
-              long updateTime = System.currentTimeMillis();
-              int updateCount = handle.createStatement(
-                  StringUtils.format(UPDATE_DEFN_UNSAFE, tableName))
-                  .bind("schemaName", id.schema())
-                  .bind("name", id.name())
-                  .bind("payload", revised.toBytes(jsonMapper))
-                  .bind("updateTime", updateTime)
-                  .execute();
-              if (updateCount == 0) {
-                // Should never occur because we're holding a lock.
-                throw new ISE("Table %s: not found", id.sqlName());
-              }
-              handle.commit();
-              sendUpdate(id);
-              return updateTime;
-            }
-            catch (RuntimeException e) {
-              handle.rollback();
-              throw e;
             }
           }
-        }
-    );
+      );
+    }
+    catch (CallbackFailedException e) {
+      if (e.getCause() instanceof NotFoundException) {
+        throw (NotFoundException) e.getCause();
+      }
+      throw e;
+    }
   }
 
   @Override

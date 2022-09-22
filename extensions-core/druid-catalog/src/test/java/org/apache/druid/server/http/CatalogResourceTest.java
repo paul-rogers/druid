@@ -25,6 +25,7 @@ import org.apache.druid.catalog.CatalogTest;
 import org.apache.druid.catalog.CatalogTests;
 import org.apache.druid.catalog.CatalogUtils;
 import org.apache.druid.catalog.DatasourceSpec;
+import org.apache.druid.catalog.HideColumns;
 import org.apache.druid.catalog.InputTableSpec;
 import org.apache.druid.catalog.MoveColumn;
 import org.apache.druid.catalog.TableId;
@@ -39,6 +40,7 @@ import org.junit.experimental.categories.Category;
 import javax.ws.rs.core.Response;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -46,6 +48,7 @@ import static org.apache.druid.server.http.DummyRequest.deleteBy;
 import static org.apache.druid.server.http.DummyRequest.getBy;
 import static org.apache.druid.server.http.DummyRequest.postBy;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -501,15 +504,16 @@ public class CatalogResourceTest
     long version = getVersion(resp);
 
     // Bad schema
-    MoveColumn cmd = new MoveColumn(null, MoveColumn.Position.FIRST, null);
+    MoveColumn cmd = new MoveColumn("foo", MoveColumn.Position.FIRST, null);
     resp = resource.moveColumn("bogus", tableName, cmd, postBy(CatalogTests.WRITER_USER));
-    assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), resp.getStatus());
+    assertEquals(Response.Status.NOT_FOUND.getStatusCode(), resp.getStatus());
 
     // Bad table
     resp = resource.moveColumn(TableId.DRUID_SCHEMA, "bogus", cmd, postBy(CatalogTests.WRITER_USER));
-    assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), resp.getStatus());
+    assertEquals(Response.Status.NOT_FOUND.getStatusCode(), resp.getStatus());
 
     // No target column
+    cmd = new MoveColumn(null, MoveColumn.Position.FIRST, null);
     resp = resource.moveColumn(TableId.DRUID_SCHEMA, tableName, cmd, postBy(CatalogTests.WRITER_USER));
     assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), resp.getStatus());
 
@@ -533,5 +537,103 @@ public class CatalogResourceTest
     );
 
     // Other cases are tested in CommandTest since all the REST plumbing is the same
+  }
+
+  @Test
+  public void testHideColumns()
+  {
+    String tableName = "hide";
+    DatasourceSpec dsSpec = DatasourceSpec.builder()
+        .segmentGranularity("P1D")
+        .build();
+    Response resp = resource.postTable(TableId.DRUID_SCHEMA, tableName, dsSpec, null, 0, postBy(CatalogTests.WRITER_USER));
+    assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
+    long version = getVersion(resp);
+
+    // Bad schema
+    HideColumns cmd = new HideColumns(null, null);
+    resp = resource.hideColumns("bogus", tableName, cmd, postBy(CatalogTests.WRITER_USER));
+    assertEquals(Response.Status.NOT_FOUND.getStatusCode(), resp.getStatus());
+
+    // Bad table
+    resp = resource.hideColumns(TableId.DRUID_SCHEMA, "bogus", cmd, postBy(CatalogTests.WRITER_USER));
+    assertEquals(Response.Status.NOT_FOUND.getStatusCode(), resp.getStatus());
+
+    // Nothing to do
+    resp = resource.hideColumns(TableId.DRUID_SCHEMA, tableName, cmd, postBy(CatalogTests.WRITER_USER));
+    assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
+
+    resp = resource.getTable(TableId.DRUID_SCHEMA, tableName, postBy(CatalogTests.READER_USER));
+    TableMetadata read = (TableMetadata) resp.getEntity();
+    assertNull(((DatasourceSpec) read.spec()).hiddenColumns());
+
+    // Hide
+    cmd = new HideColumns(Arrays.asList("a", "b"), null);
+    resp = resource.hideColumns(TableId.DRUID_SCHEMA, tableName, cmd, postBy(CatalogTests.WRITER_USER));
+    assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
+
+    resp = resource.getTable(TableId.DRUID_SCHEMA, tableName, postBy(CatalogTests.READER_USER));
+    read = (TableMetadata) resp.getEntity();
+    assertEquals(Arrays.asList("a", "b"), ((DatasourceSpec) read.spec()).hiddenColumns());
+    assertTrue(read.updateTime() > version);
+
+    // Unhide + hide
+    cmd = new HideColumns(Arrays.asList("b", "c"), Arrays.asList("a", "e"));
+    resp = resource.hideColumns(TableId.DRUID_SCHEMA, tableName, cmd, postBy(CatalogTests.WRITER_USER));
+    assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
+
+    resp = resource.getTable(TableId.DRUID_SCHEMA, tableName, postBy(CatalogTests.READER_USER));
+    read = (TableMetadata) resp.getEntity();
+    assertEquals(Arrays.asList("b", "c"), ((DatasourceSpec) read.spec()).hiddenColumns());
+    assertTrue(read.updateTime() > version);
+
+    // Other cases are tested in CommandTest
+  }
+
+  @Test
+  public void testDropColumns()
+  {
+    String tableName = "drop";
+    DatasourceSpec dsSpec = DatasourceSpec.builder()
+        .segmentGranularity("P1D")
+        .column("a", "VARCHAR")
+        .column("b", "BIGINT")
+        .column("c", "FLOAT")
+        .build();
+
+    Response resp = resource.postTable(TableId.DRUID_SCHEMA, tableName, dsSpec, null, 0, postBy(CatalogTests.WRITER_USER));
+    assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
+    long version = getVersion(resp);
+
+    // Bad schema
+    resp = resource.dropColumns("bogus", tableName, Collections.emptyList(), postBy(CatalogTests.WRITER_USER));
+    assertEquals(Response.Status.NOT_FOUND.getStatusCode(), resp.getStatus());
+
+    // Bad table
+    resp = resource.dropColumns(TableId.DRUID_SCHEMA, "bogus", Collections.emptyList(), postBy(CatalogTests.WRITER_USER));
+    assertEquals(Response.Status.NOT_FOUND.getStatusCode(), resp.getStatus());
+
+    // Nothing to do
+    resp = resource.dropColumns(TableId.DRUID_SCHEMA, tableName, Collections.emptyList(), postBy(CatalogTests.WRITER_USER));
+    assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
+
+    resp = resource.getTable(TableId.DRUID_SCHEMA, tableName, postBy(CatalogTests.READER_USER));
+    TableMetadata read = (TableMetadata) resp.getEntity();
+    assertEquals(
+        CatalogUtils.columnNames(dsSpec.columns()),
+        CatalogUtils.columnNames(((DatasourceSpec) read.spec()).columns())
+    );
+
+    // Drop
+    resp = resource.dropColumns(TableId.DRUID_SCHEMA, tableName, Arrays.asList("a", "c"), postBy(CatalogTests.WRITER_USER));
+    assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
+
+    resp = resource.getTable(TableId.DRUID_SCHEMA, tableName, postBy(CatalogTests.READER_USER));
+    read = (TableMetadata) resp.getEntity();
+    assertTrue(read.updateTime() > version);
+    assertEquals(
+        Collections.singletonList("b"),
+        CatalogUtils.columnNames(((DatasourceSpec) read.spec()).columns())
+    );
   }
 }

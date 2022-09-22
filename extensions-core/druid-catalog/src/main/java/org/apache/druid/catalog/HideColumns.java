@@ -47,6 +47,12 @@ public class HideColumns
     this.unhide = unhide;
   }
 
+  public boolean isEmpty()
+  {
+    return (hide == null || hide.isEmpty())
+        && (unhide == null || unhide.isEmpty());
+  }
+
   public List<String> perform(List<String> hiddenColumns)
   {
     if (hiddenColumns == null) {
@@ -65,8 +71,12 @@ public class HideColumns
       }
     }
     if (hide != null) {
-      revised.addAll(hide);
+      for (String col : hide) {
+        if (!existing.contains(col)) {
+          revised.add(col);
+        }
+      }
     }
-    return hiddenColumns.isEmpty() ? null : hiddenColumns;
+    return revised.isEmpty() ? null : revised;
   }
 }

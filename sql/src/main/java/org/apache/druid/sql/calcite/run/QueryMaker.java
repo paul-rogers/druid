@@ -19,8 +19,8 @@
 
 package org.apache.druid.sql.calcite.run;
 
-import org.apache.druid.server.QueryResponse;
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.server.QueryResponse;
 import org.apache.druid.sql.calcite.rel.DruidQuery;
 
 /**

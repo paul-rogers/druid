@@ -2,8 +2,10 @@ package org.apache.druid.catalog;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -73,5 +75,22 @@ public class CatalogUtils
            .stream()
            .map(col -> col.name)
            .collect(Collectors.toList());
+  }
+
+  public static <T extends ColumnSpec> List<T> dropColumns(
+      final List<T> columns,
+      final List<String> toDrop)
+  {
+    if (toDrop == null || toDrop.isEmpty()) {
+      return columns;
+    }
+    Set<String> drop = new HashSet<String>(toDrop);
+    List<T> revised = new ArrayList<>();
+    for (T col : columns) {
+      if (!drop.contains(col.name())) {
+        revised.add(col);
+      }
+    }
+    return revised;
   }
 }

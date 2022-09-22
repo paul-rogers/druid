@@ -44,7 +44,6 @@ import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.UnsupportedSQLQueryException;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 public class SumSqlAggregator extends SimpleSqlAggregator
@@ -79,7 +78,8 @@ public class SumSqlAggregator extends SimpleSqlAggregator
   }
 
   @Override
-  public List<Class<? extends AggregatorFactory>> factories() {
+  public List<Class<? extends AggregatorFactory>> factories()
+  {
     return Arrays.asList(
         LongSumAggregatorFactory.class,
         FloatSumAggregatorFactory.class,

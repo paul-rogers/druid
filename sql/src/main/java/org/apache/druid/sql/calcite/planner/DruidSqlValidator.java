@@ -40,7 +40,6 @@ import org.apache.calcite.sql.validate.SqlScopedShuttle;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.util.Util;
-import org.apache.druid.sql.calcite.planner.DruidMetadataResolver;
 import org.apache.druid.sql.calcite.table.DatasourceTable;
 
 /**
@@ -64,7 +63,8 @@ class DruidSqlValidator extends BaseDruidSqlValidator
   }
 
   @Override
-  public SqlNode expand(SqlNode expr, SqlValidatorScope scope) {
+  public SqlNode expand(SqlNode expr, SqlValidatorScope scope)
+  {
     final Expander expander = new Expander(this, scope);
     SqlNode newExpr = expr.accept(expander);
     if (expr != newExpr) {

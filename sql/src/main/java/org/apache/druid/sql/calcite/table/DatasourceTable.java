@@ -30,6 +30,7 @@ import org.apache.calcite.util.Util;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.aggregation.AggregatorFactory;
+import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.aggregation.SqlAggregator;
@@ -152,7 +153,7 @@ public class DatasourceTable extends DruidTable
     }
   }
 
-  public static enum ColumnKind
+  public enum ColumnKind
   {
     TIME,
     DETAIL,
@@ -160,7 +161,7 @@ public class DatasourceTable extends DruidTable
     MEASURE
   }
 
-  public static abstract class EffectiveColumnMetadata
+  public abstract static class EffectiveColumnMetadata
   {
     protected final String name;
     protected final ColumnType type;
@@ -185,7 +186,7 @@ public class DatasourceTable extends DruidTable
 
     public static EffectiveColumnMetadata fromPhysical(String name, ColumnType type, AggregatorFactory agg)
     {
-      if (name.equals("__time")) {
+      if (ColumnHolder.TIME_COLUMN_NAME.equals(name)) {
         return new EffectiveDimensionMetadata(name, type, ColumnKind.TIME);
       } else if (agg == null) {
         return new EffectiveDimensionMetadata(name, type, ColumnKind.DIMENSION);
@@ -273,13 +274,14 @@ public class DatasourceTable extends DruidTable
     }
   }
 
-  public static abstract class EffectiveMetadata
+  public abstract static class EffectiveMetadata
   {
     private final boolean isEmpty;
     private final Map<String, EffectiveColumnMetadata> columns;
 
 
-    public EffectiveMetadata(Map<String, EffectiveColumnMetadata> columns, boolean isEmpty) {
+    public EffectiveMetadata(Map<String, EffectiveColumnMetadata> columns, boolean isEmpty)
+    {
       this.isEmpty = isEmpty;
       this.columns = columns;
     }

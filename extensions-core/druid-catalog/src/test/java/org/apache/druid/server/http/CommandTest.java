@@ -117,23 +117,29 @@ public class CommandTest
     revised = cmd.perform(null);
     assertEquals(Arrays.asList("a", "b"), revised);
 
-    // Hide with existing columns
-    cmd = new HideColumns(Arrays.asList("b", "d"), null);
-    revised = cmd.perform(Arrays.asList("a", "b", "c"));
-    assertEquals(Arrays.asList("a", "c", "d"), revised);
-
     // Hide starting from an empty list.
     cmd = new HideColumns(Arrays.asList("a", "b"), Collections.emptyList());
     revised = cmd.perform(Collections.emptyList());
     assertEquals(Arrays.asList("a", "b"), revised);
 
     // Hide with existing columns
-    cmd = new HideColumns(null, Arrays.asList("b", "d"));
+    cmd = new HideColumns(Arrays.asList("b", "d"), null);
+    revised = cmd.perform(Arrays.asList("a", "b", "c"));
+    assertEquals(Arrays.asList("a", "b", "c", "d"), revised);
+
+    // Hide with existing columns
+    cmd = new HideColumns(Arrays.asList("b", "d"), null);
     revised = cmd.perform(Arrays.asList("a", "b", "c"));
     assertEquals(Arrays.asList("a", "b", "c", "d"), revised);
 
     // Unhide existing columns
+    cmd = new HideColumns(null, Arrays.asList("b", "d"));
+    revised = cmd.perform(Arrays.asList("a", "b", "c"));
+    assertEquals(Arrays.asList("a", "c"), revised);
 
-    // Both hide and unhide. Unhide takes precedence.
+    // Both hide and unhide. Hide takes precedence.
+    cmd = new HideColumns(Arrays.asList("b", "d", "e"), Arrays.asList("c", "d"));
+    revised = cmd.perform(Arrays.asList("a", "b", "c"));
+    assertEquals(Arrays.asList("a", "b", "d", "e"), revised);
   }
 }

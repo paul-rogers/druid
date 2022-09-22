@@ -24,6 +24,7 @@ import com.google.common.base.Strings;
 import org.apache.curator.shaded.com.google.common.collect.Lists;
 import org.apache.druid.catalog.Actions;
 import org.apache.druid.catalog.CatalogStorage;
+import org.apache.druid.catalog.CatalogUtils;
 import org.apache.druid.catalog.DatasourceSpec;
 import org.apache.druid.catalog.HideColumns;
 import org.apache.druid.catalog.MoveColumn;
@@ -407,11 +408,16 @@ public class CatalogResource
         }
     );
   }
+
+  /**
+   * Hide or unhide columns. If both appear, hide takes precedence. Returns the
+   * new table version.
+   */
   @POST
-  @Path("/tables/{dbSchema}/{name}/dropColumn")
+  @Path("/tables/{dbSchema}/{name}/hideColumns")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response dropColumn(
+  public Response hideColumns(
       @PathParam("dbSchema") final String dbSchema,
       @PathParam("name") final String name,
       final HideColumns command,
@@ -424,11 +430,42 @@ public class CatalogResource
         req,
         (spec) -> {
           if (!(spec instanceof DatasourceSpec)) {
-            throw new ISE("moveColumn is supported only for data source specs");
+            throw new ISE("hideColumns is supported only for data source specs");
           }
           DatasourceSpec dsSpec = (DatasourceSpec) spec;
           DatasourceSpec.Builder builder = dsSpec.toBuilder();
           builder.hiddenColumns(command.perform(dsSpec.hiddenColumns()));
+          return builder.build();
+        }
+    );
+  }
+
+  /**
+   * Drop column metadata. Only removes metadata entries, has no effect on the
+   * physical segments. Returns the new table version.
+   */
+  @POST
+  @Path("/tables/{dbSchema}/{name}/dropColumns")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response dropColumns(
+      @PathParam("dbSchema") final String dbSchema,
+      @PathParam("name") final String name,
+      final List<String> columns,
+      @Context final HttpServletRequest req
+  )
+  {
+    return incrementalUpdate(
+        TableId.of(dbSchema, name),
+        null,
+        req,
+        (spec) -> {
+          if (!(spec instanceof DatasourceSpec)) {
+            throw new ISE("dropColumns is supported only for data source specs");
+          }
+          DatasourceSpec dsSpec = (DatasourceSpec) spec;
+          DatasourceSpec.Builder builder = dsSpec.toBuilder();
+          builder.columns(CatalogUtils.dropColumns(dsSpec.columns(), columns));
           return builder.build();
         }
     );
@@ -685,6 +722,16 @@ public class CatalogResource
   )
   {
     return getTable(dbSchema, name, req);
+  }
+
+  @POST
+  @Path("/flush")
+  public Response flush(
+      @Context final HttpServletRequest req
+  )
+  {
+    // Nothing to do yet.
+    return Actions.ok();
   }
 
   private Pair<Response, SchemaSpec> validateSchema(String dbSchema)

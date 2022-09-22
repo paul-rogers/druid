@@ -308,6 +308,13 @@ public class DatasourceSpecTest
   }
 
   @Test
+  public void testRoundTrip()
+  {
+    DatasourceSpec spec = exampleSpec();
+    assertEquals(spec, spec.toBuilder().build());
+  }
+
+  @Test
   public void testMergeEmpty()
   {
     ObjectMapper mapper = new ObjectMapper();
