@@ -23,6 +23,7 @@ import org.apache.druid.catalog.MeasureTypes.MeasureType;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,55 +31,19 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
 
+@Category(CatalogTest.class)
 public class MeasureTypesTest
 {
   @Test
   public void testInvalid()
   {
-    try {
-      MeasureTypes.parse("");
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
-    }
-    try {
-      MeasureTypes.parse("FOO");
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
-    }
-    try {
-      MeasureTypes.parse("FOO(");
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
-    }
-    try {
-      MeasureTypes.parse("FOO)");
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
-    }
-    try {
-      MeasureTypes.parse("MIN(,,)");
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
-    }
-    try {
-      MeasureTypes.parse("MIN(VARCHAR");
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
-    }
+    assertThrows(IAE.class, () -> MeasureTypes.parse(""));
+    assertThrows(IAE.class, () -> MeasureTypes.parse("FOO"));
+    assertThrows(IAE.class, () -> MeasureTypes.parse("FOO("));
+    assertThrows(IAE.class, () -> MeasureTypes.parse("FOO)"));
+    assertThrows(IAE.class, () -> MeasureTypes.parse("MIN(,,)"));
+    assertThrows(IAE.class, () -> MeasureTypes.parse("MIN(VARCHAR"));
   }
 
   @Test

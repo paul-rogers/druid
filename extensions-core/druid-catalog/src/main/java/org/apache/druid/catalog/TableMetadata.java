@@ -19,7 +19,6 @@
 
 package org.apache.druid.catalog;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
@@ -47,7 +46,6 @@ public class TableMetadata
 
   private final String dbSchema;
   private final String name;
-  private final String owner;
   private final long creationTime;
   private final long updateTime;
   private final TableState state;
@@ -56,7 +54,6 @@ public class TableMetadata
   public TableMetadata(
       @JsonProperty("dbSchema") String dbSchema,
       @JsonProperty("name") String name,
-      @JsonProperty("owner") String owner,
       @JsonProperty("creationTime") long creationTime,
       @JsonProperty("updateTime") long updateTime,
       @JsonProperty("state") TableState state,
@@ -64,7 +61,6 @@ public class TableMetadata
   {
     this.dbSchema = dbSchema;
     this.name = name;
-    this.owner = owner;
     this.creationTime = creationTime;
     this.updateTime = updateTime;
     this.state = state;
@@ -88,7 +84,6 @@ public class TableMetadata
     return new TableMetadata(
         dbSchema,
         name,
-        null,
         0,
         0,
         TableState.ACTIVE,
@@ -111,7 +106,6 @@ public class TableMetadata
     return new TableMetadata(
         dbSchema,
         name,
-        owner,
         updateTime,
         updateTime,
         state,
@@ -123,26 +117,36 @@ public class TableMetadata
     return new TableMetadata(
         dbSchema,
         name,
-        owner,
         creationTime,
         updateTime,
         state,
         spec);
   }
 
-  public TableMetadata withSchema(String dbSchema)
+//  public TableMetadata withSchema(String dbSchema)
+//  {
+//    if (dbSchema.equals(this.dbSchema)) {
+//      return this;
+//    }
+//    return new TableMetadata(
+//        dbSchema,
+//        name,
+//        creationTime,
+//        updateTime,
+//        state,
+//        spec);
+//  }
+
+  public TableMetadata withSpec(TableSpec spec)
   {
-    if (dbSchema.equals(this.dbSchema)) {
-      return this;
-    }
     return new TableMetadata(
-        dbSchema,
-        name,
-        owner,
-        creationTime,
-        updateTime,
-        state,
-        spec);
+      dbSchema,
+      name,
+      creationTime,
+      updateTime,
+      state,
+      spec
+    );
   }
 
   public TableId id()
@@ -165,13 +169,6 @@ public class TableMetadata
   public String sqlName()
   {
     return StringUtils.format("\"%s\".\"%s\"", dbSchema, name);
-  }
-
-  @JsonProperty("owner")
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  public String owner()
-  {
-    return owner;
   }
 
   @JsonProperty("state")
@@ -255,7 +252,6 @@ public class TableMetadata
     TableMetadata other = (TableMetadata) o;
     return Objects.equals(dbSchema, other.dbSchema)
         && Objects.equals(name, other.name)
-        && Objects.equals(owner, other.owner)
         && creationTime == other.creationTime
         && updateTime == other.updateTime
         && state == other.state
@@ -268,7 +264,6 @@ public class TableMetadata
     return Objects.hash(
         dbSchema,
         name,
-        owner,
         creationTime,
         updateTime,
         state,

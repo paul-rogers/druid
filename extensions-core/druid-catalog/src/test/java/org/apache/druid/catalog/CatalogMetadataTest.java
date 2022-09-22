@@ -27,11 +27,13 @@ import org.apache.druid.catalog.TableMetadata.TableType;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.metadata.TestDerbyConnector;
 import org.apache.druid.metadata.catalog.CatalogManager.DuplicateKeyException;
+import org.apache.druid.metadata.catalog.CatalogManager.NotFoundException;
 import org.apache.druid.metadata.catalog.CatalogManager.OutOfDateException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.List;
 import java.util.Map;
@@ -40,10 +42,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
-public class MetadataCatalogTest
+@Category(CatalogTest.class)
+public class CatalogMetadataTest
 {
   @Rule
   public final TestDerbyConnector.DerbyConnectorRule derbyConnectorRule = new TestDerbyConnector.DerbyConnectorRule();
@@ -83,7 +86,8 @@ public class MetadataCatalogTest
           "format",
           "csv",
           "data",
-          "a\nc\n");
+          "a\nc\n"
+      );
       InputTableSpec inputSpec = InputTableSpec
           .builder()
           .properties(props)
@@ -92,7 +96,8 @@ public class MetadataCatalogTest
       TableMetadata table = TableMetadata.newTable(
           TableId.INPUT_SCHEMA,
           "input",
-          inputSpec);
+          inputSpec
+      );
       storage.validate(table);
     }
 
@@ -104,7 +109,8 @@ public class MetadataCatalogTest
           "format",
           "csv",
           "data",
-          "a\nc\n");
+          "a\nc\n"
+      );
       InputTableSpec inputSpec = InputTableSpec
           .builder()
           .properties(props)
@@ -112,14 +118,9 @@ public class MetadataCatalogTest
       TableMetadata table = TableMetadata.newTable(
           TableId.INPUT_SCHEMA,
           "input",
-          inputSpec);
-      try {
-        storage.validate(table);
-        fail();
-      }
-      catch (IAE e) {
-        // Expected
-      }
+          inputSpec
+      );
+      assertThrows(IAE.class, () -> storage.validate(table));
     }
 
     // No format
@@ -128,7 +129,8 @@ public class MetadataCatalogTest
           "source",
           "inline",
           "data",
-          "a\nc\n");
+          "a\nc\n"
+      );
       InputTableSpec inputSpec = InputTableSpec
           .builder()
           .properties(props)
@@ -137,19 +139,14 @@ public class MetadataCatalogTest
       TableMetadata table = TableMetadata.newTable(
           TableId.INPUT_SCHEMA,
           "input",
-          inputSpec);
-      try {
-        storage.validate(table);
-        fail();
-      }
-      catch (IAE e) {
-        // Expected
-      }
+          inputSpec
+      );
+      assertThrows(IAE.class, () -> storage.validate(table));
     }
   }
 
   @Test
-  public void testDirect() throws DuplicateKeyException, OutOfDateException
+  public void testDirect() throws DuplicateKeyException, OutOfDateException, NotFoundException
   {
     populateCatalog();
     MetadataCatalog catalog = new LocalMetadataCatalog(storage, storage.schemaRegistry());
@@ -159,7 +156,7 @@ public class MetadataCatalogTest
   }
 
   @Test
-  public void testCached() throws DuplicateKeyException, OutOfDateException
+  public void testCached() throws DuplicateKeyException, OutOfDateException, NotFoundException
   {
     populateCatalog();
     CachedMetadataCatalog catalog = new CachedMetadataCatalog(storage, storage.schemaRegistry());
@@ -180,18 +177,18 @@ public class MetadataCatalogTest
   }
 
   @Test
-  public void testRemoteWithJson() throws DuplicateKeyException, OutOfDateException
+  public void testRemoteWithJson() throws DuplicateKeyException, OutOfDateException, NotFoundException
   {
     doTestRemote(false);
   }
 
   @Test
-  public void testRemoteWithSmile() throws DuplicateKeyException, OutOfDateException
+  public void testRemoteWithSmile() throws DuplicateKeyException, OutOfDateException, NotFoundException
   {
     doTestRemote(true);
   }
 
-  private void doTestRemote(boolean useSmile) throws DuplicateKeyException, OutOfDateException
+  private void doTestRemote(boolean useSmile) throws DuplicateKeyException, OutOfDateException, NotFoundException
   {
     populateCatalog();
     MockCatalogSync sync = new MockCatalogSync(storage, jsonMapper, smileMapper, useSmile);
@@ -226,7 +223,8 @@ public class MetadataCatalogTest
     TableMetadata table = TableMetadata.newTable(
         TableId.DRUID_SCHEMA,
         "table1",
-        spec);
+        spec
+    );
     storage.tables().create(table);
 
     spec = DatasourceSpec.builder()
@@ -239,7 +237,8 @@ public class MetadataCatalogTest
     table = TableMetadata.newTable(
         TableId.DRUID_SCHEMA,
         "table2",
-        spec);
+        spec
+    );
     storage.tables().create(table);
 
     Map<String, Object> props = ImmutableMap.of(
@@ -248,7 +247,8 @@ public class MetadataCatalogTest
         "format",
         "csv",
         "data",
-        "a\nc\n");
+        "a\nc\n"
+    );
     InputTableSpec inputSpec = InputTableSpec
         .builder()
         .properties(props)
@@ -257,7 +257,8 @@ public class MetadataCatalogTest
     table = TableMetadata.newTable(
         TableId.INPUT_SCHEMA,
         "input",
-        inputSpec);
+        inputSpec
+    );
     storage.validate(table);
     storage.tables().create(table);
   }
@@ -339,7 +340,7 @@ public class MetadataCatalogTest
     assertEquals("input", tables.get(0).id().name());
   }
 
-  private void alterCatalog() throws DuplicateKeyException, OutOfDateException
+  private void alterCatalog() throws DuplicateKeyException, OutOfDateException, NotFoundException
   {
     // Add a column to table 1
     TableId id1 = TableId.datasource("table1");
@@ -350,7 +351,7 @@ public class MetadataCatalogTest
     spec = spec.toBuilder()
         .column("b", "DOUBLE")
         .build();
-    storage.tables().updateSpec(id1, spec, table1.updateTime());
+    storage.tables().update(table1.withSpec(spec), table1.updateTime());
 
     // Create a table 3
     spec = DatasourceSpec.builder()
@@ -361,7 +362,8 @@ public class MetadataCatalogTest
     TableMetadata table = TableMetadata.newTable(
         TableId.DRUID_SCHEMA,
         "table3",
-        spec);
+        spec
+    );
     storage.tables().create(table);
   }
 

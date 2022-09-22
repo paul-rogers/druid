@@ -20,9 +20,11 @@
 package org.apache.druid.catalog.model;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.catalog.CatalogTest;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.io.File;
 import java.util.Arrays;
@@ -33,9 +35,10 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
+@Category(CatalogTest.class)
 public class SubTypeTest
 {
   @Test
@@ -74,13 +77,7 @@ public class SubTypeTest
         new PropertyConverter("foo", "foo", PropertyConverter.VARCHAR_TYPE),
         new PropertyConverter("foo", "foo", PropertyConverter.VARCHAR_TYPE),
     };
-    try {
-      new SubTypeConverter("st", "type", props);
-      fail();
-    }
-    catch (ISE e) {
-      // Expected
-    }
+    assertThrows(ISE.class, () -> new SubTypeConverter("st", "type", props));
   }
 
   @Test
@@ -93,13 +90,7 @@ public class SubTypeTest
 
     Map<String, Object> args = ImmutableMap.of("v", 10);
     Map<String, ModelArg> modelArgs = ModelArg.convertArgs(args);
-    try {
-      converter.convert(modelArgs, Collections.emptyList());
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
-    }
+    assertThrows(IAE.class, () -> converter.convert(modelArgs, Collections.emptyList()));
   }
 
   @Test
@@ -145,13 +136,6 @@ public class SubTypeTest
 
     Map<String, Object> args = ImmutableMap.of("v", "foo", "alias", "bar");
     Map<String, ModelArg> modelArgs = ModelArg.convertArgs(args);
-    try {
-      converter.convert(modelArgs, Collections.emptyList());
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
-      assertTrue(e.getMessage().contains("Specify only one of"));
-    }
+    assertThrows(IAE.class, () -> converter.convert(modelArgs, Collections.emptyList()));
   }
 }

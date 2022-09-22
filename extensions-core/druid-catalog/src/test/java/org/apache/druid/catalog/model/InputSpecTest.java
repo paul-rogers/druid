@@ -21,6 +21,7 @@ package org.apache.druid.catalog.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.catalog.CatalogTest;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.java.util.common.IAE;
@@ -28,6 +29,7 @@ import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.external.ColumnSchema;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.io.File;
 import java.net.URI;
@@ -39,9 +41,10 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
+@Category(CatalogTest.class)
 public class InputSpecTest
 {
   @Test
@@ -58,7 +61,8 @@ public class InputSpecTest
           "baseDir",
           "/tmp",
           "filter",
-          "*.csv");
+          "*.csv"
+      );
       assertEquals(expected, jsonMap);
     }
 
@@ -71,7 +75,8 @@ public class InputSpecTest
           "baseDir",
           "/tmp",
           "files",
-          Collections.singletonList(new File("foo.csv")));
+          Collections.singletonList(new File("foo.csv"))
+      );
       assertEquals(expected, jsonMap);
     }
 
@@ -84,7 +89,8 @@ public class InputSpecTest
           "baseDir",
           "/tmp",
           "files",
-          Arrays.asList(new File("foo.csv"), new File("bar.csv")));
+          Arrays.asList(new File("foo.csv"), new File("bar.csv"))
+      );
       assertEquals(expected, jsonMap);
     }
   }
@@ -140,7 +146,7 @@ public class InputSpecTest
   {
     SubTypeConverter converter = new ExternalSpec.CsvFormatConverter();
     Map<String, Object> args = ImmutableMap.of(
-        "delimiter", ",", "skipRows", 1);
+        "listDelimiter", ",", "skipRows", 1);
     Map<String, ModelArg> modelArgs = ModelArg.convertArgs(args);
     List<ColumnSchema> cols = Arrays.asList(
         new ColumnSchema("x", ColumnType.STRING),
@@ -155,7 +161,8 @@ public class InputSpecTest
         "hasHeaderRow",
         false,
         "columns",
-        Arrays.asList("x", "y"));
+        Arrays.asList("x", "y")
+    );
     assertEquals(expected, jsonMap);
   }
 
@@ -181,7 +188,7 @@ public class InputSpecTest
     Map<String, Object> sourceArgs = ImmutableMap.of(
         "source", "local", "baseDir", "/tmp", "fileFilter", "*.csv");
     Map<String, Object> formatArgs = ImmutableMap.of(
-        "format", "csv", "delimiter", "|", "skipRows", 1);
+        "format", "csv", "listDelimiter", "|", "skipRows", 1);
     Map<String, Object> args = new HashMap<>(sourceArgs);
     args.putAll(formatArgs);
 
@@ -197,7 +204,8 @@ public class InputSpecTest
             "baseDir",
             "/tmp",
             "filter",
-            "*.csv"),
+            "*.csv"
+        ),
         "inputFormat",
         ImmutableMap.of(
             "type",
@@ -209,7 +217,9 @@ public class InputSpecTest
             "hasHeaderRow",
             false,
             "columns",
-            Arrays.asList("x", "y")));
+            Arrays.asList("x", "y")
+        )
+    );
     assertEquals(expected, converter.convertToMap(args, cols));
 
     ExternalSpec spec = converter.convert(args, cols);
@@ -239,14 +249,9 @@ public class InputSpecTest
           "format",
           "csv",
           "data",
-          "a\nc\n");
-      try {
-        converter.validateProperties(props, Collections.emptyList());
-        fail();
-      }
-      catch (IAE e) {
-        // Expected
-      }
+          "a\nc\n"
+      );
+      assertThrows(IAE.class, () -> converter.validateProperties(props, Collections.emptyList()));
     }
 
     // No format
@@ -256,28 +261,18 @@ public class InputSpecTest
           "source",
           "inline",
           "data",
-          "a\nc\n");
-      try {
-        converter.validateProperties(props, oneCol);
-        fail();
-      }
-      catch (IAE e) {
-        // Expected
-      }
+          "a\nc\n"
+      );
+      assertThrows(IAE.class, () -> converter.validateProperties(props, oneCol));
     }
 
     // No source
     {
       Map<String, Object> props = ImmutableMap.of(
           "format",
-          "csv");
-      try {
-        converter.validateProperties(props, oneCol);
-        fail();
-      }
-      catch (IAE e) {
-        // Expected
-      }
+          "csv"
+      );
+      assertThrows(IAE.class, () -> converter.validateProperties(props, oneCol));
     }
 
     // Invalid source
@@ -288,14 +283,9 @@ public class InputSpecTest
           "foo",
           "csv",
           "data",
-          "a\nc\n");
-      try {
-        converter.validateProperties(props, oneCol);
-        fail();
-      }
-      catch (IAE e) {
-        // Expected
-      }
+          "a\nc\n"
+      );
+      assertThrows(IAE.class, () -> converter.validateProperties(props, oneCol));
     }
 
     // Invalid Format
@@ -304,14 +294,9 @@ public class InputSpecTest
           "source",
           "inline",
           "format",
-          "foo");
-      try {
-        converter.validateProperties(props, oneCol);
-        fail();
-      }
-      catch (IAE e) {
-        // Expected
-      }
+          "foo"
+      );
+      assertThrows(IAE.class, () -> converter.validateProperties(props, oneCol));
     }
 
     // Missing local properties
@@ -320,14 +305,9 @@ public class InputSpecTest
           "source",
           "local",
           "format",
-          "json");
-      try {
-        converter.validateProperties(props, oneCol);
-        fail();
-      }
-      catch (IAE e) {
-        // Expected
-      }
+          "json"
+      );
+      assertThrows(IAE.class, () -> converter.validateProperties(props, oneCol));
     }
 
     // Missing HTTP properties
@@ -336,14 +316,9 @@ public class InputSpecTest
           "source",
           "http",
           "format",
-          "json");
-      try {
-        converter.validateProperties(props, oneCol);
-        fail();
-      }
-      catch (IAE e) {
-        // Expected
-      }
+          "json"
+      );
+      assertThrows(IAE.class, () -> converter.validateProperties(props, oneCol));
     }
   }
 }

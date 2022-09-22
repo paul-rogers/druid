@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
 import org.apache.druid.catalog.MetadataCatalog.CatalogListener;
 import org.apache.druid.server.http.CatalogListenerResource;
+import org.apache.druid.server.http.DummyRequest;
 
 import javax.ws.rs.core.MediaType;
 
@@ -43,14 +44,16 @@ public class MockCatalogSync implements CatalogListener
       CatalogStorage storage,
       final ObjectMapper smileMapper,
       final ObjectMapper jsonMapper,
-      boolean useSmile)
+      boolean useSmile
+  )
   {
     this.catalog = new CachedMetadataCatalog(storage, storage.schemaRegistry);
     this.listenerResource = new CatalogListenerResource(
         catalog,
         smileMapper,
         jsonMapper,
-        storage.authorizer().mapper());
+        storage.authorizer().mapper()
+    );
     this.useSmile = useSmile;
     this.smileMapper = smileMapper;
     this.jsonMapper = jsonMapper;
@@ -70,7 +73,9 @@ public class MockCatalogSync implements CatalogListener
         new DummyRequest(
             DummyRequest.POST,
             DummyRequest.SUPER_USER,
-            useSmile ? SmileMediaTypes.APPLICATION_JACKSON_SMILE : MediaType.APPLICATION_JSON));
+            useSmile ? SmileMediaTypes.APPLICATION_JACKSON_SMILE : MediaType.APPLICATION_JSON
+        )
+    );
   }
 
   @Override
@@ -79,7 +84,8 @@ public class MockCatalogSync implements CatalogListener
     TableMetadata spec = TableMetadata.newTable(
         tableId.schema(),
         tableId.name(),
-        new TableSpec.Tombstone());
+        new TableSpec.Tombstone()
+    );
     doSync(spec);
   }
 

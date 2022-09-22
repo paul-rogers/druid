@@ -22,24 +22,30 @@ package org.apache.druid.catalog;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import nl.jqno.equalsverifier.EqualsVerifier;
+import org.apache.druid.catalog.DatasourceColumnSpec.DimensionSpec;
 import org.apache.druid.catalog.DatasourceColumnSpec.MeasureSpec;
 import org.apache.druid.java.util.common.IAE;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 /**
  * Test of validation and serialization of the catalog table definitions.
  */
+@Category(CatalogTest.class)
 public class DatasourceSpecTest
 {
   @Test
@@ -98,15 +104,9 @@ public class DatasourceSpecTest
     assertEquals(defn, copy);
   }
 
-  private void expectValidationFails(DatasourceSpec defn)
+  private void expectValidationFails(final DatasourceSpec defn)
   {
-    try {
-      defn.validate();
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
-    }
+    assertThrows(IAE.class, () -> defn.validate());
   }
 
   @Test
@@ -282,7 +282,19 @@ public class DatasourceSpecTest
   public void testSerialization()
   {
     ObjectMapper mapper = new ObjectMapper();
-    DatasourceSpec defn = DatasourceSpec.builder()
+    DatasourceSpec defn = exampleSpec();
+
+    // Round-trip
+    TableSpec defn2 = TableSpec.fromBytes(mapper, defn.toBytes(mapper));
+    assertEquals(defn, defn2);
+
+    // Sanity check of toString, which uses JSON
+    assertNotNull(defn.toString());
+  }
+
+  private DatasourceSpec exampleSpec()
+  {
+    return DatasourceSpec.builder()
         .description("My Table")
         .segmentGranularity("PT1H")
         .rollupGranularity("PT1M")
@@ -291,14 +303,131 @@ public class DatasourceSpecTest
         .column("b", "VARCHAR")
         .hiddenColumns(Arrays.asList("foo", "bar"))
         .tag("tag1", "some value")
+        .tag("tag2", "second value")
         .build();
+  }
 
-    // Round-trip
-    TableSpec defn2 = TableSpec.fromBytes(mapper, defn.toBytes(mapper));
-    assertEquals(defn, defn2);
+  @Test
+  public void testMergeEmpty()
+  {
+    ObjectMapper mapper = new ObjectMapper();
+    DatasourceSpec defn = exampleSpec();
 
-    // Sanity check of toString, which uses JSON
-    assertNotNull(defn.toString());
+    // Create an update that mirrors what REST will do.
+    Map<String, Object> raw = new HashMap<>();
+    raw.put("type", DatasourceSpec.JSON_TYPE);
+    TableSpec update = mapper.convertValue(raw, TableSpec.class);
+    assertTrue(update instanceof DatasourceSpec);
+
+    TableSpec merged = defn.merge(update, raw, mapper);
+    assertEquals(defn, merged);
+  }
+
+  @Test
+  public void testMergeAttribs()
+  {
+    ObjectMapper mapper = new ObjectMapper();
+    DatasourceSpec defn = exampleSpec();
+
+    Map<String, Object> raw = new HashMap<>();
+    raw.put("type", DatasourceSpec.JSON_TYPE);
+    raw.put("segmentGranularity", "P1D");
+    TableSpec update = mapper.convertValue(raw, TableSpec.class);
+    assertTrue(update instanceof DatasourceSpec);
+
+    // We know that an empty map will leave the spec unchanged
+    // due to testMergeEmpty. Here we verify that one attribute is
+    // updated.
+    TableSpec merged = defn.merge(update, raw, mapper);
+    assertNotEquals(defn, merged);
+    assertEquals(((DatasourceSpec) update).segmentGranularity(), ((DatasourceSpec) merged).segmentGranularity());
+  }
+
+  @Test
+  public void testMergeTags()
+  {
+    ObjectMapper mapper = new ObjectMapper();
+    DatasourceSpec defn = exampleSpec();
+
+    Map<String, Object> raw = new HashMap<>();
+    raw.put("type", DatasourceSpec.JSON_TYPE);
+    raw.put("tags", ImmutableMap.of("tag1", "updated", "tag3", "third value"));
+    TableSpec update = mapper.convertValue(raw, TableSpec.class);
+    assertTrue(update instanceof DatasourceSpec);
+
+    // We know that an empty map will leave the spec unchanged
+    // due to testMergeEmpty. Here we verify that one attribute is
+    // updated.
+    TableSpec merged = defn.merge(update, raw, mapper);
+    assertNotEquals(defn, merged);
+    Map<String, Object> tags = merged.tags();
+    assertEquals(3, tags.size());
+    assertEquals("updated", tags.get("tag1"));
+    assertEquals("second value", tags.get("tag2"));
+    assertEquals("third value", tags.get("tag3"));
+  }
+
+  @Test
+  public void testMergeHiddenCols()
+  {
+    ObjectMapper mapper = new ObjectMapper();
+    DatasourceSpec defn = exampleSpec();
+
+    Map<String, Object> raw = new HashMap<>();
+    raw.put("type", DatasourceSpec.JSON_TYPE);
+    raw.put("hiddenColumns", Collections.singletonList("mumble"));
+    TableSpec update = mapper.convertValue(raw, TableSpec.class);
+    assertTrue(update instanceof DatasourceSpec);
+
+    // We know that an empty map will leave the spec unchanged
+    // due to testMergeEmpty. Here we verify that one attribute is
+    // updated.
+    TableSpec merged = defn.merge(update, raw, mapper);
+    assertNotEquals(defn, merged);
+    assertEquals(
+        Arrays.asList("foo", "bar", "mumble"),
+        ((DatasourceSpec) merged).hiddenColumns()
+    );
+  }
+
+  @Test
+  public void testMergeCols()
+  {
+    ObjectMapper mapper = new ObjectMapper();
+    DatasourceSpec defn = exampleSpec();
+
+    Map<String, Object> raw = new HashMap<>();
+    raw.put("type", DatasourceSpec.JSON_TYPE);
+    raw.put("columns", Arrays.asList(
+          ImmutableMap.of(
+              "type", DimensionSpec.JSON_TYPE,
+              "name", "a",
+              "sqlType", "BIGINT",
+              "tags", ImmutableMap.of("tag", "value")
+          ),
+          ImmutableMap.of(
+              "type", DimensionSpec.JSON_TYPE,
+              "name", "c",
+              "sqlType", "VARCHAR"
+          )
+        )
+    );
+    TableSpec update = mapper.convertValue(raw, TableSpec.class);
+    assertTrue(update instanceof DatasourceSpec);
+
+    // We know that an empty map will leave the spec unchanged
+    // due to testMergeEmpty. Here we verify that one attribute is
+    // updated.
+    TableSpec merged = defn.merge(update, raw, mapper);
+    assertNotEquals(defn, merged);
+    List<DatasourceColumnSpec> columns = ((DatasourceSpec) merged).columns();
+    assertEquals(3, columns.size());
+    assertEquals("a", columns.get(0).name());
+    assertEquals("BIGINT", columns.get(0).sqlType());
+    assertEquals(1, columns.get(0).tags().size());
+
+    assertEquals("c", columns.get(2).name());
+    assertEquals("VARCHAR", columns.get(2).sqlType());
   }
 
   @Test

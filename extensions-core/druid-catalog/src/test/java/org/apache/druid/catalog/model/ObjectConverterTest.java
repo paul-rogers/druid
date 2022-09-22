@@ -20,9 +20,11 @@
 package org.apache.druid.catalog.model;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.catalog.CatalogTest;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,9 +33,10 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
+@Category(CatalogTest.class)
 public class ObjectConverterTest
 {
   private ObjectConverter buildConverter()
@@ -52,7 +55,8 @@ public class ObjectConverterTest
         "jk",      // Outer key, not used here
         "myType",  // SQL arg for the type
         "jt",      // JSON key for the type
-        new SubTypeConverter[] {subType1, subType2});
+        new SubTypeConverter[] {subType1, subType2}
+    );
   }
 
   @Test
@@ -81,15 +85,10 @@ public class ObjectConverterTest
         "jk",      // Outer key, not used here
         "myType",  // SQL arg for the type
         "jt",      // JSON key for the type
-        new SubTypeConverter[] {subType1, subType2});
-    try {
-      Map<String, PropertyConverter> props = new HashMap<>();
-      converter.gatherProperties(props);
-      fail();
-    }
-    catch (ISE e) {
-      // Expected
-    }
+        new SubTypeConverter[] {subType1, subType2}
+    );
+    Map<String, PropertyConverter> props = new HashMap<>();
+    assertThrows(ISE.class, () -> converter.gatherProperties(props));
   }
 
   @Test
@@ -125,7 +124,8 @@ public class ObjectConverterTest
   {
     ObjectConverter converter = buildConverter();
     Map<String, ModelArg> modelArgs = ModelArg.convertArgs(
-        ImmutableMap.of("myType", "t1", "a", "foo", "b", "bar"));
+        ImmutableMap.of("myType", "t1", "a", "foo", "b", "bar")
+    );
     Map<String, Object> jsonMap = converter.convert(modelArgs, Collections.emptyList());
     Map<String, Object> expected = ImmutableMap.of(
         "jt",
@@ -133,7 +133,8 @@ public class ObjectConverterTest
         "ja",
         "foo",
         "jb",
-        "bar");
+        "bar"
+    );
     assertEquals(expected, jsonMap);
     ModelArg.verifyArgs(modelArgs);
   }
@@ -143,7 +144,8 @@ public class ObjectConverterTest
   {
     ObjectConverter converter = buildConverter();
     Map<String, ModelArg> modelArgs = ModelArg.convertArgs(
-        ImmutableMap.of("myType", "t2", "a", "foo", "c", "bar"));
+        ImmutableMap.of("myType", "t2", "a", "foo", "c", "bar")
+    );
     Map<String, Object> jsonMap = converter.convert(modelArgs, Collections.emptyList());
     Map<String, Object> expected = ImmutableMap.of(
         "jt",
@@ -151,7 +153,8 @@ public class ObjectConverterTest
         "ja",
         "foo",
         "jc",
-        "bar");
+        "bar"
+    );
     assertEquals(expected, jsonMap);
     ModelArg.verifyArgs(modelArgs);
   }
@@ -161,13 +164,15 @@ public class ObjectConverterTest
   {
     ObjectConverter converter = buildConverter();
     Map<String, ModelArg> modelArgs = ModelArg.convertArgs(
-        ImmutableMap.of("myType", "t1", "a", "foo", "x", "bar"));
+        ImmutableMap.of("myType", "t1", "a", "foo", "x", "bar")
+    );
     Map<String, Object> jsonMap = converter.convert(modelArgs, Collections.emptyList());
     Map<String, Object> expected = ImmutableMap.of(
         "jt",
         "type1",
         "ja",
-        "foo");
+        "foo"
+    );
     assertEquals(expected, jsonMap);
     assertFalse(modelArgs.get("x").isConsumed());
   }
@@ -177,14 +182,9 @@ public class ObjectConverterTest
   {
     ObjectConverter converter = buildConverter();
     Map<String, ModelArg> modelArgs = ModelArg.convertArgs(
-        ImmutableMap.of("myType", "t3", "a", "foo", "x", "bar"));
-    try {
-      converter.convert(modelArgs, Collections.emptyList());
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
-    }
+        ImmutableMap.of("myType", "t3", "a", "foo", "x", "bar")
+    );
+    assertThrows(IAE.class, () -> converter.convert(modelArgs, Collections.emptyList()));
   }
 
   @Test
@@ -198,12 +198,6 @@ public class ObjectConverterTest
     };
     SubTypeConverter subType1 = new SubTypeConverter("t1", "type1", props1);
     SubTypeConverter subType2 = new SubTypeConverter("t1", "type2", props2);
-    try {
-      new ObjectConverter("x", "x", "x", new SubTypeConverter[] {subType1, subType2});
-      fail();
-    }
-    catch (ISE e) {
-      // Expected
-    }
+    assertThrows(ISE.class, () -> new ObjectConverter("x", "x", "x", new SubTypeConverter[] {subType1, subType2}));
   }
 }

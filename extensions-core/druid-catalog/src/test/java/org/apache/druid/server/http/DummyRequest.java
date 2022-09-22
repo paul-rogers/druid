@@ -17,17 +17,11 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.server.http;
 
-import com.google.common.collect.ImmutableMap;
-import org.apache.druid.server.security.Access;
-import org.apache.druid.server.security.Action;
+import org.apache.druid.catalog.CatalogTests;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
-import org.apache.druid.server.security.Authorizer;
-import org.apache.druid.server.security.AuthorizerMapper;
-import org.apache.druid.server.security.Resource;
-import org.apache.druid.server.security.ResourceType;
 
 import javax.servlet.AsyncContext;
 import javax.servlet.DispatcherType;
@@ -57,44 +51,9 @@ import java.util.Map;
  */
 public class DummyRequest implements HttpServletRequest
 {
-  protected static final String SUPER_USER = "super";
-  protected static final String READER_USER = "reader";
-  protected static final String WRITER_USER = "writer";
-  protected static final String DENY_USER = "denyAll";
-
-  protected static final String TEST_AUTHORITY = "test";
-
   protected static final String GET = "GET";
   protected static final String POST = "POST";
   protected static final String DELETE = "DELETE";
-
-  private static class TestAuthorizer implements Authorizer
-  {
-    @Override
-    public Access authorize(
-        AuthenticationResult authenticationResult,
-        Resource resource,
-        Action action
-    )
-    {
-      final String userName = authenticationResult.getIdentity();
-      if (DummyRequest.SUPER_USER.equals(userName)) {
-        return Access.OK;
-      }
-      if (ResourceType.DATASOURCE.equals(resource.getType())) {
-        if ("forbidden".equals(resource.getName())) {
-          return Access.DENIED;
-        }
-        return new Access(
-            DummyRequest.WRITER_USER.equals(userName) ||
-            DummyRequest.READER_USER.equals(userName) && action == Action.READ);
-      }
-      return Access.OK;
-    }
-  }
-
-  protected static final AuthorizerMapper AUTH_MAPPER = new AuthorizerMapper(
-      ImmutableMap.of(DummyRequest.TEST_AUTHORITY, new TestAuthorizer()));
 
   private final String method;
   private final Map<String, Object> attribs = new HashMap<>();
@@ -109,7 +68,7 @@ public class DummyRequest implements HttpServletRequest
   {
     this.method = method;
     AuthenticationResult authResult =
-        new AuthenticationResult(userName, TEST_AUTHORITY, null, null);
+        new AuthenticationResult(userName, CatalogTests.TEST_AUTHORITY, null, null);
     attribs.put(AuthConfig.DRUID_AUTHENTICATION_RESULT, authResult);
     this.contentType = contentType;
   }

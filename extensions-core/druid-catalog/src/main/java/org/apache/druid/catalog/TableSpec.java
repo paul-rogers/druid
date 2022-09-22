@@ -29,8 +29,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.TableMetadata.TableType;
 import org.apache.druid.guice.annotations.UnstableApi;
+import org.apache.druid.java.util.common.UOE;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 
 /**
  * Definition of a table "hint" in the metastore, between client and
@@ -38,9 +43,9 @@ import java.util.Map;
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(value = {
-    @Type(name = "datasource", value = DatasourceSpec.class),
-    @Type(name = "input", value = InputTableSpec.class),
-    @Type(name = "tombstone", value = TableSpec.Tombstone.class),
+    @Type(name = DatasourceSpec.JSON_TYPE, value = DatasourceSpec.class),
+    @Type(name = InputTableSpec.JSON_TYPE, value = InputTableSpec.class),
+    @Type(name = TableSpec.Tombstone.JSON_TYPE, value = TableSpec.Tombstone.class),
 })
 @UnstableApi
 public abstract class TableSpec
@@ -63,6 +68,14 @@ public abstract class TableSpec
   {
   }
 
+  public abstract TableType type();
+
+  /**
+   * For updates, merge the given update with the existing spec,
+   * giving a new, merged, spec.
+   */
+  public abstract TableSpec merge(TableSpec update, Map<String, Object> raw, ObjectMapper mapper);
+
   public byte[] toBytes(ObjectMapper jsonMapper)
   {
     return CatalogSpecs.toBytes(jsonMapper, this);
@@ -84,8 +97,14 @@ public abstract class TableSpec
     return null;
   }
 
+  /**
+   * Internal class used in updates to notify listeners that a table has
+   * been deleted. Avoids the need for a special "table deleted" message.
+   */
   public static class Tombstone extends TableSpec
   {
+    public static final String JSON_TYPE = "tombstone";
+
     public Tombstone()
     {
       super(null);
@@ -96,7 +115,11 @@ public abstract class TableSpec
     {
       return TableType.TOMBSTONE;
     }
-  }
 
-  public abstract TableType type();
+    @Override
+    public TableSpec merge(TableSpec update, Map<String, Object> raw, ObjectMapper mapper)
+    {
+      throw new UOE("Tombstones should not exist in the catalog.");
+    }
+  }
 }

@@ -20,17 +20,20 @@
 package org.apache.druid.catalog.model;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.catalog.CatalogTest;
 import org.apache.druid.java.util.common.IAE;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
+@Category(CatalogTest.class)
 public class ModelArgTest
 {
   @Test
@@ -42,13 +45,7 @@ public class ModelArgTest
 
     // Not consumed yet
     assertFalse(arg.isConsumed());
-    try {
-      arg.assertConsumed();
-      fail();
-    }
-    catch (IAE e) {
-      // Expected;
-    }
+    assertThrows(IAE.class, () -> arg.assertConsumed());
 
     // Consume once
     arg.consume();
@@ -56,30 +53,22 @@ public class ModelArgTest
     arg.assertConsumed();
 
     // Can't consume again: ambiguous name
-    try {
-      arg.consume();
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
-    }
+    assertThrows(IAE.class, () -> arg.consume());
   }
 
   @Test
   public void testAsString()
   {
-    ModelArg arg = new ModelArg("foo", "bar");
-    assertEquals("bar", arg.value());
-    assertEquals("bar", arg.asString());
-
-    arg = new ModelArg("foo", 10);
-    assertEquals(10, arg.value());
-    try {
-      arg.asString();
-      fail();
+    {
+      ModelArg arg = new ModelArg("foo", "bar");
+      assertEquals("bar", arg.value());
+      assertEquals("bar", arg.asString());
     }
-    catch (IAE e) {
-      // Expected
+
+    {
+      ModelArg arg = new ModelArg("foo", 10);
+      assertEquals(10, arg.value());
+      assertThrows(IAE.class, () -> arg.asString());
     }
   }
 

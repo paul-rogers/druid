@@ -20,6 +20,7 @@
 package org.apache.druid.metadata.catalog;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.druid.catalog.CatalogTest;
 import org.apache.druid.catalog.DatasourceSpec;
 import org.apache.druid.catalog.MetastoreManager;
 import org.apache.druid.catalog.MetastoreManagerImpl;
@@ -35,6 +36,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.Arrays;
 import java.util.List;
@@ -42,9 +44,10 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
+@Category(CatalogTest.class)
 public class TableManagerTest
 {
   private static final ObjectMapper JSON_MAPPER = new DefaultObjectMapper();
@@ -98,13 +101,7 @@ public class TableManagerTest
     assertEquals(created, read);
 
     // Try to create a second time
-    try {
-      manager.create(table);
-      fail();
-    }
-    catch (DuplicateKeyException e) {
-      // Expected
-    }
+    assertThrows(DuplicateKeyException.class, () -> manager.create(table));
   }
 
   @Test
@@ -125,16 +122,11 @@ public class TableManagerTest
         .targetSegmentRows(2_000_000)
         .build();
 
-    try {
-      manager.updateSpec(table.id(), defn2, 3);
-      fail();
-    }
-    catch (OutOfDateException e) {
-      // expected
-    }
+    TableMetadata table2 = table.withSpec(defn2);
+    assertThrows(OutOfDateException.class, () -> manager.update(table2, 3));
 
     assertEquals(version, manager.read(table.id()).updateTime());
-    long newVersion = manager.updateSpec(table.id(), defn2, version);
+    long newVersion = manager.update(table2, version);
     TableMetadata table3 = manager.read(table.id());
     assertEquals(defn2, table3.spec());
     assertEquals(newVersion, table3.updateTime());
@@ -147,7 +139,8 @@ public class TableManagerTest
     assertEquals(newVersion, table4.updateTime());
 
     // Update: no version check)
-    long newerVersion = manager.updateDefn(table.id(), defn2);
+    TableMetadata table5 = table.withSpec(defn2);
+    long newerVersion = manager.update(table5, 0);
     assertTrue(newerVersion > newVersion);
   }
 

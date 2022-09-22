@@ -29,6 +29,7 @@ import org.apache.calcite.schema.TranslatableTable;
 import org.apache.curator.shaded.com.google.common.collect.Iterators;
 import org.apache.druid.catalog.CachedMetadataCatalog;
 import org.apache.druid.catalog.CatalogStorage;
+import org.apache.druid.catalog.CatalogTest;
 import org.apache.druid.catalog.CatalogTests;
 import org.apache.druid.catalog.InputTableSpec;
 import org.apache.druid.catalog.LocalMetadataCatalog;
@@ -39,6 +40,7 @@ import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.metadata.TestDerbyConnector;
 import org.apache.druid.metadata.catalog.CatalogManager.DuplicateKeyException;
+import org.apache.druid.metadata.catalog.CatalogManager.NotFoundException;
 import org.apache.druid.metadata.catalog.CatalogManager.OutOfDateException;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.external.InputTableMacro;
@@ -47,6 +49,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -63,6 +66,7 @@ import static org.junit.Assert.assertTrue;
  * Mini integration test of the input schema. Creates an input schema
  * directly and via a cached catalog, to ensure changes are propagated.
  */
+@Category(CatalogTest.class)
 public class InputSchemaTest
 {
   @Rule
@@ -90,11 +94,12 @@ public class InputSchemaTest
     return new InputSchema(
         catalog,
         CatalogTests.JSON_MAPPER,
-        new InputTableMacro(CatalogTests.JSON_MAPPER, dbFixture.externModel));
+        new InputTableMacro(CatalogTests.JSON_MAPPER, dbFixture.externModel)
+    );
   }
 
   @Test
-  public void testDirect() throws DuplicateKeyException, OutOfDateException
+  public void testDirect() throws DuplicateKeyException, OutOfDateException, NotFoundException
   {
     populateCatalog();
     MetadataCatalog catalog = new LocalMetadataCatalog(storage, storage.schemaRegistry());
@@ -105,7 +110,7 @@ public class InputSchemaTest
   }
 
   @Test
-  public void testCached() throws DuplicateKeyException, OutOfDateException
+  public void testCached() throws DuplicateKeyException, OutOfDateException, NotFoundException
   {
     populateCatalog();
     CachedMetadataCatalog catalog = new CachedMetadataCatalog(storage, storage.schemaRegistry());
@@ -124,7 +129,8 @@ public class InputSchemaTest
         "format",
         "csv",
         "data",
-        "a\nc\n");
+        "a\nc\n"
+    );
     InputTableSpec inputSpec = InputTableSpec
         .builder()
         .properties(props)
@@ -133,7 +139,8 @@ public class InputSchemaTest
     TableMetadata table = TableMetadata.newTable(
         TableId.INPUT_SCHEMA,
         "input1",
-        inputSpec);
+        inputSpec
+    );
     storage.tables().create(table);
   }
 
@@ -150,18 +157,18 @@ public class InputSchemaTest
     assertTrue(names.contains("input1"));
   }
 
-  private void alterCatalog() throws DuplicateKeyException, OutOfDateException
+  private void alterCatalog() throws DuplicateKeyException, OutOfDateException, NotFoundException
   {
     // Add a column to table 1
     TableId id1 = TableId.inputSource("input1");
     TableMetadata table1 = storage.tables().read(id1);
     assertNotNull(table1);
 
-    InputTableSpec defn = (InputTableSpec) table1.spec();
-    defn = defn.toBuilder()
+    InputTableSpec spec = (InputTableSpec) table1.spec();
+    spec = spec.toBuilder()
         .column("b", "DOUBLE")
         .build();
-    storage.tables().updateSpec(id1, defn, table1.updateTime());
+    storage.tables().update(TableMetadata.newTable(id1, spec), table1.updateTime());
 
     // Create a table 2
     Map<String, Object> props = ImmutableMap.of(
@@ -170,7 +177,8 @@ public class InputSchemaTest
         "format",
         "csv",
         "data",
-        "1\n2\n");
+        "1\n2\n"
+    );
     InputTableSpec inputSpec = InputTableSpec
         .builder()
         .properties(props)
@@ -179,7 +187,8 @@ public class InputSchemaTest
     TableMetadata table = TableMetadata.newTable(
         TableId.INPUT_SCHEMA,
         "input2",
-        inputSpec);
+        inputSpec
+    );
     storage.tables().create(table);
   }
 

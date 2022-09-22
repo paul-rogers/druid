@@ -20,6 +20,7 @@
 package org.apache.druid.catalog;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.model.ExternalSpec.ExternalSpecConverter;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.CsvInputFormat;
@@ -27,11 +28,53 @@ import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.metadata.TestDerbyConnector.DerbyConnectorRule;
 import org.apache.druid.metadata.catalog.CatalogManager;
 import org.apache.druid.metadata.catalog.SQLCatalogManager;
+import org.apache.druid.server.security.Access;
+import org.apache.druid.server.security.Action;
+import org.apache.druid.server.security.AuthenticationResult;
+import org.apache.druid.server.security.Authorizer;
+import org.apache.druid.server.security.AuthorizerMapper;
+import org.apache.druid.server.security.Resource;
+import org.apache.druid.server.security.ResourceType;
 
 import java.util.Arrays;
 
 public class CatalogTests
 {
+  public static final String TEST_AUTHORITY = "test";
+
+  public static final String SUPER_USER = "super";
+  public static final String READER_USER = "reader";
+  public static final String WRITER_USER = "writer";
+  public static final String DENY_USER = "denyAll";
+
+  protected static final AuthorizerMapper AUTH_MAPPER = new AuthorizerMapper(
+      ImmutableMap.of(TEST_AUTHORITY, new TestAuthorizer()));
+
+  private static class TestAuthorizer implements Authorizer
+  {
+    @Override
+    public Access authorize(
+        AuthenticationResult authenticationResult,
+        Resource resource,
+        Action action
+    )
+    {
+      final String userName = authenticationResult.getIdentity();
+      if (SUPER_USER.equals(userName)) {
+        return Access.OK;
+      }
+      if (ResourceType.DATASOURCE.equals(resource.getType())) {
+        if ("forbidden".equals(resource.getName())) {
+          return Access.DENIED;
+        }
+        return new Access(
+            WRITER_USER.equals(userName) ||
+            READER_USER.equals(userName) && action == Action.READ);
+      }
+      return Access.OK;
+    }
+  }
+
   public static InputFormat csvFormat()
   {
     return new CsvInputFormat(
@@ -40,7 +83,7 @@ public class CatalogTests
         false, // hasHeaderRow
         false, // findColumnsFromHeader
         0      // skipHeaderRows
-        );
+    );
   }
 
   public static final ObjectMapper JSON_MAPPER = new DefaultObjectMapper();
@@ -58,14 +101,15 @@ public class CatalogTests
           derbyConnectorRule.getConnector(),
           () -> derbyConnectorRule.getMetadataConnectorConfig(),
           derbyConnectorRule.metadataTablesConfigSupplier()
-          );
+      );
       manager = new SQLCatalogManager(metastoreMgr);
       manager.start();
       externModel = new ExternalSpecConverter(JSON_MAPPER);
       storage = new CatalogStorage(
           manager,
-          DummyRequest.AUTH_MAPPER,
-          externModel);
+          AUTH_MAPPER,
+          externModel
+      );
     }
 
     public void tearDown()
@@ -83,5 +127,4 @@ public class CatalogTests
       fixture.tearDown();
     }
   }
-
 }

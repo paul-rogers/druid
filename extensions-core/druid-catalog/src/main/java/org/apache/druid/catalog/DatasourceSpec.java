@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import org.apache.druid.catalog.DatasourceColumnSpec.DetailColumnSpec;
@@ -54,6 +55,8 @@ import java.util.Set;
 @UnstableApi
 public class DatasourceSpec extends TableSpec
 {
+  public static final String JSON_TYPE = "datasource";
+
   // Amazing that a parser doesn't already exist...
   private static final Map<String, Granularity> GRANULARITIES = new HashMap<>();
 
@@ -266,7 +269,7 @@ public class DatasourceSpec extends TableSpec
       return new PeriodGranularity(new Period(value), null, null);
     }
     catch (IllegalArgumentException e) {
-      throw new IAE(StringUtils.format("%s is an invalid period string", value.toString()));
+      throw new IAE(StringUtils.format("%s is an invalid period string", value));
     }
   }
 
@@ -348,6 +351,48 @@ public class DatasourceSpec extends TableSpec
   public String defaultSchema()
   {
     return TableId.DRUID_SCHEMA;
+  }
+
+  @Override
+  public TableSpec merge(TableSpec update, Map<String, Object> raw, ObjectMapper mapper)
+  {
+    if (!(update instanceof DatasourceSpec)) {
+      throw new IAE("The update must be of type [%s]", JSON_TYPE);
+    }
+    raw.remove("tags");
+    raw.remove("properties");
+    raw.remove("columns");
+    raw.remove("hiddenColumns");
+    DatasourceSpec dsUpdate = (DatasourceSpec) update;
+    @SuppressWarnings("unchecked")
+    Map<String, Object> asMap = mapper.convertValue(this, Map.class);
+    asMap.putAll(raw);
+    DatasourceSpec updatedSpec = mapper.convertValue(asMap, DatasourceSpec.class);
+    Builder builder = updatedSpec.toBuilder();
+    builder.tags(CatalogUtils.mergeMap(this.tags(), dsUpdate.tags()));
+    builder.columns(CatalogUtils.mergeColumns(
+        this.columns(),
+        dsUpdate.columns(),
+        (existingCol, updateCol) -> existingCol.merge(updateCol)
+        )
+    );
+    builder.hiddenColumns(mergeHiddenColumns(this.hiddenColumns(), dsUpdate.hiddenColumns()));
+    return builder.build();
+  }
+
+  private static List<String> mergeHiddenColumns(List<String> existing, List<String> revisions)
+  {
+    if (revisions == null) {
+      return existing;
+    }
+    Set<String> existingSet = new HashSet<>(existing);
+    List<String> revised = new ArrayList<>(existing);
+    for (String col : revisions) {
+      if (!existingSet.contains(col)) {
+        revised.add(col);
+      }
+    }
+    return revised;
   }
 
   @Override
@@ -470,6 +515,12 @@ public class DatasourceSpec extends TableSpec
       return this;
     }
 
+    public Builder columns(List<DatasourceColumnSpec> columns)
+    {
+      this.columns = columns;
+      return this;
+    }
+
     public List<DatasourceColumnSpec> columns()
     {
       return columns;
@@ -492,16 +543,16 @@ public class DatasourceSpec extends TableSpec
     public Builder column(String name, String sqlType)
     {
       if (rollupGranularity == null) {
-        column(new DetailColumnSpec(name, sqlType));
+        column(new DetailColumnSpec(name, sqlType, null));
       } else {
-        column(new DimensionSpec(name, sqlType));
+        column(new DimensionSpec(name, sqlType, null));
       }
       return this;
     }
 
     public Builder measure(String name, String sqlType)
     {
-      return column(new MeasureSpec(name, sqlType));
+      return column(new MeasureSpec(name, sqlType, null));
     }
 
     public Builder tags(Map<String, Object> properties)

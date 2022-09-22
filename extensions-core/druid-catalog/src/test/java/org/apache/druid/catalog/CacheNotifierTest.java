@@ -26,6 +26,7 @@ import org.apache.druid.java.util.http.client.response.StatusResponseHolder;
 import org.apache.druid.server.DruidNode;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.net.URL;
 import java.util.Arrays;
@@ -35,6 +36,7 @@ import java.util.function.Supplier;
 
 import static org.junit.Assert.assertEquals;
 
+@Category(CatalogTest.class)
 public class CacheNotifierTest
 {
   private static class MockSender implements Consumer<byte[]>

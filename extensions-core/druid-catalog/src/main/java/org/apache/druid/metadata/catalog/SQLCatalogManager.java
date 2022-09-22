@@ -46,6 +46,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.function.Function;
 
 @ManageLifecycle
 public class SQLCatalogManager implements CatalogManager
@@ -54,8 +55,8 @@ public class SQLCatalogManager implements CatalogManager
 
   private static final String INSERT_TABLE =
       "INSERT INTO %s\n" +
-      "  (schemaName, name, owner, creationTime, updateTime, state, payload)\n" +
-      "  VALUES(:schemaName, :name, :owner, :creationTime, :updateTime, :state, :payload)";
+      "  (schemaName, name, creationTime, updateTime, state, payload)\n" +
+      "  VALUES(:schemaName, :name, :creationTime, :updateTime, :state, :payload)";
 
   private static final String UPDATE_HEAD =
       "UPDATE %s\n SET\n";
@@ -84,7 +85,12 @@ public class SQLCatalogManager implements CatalogManager
       WHERE_TABLE_ID;
 
   private static final String SELECT_TABLE =
-      "SELECT owner, creationTime, updateTime, state, payload\n" +
+      "SELECT creationTime, updateTime, state, payload\n" +
+      "FROM %s\n" +
+      WHERE_TABLE_ID;
+
+  private static final String SELECT_PAYLOAD =
+      "SELECT state, payload\n" +
       "FROM %s\n" +
       WHERE_TABLE_ID;
 
@@ -100,7 +106,7 @@ public class SQLCatalogManager implements CatalogManager
       "ORDER BY name";
 
   private static final String SELECT_TABLE_DETAILS_IN_SCHEMA =
-      "SELECT name, owner, creationTime, updateTime, state, payload\n" +
+      "SELECT name, creationTime, updateTime, state, payload\n" +
       "FROM %s\n" +
       "WHERE schemaName = :schemaName\n" +
       "ORDER BY name";
@@ -166,7 +172,6 @@ public class SQLCatalogManager implements CatalogManager
                 "CREATE TABLE %s (\n"
                 + "  schemaName VARCHAR(255) NOT NULL,\n"
                 + "  name VARCHAR(255) NOT NULL,\n"
-                + "  owner VARCHAR(255),\n"
                 + "  creationTime BIGINT NOT NULL,\n"
                 + "  updateTime BIGINT NOT NULL,\n"
                 + "  state CHAR(1) NOT NULL,\n"
@@ -193,7 +198,6 @@ public class SQLCatalogManager implements CatalogManager
               )
                   .bind("schemaName", table.resolveDbSchema())
                   .bind("name", table.name())
-                  .bind("owner", table.owner())
                   .bind("creationTime", updateTime)
                   .bind("updateTime", updateTime)
                   .bind("state", TableState.ACTIVE.code())
@@ -244,11 +248,10 @@ public class SQLCatalogManager implements CatalogManager
                   new TableMetadata(
                       id.schema(),
                       id.name(),
-                      r.getString(1),
+                      r.getLong(1),
                       r.getLong(2),
-                      r.getLong(3),
-                      TableState.fromCode(r.getString(4)),
-                      TableSpec.fromBytes(jsonMapper, r.getBytes(5))
+                      TableState.fromCode(r.getString(3)),
+                      TableSpec.fromBytes(jsonMapper, r.getBytes(4))
                   ))
                 .iterator();
             if (resultIterator.hasNext()) {
@@ -261,7 +264,16 @@ public class SQLCatalogManager implements CatalogManager
   }
 
   @Override
-  public long updateSpec(TableId id, TableSpec defn, long oldVersion) throws OutOfDateException
+  public long update(TableMetadata table, long oldVersion) throws OutOfDateException, NotFoundException
+  {
+    if (oldVersion == 0) {
+      return updateUnsafe(table.id(), table.spec());
+    } else {
+      return updateSafe(table.id(), table.spec(), oldVersion);
+    }
+  }
+
+  private long updateSafe(TableId id, TableSpec defn, long oldVersion) throws OutOfDateException
   {
     try {
       return dbi.withHandle(
@@ -299,8 +311,7 @@ public class SQLCatalogManager implements CatalogManager
     }
   }
 
-  @Override
-  public long updateDefn(TableId id, TableSpec defn) throws NotFoundException
+  private long updateUnsafe(TableId id, TableSpec defn) throws NotFoundException
   {
     try {
       return dbi.withHandle(
@@ -319,9 +330,8 @@ public class SQLCatalogManager implements CatalogManager
                   .execute();
               if (updateCount == 0) {
                 throw new NotFoundException(
-                    StringUtils.format(
-                        "Table %s: not found",
-                        id.sqlName()));
+                    StringUtils.format("Table %s: not found", id.sqlName())
+                );
               }
               sendUpdate(id);
               return updateTime;
@@ -335,6 +345,73 @@ public class SQLCatalogManager implements CatalogManager
       }
       throw e;
     }
+  }
+
+  @Override
+  public long updatePayload(TableId id, Function<TableSpec, TableSpec> transform) throws NotFoundException
+  {
+    return dbi.withHandle(
+        new HandleCallback<Long>()
+        {
+          @Override
+          public Long withHandle(Handle handle) throws NotFoundException
+          {
+            handle.begin();
+            try {
+              Query<Map<String, Object>> query = handle.createQuery(
+                  StringUtils.format(SELECT_PAYLOAD, tableName)
+              )
+                  .setFetchSize(connector.getStreamingFetchSize())
+                  .bind("schemaName", id.schema())
+                  .bind("name", id.name());
+
+              final ResultIterator<TableMetadata> resultIterator =
+                  query.map((index, r, ctx) ->
+                    new TableMetadata(
+                        id.schema(),
+                        id.name(),
+                        0,
+                        0,
+                        TableState.fromCode(r.getString(1)),
+                        TableSpec.fromBytes(jsonMapper, r.getBytes(2))
+                    ))
+                  .iterator();
+              TableMetadata table;
+              if (resultIterator.hasNext()) {
+                table = resultIterator.next();
+              } else {
+                handle.rollback();
+                throw new NotFoundException(
+                    StringUtils.format("Table %s: not found", id.sqlName())
+                );
+              }
+              if (table.state() != TableState.ACTIVE) {
+                throw new ISE("Table is in state [%s] and cannot be updated", table.state());
+              }
+              TableSpec revised = transform.apply(table.spec());
+              long updateTime = System.currentTimeMillis();
+              int updateCount = handle.createStatement(
+                  StringUtils.format(UPDATE_DEFN_UNSAFE, tableName))
+                  .bind("schemaName", id.schema())
+                  .bind("name", id.name())
+                  .bind("payload", revised.toBytes(jsonMapper))
+                  .bind("updateTime", updateTime)
+                  .execute();
+              if (updateCount == 0) {
+                // Should never occur because we're holding a lock.
+                throw new ISE("Table %s: not found", id.sqlName());
+              }
+              handle.commit();
+              sendUpdate(id);
+              return updateTime;
+            }
+            catch (RuntimeException e) {
+              handle.rollback();
+              throw e;
+            }
+          }
+        }
+    );
   }
 
   @Override
@@ -448,11 +525,10 @@ public class SQLCatalogManager implements CatalogManager
                   new TableMetadata(
                       dbSchema,
                       r.getString(1),
-                      r.getString(2),
+                      r.getLong(2),
                       r.getLong(3),
-                      r.getLong(4),
-                      TableState.fromCode(r.getString(5)),
-                      TableSpec.fromBytes(jsonMapper, r.getBytes(6))))
+                      TableState.fromCode(r.getString(4)),
+                      TableSpec.fromBytes(jsonMapper, r.getBytes(5))))
                 .iterator();
             return Lists.newArrayList(resultIterator);
           }

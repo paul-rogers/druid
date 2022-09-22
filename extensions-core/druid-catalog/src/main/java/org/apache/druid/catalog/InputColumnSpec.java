@@ -78,6 +78,14 @@ public class InputColumnSpec extends ColumnSpec
     return new ColumnSchema(name(), druidType);
   }
 
+  public InputColumnSpec merge(InputColumnSpec col)
+  {
+    return new InputColumnSpec(
+        name,
+        col.sqlType == null ? sqlType : col.sqlType()
+    );
+  }
+
   @Override
   public boolean equals(Object o)
   {

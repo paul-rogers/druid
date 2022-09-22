@@ -20,11 +20,8 @@
 package org.apache.druid.catalog;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import org.apache.druid.guice.annotations.UnstableApi;
@@ -37,12 +34,6 @@ import java.util.Objects;
  * Base class for table columns. Columns have multiple types
  * represented as subclasses.
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
-@JsonSubTypes(value = {
-    @Type(name = "datasource", value = DatasourceSpec.class),
-    @Type(name = "input", value = InputTableSpec.class),
-    @Type(name = "tombstone", value = TableSpec.Tombstone.class),
-})
 @UnstableApi
 public abstract class ColumnSpec
 {

@@ -31,15 +31,17 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.segment.column.ColumnType;
 
+import java.util.Map;
+
 /**
  * Description of a detail datasource column and a rollup
  * dimension or measure column.
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(value = {
-    @Type(name = "column", value = DatasourceColumnSpec.DetailColumnSpec.class),
-    @Type(name = "dimension", value = DatasourceColumnSpec.DimensionSpec.class),
-    @Type(name = "measure", value = DatasourceColumnSpec.MeasureSpec.class),
+    @Type(name = DatasourceColumnSpec.DetailColumnSpec.JSON_TYPE, value = DatasourceColumnSpec.DetailColumnSpec.class),
+    @Type(name = DatasourceColumnSpec.DimensionSpec.JSON_TYPE, value = DatasourceColumnSpec.DimensionSpec.class),
+    @Type(name = DatasourceColumnSpec.MeasureSpec.JSON_TYPE, value = DatasourceColumnSpec.MeasureSpec.class),
 })
 @UnstableApi
 public abstract class DatasourceColumnSpec extends ColumnSpec
@@ -47,23 +49,28 @@ public abstract class DatasourceColumnSpec extends ColumnSpec
   @JsonCreator
   public DatasourceColumnSpec(
       @JsonProperty("name") String name,
-      @JsonProperty("sqlType") String sqlType
+      @JsonProperty("sqlType") String sqlType,
+      @JsonProperty("tags") Map<String, Object> tags
   )
   {
-    super(name, sqlType);
+    super(name, sqlType, tags);
   }
 
   public abstract ColumnType druidType();
+  public abstract DatasourceColumnSpec merge(DatasourceColumnSpec update);
 
   public static class DetailColumnSpec extends DatasourceColumnSpec
   {
+    public static final String JSON_TYPE = "column";
+
     @JsonCreator
     public DetailColumnSpec(
         @JsonProperty("name") String name,
-        @JsonProperty("sqlType") String sqlType
+        @JsonProperty("sqlType") String sqlType,
+        @JsonProperty("tags") Map<String, Object> tags
     )
     {
-      super(name, sqlType);
+      super(name, sqlType, tags);
     }
 
     @Override
@@ -99,17 +106,34 @@ public abstract class DatasourceColumnSpec extends ColumnSpec
         }
       }
     }
+
+    @Override
+    public DatasourceColumnSpec merge(DatasourceColumnSpec update)
+    {
+      if (!(update instanceof DetailColumnSpec)) {
+        throw new IAE("The update must be of type [%s]", JSON_TYPE);
+      }
+      DetailColumnSpec col = (DetailColumnSpec) update;
+      return new DetailColumnSpec(
+          name,
+          col.sqlType == null ? sqlType : col.sqlType(),
+          CatalogUtils.mergeMap(tags, col.tags())
+      );
+    }
   }
 
   public static class DimensionSpec extends DatasourceColumnSpec
   {
+    public static final String JSON_TYPE = "dimension";
+
     @JsonCreator
     public DimensionSpec(
         @JsonProperty("name") String name,
-        @JsonProperty("sqlType") String sqlType
+        @JsonProperty("sqlType") String sqlType,
+        @JsonProperty("tags") Map<String, Object> tags
     )
     {
-      super(name, sqlType);
+      super(name, sqlType, tags);
     }
 
     @Override
@@ -139,6 +163,20 @@ public abstract class DatasourceColumnSpec extends ColumnSpec
         }
       }
     }
+
+    @Override
+    public DatasourceColumnSpec merge(DatasourceColumnSpec update)
+    {
+      if (!(update instanceof DimensionSpec)) {
+        throw new IAE("The update must be of type [%s]", JSON_TYPE);
+      }
+      DimensionSpec col = (DimensionSpec) update;
+      return new DimensionSpec(
+          name,
+          col.sqlType == null ? sqlType : col.sqlType(),
+              CatalogUtils.mergeMap(tags, col.tags())
+      );
+    }
   }
 
   /**
@@ -149,13 +187,16 @@ public abstract class DatasourceColumnSpec extends ColumnSpec
    */
   public static class MeasureSpec extends DatasourceColumnSpec
   {
+    public static final String JSON_TYPE = "measure";
+
     @JsonCreator
     public MeasureSpec(
         @JsonProperty("name") String name,
-        @JsonProperty("sqlType") String sqlType
+        @JsonProperty("sqlType") String sqlType,
+        @JsonProperty("tags") Map<String, Object> tags
     )
     {
-      super(name, sqlType);
+      super(name, sqlType, tags);
     }
 
     @Override
@@ -198,6 +239,20 @@ public abstract class DatasourceColumnSpec extends ColumnSpec
     {
       MeasureType typeRef = measureType();
       return typeRef == null ? null : typeRef.storageType;
+    }
+
+    @Override
+    public DatasourceColumnSpec merge(DatasourceColumnSpec update)
+    {
+      if (!(update instanceof MeasureSpec)) {
+        throw new IAE("The update must be of type [%s]", JSON_TYPE);
+      }
+      MeasureSpec col = (MeasureSpec) update;
+      return new MeasureSpec(
+          name,
+          col.sqlType == null ? sqlType : col.sqlType(),
+              CatalogUtils.mergeMap(tags, col.tags())
+      );
     }
   }
 }

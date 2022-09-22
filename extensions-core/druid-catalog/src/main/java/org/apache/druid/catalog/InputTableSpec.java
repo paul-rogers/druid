@@ -20,6 +20,7 @@
 package org.apache.druid.catalog;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import org.apache.druid.catalog.TableMetadata.TableType;
 import org.apache.druid.guice.annotations.UnstableApi;
@@ -48,6 +49,8 @@ import java.util.stream.Collectors;
 @UnstableApi
 public class InputTableSpec extends TableSpec
 {
+  public static final String JSON_TYPE = "input";
+
   private final Map<String, Object> properties;
   private final List<InputColumnSpec> columns;
 
@@ -138,6 +141,31 @@ public class InputTableSpec extends TableSpec
     return new Builder(this);
   }
 
+  /**
+   * Merge an input spec.
+   * <ul>
+   * <li>Given tags replace existing ones. Null values indicate deletions.</li>
+   * <li>Properties are merged the same way.</li>
+   * <li>Columns, if provided, <i>replace</i> existing columns since column
+   * order is critical for input sources.</li>
+   * </ul>
+   */
+  @Override
+  public TableSpec merge(TableSpec update, Map<String, Object> raw, ObjectMapper mapper)
+  {
+    if (!(update instanceof InputTableSpec)) {
+      throw new IAE("The update must be of type [%s]", JSON_TYPE);
+    }
+    InputTableSpec inputUpdate = (InputTableSpec) update;
+    Builder builder = toBuilder();
+    builder.tags(CatalogUtils.mergeMap(tags(), update.tags()));
+    builder.properties(CatalogUtils.mergeMap(properties, inputUpdate.properties));
+    if (raw.containsKey("columns")) {
+      builder.columns(inputUpdate.columns);
+    }
+    return builder.build();
+  }
+
   @Override
   public boolean equals(Object o)
   {
@@ -205,6 +233,12 @@ public class InputTableSpec extends TableSpec
     public List<InputColumnSpec> columns()
     {
       return columns;
+    }
+
+    public Builder columns(List<InputColumnSpec> columns)
+    {
+      this.columns = columns;
+      return this;
     }
 
     public Builder column(InputColumnSpec column)

@@ -27,6 +27,7 @@ import org.apache.druid.java.util.common.ISE;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Manages catalog data. Used in Coordinator, which will be in either
@@ -131,18 +132,28 @@ public interface CatalogManager
   long create(TableMetadata table) throws DuplicateKeyException;
 
   /**
-   * Update a table definition, but only if the database entry is at
-   * the given {@code oldVersion}.
-   */
-  long updateSpec(TableId id, TableSpec defn, long oldVersion) throws OutOfDateException;
-
-  /**
-   * Update a table definition, overwriting any current content.
+   * Update a table definition.
+   * <p>
+   * If {@code oldVersion == 0}, overwrites any current content.
    * This is a potential race conditions if this is a partial update
    * because of the possibility of another user doing an update since the
    * read. Fine when the goal is to replace the entire definition.
+   * Else, only does the update is at the given version.
+   * <p>
+   * Retryable only if the version is given, and an
+   * {@code OutOfDateException} is thrown.
    */
-  long updateDefn(TableId id, TableSpec defn) throws NotFoundException;
+  long update(TableMetadata table, long oldVersion) throws OutOfDateException, NotFoundException;
+
+  /**
+   * Update the table spec incrementally using the transform provided. Performs the update
+   * in a transaction to ensure the read and write are atomic.
+   *
+   * @param id        the table to update
+   * @param transform the transform to apply to the table spec
+   * @return          the update timestamp (version) of the updated record
+   */
+  long updatePayload(TableId id, Function<TableSpec, TableSpec> transform) throws NotFoundException;
 
   /**
    * Move the table to the deleting state. No version check: fine

@@ -1,0 +1,101 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.apache.druid.catalog;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.druid.java.util.common.ISE;
+
+import javax.annotation.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * JSON payload for the reorder column API.
+ */
+public class MoveColumn
+{
+  public enum Position
+  {
+    FIRST,
+    LAST,
+    BEFORE,
+    AFTER
+  }
+
+  @JsonProperty
+  public final String column;
+  @JsonProperty
+  public final Position where;
+  @Nullable
+  @JsonProperty
+  public final String anchor;
+
+  @JsonCreator
+  public MoveColumn(
+      final String column,
+      final Position where,
+      @Nullable final String anchor
+  )
+  {
+    this.column = column;
+    this.where = where;
+    this.anchor = anchor;
+  }
+
+  public <T extends ColumnSpec> List<T> perform(List<T> columns)
+  {
+    List<T> revised = new ArrayList<>(columns);
+    final int colPosn = CatalogUtils.findColumn(columns, column);
+    if (colPosn == -1) {
+      throw new ISE("Column [%s] is not defined", column);
+    }
+    int anchorPosn;
+    if (where == Position.BEFORE || where == Position.AFTER) {
+      anchorPosn = CatalogUtils.findColumn(columns, anchor);
+      if (anchorPosn == -1) {
+        throw new ISE("Anchor [%s] is not defined", column);
+      }
+      if (anchorPosn > colPosn) {
+        anchorPosn--;
+      }
+    } else {
+      anchorPosn = -1;
+    }
+
+    T col = revised.remove(colPosn);
+    switch (where) {
+    case FIRST:
+      revised.add(0, col);
+      break;
+    case LAST:
+      revised.add(col);
+      break;
+    case BEFORE:
+      revised.add(anchorPosn, col);
+      break;
+    case AFTER:
+      revised.add(anchorPosn + 1, col);
+      break;
+    }
+    return revised;
+  }
+}

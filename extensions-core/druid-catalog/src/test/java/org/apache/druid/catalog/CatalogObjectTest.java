@@ -23,12 +23,14 @@ import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.metadata.catalog.CatalogManager.TableState;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertThrows;
 
+@Category(CatalogTest.class)
 public class CatalogObjectTest
 {
   @Test
@@ -57,53 +59,49 @@ public class CatalogObjectTest
   @Test
   public void testMinimalTable()
   {
-    TableMetadata table = new TableMetadata(
-        TableId.DRUID_SCHEMA,
-        "foo",
-        "bob",
-        10,
-        20,
-        TableState.ACTIVE,
-        null);
-    table.validate();
-    assertEquals(TableId.DRUID_SCHEMA, table.dbSchema());
-    assertEquals("foo", table.name());
-    assertEquals("bob", table.owner());
-    assertEquals(10, table.creationTime());
-    assertEquals(20, table.updateTime());
-    assertEquals(TableState.ACTIVE, table.state());
-    assertNull(table.spec());
+    DatasourceSpec spec = DatasourceSpec.builder()
+        .segmentGranularity("P1D")
+        .build();
+    {
+      TableMetadata table = new TableMetadata(
+          TableId.DRUID_SCHEMA,
+          "foo",
+          10,
+          20,
+          TableState.ACTIVE,
+          spec
+      );
+      table.validate();
+      assertEquals(TableId.DRUID_SCHEMA, table.dbSchema());
+      assertEquals("foo", table.name());
+      assertEquals(10, table.creationTime());
+      assertEquals(20, table.updateTime());
+      assertEquals(TableState.ACTIVE, table.state());
+      assertNotNull(table.spec());
+    }
 
-    try {
-      table = new TableMetadata(
+    {
+      TableMetadata table = new TableMetadata(
           null,
           "foo",
-          "bob",
           10,
           20,
           TableState.ACTIVE,
-          null);
-      table.validate();
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
+          null
+      );
+      assertThrows(IAE.class, () -> table.validate());
     }
 
-    try {
-      table = new TableMetadata(
+    {
+      TableMetadata table = new TableMetadata(
           TableId.DRUID_SCHEMA,
           null,
-          "bob",
           10,
           20,
           TableState.ACTIVE,
-          null);
-      table.validate();
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
+          null
+      );
+      assertThrows(IAE.class, () -> table.validate());
     }
   }
 
@@ -111,48 +109,43 @@ public class CatalogObjectTest
   public void testSpec()
   {
     DatasourceSpec spec = DatasourceSpec.builder()
-        .segmentGranularity("PT1D")
+        .segmentGranularity("P1D")
         .build();
     TableMetadata table = new TableMetadata(
         TableId.DRUID_SCHEMA,
         "foo",
-        "bob",
         10,
         20,
         TableState.ACTIVE,
-        spec);
+        spec
+    );
     table.validate();
     assertSame(spec, table.spec());
 
     // Segment grain is required.
-    try {
-      spec = DatasourceSpec.builder()
-          .build();
-      table = new TableMetadata(
-          "wrong",
-          "foo",
-          "bob",
-          10,
-          20,
-          TableState.ACTIVE,
-          spec);
-      table.validate();
-      fail();
-    }
-    catch (IAE e) {
-      // Expected
-    }
+    spec = DatasourceSpec.builder()
+        .build();
+    TableMetadata table2 = new TableMetadata(
+        "wrong",
+        "foo",
+        10,
+        20,
+        TableState.ACTIVE,
+        spec
+    );
+    assertThrows(IAE.class, () -> table2.validate());
   }
 
   @Test
   public void testConversions()
   {
     DatasourceSpec spec = DatasourceSpec.builder()
-        .segmentGranularity("PT1D")
+        .segmentGranularity("P1D")
         .build();
     TableMetadata table = TableMetadata.newSegmentTable(
         "ds",
-        spec);
+        spec
+    );
     assertEquals(TableId.datasource("ds"), table.id());
     assertEquals(TableState.ACTIVE, table.state());
     assertEquals(0, table.updateTime());

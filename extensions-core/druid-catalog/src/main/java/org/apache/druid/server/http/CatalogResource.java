@@ -19,18 +19,24 @@
 
 package org.apache.druid.server.http;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import org.apache.curator.shaded.com.google.common.collect.Lists;
 import org.apache.druid.catalog.Actions;
 import org.apache.druid.catalog.CatalogStorage;
+import org.apache.druid.catalog.DatasourceSpec;
+import org.apache.druid.catalog.HideColumns;
+import org.apache.druid.catalog.MoveColumn;
+import org.apache.druid.catalog.MoveColumn.Position;
 import org.apache.druid.catalog.SchemaRegistry.SchemaSpec;
 import org.apache.druid.catalog.TableId;
 import org.apache.druid.catalog.TableMetadata;
 import org.apache.druid.catalog.TableSpec;
+import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.metadata.catalog.CatalogManager;
 import org.apache.druid.metadata.catalog.CatalogManager.DuplicateKeyException;
 import org.apache.druid.metadata.catalog.CatalogManager.NotFoundException;
 import org.apache.druid.metadata.catalog.CatalogManager.OutOfDateException;
@@ -45,6 +51,7 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -55,6 +62,8 @@ import javax.ws.rs.core.Response;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
 /**
  * REST endpoint for user and internal catalog actions. Catalog actions
@@ -69,17 +78,34 @@ public class CatalogResource
   public static final String ROOT_PATH = "/druid/coordinator/v1/catalog";
 
   private final CatalogStorage catalog;
+  private final ObjectMapper jsonMapper;
 
   @Inject
-  public CatalogResource(CatalogStorage catalog)
+  public CatalogResource(
+      final CatalogStorage catalog,
+      @Json final ObjectMapper jsonMapper
+  )
   {
     this.catalog = catalog;
+    this.jsonMapper = jsonMapper;
+  }
+
+  private enum PostAction
+  {
+    NEW,
+    IFNEW,
+    REPLACE,
+    FORCE;
   }
 
   /**
-   * Create a new table within the indicated schema.
+   * Create a new table containing the given table specification.
    *
-   * @param table The table specification to create.
+   * @param dbSchema The name of the Druid schema, which must be writable
+   *        and the user must have at least read access.
+   * @param name The name of the table definition to modify. The user must
+   *        have write access to the table.
+   * @param spec The new table definition.
    * @param ifNew Whether to skip the action if the table already exists.
    *        This is the same as the SQL IF NOT EXISTS clause. If {@code false},
    *        then an error is raised if the table exists. If {@code true}, then
@@ -89,47 +115,110 @@ public class CatalogResource
    * @return the version number of the table
    */
   @POST
-  @Path("/tables")
+  @Path("/tables/{dbSchema}/{name}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response createTable(
-      TableMetadata table,
-      @QueryParam("ifnew") boolean ifNew,
-      @Context final HttpServletRequest req)
+  public Response postTable(
+      @PathParam("dbSchema") String dbSchema,
+      @PathParam("name") String name,
+      TableSpec spec,
+      @QueryParam("action") String actionParam,
+      @QueryParam("version") long version,
+      @Context final HttpServletRequest req
+  )
   {
-    String dbSchema = table.resolveDbSchema();
-    Pair<Response, SchemaSpec> result = validateSchema(dbSchema);
-    if (result.lhs != null) {
-      return result.lhs;
+    final PostAction action;
+    if (actionParam == null) {
+      action = PostAction.NEW;
+    } else {
+      action = PostAction.valueOf(StringUtils.toUpperCase(actionParam));
+      if (action == null) {
+        return Actions.badRequest(
+            Actions.INVALID,
+            StringUtils.format(
+                "Not a valid action: [%s]. Valid actions are new, ifNew, replace, force",
+                actionParam
+            )
+        );
+      }
     }
-    SchemaSpec schema = result.rhs;
-    try {
-      catalog.authorizer().authorizeTable(schema, table.name(), Action.WRITE, req);
+    TableId tableId = TableId.of(dbSchema, name);
+    Response response = authorizeTable(tableId, spec, req);
+    if (response != null) {
+      return response;
     }
-    catch (ForbiddenException e) {
-      return Actions.forbidden(e);
-    }
-    if (!schema.writable()) {
-      return Actions.badRequest(
-          Actions.INVALID,
-          StringUtils.format("Cannot create tables in schema %s", dbSchema));
-    }
-    table = table.withSchema(dbSchema);
+    TableMetadata table = TableMetadata.newTable(tableId, spec);
     try {
       catalog.validate(table);
     }
     catch (IAE e) {
       return Actions.badRequest(Actions.INVALID, e.getMessage());
     }
-    TableSpec spec = table.spec();
-    if (!schema.accepts(spec)) {
+
+    switch (action) {
+    case NEW:
+      return insertTableSpec(table, false);
+    case IFNEW:
+      return insertTableSpec(table, true);
+    case REPLACE:
+      return updateTableSpec(table, version);
+    case FORCE:
+      return addOrUpdateTableSpec(table);
+    default:
+      throw new ISE("Unknown action.");
+    }
+  }
+
+  private Response authorizeTable(TableId tableId, TableSpec spec, final HttpServletRequest req)
+  {
+    // Druid has a fixed set of schemas. Ensure the one provided is valid.
+    Pair<Response, SchemaSpec> result = validateSchema(tableId.schema());
+    if (result.lhs != null) {
+      return result.lhs;
+    }
+    SchemaSpec schema = result.rhs;
+
+    // The schema has to be one that allows table definitions.
+    if (!schema.writable()) {
+      return Actions.badRequest(
+          Actions.INVALID,
+          StringUtils.format("Cannot modify schema %s", tableId.schema())
+      );
+    }
+
+    // Table name can't be blank or have spaces
+    if (Strings.isNullOrEmpty(tableId.name())) {
+      return Actions.badRequest(Actions.INVALID, "Table name is required");
+    }
+    if (!tableId.name().equals(tableId.name().trim())) {
+      return Actions.badRequest(Actions.INVALID, "Table name cannot start or end with spaces");
+    }
+
+    // The given table spec has to be valid for the given schema.
+    if (spec != null && !schema.accepts(spec)) {
       return Actions.badRequest(
           Actions.INVALID,
           StringUtils.format(
               "Cannot create tables of type %s in schema %s",
               spec == null ? "null" : spec.getClass().getSimpleName(),
-              dbSchema));
+                  tableId.schema())
+      );
     }
+
+    // The user has to have permission to do modify the table.
+    try {
+      catalog.authorizer().authorizeTable(schema, tableId.name(), Action.WRITE, req);
+    }
+    catch (ForbiddenException e) {
+      return Actions.forbidden(e);
+    }
+
+    // Everything checks out, let the request proceed.
+    return null;
+  }
+
+  private Response insertTableSpec(TableMetadata table, boolean ifNew)
+  {
     try {
       long createVersion = catalog.tables().create(table);
       return Actions.okWithVersion(createVersion);
@@ -151,76 +240,10 @@ public class CatalogResource
     }
   }
 
-  /**
-   * Update a table within the given schema.
-   *
-   * @param dbSchema The name of the Druid schema, which must be writable
-   *        and the user must have at least read access.
-   * @param name The name of the table definition to modify. The user must
-   *        have write access to the table.
-   * @param spec The new table definition.
-   * @param version An optional table version. If provided, the metadata DB
-   *        entry for the table must be at this exact version or the update
-   *        will fail. (Provides "optimistic locking.") If omitted (that is,
-   *        if zero), then no update conflict change is done.
-   * @param req the HTTP request used for authorization.
-   * @return the new version number of the table
-   */
-  @POST
-  @Path("/tables/{dbSchema}/{name}")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response updateTableDefn(
-      @PathParam("dbSchema") String dbSchema,
-      @PathParam("name") String name,
-      TableSpec spec,
-      @QueryParam("version") long version,
-      @Context final HttpServletRequest req)
+  private Response updateTableSpec(TableMetadata table, long version)
   {
     try {
-      if (spec != null) {
-        spec.validate();
-      }
-    }
-    catch (IAE e) {
-      return Actions.badRequest(Actions.INVALID, e.getMessage());
-    }
-    Pair<Response, SchemaSpec> result = validateSchema(dbSchema);
-    if (result.lhs != null) {
-      return result.lhs;
-    }
-    if (Strings.isNullOrEmpty(name)) {
-      return Actions.badRequest(Actions.INVALID, "Table name is required");
-    }
-    SchemaSpec schema = result.rhs;
-    if (!schema.writable()) {
-      return Actions.badRequest(
-          Actions.INVALID,
-          StringUtils.format("Cannot update tables in schema %s", dbSchema));
-    }
-    if (!schema.accepts(spec)) {
-      return Actions.badRequest(
-          Actions.INVALID,
-          StringUtils.format(
-              "Cannot update tables to type %s in schema %s",
-              spec == null ? "null" : spec.getClass().getSimpleName(),
-              dbSchema));
-    }
-    try {
-      catalog.authorizer().authorizeTable(schema, name, Action.WRITE, req);
-    }
-    catch (ForbiddenException e) {
-      return Actions.forbidden(e);
-    }
-    try {
-      CatalogManager tableMgr = catalog.tables();
-      TableId tableId = new TableId(dbSchema, name);
-      long newVersion;
-      if (version == 0) {
-        newVersion = tableMgr.updateDefn(tableId, spec);
-      } else {
-        newVersion = tableMgr.updateSpec(tableId, spec, version);
-      }
+      long newVersion = catalog.tables().update(table, version);
       return Actions.okWithVersion(newVersion);
     }
     catch (NotFoundException e) {
@@ -238,6 +261,177 @@ public class CatalogResource
     catch (Exception e) {
       return Actions.exception(e);
     }
+  }
+
+  private Response addOrUpdateTableSpec(TableMetadata table)
+  {
+    try {
+      long newVersion = catalog.tables().create(table);
+      return Actions.okWithVersion(newVersion);
+    } catch (DuplicateKeyException e) {
+      // Fall through
+    }
+    catch (Exception e) {
+      return Actions.exception(e);
+    }
+    try {
+      long newVersion = catalog.tables().update(table, 0);
+      return Actions.okWithVersion(newVersion);
+    }
+    catch (Exception e) {
+      return Actions.exception(e);
+    }
+  }
+
+  /**
+   * Update a table within the given schema.
+   *
+   * @param dbSchema The name of the Druid schema, which must be writable
+   *        and the user must have at least read access.
+   * @param name The name of the table definition to modify. The user must
+   *        have write access to the table.
+   * @param spec The new table definition.
+   * @param version An optional table version. If provided, the metadata DB
+   *        entry for the table must be at this exact version or the update
+   *        will fail. (Provides "optimistic locking.") If omitted (that is,
+   *        if zero), then no update conflict change is done.
+   * @param req the HTTP request used for authorization.
+   * @return the new version number of the table
+   */
+  @PUT
+  @Path("/tables/{dbSchema}/{name}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response updateTableDefn(
+      @PathParam("dbSchema") String dbSchema,
+      @PathParam("name") String name,
+      Map<String, Object> raw,
+      @QueryParam("version") long version,
+      @Context final HttpServletRequest req
+  )
+  {
+    // Convert a partial specification to a spec. Not that this requires
+    // that the JSON deserialization accept an empty map (or any subset of
+    // fields) as a valid table spec.
+    final TableSpec updateSpec;
+    try {
+      updateSpec = jsonMapper.convertValue(raw, TableSpec.class);
+    }
+    catch (Exception e) {
+      return Actions.badRequest(Actions.INVALID, "Invalid table specification");
+    }
+
+    return incrementalUpdate(
+        TableId.of(dbSchema, name),
+        updateSpec,
+        req,
+        (spec) -> {
+          final TableSpec mergedSpec = spec.merge(updateSpec, raw, jsonMapper);
+          mergedSpec.validate();
+          return mergedSpec;
+        }
+    );
+  }
+
+  private Response incrementalUpdate(
+      TableId tableId,
+      TableSpec newSpec,
+      @Context final HttpServletRequest req,
+      Function<TableSpec, TableSpec> action
+  )
+  {
+    Response response = authorizeTable(tableId, newSpec, req);
+    if (response != null) {
+      return response;
+    }
+    try {
+      long newVersion = catalog.tables().updatePayload(tableId, action);
+      return Actions.okWithVersion(newVersion);
+    }
+    catch (NotFoundException e) {
+      return Response.status(Response.Status.NOT_FOUND).build();
+    }
+    catch (Exception e) {
+      return Actions.exception(e);
+    }
+  }
+
+  /**
+   * Move a single column to the start end of the column list, or before or after
+   * another column. Both columns must exist. Returns the version of the table
+   * after the update.
+   * <p>
+   * The operation is done atomically so no optimistic locking is required.
+   *
+   * @param dbSchema
+   * @param name
+   * @param command
+   * @param req
+   * @return
+   */
+  @POST
+  @Path("/tables/{dbSchema}/{name}/moveColumn")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response moveColumn(
+      @PathParam("dbSchema") final String dbSchema,
+      @PathParam("name") final String name,
+      final MoveColumn command,
+      @Context final HttpServletRequest req
+  )
+  {
+    if (command == null) {
+      return Actions.badRequest(Actions.INVALID, "A MoveColumn object is required");
+    }
+    if (Strings.isNullOrEmpty(command.column)) {
+      return Actions.badRequest(Actions.INVALID, "A column name is required");
+    }
+    if (command.where == null) {
+      return Actions.badRequest(Actions.INVALID, "A target location is required");
+    }
+    if ((command.where == Position.BEFORE || command.where == Position.AFTER) && Strings.isNullOrEmpty(command.anchor)) {
+      return Actions.badRequest(Actions.INVALID, "A anchor column is required for BEFORE or AFTER");
+    }
+    return incrementalUpdate(
+        TableId.of(dbSchema, name),
+        null,
+        req,
+        (spec) -> {
+          if (!(spec instanceof DatasourceSpec)) {
+            throw new ISE("moveColumn is supported only for data source specs");
+          }
+          DatasourceSpec dsSpec = (DatasourceSpec) spec;
+          DatasourceSpec.Builder builder = dsSpec.toBuilder();
+          builder.columns(command.perform(dsSpec.columns()));
+          return builder.build();
+        }
+    );
+  }
+  @POST
+  @Path("/tables/{dbSchema}/{name}/dropColumn")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response dropColumn(
+      @PathParam("dbSchema") final String dbSchema,
+      @PathParam("name") final String name,
+      final HideColumns command,
+      @Context final HttpServletRequest req
+  )
+  {
+    return incrementalUpdate(
+        TableId.of(dbSchema, name),
+        null,
+        req,
+        (spec) -> {
+          if (!(spec instanceof DatasourceSpec)) {
+            throw new ISE("moveColumn is supported only for data source specs");
+          }
+          DatasourceSpec dsSpec = (DatasourceSpec) spec;
+          DatasourceSpec.Builder builder = dsSpec.toBuilder();
+          builder.hiddenColumns(command.perform(dsSpec.hiddenColumns()));
+          return builder.build();
+        }
+    );
   }
 
   /**
@@ -261,7 +455,8 @@ public class CatalogResource
   public Response getTable(
       @PathParam("dbSchema") String dbSchema,
       @PathParam("name") String name,
-      @Context final HttpServletRequest req)
+      @Context final HttpServletRequest req
+  )
   {
     Pair<Response, SchemaSpec> result = validateSchema(dbSchema);
     if (result.lhs != null) {
@@ -297,7 +492,8 @@ public class CatalogResource
   @Path("/list/schemas/names")
   @Produces(MediaType.APPLICATION_JSON)
   public Response listSchemas(
-      @Context final HttpServletRequest req)
+      @Context final HttpServletRequest req
+  )
   {
     // No good resource to use: we really need finer-grain control.
     catalog.authorizer().authorizeAccess(ResourceType.STATE, "schemas", Action.READ, req);
@@ -312,7 +508,8 @@ public class CatalogResource
   @Path("/list/tables/names")
   @Produces(MediaType.APPLICATION_JSON)
   public Response listTables(
-      @Context final HttpServletRequest req)
+      @Context final HttpServletRequest req
+  )
   {
     List<TableId> tables = catalog.tables().list();
     Iterable<TableId> filtered = AuthorizationUtils.filterAuthorizedResources(
@@ -344,7 +541,8 @@ public class CatalogResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response listTables(
       @PathParam("dbSchema") String dbSchema,
-      @Context final HttpServletRequest req)
+      @Context final HttpServletRequest req
+  )
   {
     Pair<Response, SchemaSpec> result = validateSchema(dbSchema);
     if (result.lhs != null) {
@@ -371,7 +569,8 @@ public class CatalogResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response listTableDetails(
       @PathParam("dbSchema") String dbSchema,
-      @Context final HttpServletRequest req)
+      @Context final HttpServletRequest req
+  )
   {
     Pair<Response, SchemaSpec> result = validateSchema(dbSchema);
     if (result.lhs != null) {
@@ -411,7 +610,8 @@ public class CatalogResource
       @PathParam("dbSchema") String dbSchema,
       @PathParam("name") String name,
       @QueryParam("ifExists") boolean ifExists,
-      @Context final HttpServletRequest req)
+      @Context final HttpServletRequest req
+  )
   {
     TableId tableId = new TableId(dbSchema, name);
     Pair<Response, SchemaSpec> result = validateSchema(tableId.schema());
@@ -481,7 +681,8 @@ public class CatalogResource
   public Response syncTable(
       @PathParam("dbSchema") String dbSchema,
       @PathParam("name") String name,
-      @Context final HttpServletRequest req)
+      @Context final HttpServletRequest req
+  )
   {
     return getTable(dbSchema, name, req);
   }
