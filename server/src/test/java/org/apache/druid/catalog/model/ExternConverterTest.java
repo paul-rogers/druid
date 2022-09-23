@@ -44,7 +44,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 @Category(CatalogTest.class)
-public class InputSpecTest
+public class ExternConverterTest
 {
   @Test
   public void testLocalInputSource()

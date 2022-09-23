@@ -17,29 +17,30 @@
  * under the License.
  */
 
-package org.apache.druid.sql.guice;
+package org.apache.druid.catalog.guice;
 
 import com.fasterxml.jackson.databind.Module;
 import com.google.inject.Binder;
 import com.google.inject.Key;
-import org.apache.druid.catalog.CachedMetadataCatalog;
-import org.apache.druid.catalog.CatalogClient;
-import org.apache.druid.catalog.MetadataCatalog;
-import org.apache.druid.catalog.MetadataCatalog.CatalogListener;
-import org.apache.druid.catalog.MetadataCatalog.CatalogSource;
-import org.apache.druid.catalog.SchemaRegistry;
-import org.apache.druid.catalog.SchemaRegistryImpl;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.PolyBind;
 import org.apache.druid.guice.annotations.LoadScope;
 import org.apache.druid.initialization.DruidModule;
+import org.apache.druid.catalog.CachedMetadataCatalog;
+import org.apache.druid.catalog.CatalogClient;
+import org.apache.druid.catalog.MetadataCatalog;
+import org.apache.druid.catalog.SchemaRegistry;
+import org.apache.druid.catalog.SchemaRegistryImpl;
+import org.apache.druid.catalog.MetadataCatalog.CatalogListener;
+import org.apache.druid.catalog.MetadataCatalog.CatalogSource;
 import org.apache.druid.server.http.CatalogListenerResource;
 import org.apache.druid.sql.calcite.external.StagedOperatorConversion;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
 import org.apache.druid.sql.catalog.InputSchema;
 import org.apache.druid.sql.catalog.LiveCatalogResolver;
+import org.apache.druid.sql.guice.SqlBindings;
 
 import java.util.Collections;
 import java.util.List;

@@ -40,13 +40,13 @@ import org.apache.druid.sql.calcite.parser.BaseDruidSqlInsert;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
 import org.apache.druid.sql.calcite.table.DatasourceTable;
 import org.apache.druid.sql.calcite.table.DatasourceTable.ColumnKind;
-import org.apache.druid.sql.calcite.table.DatasourceTable.PhysicalDatasourceMetadata;
 import org.apache.druid.sql.calcite.table.DatasourceTable.EffectiveColumnMetadata;
 import org.apache.druid.sql.calcite.table.DatasourceTable.EffectiveDetailMetadata;
 import org.apache.druid.sql.calcite.table.DatasourceTable.EffectiveDimensionMetadata;
 import org.apache.druid.sql.calcite.table.DatasourceTable.EffectiveMeasureMetadata;
 import org.apache.druid.sql.calcite.table.DatasourceTable.EffectiveMetadata;
 import org.apache.druid.sql.calcite.table.DatasourceTable.EffectiveRollupMetadata;
+import org.apache.druid.sql.calcite.table.DatasourceTable.PhysicalDatasourceMetadata;
 import org.apache.druid.sql.calcite.table.DruidTable;
 
 import javax.annotation.Nullable;

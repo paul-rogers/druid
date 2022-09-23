@@ -20,12 +20,12 @@
 package org.apache.druid.testsEx.cluster;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.druid.catalog.TableId;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.catalog.HideColumns;
 import org.apache.druid.catalog.MoveColumn;
-import org.apache.druid.catalog.TableId;
 import org.apache.druid.catalog.TableMetadata;
 import org.apache.druid.catalog.TableSpec;
-import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.server.http.CatalogResource;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 
@@ -53,7 +53,7 @@ public class CatalogClient
     return clusterClient.post(url, spec, Long.class);
   }
 
-  public long updateTable(TableId tableId, Map<String, Object> updates)
+  public long updateTable(TableId tableId, Map<String, Object> updates, long version)
   {
     String url = StringUtils.format(
         "%s/%s/tables/%s/%s",
@@ -62,6 +62,9 @@ public class CatalogClient
         tableId.schema(),
         tableId.name()
     );
+    if (version > 0) {
+      url += "?version=" + version;
+    }
     return clusterClient.put(url, updates, Long.class);
   }
 

@@ -31,11 +31,7 @@ import org.apache.druid.catalog.TableMetadata.TableType;
 import org.apache.druid.guice.annotations.UnstableApi;
 import org.apache.druid.java.util.common.UOE;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.function.BiFunction;
 
 /**
  * Definition of a table "hint" in the metastore, between client and
