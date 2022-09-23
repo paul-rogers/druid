@@ -19,7 +19,9 @@
 
 package org.apache.druid.testsEx.categories;
 
+import org.apache.druid.testsEx.config.Cluster;
+
+@Cluster(BatchIndex.class)
 public class Catalog
 {
-
 }
