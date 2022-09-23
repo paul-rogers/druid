@@ -192,6 +192,31 @@ public class DruidClusterClient
     }
   }
 
+  public StatusResponseHolder post(String url, Object body)
+  {
+    try {
+      final byte[] payload = jsonMapper.writeValueAsBytes(body);
+      StatusResponseHolder response = httpClient.go(
+          new Request(HttpMethod.POST, new URL(url))
+              .setContent(payload),
+          StatusResponseHandler.getInstance()
+      ).get();
+
+      if (!response.getStatus().equals(HttpResponseStatus.OK)) {
+        throw new ISE(
+            "Error from POST [%s] status [%s] content [%s]",
+            url,
+            response.getStatus(),
+            response.getContent()
+        );
+      }
+      return response;
+    }
+    catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   /**
    * Issue a GET command and deserialize the JSON result to the given class.
    */
@@ -214,6 +239,28 @@ public class DruidClusterClient
     StatusResponseHolder response = get(url);
     try {
       return jsonMapper.readValue(response.getContent(), typeRef);
+    }
+    catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public <M,R> R post(String url, M body, TypeReference<R> typeRef)
+  {
+    StatusResponseHolder response = post(url, body);
+    try {
+      return jsonMapper.readValue(response.getContent(), typeRef);
+    }
+    catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public <M,R> R post(String url, M body, Class<R> responseClass)
+  {
+    StatusResponseHolder response = post(url, body);
+    try {
+      return jsonMapper.readValue(response.getContent(), responseClass);
     }
     catch (IOException e) {
       throw new RuntimeException(e);
