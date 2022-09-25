@@ -24,6 +24,7 @@ import com.fasterxml.jackson.dataformat.smile.SmileFactory;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.ColumnSpec.ColumnKind;
 import org.apache.druid.catalog.TableMetadata.TableType;
+import org.apache.druid.catalog.sync.LocalMetadataCatalog;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.metadata.TestDerbyConnector;
 import org.apache.druid.metadata.catalog.CatalogManager.DuplicateKeyException;

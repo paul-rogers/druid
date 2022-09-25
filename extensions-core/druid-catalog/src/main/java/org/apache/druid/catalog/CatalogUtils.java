@@ -16,7 +16,7 @@ public class CatalogUtils
    * then this is a request to delete the key in the merged map. Supports JSON
    * updates of the form <code>{"doomed": null, "updated": "foo"}</code>.
    */
-  protected static Map<String, Object> mergeMap(Map<String, Object> source, Map<String, Object> update)
+  public static Map<String, Object> mergeMap(Map<String, Object> source, Map<String, Object> update)
   {
     if (update == null) {
       return source;

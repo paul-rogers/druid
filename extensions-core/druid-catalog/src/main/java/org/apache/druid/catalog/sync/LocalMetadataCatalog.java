@@ -17,8 +17,13 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.sync;
 
+import org.apache.druid.catalog.MetadataCatalog;
+import org.apache.druid.catalog.SchemaRegistry;
+import org.apache.druid.catalog.TableId;
+import org.apache.druid.catalog.TableMetadata;
+import org.apache.druid.catalog.MetadataCatalog.CatalogSource;
 import org.apache.druid.catalog.SchemaRegistry.SchemaSpec;
 
 import javax.inject.Inject;

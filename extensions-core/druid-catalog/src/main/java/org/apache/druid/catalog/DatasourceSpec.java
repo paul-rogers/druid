@@ -29,6 +29,7 @@ import com.google.common.base.Strings;
 import org.apache.druid.catalog.DatasourceColumnSpec.DetailColumnSpec;
 import org.apache.druid.catalog.DatasourceColumnSpec.DimensionSpec;
 import org.apache.druid.catalog.DatasourceColumnSpec.MeasureSpec;
+import org.apache.druid.catalog.DatasourceColumnSpec.RollupColumnSpec;
 import org.apache.druid.catalog.TableMetadata.TableType;
 import org.apache.druid.guice.annotations.UnstableApi;
 import org.apache.druid.java.util.common.IAE;
@@ -53,7 +54,7 @@ import java.util.Set;
  * in the catalog.
  */
 @UnstableApi
-public class DatasourceSpec extends TableSpec
+public abstract class DatasourceSpec extends TableSpec
 {
   public static final String JSON_TYPE = "datasource";
 
@@ -89,7 +90,7 @@ public class DatasourceSpec extends TableSpec
   }
 
   /**
-   * Human-readable description of the column.
+   * Human-readable description of the datasource.
    */
   private final String description;
 
@@ -101,50 +102,22 @@ public class DatasourceSpec extends TableSpec
   private final String segmentGranularity;
 
   /**
-   * Ingestion and auto-compaction rollup granularity. If null, then no
-   * rollup is enabled. Same as {@code queryGranularity} in and ingest spec,
-   * but renamed since this granularity affects rollup, not queries. Can be
-   * overridden at ingestion time. The grain may change as segments evolve:
-   * this is the grain only for ingest.
-   */
-  private final String rollupGranularity;
-
-  /**
    * The target segment size at ingestion and initial compaction.
    * If 0, then the system setting is used.
    */
   private final int targetSegmentRows;
 
-  /**
-   * Whether to enable auto-compaction. Only relevant if no auto-compaction
-   * spec is defined, since the existence of a spec overrides this setting.
-   */
-  private final boolean enableAutoCompaction;
-
-  /**
-   * The offset of segments to be auto-compacted relative to the current
-   * time. If not present, the auto-compaction default is used if
-   * auto-compaction is enabled.
-   */
-  private final String autoCompactionDelay;
-
   private final List<ClusterKeySpec> clusterKeys;
-
-  private final List<DatasourceColumnSpec> columns;
 
   private final List<String> hiddenColumns;
 
   public DatasourceSpec(
-      @JsonProperty("description") String description,
-      @JsonProperty("segmentGranularity") String segmentGranularity,
-      @JsonProperty("rollupGranularity") String rollupGranularity,
-      @JsonProperty("targetSegmentRows") int targetSegmentRows,
-      @JsonProperty("enableAutoCompaction") boolean enableAutoCompaction,
-      @JsonProperty("autoCompactionDelay") String autoCompactionDelay,
-      @JsonProperty("clusterKeys") List<ClusterKeySpec> clusterKeys,
-      @JsonProperty("columns") List<DatasourceColumnSpec> columns,
-      @JsonProperty("hiddenColumns") List<String> hiddenColumns,
-      @JsonProperty("tags") Map<String, Object> tags
+      final String description,
+      final String segmentGranularity,
+      final int targetSegmentRows,
+      final List<ClusterKeySpec> clusterKeys,
+      final List<String> hiddenColumns,
+      final Map<String, Object> tags
   )
   {
     super(tags);
@@ -160,11 +133,7 @@ public class DatasourceSpec extends TableSpec
       this.segmentGranularity = gran == null ? segmentGranularity : gran.toString();
     }
 
-    this.rollupGranularity = rollupGranularity;
     this.targetSegmentRows = targetSegmentRows;
-    this.enableAutoCompaction = enableAutoCompaction;
-    this.autoCompactionDelay = autoCompactionDelay;
-    this.columns = columns == null ? Collections.emptyList() : columns;
     this.clusterKeys = clusterKeys == null || clusterKeys.isEmpty() ? null : clusterKeys;
     this.hiddenColumns  = hiddenColumns == null || hiddenColumns.isEmpty() ? null : hiddenColumns;
   }
@@ -180,13 +149,6 @@ public class DatasourceSpec extends TableSpec
   public String description()
   {
     return description;
-  }
-
-  @JsonProperty("rollupGranularity")
-  @JsonInclude(Include.NON_NULL)
-  public String rollupGranularity()
-  {
-    return rollupGranularity;
   }
 
   @JsonProperty("segmentGranularity")
@@ -209,32 +171,11 @@ public class DatasourceSpec extends TableSpec
     return targetSegmentRows != 0;
   }
 
-  @JsonProperty("enableAutoCompaction")
-  @JsonInclude(Include.NON_DEFAULT)
-  public boolean enableAutoCompaction()
-  {
-    return enableAutoCompaction;
-  }
-
-  @JsonProperty("autoCompactionDelay")
-  @JsonInclude(Include.NON_NULL)
-  public String autoCompactionDelay()
-  {
-    return autoCompactionDelay;
-  }
-
   @JsonProperty("clusterKeys")
   @JsonInclude(Include.NON_EMPTY)
   public List<ClusterKeySpec> clusterKeys()
   {
     return clusterKeys;
-  }
-
-  @JsonProperty("columns")
-  @JsonInclude(Include.NON_EMPTY)
-  public List<DatasourceColumnSpec> columns()
-  {
-    return columns;
   }
 
   @JsonProperty("hiddenColumns")
@@ -273,6 +214,14 @@ public class DatasourceSpec extends TableSpec
     }
   }
 
+  public abstract List<? extends DatasourceColumnSpec> datasourceColumns();
+
+  @Override
+  public List<? extends ColumnSpec> columnSpecs()
+  {
+    return datasourceColumns();
+  }
+
   public static Builder builder()
   {
     return new Builder();
@@ -284,10 +233,7 @@ public class DatasourceSpec extends TableSpec
   }
 
   @JsonIgnore
-  public boolean isDetail()
-  {
-    return Strings.isNullOrEmpty(rollupGranularity);
-  }
+  public abstract boolean isDetail();
 
   @JsonIgnore
   public boolean isRollup()
@@ -303,27 +249,8 @@ public class DatasourceSpec extends TableSpec
       throw new IAE("Segment granularity is required.");
     }
     asDruidGranularity(segmentGranularity);
-    if (rollupGranularity != null) {
-      asDruidGranularity(rollupGranularity);
-    }
-    boolean isDetail = isDetail();
     Set<String> names = new HashSet<>();
-    for (ColumnSpec col : columns) {
-      if (isDetail && col instanceof MeasureSpec) {
-        throw new IAE(StringUtils.format(
-            "Measure column %s not allowed for a detail table",
-            col.name()));
-      }
-      if (isDetail && col instanceof DimensionSpec) {
-        throw new IAE(StringUtils.format(
-            "Dimension column %s not allowed for a detail table",
-            col.name()));
-      }
-      if (!isDetail && col instanceof DetailColumnSpec) {
-        throw new IAE(StringUtils.format(
-            "Detail column %s not allowed for a rollup table",
-            col.name()));
-      }
+    for (DatasourceColumnSpec col : datasourceColumns()) {
       col.validate();
       if (!names.add(col.name())) {
         throw new IAE("Duplicate column name: " + col.name());
@@ -332,16 +259,9 @@ public class DatasourceSpec extends TableSpec
     if (hiddenColumns != null) {
       for (String col : hiddenColumns) {
         if (Columns.TIME_COLUMN.equals(col)) {
-          throw new IAE(StringUtils.format(
-              "Cannot hide column %s",
-              col
-              ));
-        }
-        if (names.contains(col)) {
-          throw new IAE(StringUtils.format(
-              "Column [%s] cannot be both defined and hidden",
-              col
-              ));
+          throw new IAE(
+              StringUtils.format("Cannot hide column %s", col)
+          );
         }
       }
     }
@@ -395,24 +315,12 @@ public class DatasourceSpec extends TableSpec
     return revised;
   }
 
-  @Override
-  public boolean equals(Object o)
+  protected boolean isEqual(DatasourceSpec other)
   {
-    if (o == this) {
-      return true;
-    }
-    if (o == null || o.getClass() != getClass()) {
-      return false;
-    }
-    DatasourceSpec other = (DatasourceSpec) o;
     return Objects.equals(this.description, other.description)
         && Objects.equals(this.segmentGranularity, other.segmentGranularity)
-        && Objects.equals(this.rollupGranularity, other.rollupGranularity)
         && Objects.equals(this.clusterKeys, other.clusterKeys)
         && this.targetSegmentRows == other.targetSegmentRows
-        && this.enableAutoCompaction == other.enableAutoCompaction
-        && Objects.equals(this.autoCompactionDelay, other.autoCompactionDelay)
-        && Objects.equals(this.columns, other.columns)
         && Objects.equals(this.hiddenColumns, other.hiddenColumns)
         && Objects.equals(this.tags(), other.tags());
   }
@@ -423,14 +331,177 @@ public class DatasourceSpec extends TableSpec
     return Objects.hash(
         description,
         segmentGranularity,
-        rollupGranularity,
         clusterKeys,
         targetSegmentRows,
-        enableAutoCompaction,
-        autoCompactionDelay,
-        columns,
         hiddenColumns,
-        tags());
+        tags()
+    );
+  }
+
+  public static class DetailDatasourceSpec extends DatasourceSpec
+  {
+
+    private final List<DetailColumnSpec> columns;
+
+    public DetailDatasourceSpec(
+        @JsonProperty("description") String description,
+        @JsonProperty("segmentGranularity") String segmentGranularity,
+        @JsonProperty("targetSegmentRows") int targetSegmentRows,
+        @JsonProperty("clusterKeys") List<ClusterKeySpec> clusterKeys,
+        @JsonProperty("columns") List<DetailColumnSpec> columns,
+        @JsonProperty("hiddenColumns") List<String> hiddenColumns,
+        @JsonProperty("tags") Map<String, Object> tags
+    )
+    {
+      super(
+          description,
+          segmentGranularity,
+          targetSegmentRows,
+          clusterKeys,
+          hiddenColumns,
+          tags
+      );
+      this.columns = columns == null ? Collections.emptyList() : columns;
+    }
+
+    @Override
+    public boolean isDetail()
+    {
+      return true;
+    }
+
+    @JsonProperty("columns")
+    @JsonInclude(Include.NON_EMPTY)
+    public List<DetailColumnSpec> columns()
+    {
+      return columns;
+    }
+
+    @Override
+    public List<? extends DatasourceColumnSpec> datasourceColumns()
+    {
+      return columns;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+      if (o == this) {
+        return true;
+      }
+      if (o == null || o.getClass() != getClass()) {
+        return false;
+      }
+      DetailDatasourceSpec other = (DetailDatasourceSpec) o;
+      return isEqual(other)
+          && Objects.equals(this.columns, other.columns);
+    }
+
+    @Override
+    public int hashCode()
+    {
+      return Objects.hash(
+          super.hashCode(),
+          columns
+      );
+    }
+  }
+
+  public static class RollupDatasourceSpec extends DatasourceSpec
+  {
+    private final List<RollupColumnSpec> columns;
+
+    /**
+     * Ingestion and auto-compaction rollup granularity. If null, then no
+     * rollup is enabled. Same as {@code queryGranularity} in and ingest spec,
+     * but renamed since this granularity affects rollup, not queries. Can be
+     * overridden at ingestion time. The grain may change as segments evolve:
+     * this is the grain only for ingest.
+     */
+    private final String rollupGranularity;
+
+    public RollupDatasourceSpec(
+        @JsonProperty("description") final String description,
+        @JsonProperty("segmentGranularity") final String segmentGranularity,
+        @JsonProperty("rollupGranularity") final String rollupGranularity,
+        @JsonProperty("targetSegmentRows") final int targetSegmentRows,
+        @JsonProperty("clusterKeys") final List<ClusterKeySpec> clusterKeys,
+        @JsonProperty("columns") final List<RollupColumnSpec> columns,
+        @JsonProperty("hiddenColumns") final List<String> hiddenColumns,
+        @JsonProperty("tags") final Map<String, Object> tags
+    )
+    {
+      super(
+          description,
+          segmentGranularity,
+          targetSegmentRows,
+          clusterKeys,
+          hiddenColumns,
+          tags
+      );
+      this.rollupGranularity = rollupGranularity;
+      this.columns = columns == null ? Collections.emptyList() : columns;
+    }
+
+    @Override
+    public boolean isDetail()
+    {
+      return false;
+    }
+
+    @JsonProperty("columns")
+    @JsonInclude(Include.NON_EMPTY)
+    public List<RollupColumnSpec> columns()
+    {
+      return columns;
+    }
+
+    @JsonProperty("rollupGranularity")
+    @JsonInclude(Include.NON_NULL)
+    public String rollupGranularity()
+    {
+      return rollupGranularity;
+    }
+
+    @Override
+    public List<? extends DatasourceColumnSpec> datasourceColumns()
+    {
+      return columns;
+    }
+
+    @Override
+    public void validate()
+    {
+      super.validate();
+      if (rollupGranularity != null) {
+        asDruidGranularity(rollupGranularity);
+      }
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+      if (o == this) {
+        return true;
+      }
+      if (o == null || o.getClass() != getClass()) {
+        return false;
+      }
+      RollupDatasourceSpec other = (RollupDatasourceSpec) o;
+      return isEqual(other)
+          && Objects.equals(this.rollupGranularity, other.rollupGranularity)
+          && Objects.equals(this.columns, other.columns);
+    }
+
+    @Override
+    public int hashCode()
+    {
+      return Objects.hash(
+          super.hashCode(),
+          rollupGranularity,
+          columns
+      );
+    }
   }
 
   public static class Builder

@@ -31,6 +31,8 @@ import org.apache.druid.catalog.TableMetadata.TableType;
 import org.apache.druid.guice.annotations.UnstableApi;
 import org.apache.druid.java.util.common.UOE;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -93,6 +95,8 @@ public abstract class TableSpec
     return null;
   }
 
+  public abstract List<? extends ColumnSpec> columnSpecs();
+
   /**
    * Internal class used in updates to notify listeners that a table has
    * been deleted. Avoids the need for a special "table deleted" message.
@@ -116,6 +120,12 @@ public abstract class TableSpec
     public TableSpec merge(TableSpec update, Map<String, Object> raw, ObjectMapper mapper)
     {
       throw new UOE("Tombstones should not exist in the catalog.");
+    }
+
+    @Override
+    public List<? extends ColumnSpec> columnSpecs()
+    {
+      return Collections.emptyList();
     }
   }
 }

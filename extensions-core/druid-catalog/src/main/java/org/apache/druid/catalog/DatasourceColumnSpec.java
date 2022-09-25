@@ -122,15 +122,28 @@ public abstract class DatasourceColumnSpec extends ColumnSpec
     }
   }
 
-  public static class DimensionSpec extends DatasourceColumnSpec
+  public abstract static class RollupColumnSpec  extends DatasourceColumnSpec
+  {
+    @JsonCreator
+    public RollupColumnSpec(
+        final String name,
+        final String sqlType,
+        final Map<String, Object> tags
+    )
+    {
+      super(name, sqlType, tags);
+    }
+  }
+
+  public static class DimensionSpec extends RollupColumnSpec
   {
     public static final String JSON_TYPE = "dimension";
 
     @JsonCreator
     public DimensionSpec(
-        @JsonProperty("name") String name,
-        @JsonProperty("sqlType") String sqlType,
-        @JsonProperty("tags") Map<String, Object> tags
+        @JsonProperty("name") final String name,
+        @JsonProperty("sqlType") final String sqlType,
+        @JsonProperty("tags") final Map<String, Object> tags
     )
     {
       super(name, sqlType, tags);

@@ -17,11 +17,18 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.sync;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.druid.catalog.CacheNotifier;
+import org.apache.druid.catalog.CatalogStorage;
+import org.apache.druid.catalog.MetadataCatalog;
+import org.apache.druid.catalog.TableId;
+import org.apache.druid.catalog.TableMetadata;
+import org.apache.druid.catalog.TableSpec;
 import org.apache.druid.catalog.MetadataCatalog.CatalogListener;
-import org.apache.druid.catalog.RestUpdateSender.RestSender;
+import org.apache.druid.catalog.TableSpec.Tombstone;
+import org.apache.druid.catalog.sync.RestUpdateSender.RestSender;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.ManageLifecycle;
