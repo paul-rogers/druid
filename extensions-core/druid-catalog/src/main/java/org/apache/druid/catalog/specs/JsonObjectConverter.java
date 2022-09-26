@@ -42,7 +42,7 @@ import java.util.Map;
  * "file" and "files" map to the same "files" JSON property. This class
  * ensures that only one of the overloads is present.
  */
-public class JsonObjectConverter<T>
+public interface JsonObjectConverter<T>
 {
   public static class JsonProperty
   {
@@ -83,12 +83,18 @@ public class JsonObjectConverter<T>
     }
   }
 
-  public static class JsonSubclassConverter<T> extends JsonObjectConverter<T>
+  public interface JsonSubclassConverter<T> extends JsonObjectConverter<T>
+  {
+    String typePropertyValue();
+    T convert(ResolvedTable table, String jsonTypeFieldName);
+  }
+
+  public static class JsonSubclassConverterImpl<T> extends JsonObjectConverterImpl<T> implements JsonSubclassConverter<T>
   {
     private final String typePropertyValue;
     private final String jsonTypeValue;
 
-    public JsonSubclassConverter(
+    public JsonSubclassConverterImpl(
         final String typePropertyValue,
         final String jsonTypeValue,
         final List<JsonProperty> properties,
@@ -102,6 +108,7 @@ public class JsonObjectConverter<T>
       this.jsonTypeValue = jsonTypeValue;
     }
 
+    @Override
     public T convert(ResolvedTable table, String jsonTypeFieldName)
     {
       Map<String, Object> fields = gatherFields(table);
@@ -109,106 +116,114 @@ public class JsonObjectConverter<T>
       return convertFromMap(fields, table.jsonMapper());
     }
 
+    @Override
     public String typePropertyValue()
     {
       return typePropertyValue;
     }
   }
 
-  private final List<JsonProperty> properties;
-  private final Class<T> targetClass;
-
-  public JsonObjectConverter(
-      final List<JsonProperty> properties,
-      final Class<T> targetClass
-  )
+  public static class JsonObjectConverterImpl<T> implements JsonObjectConverter<T>
   {
-    this.properties = properties;
-    this.targetClass = targetClass;
-    validateProperties();
-  }
 
-  public T convert(ResolvedTable table)
-  {
-    return convertFromMap(gatherFields(table), table.jsonMapper());
-  }
+    private final List<JsonProperty> properties;
+    private final Class<T> targetClass;
 
-  public Map<String, Object> gatherFields(ResolvedTable table)
-  {
-    Map<String, Object> jsonMap = new HashMap<>();
-    for (JsonProperty prop : properties) {
-      Object value = table.property(prop.propertyKey());
-      if (value == null) {
-        continue;
-      }
-      try {
-        Object convertedValue = prop.encodeToJava(value);
-        if (jsonMap.put(prop.jsonKey(), convertedValue) != null) {
-          List<String> overloads = getOverloads(prop.jsonKey());
+    public JsonObjectConverterImpl(
+        final List<JsonProperty> properties,
+        final Class<T> targetClass
+    )
+    {
+      this.properties = properties;
+      this.targetClass = targetClass;
+      validateProperties();
+    }
+
+    @Override
+    public T convert(ResolvedTable table)
+    {
+      return convertFromMap(gatherFields(table), table.jsonMapper());
+    }
+
+    public Map<String, Object> gatherFields(ResolvedTable table)
+    {
+      Map<String, Object> jsonMap = new HashMap<>();
+      for (JsonProperty prop : properties) {
+        Object value = table.property(prop.propertyKey());
+        if (value == null) {
+          continue;
+        }
+        try {
+          Object convertedValue = prop.encodeToJava(value);
+          if (jsonMap.put(prop.jsonKey(), convertedValue) != null) {
+            List<String> overloads = getOverloads(prop.jsonKey());
+            throw new IAE(StringUtils.format(
+                "Specify only one of %s",
+                overloads
+                ));
+          }
+        }
+        catch (IAE e) {
           throw new IAE(StringUtils.format(
-              "Specify only one of %s",
-              overloads
-              ));
+              "The value [%s] is not valid for argument %s of type %s: %s",
+              value,
+              prop.propertyKey(),
+              prop.type().typeName(),
+              e.getMessage()));
         }
       }
-      catch (IAE e) {
-        throw new IAE(StringUtils.format(
-            "The value [%s] is not valid for argument %s of type %s: %s",
-            value,
-            prop.propertyKey(),
-            prop.type().typeName(),
-            e.getMessage()));
+      return jsonMap;
+    }
+
+    public T convertFromMap(Map<String, Object> jsonMap, ObjectMapper jsonMapper)
+    {
+      try {
+        return jsonMapper.convertValue(jsonMap, targetClass);
+      }
+      catch (Exception e) {
+        throw new IAE(e, "Invalid input specification");
       }
     }
-    return jsonMap;
+
+    private List<String> getOverloads(String jsonPath)
+    {
+      List<String> overloads = new ArrayList<>();
+      for (JsonProperty prop : properties) {
+        if (prop.jsonKey().equals(jsonPath)) {
+          overloads.add(prop.propertyKey());
+        }
+      }
+      return overloads;
+    }
+
+    private void validateProperties()
+    {
+      Map<String, JsonProperty> propertyMap = new HashMap<>();
+      for (JsonProperty prop : properties) {
+        if (propertyMap.put(prop.propertyKey(), prop) != null) {
+          throw new ISE(
+              "Property %s is duplicated for type %s",
+              prop.propertyKey(),
+              targetClass.getSimpleName()
+          );
+        }
+      }
+      propertyMap = new HashMap<>();
+      for (JsonProperty prop : properties) {
+        JsonProperty existing = propertyMap.get(prop.jsonKey());
+        if (existing == null) {
+          propertyMap.put(prop.jsonKey(), prop);
+        } else if (existing.type() != prop.type()) {
+          throw new ISE(
+              "Json property [%s] defined with conflicting types: [%s] and [%s]",
+              prop.jsonKey(),
+              prop.type().typeName(),
+              existing.type().typeName()
+          );
+        }
+      }
+    }
   }
 
-  public T convertFromMap(Map<String, Object> jsonMap, ObjectMapper jsonMapper)
-  {
-    try {
-      return jsonMapper.convertValue(jsonMap, targetClass);
-    }
-    catch (Exception e) {
-      throw new IAE(e, "Invalid input specification");
-    }
-  }
-
-  private List<String> getOverloads(String jsonPath)
-  {
-    List<String> overloads = new ArrayList<>();
-    for (JsonProperty prop : properties) {
-      if (prop.jsonKey().equals(jsonPath)) {
-        overloads.add(prop.propertyKey());
-      }
-    }
-    return overloads;
-  }
-
-  private void validateProperties()
-  {
-    Map<String, JsonProperty> propertyMap = new HashMap<>();
-    for (JsonProperty prop : properties) {
-      if (propertyMap.put(prop.propertyKey(), prop) != null) {
-        throw new ISE(
-            "Property %s is duplicated for type %s",
-            prop.propertyKey(),
-            targetClass.getSimpleName()
-        );
-      }
-    }
-    propertyMap = new HashMap<>();
-    for (JsonProperty prop : properties) {
-      JsonProperty existing = propertyMap.get(prop.jsonKey());
-      if (existing == null) {
-        propertyMap.put(prop.jsonKey(), prop);
-      } else if (existing.type() != prop.type()) {
-        throw new ISE(
-            "Json property [%s] defined with conflicting types: [%s] and [%s]",
-            prop.jsonKey(),
-            prop.type().typeName(),
-            existing.type().typeName()
-        );
-      }
-    }
-  }
+  public T convert(ResolvedTable table);
 }

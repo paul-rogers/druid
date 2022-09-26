@@ -20,22 +20,30 @@
 package org.apache.druid.catalog.specs;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
 import org.apache.druid.catalog.specs.CatalogFieldDefn.StringFieldDefn;
 import org.apache.druid.catalog.specs.CatalogFieldDefn.StringListDefn;
+import org.apache.druid.catalog.specs.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonProperty;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverter;
+import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverterImpl;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.HttpInputSource;
+import org.apache.druid.data.input.impl.HttpInputSourceConfig;
 import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.metadata.DefaultPasswordProvider;
+import org.apache.druid.metadata.PasswordProvider;
+import org.apache.druid.utils.CollectionUtils;
 
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -43,6 +51,9 @@ import java.util.stream.Collectors;
  * Definition of the input source conversions which converts from property
  * lists in table specs to subclasses of {@link InputSource}.
  */
+// Suppressing deprecation warnings because there is nothing we can do
+// about the deprecated input to the HTTP input source.
+@SuppressWarnings("deprecation")
 public class InputSources
 {
   public static final List<JsonProperty> INLINE_SOURCE_FIELDS = Arrays.asList(
@@ -113,43 +124,117 @@ public class InputSources
     }
   }
 
-  public static final List<JsonProperty> HTTP_SOURCE_FIELDS = Arrays.asList(
-      new JsonProperty(
-          "httpAuthenticationUsername",
-          new StringFieldDefn("user")
-      ),
-      new JsonProperty(
-          "httpAuthenticationPassword",
-          new StringFieldDefn("password")
-      ),
-      new UriListProperty("uris", "uris"),
-      new UriListProperty("uris", "uri")
-  );
+  public static final String USER_PROPERTY = "user";
+  public static final String PASSWORD_PROPERTY = "password";
+  public static final String URIS_PROPERTY = "uris";
+  public static final String ALLOWED_PROTOCOLS_PROPERTY = "allowedProtocols";
 
-  public static final List<JsonProperty> LOCAL_SOURCE_FIELDS = Arrays.asList(
-      new JsonProperty(
-          "baseDir",
-          new StringFieldDefn("baseDir")
-      ),
-      new JsonProperty(
-          "filter",
-          new StringFieldDefn("fileFilter")
-      ),
+  /**
+   * Hand-crafted converter because of the two non-simple objects required by
+   * the constructor.
+   */
+  public static class HttpSourceConverter implements JsonSubclassConverter<HttpInputSource>
+  {
+    @Override
+    public HttpInputSource convert(ResolvedTable table)
+    {
+      String user = table.stringProperty(USER_PROPERTY);
+      String password = table.stringProperty(PASSWORD_PROPERTY);
+      List<URI> uris = convertUriList(table.stringListProperty(URIS_PROPERTY));
+      List<String> protocols = table.stringListProperty(ALLOWED_PROTOCOLS_PROPERTY);
 
-      // Note that the LocalInputSource wants a list of File, but we define
-      // the property as list of String with no conversion. As it turns out,
-      // Jackson will do the string-to-File conversion for us. If we did try to
-      // do it ourselves, the conversion would helpfully convert a relative path
-      // to an absolute path relative to the current directory, which is not
-      // helpful in this case.
-      new JsonProperty(
-          "files",
-          new StringListDefn("files")
-      )
-  );
+      HttpInputSourceConfig config = new HttpInputSourceConfig(
+          protocols == null ? null : new HashSet<>(protocols)
+      );
+      PasswordProvider passwordProvider = Strings.isNullOrEmpty(password)
+          ? null
+          : new DefaultPasswordProvider(password);
+
+      return new HttpInputSource(uris, user, passwordProvider, config);
+    }
+
+    @Override
+    public String typePropertyValue()
+    {
+      return LocalInputSource.TYPE_KEY;
+    }
+
+    @Override
+    public HttpInputSource convert(ResolvedTable table, String jsonTypeFieldName)
+    {
+      return convert(table);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  public static List<File> convertFileList(Object value)
+  {
+    if (value == null) {
+      return null;
+    }
+    List<String> list;
+    try {
+      list = (List<String>) value;
+    }
+    catch (ClassCastException e) {
+      throw new IAE("Value [%s] must be a list of strings", value);
+    }
+    return list
+        .stream()
+        .map(strValue -> new File(strValue))
+        .collect(Collectors.toList());
+  }
+
+  // Local source fields since the convert is hand-crafted
+  public static final String BASE_DIR_PROPERTY = "baseDir";
+
+  // Note name "fileFilter", not "filter". These properties mix in with
+  // others and "filter" is a bit too generic in that context.
+  public static final String FILE_FILTER_PROPERTY = "fileFilter";
+  public static final String FILES_PROPERTY = "files";
+
+  /**
+   * Hand-crafted converter to work around the the crazy-ass semantics of this class.
+   * If we give a base directory, and explicitly state files, we must
+   * also provide a file filter which presumably matches the very files
+   * we list. Take pitty on the user and provide a filter in this case.
+   */
+  public static class LocalInputSourceConverter implements JsonSubclassConverter<LocalInputSource>
+  {
+    @Override
+    public LocalInputSource convert(ResolvedTable table)
+    {
+      String baseDir = table.stringProperty(BASE_DIR_PROPERTY);
+      String filter = table.stringProperty(FILE_FILTER_PROPERTY);
+      List<File> files = convertFileList(table.stringListProperty(FILES_PROPERTY));
+
+      // Note the crazy-ass semantics of this class.
+      // If we give a base directory, and explicitly state files, we must
+      // also provide a file filter which presumably matches the very files
+      // we list. Take pitty on the user and provide a filter in this case.
+
+      if (baseDir != null && filter == null && !CollectionUtils.isNullOrEmpty(files)) {
+        filter = "*";
+      }
+      File baseDirFile = baseDir == null ? null : new File(baseDir);
+      return new LocalInputSource(baseDirFile, filter, files);
+    }
+
+    @Override
+    public String typePropertyValue()
+    {
+      return LocalInputSource.TYPE_KEY;
+    }
+
+    @Override
+    public LocalInputSource convert(ResolvedTable table, String jsonTypeFieldName)
+    {
+      return convert(table);
+    }
+  }
 
   public static final JsonSubclassConverter<InlineInputSource> INLINE_SOURCE_CONVERTER =
-      new JsonSubclassConverter<>(
+      new JsonSubclassConverterImpl<>(
           InlineInputSource.TYPE_KEY,
           InlineInputSource.TYPE_KEY,
           INLINE_SOURCE_FIELDS,
@@ -157,20 +242,9 @@ public class InputSources
       );
 
   public static final JsonSubclassConverter<LocalInputSource> LOCAL_SOURCE_CONVERTER =
-      new JsonSubclassConverter<>(
-          LocalInputSource.TYPE_KEY,
-          LocalInputSource.TYPE_KEY,
-          LOCAL_SOURCE_FIELDS,
-          LocalInputSource.class
-      );
+      new LocalInputSourceConverter();
 
-  public static final JsonSubclassConverter<HttpInputSource> HTTP_SOURCE_CONVERTER =
-      new JsonSubclassConverter<>(
-          HttpInputSource.TYPE_KEY,
-          HttpInputSource.TYPE_KEY,
-          HTTP_SOURCE_FIELDS,
-          HttpInputSource.class
-      );
+  public static final JsonSubclassConverter<HttpInputSource> HTTP_SOURCE_CONVERTER = new HttpSourceConverter();
 
   public static final CatalogFieldDefn<String> INPUT_SOURCE_FIELD = new StringFieldDefn("inputSource");
 

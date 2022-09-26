@@ -24,6 +24,7 @@ import org.apache.druid.catalog.specs.CatalogFieldDefn.StringFieldDefn;
 import org.apache.druid.catalog.specs.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonProperty;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverter;
+import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverterImpl;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DelimitedInputFormat;
@@ -83,7 +84,7 @@ public class InputFormats
       )
   );
 
-  public static class FlatTextFormatConverter<T extends InputFormat> extends JsonSubclassConverter<T>
+  public static class FlatTextFormatConverter<T extends InputFormat> extends JsonSubclassConverterImpl<T>
   {
     public FlatTextFormatConverter(
         final String typePropertyValue,
@@ -128,14 +129,15 @@ public class InputFormats
       );
 
   public static final JsonSubclassConverter<JsonInputFormat> JSON_FORMAT_CONVERTER =
-      new JsonSubclassConverter<>(
+      new JsonSubclassConverterImpl<>(
           JsonInputFormat.TYPE_KEY,
           JsonInputFormat.TYPE_KEY,
           JSON_FORMAT_FIELDS,
           JsonInputFormat.class
       );
 
-  public static final CatalogFieldDefn<String> INPUT_FORMAT_FIELD = new StringFieldDefn("inputFormat");
+  public static final String INPUT_FORMAT_PROPERTY = "inputFormat";
+  public static final CatalogFieldDefn<String> INPUT_FORMAT_FIELD = new StringFieldDefn(INPUT_FORMAT_PROPERTY);
 
   /**
    * Converter for the set of input formats as a union with the type determined

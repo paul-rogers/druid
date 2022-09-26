@@ -1,5 +1,6 @@
 package org.apache.druid.catalog.specs;
 
+import java.util.List;
 import java.util.Map;
 
 public abstract class CatalogObjectFacade
@@ -24,5 +25,11 @@ public abstract class CatalogObjectFacade
   public Integer intProperty(String key)
   {
     return (Integer) property(key);
+  }
+
+  @SuppressWarnings("unchecked")
+  public List<String> stringListProperty(String key)
+  {
+    return (List<String>) property(key);
   }
 }
