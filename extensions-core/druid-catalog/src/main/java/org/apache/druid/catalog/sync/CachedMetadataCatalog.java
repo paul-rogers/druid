@@ -17,10 +17,13 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.sync;
 
-import org.apache.druid.catalog.MetadataCatalog.CatalogListener;
-import org.apache.druid.catalog.SchemaRegistry.SchemaSpec;
+import org.apache.druid.catalog.TableId;
+import org.apache.druid.catalog.specs.SchemaRegistry;
+import org.apache.druid.catalog.specs.SchemaRegistry.SchemaSpec;
+import org.apache.druid.catalog.storage.TableMetadata;
+import org.apache.druid.catalog.sync.MetadataCatalog.CatalogListener;
 
 import javax.inject.Inject;
 
@@ -117,7 +120,7 @@ public class CachedMetadataCatalog implements MetadataCatalog, CatalogListener
     public synchronized void update(TableMetadata table)
     {
       cache.compute(
-          table.name(),
+          table.id().name(),
           (k, v) -> v == null || v.version() < table.updateTime()
                 ? new TableEntry(schema, table)
                 : v
@@ -173,7 +176,7 @@ public class CachedMetadataCatalog implements MetadataCatalog, CatalogListener
   @Override
   public void updated(TableMetadata table)
   {
-    SchemaEntry schemaEntry = entryFor(table.dbSchema());
+    SchemaEntry schemaEntry = entryFor(table.id().schema());
     if (schemaEntry != null) {
       schemaEntry.update(table);
     }

@@ -21,9 +21,10 @@ package org.apache.druid.server.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
-import org.apache.druid.catalog.TableMetadata;
-import org.apache.druid.catalog.TableSpec;
-import org.apache.druid.catalog.MetadataCatalog.CatalogListener;
+import org.apache.druid.catalog.storage.TableMetadata;
+import org.apache.druid.catalog.specs.Constants;
+import org.apache.druid.catalog.specs.TableSpec;
+import org.apache.druid.catalog.sync.MetadataCatalog.CatalogListener;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.annotations.Smile;
 import org.apache.druid.java.util.common.StringUtils;
@@ -92,8 +93,8 @@ public class CatalogListenerResource
     catch (IOException e) {
       return Response.serverError().entity(e.getMessage()).build();
     }
-    TableSpec defn = tableSpec.spec();
-    if (defn instanceof TableSpec.Tombstone) {
+    TableSpec spec = tableSpec.spec();
+    if (Constants.TOMBSTONE_TABLE_TYPE.equals(spec.type())) {
       listener.deleted(tableSpec.id());
     } else {
       listener.updated(tableSpec);

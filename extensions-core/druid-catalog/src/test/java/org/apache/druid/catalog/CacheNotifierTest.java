@@ -21,6 +21,7 @@ package org.apache.druid.catalog;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import org.apache.druid.catalog.sync.CacheNotifier;
 import org.apache.druid.catalog.sync.RestUpdateSender;
 import org.apache.druid.catalog.sync.RestUpdateSender.RestSender;
 import org.apache.druid.java.util.http.client.response.StatusResponseHolder;

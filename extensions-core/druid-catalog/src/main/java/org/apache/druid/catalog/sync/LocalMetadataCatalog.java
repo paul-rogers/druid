@@ -19,12 +19,10 @@
 
 package org.apache.druid.catalog.sync;
 
-import org.apache.druid.catalog.MetadataCatalog;
-import org.apache.druid.catalog.SchemaRegistry;
 import org.apache.druid.catalog.TableId;
-import org.apache.druid.catalog.TableMetadata;
-import org.apache.druid.catalog.MetadataCatalog.CatalogSource;
-import org.apache.druid.catalog.SchemaRegistry.SchemaSpec;
+import org.apache.druid.catalog.specs.SchemaRegistry;
+import org.apache.druid.catalog.specs.SchemaRegistry.SchemaSpec;
+import org.apache.druid.catalog.storage.TableMetadata;
 
 import javax.inject.Inject;
 
@@ -79,7 +77,7 @@ public class LocalMetadataCatalog implements MetadataCatalog
     List<TableMetadata> catalogTables = catalog.tablesForSchema(schemaName);
     Set<String> tables = new HashSet<>();
     for (TableMetadata table : catalogTables) {
-      tables.add(table.name());
+      tables.add(table.id().name());
     }
     return tables;
   }

@@ -20,6 +20,7 @@
 package org.apache.druid.catalog;
 
 import nl.jqno.equalsverifier.EqualsVerifier;
+import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.metadata.catalog.CatalogManager.TableState;
 import org.junit.Test;

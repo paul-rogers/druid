@@ -25,10 +25,10 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
-import org.apache.druid.catalog.CatalogSpecs;
 import org.apache.druid.java.util.common.IAE;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -57,6 +57,26 @@ public class TableSpec
     this.type = type;
     this.properties = properties == null ? Collections.emptyMap() : properties;
     this.columns = columns == null ? Collections.emptyList() : columns;
+
+    // Note: no validation here. If a bad definition got into the
+    // DB, don't prevent deserialization.
+  }
+
+  public TableSpec withProperties(final Map<String, Object> properties)
+  {
+    return new TableSpec(type, properties, columns);
+  }
+
+  public TableSpec withColumns(final List<ColumnSpec> columns)
+  {
+    return new TableSpec(type, properties, columns);
+  }
+
+  public TableSpec withProperty(String key, Object value)
+  {
+    Map<String, Object> revised = new HashMap<>(properties);
+    revised.put(key, value);
+    return withProperties(revised);
   }
 
   @JsonProperty("type")

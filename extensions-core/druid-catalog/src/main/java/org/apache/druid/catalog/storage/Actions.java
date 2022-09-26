@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.storage;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.server.security.ForbiddenException;

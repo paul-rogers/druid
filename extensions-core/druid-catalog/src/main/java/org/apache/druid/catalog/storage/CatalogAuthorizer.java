@@ -17,9 +17,9 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.storage;
 
-import org.apache.druid.catalog.SchemaRegistry.SchemaSpec;
+import org.apache.druid.catalog.specs.SchemaRegistry.SchemaSpec;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthorizationUtils;

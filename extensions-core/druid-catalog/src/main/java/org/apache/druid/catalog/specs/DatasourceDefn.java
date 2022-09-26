@@ -20,7 +20,6 @@
 package org.apache.druid.catalog.specs;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import org.apache.druid.catalog.ClusterKeySpec;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -76,7 +75,7 @@ public class DatasourceDefn extends TableDefn
   protected static final CatalogFieldDefn<?>[] datasourceFields = {
       new CatalogFieldDefn.SegmentGranularityFieldDefn(),
       new CatalogFieldDefn.IntFieldDefn(Constants.TARGET_SEGMENT_ROWS_FIELD),
-      new CatalogFieldDefn.ListFieldDefn<ClusterKeySpec>(Constants.CLUSTER_KEYS_FIELD, "ClusterKeySpec", new TypeReference<List<ClusterKeySpec>>() {}),
+      new CatalogFieldDefn.ListFieldDefn<ClusterKeySpec>(Constants.CLUSTER_KEYS_FIELD, FieldTypes.CLUSTER_KEY_LIST_TYPE),
       new CatalogFieldDefn.HiddenColumnsDefn()
   };
 

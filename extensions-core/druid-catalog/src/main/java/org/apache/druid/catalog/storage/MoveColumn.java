@@ -17,10 +17,12 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.storage;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.druid.catalog.specs.CatalogUtils;
+import org.apache.druid.catalog.specs.ColumnSpec;
 import org.apache.druid.java.util.common.ISE;
 
 import javax.annotation.Nullable;
@@ -61,9 +63,9 @@ public class MoveColumn
     this.anchor = anchor;
   }
 
-  public <T extends ColumnSpec> List<T> perform(List<T> columns)
+  public List<ColumnSpec> perform(List<ColumnSpec> columns)
   {
-    List<T> revised = new ArrayList<>(columns);
+    List<ColumnSpec> revised = new ArrayList<>(columns);
     final int colPosn = CatalogUtils.findColumn(columns, column);
     if (colPosn == -1) {
       throw new ISE("Column [%s] is not defined", column);
@@ -81,7 +83,7 @@ public class MoveColumn
       anchorPosn = -1;
     }
 
-    T col = revised.remove(colPosn);
+    ColumnSpec col = revised.remove(colPosn);
     switch (where) {
     case FIRST:
       revised.add(0, col);

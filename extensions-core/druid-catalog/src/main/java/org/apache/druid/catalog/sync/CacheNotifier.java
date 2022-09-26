@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.sync;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.druid.concurrent.Threads;

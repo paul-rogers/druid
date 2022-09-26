@@ -17,11 +17,13 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.sync;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.druid.catalog.MetadataCatalog.CatalogSource;
+import org.apache.druid.catalog.TableId;
+import org.apache.druid.catalog.storage.TableMetadata;
+import org.apache.druid.catalog.sync.MetadataCatalog.CatalogSource;
 import org.apache.druid.client.coordinator.Coordinator;
 import org.apache.druid.discovery.DruidLeaderClient;
 import org.apache.druid.guice.annotations.Smile;

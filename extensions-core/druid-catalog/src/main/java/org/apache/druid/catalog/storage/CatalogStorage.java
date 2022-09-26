@@ -17,15 +17,21 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.storage;
 
-import org.apache.druid.catalog.MetadataCatalog.CatalogListener;
-import org.apache.druid.catalog.MetadataCatalog.CatalogSource;
-import org.apache.druid.catalog.MetadataCatalog.CatalogUpdateProvider;
-import org.apache.druid.catalog.SchemaRegistry.SchemaSpec;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.druid.catalog.TableId;
 import org.apache.druid.catalog.model.ExternalSpec;
 import org.apache.druid.catalog.model.ExternalSpec.ExternalSpecConverter;
+import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.catalog.model.ModelConverter;
+import org.apache.druid.catalog.specs.CatalogTableRegistry;
+import org.apache.druid.catalog.specs.SchemaRegistry;
+import org.apache.druid.catalog.specs.SchemaRegistryImpl;
+import org.apache.druid.catalog.specs.SchemaRegistry.SchemaSpec;
+import org.apache.druid.catalog.sync.MetadataCatalog.CatalogListener;
+import org.apache.druid.catalog.sync.MetadataCatalog.CatalogSource;
+import org.apache.druid.catalog.sync.MetadataCatalog.CatalogUpdateProvider;
 import org.apache.druid.metadata.catalog.CatalogManager;
 import org.apache.druid.server.security.AuthorizerMapper;
 
@@ -68,6 +74,7 @@ public class CatalogStorage implements CatalogUpdateProvider, CatalogSource
   }
 
   protected final SchemaRegistry schemaRegistry;
+  protected final CatalogTableRegistry tableRegistry;
   protected final CatalogManager catalogMgr;
   protected final CatalogAuthorizer authorizer;
   protected ModelConverter<ExternalSpec> externModel;
@@ -76,10 +83,12 @@ public class CatalogStorage implements CatalogUpdateProvider, CatalogSource
   public CatalogStorage(
       CatalogManager catalogMgr,
       AuthorizerMapper authorizerMapper,
-      ExternalSpecConverter externModel
+      ExternalSpecConverter externModel,
+      @Json ObjectMapper jsonMapper
   )
   {
     this.schemaRegistry = new SchemaRegistryImpl();
+    this.tableRegistry = new CatalogTableRegistry(jsonMapper);
     this.catalogMgr = catalogMgr;
     this.authorizer = new CatalogAuthorizer(authorizerMapper);
     this.externModel = externModel;
@@ -125,11 +134,18 @@ public class CatalogStorage implements CatalogUpdateProvider, CatalogSource
 
   public void validate(TableMetadata table)
   {
+    CatalogTableRegistry.ResolvedTable resolved = tableRegistry.resolve(table.spec());
+    resolved.validate();
     table.validate();
     TableSpec spec = table.spec();
     if (spec instanceof InputTableSpec) {
       InputTableSpec inputSpec = (InputTableSpec) spec;
       externModel.validateProperties(inputSpec.properties(), inputSpec.columnSchemas());
     }
+  }
+
+  public CatalogTableRegistry tableRegistry()
+  {
+    return tableRegistry;
   }
 }

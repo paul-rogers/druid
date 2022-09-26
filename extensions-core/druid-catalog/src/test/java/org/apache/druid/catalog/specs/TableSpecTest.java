@@ -23,7 +23,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.catalog.CatalogTest;
-import org.apache.druid.catalog.Columns;
 import org.apache.druid.catalog.specs.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.java.util.common.IAE;
 import org.junit.Test;

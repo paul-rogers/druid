@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.storage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.metadata.MetadataStorageConnector;

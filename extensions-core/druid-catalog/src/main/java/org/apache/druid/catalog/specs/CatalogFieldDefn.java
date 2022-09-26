@@ -19,11 +19,8 @@
 
 package org.apache.druid.catalog.specs;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.api.client.util.Preconditions;
 import com.google.common.base.Strings;
-import org.apache.druid.catalog.Columns;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.PeriodGranularity;
@@ -36,43 +33,11 @@ import java.util.Set;
 
 public class CatalogFieldDefn<T>
 {
-  public static class FieldSerDeType<T>
-  {
-    public final Class<T> valueClass;
-    public final TypeReference<T> valueType;
-
-    public FieldSerDeType(
-        final Class<T> valueClass,
-        final TypeReference<T> valueType
-    )
-    {
-      Preconditions.checkArgument(valueClass != null || valueType != null);
-      this.valueClass = valueClass;
-      this.valueType = valueType;
-    }
-
-    public T decode(ObjectMapper mapper, Object value)
-    {
-      if (value == null) {
-        return null;
-      }
-      if (valueClass != null) {
-        return mapper.convertValue(value, valueClass);
-      } else {
-        return mapper.convertValue(value, valueType);
-      }
-    }
-  }
-
   public static class StringFieldDefn extends CatalogFieldDefn<String>
   {
     public StringFieldDefn(String name)
     {
-      super(
-          name,
-          "String",
-          new FieldSerDeType<>(String.class, null)
-      );
+      super(name, FieldTypes.STRING_TYPE);
     }
   }
 
@@ -126,23 +91,26 @@ public class CatalogFieldDefn<T>
   {
     public IntFieldDefn(String name)
     {
-      super(
-          name,
-          "Integer",
-          new FieldSerDeType<>(Integer.class, null)
-      );
+      super(name, FieldTypes.INT_TYPE);
+    }
+  }
+
+  public static class BooleanFieldDefn extends CatalogFieldDefn<Boolean>
+  {
+    public BooleanFieldDefn(String name)
+    {
+      super(name, FieldTypes.BOOLEAN_TYPE);
     }
   }
 
   public static class ListFieldDefn<T> extends CatalogFieldDefn<List<T>>
   {
-    public ListFieldDefn(String name, String elementType, TypeReference<List<T>> typeRef)
+    public ListFieldDefn(
+        final String name,
+        final FieldTypes.FieldTypeDefn<List<T>> fieldType
+    )
     {
-      super(
-          name,
-          "List<" + elementType + ">",
-          new FieldSerDeType<>(null, typeRef)
-      );
+      super(name, fieldType);
     }
 
     @SuppressWarnings("unchecked")
@@ -179,15 +147,22 @@ public class CatalogFieldDefn<T>
     }
   }
 
-  public static class HiddenColumnsDefn extends ListFieldDefn<String>
+  public static class StringListDefn extends ListFieldDefn<String>
+  {
+    public StringListDefn(String name)
+    {
+      super(
+          name,
+          FieldTypes.STRING_LIST_TYPE
+      );
+    }
+  }
+
+  public static class HiddenColumnsDefn extends StringListDefn
   {
     public HiddenColumnsDefn()
     {
-      super(
-          Constants.HIDDEN_COLUMNS_FIELD,
-          "String",
-          new TypeReference<List<String>>() {}
-      );
+      super(Constants.HIDDEN_COLUMNS_FIELD);
     }
 
     @Override
@@ -208,14 +183,15 @@ public class CatalogFieldDefn<T>
   }
 
   private final String name;
-  private final String typeName;
-  private final CatalogFieldDefn.FieldSerDeType<T> serDeType;
+  private final FieldTypes.FieldTypeDefn<T> fieldType;
 
-  public CatalogFieldDefn(String name, String typeName, CatalogFieldDefn.FieldSerDeType<T> serDeType)
+  public CatalogFieldDefn(
+      final String name,
+      final FieldTypes.FieldTypeDefn<T> fieldType
+  )
   {
     this.name = name;
-    this.typeName = typeName;
-    this.serDeType = serDeType;
+    this.fieldType = fieldType;
   }
 
   public String name()
@@ -223,23 +199,38 @@ public class CatalogFieldDefn<T>
     return name;
   }
 
-  public String typeName()
+  public FieldTypes.FieldTypeDefn<T> type()
   {
-    return typeName;
-  }
-
-  public CatalogFieldDefn.FieldSerDeType<T> serDeType()
-  {
-    return serDeType;
+    return fieldType;
   }
 
   public T decode(Object value, ObjectMapper jsonMapper)
   {
     try {
-      return serDeType.decode(jsonMapper, value);
+      return fieldType.decode(jsonMapper, value);
     }
     catch (Exception e) {
-      throw new IAE("Value [%s] is not valid for property [%s]", value, name);
+      throw new IAE(
+          "Value [%s] is not valid for property [%s], expected %s",
+          value,
+          name,
+          fieldType.typeName()
+      );
+    }
+  }
+
+  public T decodeFromSql(Object value, ObjectMapper jsonMapper)
+  {
+    try {
+      return fieldType.decodeSqlValue(jsonMapper, value);
+    }
+    catch (Exception e) {
+      throw new IAE(
+          "Value [%s] is not valid for property [%s], expected %s",
+          value,
+          name,
+          fieldType.typeName()
+      );
     }
   }
 

@@ -17,14 +17,16 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.storage;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
+import org.apache.druid.catalog.TableId;
+import org.apache.druid.catalog.specs.CatalogSpecs;
+import org.apache.druid.catalog.specs.TableSpec;
 import org.apache.druid.guice.annotations.PublicApi;
 import org.apache.druid.java.util.common.IAE;
-import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.metadata.catalog.CatalogManager.TableState;
 
 import java.util.Objects;
@@ -36,31 +38,20 @@ import java.util.Objects;
 @PublicApi
 public class TableMetadata
 {
-  public enum TableType
-  {
-    DATASOURCE,
-    INPUT,
-    VIEW,
-    TOMBSTONE
-  }
-
-  private final String dbSchema;
-  private final String name;
+  private final TableId id;
   private final long creationTime;
   private final long updateTime;
   private final TableState state;
   private final TableSpec spec;
 
   public TableMetadata(
-      @JsonProperty("dbSchema") String dbSchema,
-      @JsonProperty("name") String name,
+      @JsonProperty("id") TableId id,
       @JsonProperty("creationTime") long creationTime,
       @JsonProperty("updateTime") long updateTime,
       @JsonProperty("state") TableState state,
       @JsonProperty("spec") TableSpec spec)
   {
-    this.dbSchema = dbSchema;
-    this.name = name;
+    this.id = id;
     this.creationTime = creationTime;
     this.updateTime = updateTime;
     this.state = state;
@@ -72,18 +63,8 @@ public class TableMetadata
       TableSpec defn
   )
   {
-    return newTable(id.schema(), id.name(), defn);
-  }
-
-  public static TableMetadata newTable(
-      String dbSchema,
-      String name,
-      TableSpec defn
-  )
-  {
     return new TableMetadata(
-        dbSchema,
-        name,
+        id,
         0,
         0,
         TableState.ACTIVE,
@@ -96,52 +77,36 @@ public class TableMetadata
   )
   {
     return newTable(
-        TableId.DRUID_SCHEMA,
-        name,
-        defn);
+        TableId.datasource(name),
+        defn
+    );
   }
 
-  public TableMetadata fromInsert(String dbSchema, long updateTime)
+  public TableMetadata fromInsert(long updateTime)
   {
     return new TableMetadata(
-        dbSchema,
-        name,
+        id,
         updateTime,
         updateTime,
         state,
-        spec);
+        spec
+    );
   }
 
   public TableMetadata asUpdate(long updateTime)
   {
     return new TableMetadata(
-        dbSchema,
-        name,
+        id,
         creationTime,
         updateTime,
         state,
         spec);
   }
 
-//  public TableMetadata withSchema(String dbSchema)
-//  {
-//    if (dbSchema.equals(this.dbSchema)) {
-//      return this;
-//    }
-//    return new TableMetadata(
-//        dbSchema,
-//        name,
-//        creationTime,
-//        updateTime,
-//        state,
-//        spec);
-//  }
-
   public TableMetadata withSpec(TableSpec spec)
   {
     return new TableMetadata(
-      dbSchema,
-      name,
+      id,
       creationTime,
       updateTime,
       state,
@@ -149,26 +114,15 @@ public class TableMetadata
     );
   }
 
+  @JsonProperty("id")
   public TableId id()
   {
-    return new TableId(resolveDbSchema(), name);
-  }
-
-  @JsonProperty("dbSchema")
-  public String dbSchema()
-  {
-    return dbSchema;
-  }
-
-  @JsonProperty("name")
-  public String name()
-  {
-    return name;
+    return id;
   }
 
   public String sqlName()
   {
-    return StringUtils.format("\"%s\".\"%s\"", dbSchema, name);
+    return id.sqlName();
   }
 
   @JsonProperty("state")
@@ -201,10 +155,10 @@ public class TableMetadata
    */
   public void validate()
   {
-    if (Strings.isNullOrEmpty(dbSchema)) {
+    if (Strings.isNullOrEmpty(id.schema())) {
       throw new IAE("Database schema is required");
     }
-    if (Strings.isNullOrEmpty(name)) {
+    if (Strings.isNullOrEmpty(id.name())) {
       throw new IAE("Table name is required");
     }
     if (spec == null) {
@@ -229,17 +183,6 @@ public class TableMetadata
     return CatalogSpecs.toString(this);
   }
 
-  public String resolveDbSchema()
-  {
-    if (!Strings.isNullOrEmpty(dbSchema)) {
-      return dbSchema;
-    } else if (spec != null) {
-      return spec.defaultSchema();
-    } else {
-      return null;
-    }
-  }
-
   @Override
   public boolean equals(Object o)
   {
@@ -250,8 +193,7 @@ public class TableMetadata
       return false;
     }
     TableMetadata other = (TableMetadata) o;
-    return Objects.equals(dbSchema, other.dbSchema)
-        && Objects.equals(name, other.name)
+    return Objects.equals(id, other.id)
         && creationTime == other.creationTime
         && updateTime == other.updateTime
         && state == other.state
@@ -262,16 +204,11 @@ public class TableMetadata
   public int hashCode()
   {
     return Objects.hash(
-        dbSchema,
-        name,
+        id,
         creationTime,
         updateTime,
         state,
-        spec);
-  }
-
-  public TableType type()
-  {
-    return spec == null ? null : spec.type();
+        spec
+    );
   }
 }

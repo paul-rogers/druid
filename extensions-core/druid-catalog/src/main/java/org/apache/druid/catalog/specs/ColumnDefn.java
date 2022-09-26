@@ -20,7 +20,6 @@
 package org.apache.druid.catalog.specs;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.druid.catalog.Columns;
 import org.apache.druid.catalog.MeasureTypes;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
@@ -30,6 +29,9 @@ import java.util.Map;
 
 public class ColumnDefn extends CatalogObjectDefn
 {
+  /**
+   * Definition of a column in a detail (non-rollup) datasource.
+   */
   public static class DetailColumnDefn extends ColumnDefn
   {
     public DetailColumnDefn()
@@ -49,6 +51,9 @@ public class ColumnDefn extends CatalogObjectDefn
     }
   }
 
+  /**
+   * Definition of a dimension in a rollup datasource.
+   */
   public static class DimensionDefn extends ColumnDefn
   {
     public DimensionDefn()
@@ -68,6 +73,12 @@ public class ColumnDefn extends CatalogObjectDefn
     }
   }
 
+  /**
+   * Definition of a measure (metric) column.
+   * Types are expressed as compound types: "AGG_FN(ARG_TYPE,...)"
+   * where "AGG_FN" is one of the supported aggregate functions,
+   * and "ARG_TYPE" is zero or more argument types.
+   */
   public static class MeasureDefn extends ColumnDefn
   {
     public MeasureDefn()

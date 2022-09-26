@@ -1,4 +1,12 @@
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.specs;
+
+import com.google.common.base.Strings;
+import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.java.util.common.granularity.Granularities;
+import org.apache.druid.java.util.common.granularity.Granularity;
+import org.apache.druid.java.util.common.granularity.PeriodGranularity;
+import org.joda.time.Period;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -6,7 +14,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 public class CatalogUtils
@@ -35,31 +42,7 @@ public class CatalogUtils
     return tags;
   }
 
-  protected static <T extends ColumnSpec> List<T> mergeColumns(
-      List<T> source,
-      List<T> update,
-      BiFunction<T, T, T> merger
-  )
-  {
-    Map<String, Integer> original = new HashMap<>();
-    for (int i = 0; i < source.size(); i++) {
-      original.put(source.get(i).name(), i);
-    }
-    List<T> merged = new ArrayList<>(source);
-    List<T> added = new ArrayList<>();
-    for (T col : update) {
-      Integer index = original.get(col.name);
-      if (index == null) {
-        added.add(col);
-      } else {
-        merged.set(index, merger.apply(merged.get(index), col));
-      }
-    }
-    merged.addAll(added);
-    return merged;
-  }
-
-  public static int findColumn(List<? extends ColumnSpec> columns, String colName)
+  public static int findColumn(List<ColumnSpec> columns, String colName)
   {
     for (int i = 0; i < columns.size(); i++) {
       if (columns.get(i).name().equals(colName)) {
@@ -69,11 +52,11 @@ public class CatalogUtils
     return -1;
   }
 
-  public static List<String> columnNames(List<? extends ColumnSpec> columns)
+  public static List<String> columnNames(List<ColumnSpec> columns)
   {
     return columns
            .stream()
-           .map(col -> col.name)
+           .map(col -> col.name())
            .collect(Collectors.toList());
   }
 
@@ -92,5 +75,35 @@ public class CatalogUtils
       }
     }
     return revised;
+  }
+
+  /**
+   * Convert a catalog granularity string to the Druid form. Catalog granularities
+   * are either the usual descriptive strings (in any case), or an ISO period.
+   * For the odd interval, the interval name is also accepted (for the other
+   * intervals, the interval name is the descriptive string).
+   */
+  public static Granularity asDruidGranularity(String value)
+  {
+    if (Strings.isNullOrEmpty(value)) {
+      return Granularities.ALL;
+    }
+    Granularity gran = Constants.toGranularity(value);
+    if (gran != null) {
+      return gran;
+    }
+
+    try {
+      return new PeriodGranularity(new Period(value), null, null);
+    }
+    catch (IllegalArgumentException e) {
+      throw new IAE(StringUtils.format("%s is an invalid period string", value));
+    }
+  }
+
+  public static boolean isDatasource(String tableType)
+  {
+    return Constants.DETAIL_DATASOURCE_TYPE.equals(tableType)
+        || Constants.ROLLUP_DATASOURCE_TYPE.equals(tableType);
   }
 }

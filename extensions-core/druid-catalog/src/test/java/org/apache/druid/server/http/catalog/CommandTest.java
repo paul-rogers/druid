@@ -19,11 +19,11 @@
 
 package org.apache.druid.server.http.catalog;
 
-import org.apache.druid.catalog.CatalogUtils;
-import org.apache.druid.catalog.DatasourceColumnSpec;
-import org.apache.druid.catalog.DatasourceSpec;
-import org.apache.druid.catalog.HideColumns;
-import org.apache.druid.catalog.MoveColumn;
+import org.apache.druid.catalog.specs.CatalogUtils;
+import org.apache.druid.catalog.storage.DatasourceColumnSpec;
+import org.apache.druid.catalog.storage.DatasourceSpec;
+import org.apache.druid.catalog.storage.HideColumns;
+import org.apache.druid.catalog.storage.MoveColumn;
 import org.junit.Test;
 
 import java.util.Arrays;

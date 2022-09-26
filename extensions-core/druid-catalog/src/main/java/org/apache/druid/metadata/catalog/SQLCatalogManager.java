@@ -24,10 +24,10 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
-import org.apache.druid.catalog.MetastoreManager;
 import org.apache.druid.catalog.TableId;
-import org.apache.druid.catalog.TableMetadata;
-import org.apache.druid.catalog.TableSpec;
+import org.apache.druid.catalog.storage.MetastoreManager;
+import org.apache.druid.catalog.storage.TableMetadata;
+import org.apache.druid.catalog.specs.TableSpec;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
@@ -196,8 +196,8 @@ public class SQLCatalogManager implements CatalogManager
               Update stmt = handle.createStatement(
                   StringUtils.format(INSERT_TABLE, tableName)
               )
-                  .bind("schemaName", table.resolveDbSchema())
-                  .bind("name", table.name())
+                  .bind("schemaName", table.id().schema())
+                  .bind("name", table.id().name())
                   .bind("creationTime", updateTime)
                   .bind("updateTime", updateTime)
                   .bind("state", TableState.ACTIVE.code())
@@ -246,8 +246,7 @@ public class SQLCatalogManager implements CatalogManager
             final ResultIterator<TableMetadata> resultIterator =
                 query.map((index, r, ctx) ->
                   new TableMetadata(
-                      id.schema(),
-                      id.name(),
+                      id,
                       r.getLong(1),
                       r.getLong(2),
                       TableState.fromCode(r.getString(3)),
@@ -369,8 +368,7 @@ public class SQLCatalogManager implements CatalogManager
                 final ResultIterator<TableMetadata> resultIterator =
                     query.map((index, r, ctx) ->
                       new TableMetadata(
-                          id.schema(),
-                          id.name(),
+                          id,
                           0,
                           0,
                           TableState.fromCode(r.getString(1)),
@@ -531,8 +529,7 @@ public class SQLCatalogManager implements CatalogManager
             final ResultIterator<TableMetadata> resultIterator =
                 query.map((index, r, ctx) ->
                   new TableMetadata(
-                      dbSchema,
-                      r.getString(1),
+                      TableId.of(dbSchema, r.getString(1)),
                       r.getLong(2),
                       r.getLong(3),
                       TableState.fromCode(r.getString(4)),
@@ -555,7 +552,7 @@ public class SQLCatalogManager implements CatalogManager
     if (listeners.isEmpty()) {
       return;
     }
-    TableMetadata newTable = table.fromInsert(table.dbSchema(), updateTime);
+    TableMetadata newTable = table.fromInsert(updateTime);
     for (Listener listener : listeners) {
       listener.added(newTable);
     }

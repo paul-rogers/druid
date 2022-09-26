@@ -22,17 +22,18 @@ package org.apache.druid.server.http;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import org.apache.curator.shaded.com.google.common.collect.Lists;
-import org.apache.druid.catalog.Actions;
-import org.apache.druid.catalog.CatalogStorage;
-import org.apache.druid.catalog.CatalogUtils;
-import org.apache.druid.catalog.DatasourceSpec;
-import org.apache.druid.catalog.HideColumns;
-import org.apache.druid.catalog.MoveColumn;
 import org.apache.druid.catalog.TableId;
-import org.apache.druid.catalog.TableMetadata;
-import org.apache.druid.catalog.TableSpec;
-import org.apache.druid.catalog.MoveColumn.Position;
-import org.apache.druid.catalog.SchemaRegistry.SchemaSpec;
+import org.apache.druid.catalog.specs.CatalogTableRegistry;
+import org.apache.druid.catalog.specs.CatalogUtils;
+import org.apache.druid.catalog.specs.Constants;
+import org.apache.druid.catalog.specs.SchemaRegistry.SchemaSpec;
+import org.apache.druid.catalog.storage.Actions;
+import org.apache.druid.catalog.storage.CatalogStorage;
+import org.apache.druid.catalog.storage.HideColumns;
+import org.apache.druid.catalog.storage.MoveColumn;
+import org.apache.druid.catalog.storage.TableMetadata;
+import org.apache.druid.catalog.specs.TableSpec;
+import org.apache.druid.catalog.storage.MoveColumn.Position;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
@@ -196,7 +197,7 @@ public class CatalogResource
     }
 
     // The given table spec has to be valid for the given schema.
-    if (spec != null && !schema.accepts(spec)) {
+    if (spec != null && !schema.accepts(spec.type())) {
       return Actions.badRequest(
           Actions.INVALID,
           StringUtils.format(
@@ -229,9 +230,10 @@ public class CatalogResource
         return Actions.badRequest(
               Actions.DUPLICATE_ERROR,
               StringUtils.format(
-                  "A table of name %s.%s already exists",
-                  table.dbSchema(),
-                  table.name()));
+                  "A table of name %s already exists",
+                  table.id().sqlName()
+              )
+        );
       } else {
         return Actions.okWithVersion(0);
       }
@@ -322,15 +324,12 @@ public class CatalogResource
       return Actions.badRequest(Actions.INVALID, "Invalid table specification");
     }
 
+    CatalogTableRegistry tableRegistry = catalog.tableRegistry();
     return incrementalUpdate(
         TableId.of(dbSchema, name),
         updateSpec,
         req,
-        (spec) -> {
-          final TableSpec mergedSpec = spec.merge(updateSpec, raw, jsonMapper);
-          mergedSpec.validate();
-          return mergedSpec;
-        }
+        (spec) -> tableRegistry.resolve(spec).merge(updateSpec).spec()
     );
   }
 
@@ -397,15 +396,7 @@ public class CatalogResource
         TableId.of(dbSchema, name),
         null,
         req,
-        (spec) -> {
-          if (!(spec instanceof DatasourceSpec)) {
-            throw new ISE("moveColumn is supported only for data source specs");
-          }
-          DatasourceSpec dsSpec = (DatasourceSpec) spec;
-          DatasourceSpec.Builder builder = dsSpec.toBuilder();
-          builder.columns(command.perform(dsSpec.columns()));
-          return builder.build();
-        }
+        (spec) -> spec.withColumns(command.perform(spec.columns()))
     );
   }
 
@@ -429,13 +420,15 @@ public class CatalogResource
         null,
         req,
         (spec) -> {
-          if (!(spec instanceof DatasourceSpec)) {
+          if (!CatalogUtils.isDatasource(spec.type())) {
             throw new ISE("hideColumns is supported only for data source specs");
           }
-          DatasourceSpec dsSpec = (DatasourceSpec) spec;
-          DatasourceSpec.Builder builder = dsSpec.toBuilder();
-          builder.hiddenColumns(command.perform(dsSpec.hiddenColumns()));
-          return builder.build();
+          @SuppressWarnings("unchecked")
+          List<String> hiddenProps = (List<String>) spec.properties().get(Constants.HIDDEN_COLUMNS_FIELD);
+          return spec.withProperty(
+              Constants.HIDDEN_COLUMNS_FIELD,
+              command.perform(hiddenProps)
+          );
         }
     );
   }
@@ -459,15 +452,7 @@ public class CatalogResource
         TableId.of(dbSchema, name),
         null,
         req,
-        (spec) -> {
-          if (!(spec instanceof DatasourceSpec)) {
-            throw new ISE("dropColumns is supported only for data source specs");
-          }
-          DatasourceSpec dsSpec = (DatasourceSpec) spec;
-          DatasourceSpec.Builder builder = dsSpec.toBuilder();
-          builder.columns(CatalogUtils.dropColumns(dsSpec.columns(), columns));
-          return builder.build();
-        }
+        (spec) -> spec.withColumns(CatalogUtils.dropColumns(spec.columns(), columns))
     );
   }
 

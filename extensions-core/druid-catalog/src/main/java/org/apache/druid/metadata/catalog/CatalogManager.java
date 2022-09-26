@@ -20,8 +20,8 @@
 package org.apache.druid.metadata.catalog;
 
 import org.apache.druid.catalog.TableId;
-import org.apache.druid.catalog.TableMetadata;
-import org.apache.druid.catalog.TableSpec;
+import org.apache.druid.catalog.specs.TableSpec;
+import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.java.util.common.ISE;
 
 import javax.annotation.Nullable;

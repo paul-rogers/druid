@@ -21,11 +21,11 @@ package org.apache.druid.catalog.guice;
 
 import com.fasterxml.jackson.databind.Module;
 import com.google.inject.Binder;
-import org.apache.druid.catalog.CatalogStorage;
-import org.apache.druid.catalog.MetastoreManager;
-import org.apache.druid.catalog.MetastoreManagerImpl;
-import org.apache.druid.catalog.SchemaRegistry;
-import org.apache.druid.catalog.SchemaRegistryImpl;
+import org.apache.druid.catalog.specs.SchemaRegistry;
+import org.apache.druid.catalog.specs.SchemaRegistryImpl;
+import org.apache.druid.catalog.storage.CatalogStorage;
+import org.apache.druid.catalog.storage.MetastoreManager;
+import org.apache.druid.catalog.storage.MetastoreManagerImpl;
 import org.apache.druid.catalog.sync.CatalogUpdateNotifier;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.Jerseys;

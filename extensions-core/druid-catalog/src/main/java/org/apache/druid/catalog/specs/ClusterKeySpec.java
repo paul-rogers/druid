@@ -17,10 +17,13 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.specs;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.api.client.util.Objects;
+
+import javax.annotation.Nullable;
 
 public class ClusterKeySpec
 {
@@ -30,10 +33,11 @@ public class ClusterKeySpec
   @JsonCreator
   public ClusterKeySpec(
       @JsonProperty("column") String expr,
-      @JsonProperty("descending") boolean desc)
+      @JsonProperty("desc") @Nullable Boolean desc
+  )
   {
     this.expr = expr;
-    this.desc = desc;
+    this.desc = desc != null && desc == true;
   }
 
   public ClusterKeySpec(String expr)
@@ -47,7 +51,7 @@ public class ClusterKeySpec
     return expr;
   }
 
-  @JsonProperty("descending")
+  @JsonProperty("desc")
   public boolean desc()
   {
     return desc;
@@ -57,5 +61,16 @@ public class ClusterKeySpec
   public String toString()
   {
     return expr + (desc ? " DESC" : "");
+  }
+
+  @Override
+  public boolean equals(Object o)
+  {
+    if (o == null || o.getClass() != getClass()) {
+      return false;
+    }
+    ClusterKeySpec other = (ClusterKeySpec) o;
+    return Objects.equal(this.expr, other.expr)
+        && this.desc == other.desc;
   }
 }

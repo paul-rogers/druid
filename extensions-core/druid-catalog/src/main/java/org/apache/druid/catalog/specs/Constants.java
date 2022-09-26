@@ -19,6 +19,7 @@
 
 package org.apache.druid.catalog.specs;
 
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
 
@@ -27,15 +28,43 @@ import java.util.Map;
 
 public class Constants
 {
+  /**
+   * Human-readable description of the datasource.
+   */
   public static final String DESCRIPTION_FIELD = "description";
+
+  /**
+   * Segment grain at ingestion and initial compaction. Aging rules
+   * may override the value as segments age. If not provided here,
+   * then it must be provided at ingestion time.
+   */
   public static final String SEGMENT_GRANULARITY_FIELD = "segmentGranularity";
+
+  /**
+   * The target segment size at ingestion and initial compaction.
+   * If unset, then the system setting is used.
+   */
   public static final String TARGET_SEGMENT_ROWS_FIELD = "targetSegmentRows";
   public static final String CLUSTER_KEYS_FIELD = "clusterKeys";
   public static final String HIDDEN_COLUMNS_FIELD = "hiddenColumns";
+
+  /**
+   * Ingestion and auto-compaction rollup granularity. If null, then no
+   * rollup is enabled. Same as {@code queryGranularity} in and ingest spec,
+   * but renamed since this granularity affects rollup, not queries. Can be
+   * overridden at ingestion time. The grain may change as segments evolve:
+   * this is the grain only for ingest.
+   */
   public static final String ROLLUP_GRANULARITY_FIELD = "rollupGranularity";
 
   public static final String DETAIL_DATASOURCE_TYPE = "detail";
   public static final String ROLLUP_DATASOURCE_TYPE = "rollup";
+
+  /**
+   * Internal table type used in updates to notify listeners that a table has
+   * been deleted. Avoids the need for a special "table deleted" message.
+   */
+  public static final String TOMBSTONE_TABLE_TYPE = "tombstone";
 
   public static final String DETAIL_COLUMN_TYPE = "detail";
   public static final String DIMENSION_TYPE = "dimension";
@@ -71,5 +100,10 @@ public class Constants
     GRANULARITIES.put("quarter", Granularities.QUARTER);
     GRANULARITIES.put("year", Granularities.YEAR);
     GRANULARITIES.put("all", Granularities.ALL);
+  }
+
+  public static Granularity toGranularity(String value)
+  {
+    return Constants.GRANULARITIES.get(StringUtils.toLowerCase(value));
   }
 }

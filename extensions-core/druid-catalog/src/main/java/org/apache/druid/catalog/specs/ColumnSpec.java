@@ -25,7 +25,6 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
-import org.apache.druid.catalog.CatalogSpecs;
 import org.apache.druid.guice.annotations.UnstableApi;
 import org.apache.druid.java.util.common.IAE;
 

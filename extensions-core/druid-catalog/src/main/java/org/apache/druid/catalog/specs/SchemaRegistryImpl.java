@@ -17,12 +17,14 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.specs;
 
-import org.apache.druid.catalog.TableMetadata.TableType;
+import org.apache.druid.catalog.TableId;
 import org.apache.druid.server.security.ResourceType;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -42,19 +44,17 @@ public class SchemaRegistryImpl implements SchemaRegistry
   {
     private final String name;
     private final String resource;
-    private final TableType tableType;
-    private Class<? extends TableSpec> acceptedClass;
+    private final Set<String> accepts;
 
     public SchemaDefnImpl(
         String name,
         String resource,
-        TableType tableType,
-        Class<? extends TableSpec> acceptedClass)
+        Set<String> accepts
+    )
     {
       this.name = name;
       this.resource = resource;
-      this.tableType = tableType;
-      this.acceptedClass = acceptedClass;
+      this.accepts = accepts;
     }
 
     @Override
@@ -72,25 +72,16 @@ public class SchemaRegistryImpl implements SchemaRegistry
     @Override
     public boolean writable()
     {
-      return acceptedClass != null;
+      return accepts != null && !accepts.isEmpty();
     }
 
     @Override
-    public boolean accepts(TableSpec spec)
+    public boolean accepts(String tableType)
     {
-      if (acceptedClass == null) {
+      if (accepts == null) {
         return false;
       }
-      if (spec == null) {
-        return false;
-      }
-      return acceptedClass.isAssignableFrom(spec.getClass());
-    }
-
-    @Override
-    public TableType tableType()
-    {
-      return tableType;
+      return accepts.contains(tableType);
     }
   }
 
@@ -102,33 +93,41 @@ public class SchemaRegistryImpl implements SchemaRegistry
     register(new SchemaDefnImpl(
         TableId.DRUID_SCHEMA,
         ResourceType.DATASOURCE,
-        TableType.DATASOURCE,
-        DatasourceSpec.class));
+        setOf(Constants.DETAIL_DATASOURCE_TYPE, Constants.ROLLUP_DATASOURCE_TYPE)
+    ));
     register(new SchemaDefnImpl(
         TableId.LOOKUP_SCHEMA,
         ResourceType.CONFIG,
-        null,   // TODO
-        null)); // TODO
+        null // TODO
+    ));
     register(new SchemaDefnImpl(
         TableId.CATALOG_SCHEMA,
         ResourceType.SYSTEM_TABLE,
-        null,
-        null));
+        null
+    ));
     register(new SchemaDefnImpl(
         TableId.SYSTEM_SCHEMA,
         ResourceType.SYSTEM_TABLE,
-        null,
-        null));
+        null
+    ));
     register(new SchemaDefnImpl(
         TableId.INPUT_SCHEMA,
         EXTERNAL_RESOURCE,
-        TableType.INPUT,
-        InputTableSpec.class));
+        setOf() // TODO
+    ));
     register(new SchemaDefnImpl(
         TableId.VIEW_SCHEMA,
         ResourceType.VIEW,
-        null,   // TODO
-        null)); // TODO
+        null // TODO
+    ));
+  }
+
+  private Set<String> setOf(String...items)
+  {
+    if (items.length == 0) {
+      return null;
+    }
+    return new HashSet<>(Arrays.asList(items));
   }
 
   private void register(SchemaSpec schemaDefn)

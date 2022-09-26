@@ -21,11 +21,11 @@ package org.apache.druid.metadata.catalog;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.catalog.CatalogTest;
-import org.apache.druid.catalog.DatasourceSpec;
-import org.apache.druid.catalog.MetastoreManager;
-import org.apache.druid.catalog.MetastoreManagerImpl;
 import org.apache.druid.catalog.TableId;
-import org.apache.druid.catalog.TableMetadata;
+import org.apache.druid.catalog.storage.DatasourceSpec;
+import org.apache.druid.catalog.storage.MetastoreManager;
+import org.apache.druid.catalog.storage.MetastoreManagerImpl;
+import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.metadata.TestDerbyConnector;
 import org.apache.druid.metadata.catalog.CatalogManager.DuplicateKeyException;

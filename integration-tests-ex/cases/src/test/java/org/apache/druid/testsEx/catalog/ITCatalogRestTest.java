@@ -21,13 +21,13 @@ package org.apache.druid.testsEx.catalog;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
-import org.apache.druid.catalog.CatalogUtils;
-import org.apache.druid.catalog.DatasourceColumnSpec.DetailColumnSpec;
-import org.apache.druid.catalog.DatasourceSpec;
-import org.apache.druid.catalog.MoveColumn;
 import org.apache.druid.catalog.TableId;
-import org.apache.druid.catalog.TableMetadata;
 import org.apache.druid.catalog.guice.Catalog;
+import org.apache.druid.catalog.specs.CatalogUtils;
+import org.apache.druid.catalog.storage.DatasourceSpec;
+import org.apache.druid.catalog.storage.MoveColumn;
+import org.apache.druid.catalog.storage.TableMetadata;
+import org.apache.druid.catalog.storage.DatasourceColumnSpec.DetailColumnSpec;
 import org.apache.druid.testsEx.cluster.CatalogClient;
 import org.apache.druid.testsEx.cluster.DruidClusterClient;
 import org.apache.druid.testsEx.config.DruidTestRunner;

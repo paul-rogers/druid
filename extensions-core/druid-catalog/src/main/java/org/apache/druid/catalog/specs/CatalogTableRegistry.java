@@ -28,7 +28,7 @@ import java.util.Map;
 
 public class CatalogTableRegistry
 {
-  public static class ResolvedTable
+  public static class ResolvedTable extends CatalogObjectFacade
   {
     private final TableDefn defn;
     private final TableSpec spec;
@@ -64,9 +64,20 @@ public class CatalogTableRegistry
       );
     }
 
-    public void validate(ObjectMapper jsonMapper)
+    public void validate()
     {
       defn.validate(spec, jsonMapper);
+    }
+
+    @Override
+    public Map<String, Object> properties()
+    {
+      return spec.properties();
+    }
+
+    public ObjectMapper jsonMapper()
+    {
+      return jsonMapper;
     }
   }
 

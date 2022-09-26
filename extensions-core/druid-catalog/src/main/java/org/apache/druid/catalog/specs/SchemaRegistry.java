@@ -17,9 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
-
-import org.apache.druid.catalog.TableMetadata.TableType;
+package org.apache.druid.catalog.specs;
 
 import java.util.Set;
 
@@ -36,8 +34,7 @@ public interface SchemaRegistry
     String name();
     String securityResource();
     boolean writable();
-    boolean accepts(TableSpec spec);
-    TableType tableType();
+    boolean accepts(String tableType);
   }
 
   SchemaSpec schema(String name);

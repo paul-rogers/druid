@@ -22,7 +22,6 @@ package org.apache.druid.catalog.specs;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
-import org.apache.druid.catalog.CatalogSpecs;
 import org.apache.druid.catalog.TableId;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.metadata.catalog.CatalogManager.TableState;
