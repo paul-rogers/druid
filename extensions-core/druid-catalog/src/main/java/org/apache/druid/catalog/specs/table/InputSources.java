@@ -21,9 +21,9 @@ package org.apache.druid.catalog.specs.table;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
-import org.apache.druid.catalog.specs.CatalogFieldDefn;
-import org.apache.druid.catalog.specs.CatalogFieldDefn.StringFieldDefn;
-import org.apache.druid.catalog.specs.CatalogFieldDefn.StringListDefn;
+import org.apache.druid.catalog.specs.PropertyDefn;
+import org.apache.druid.catalog.specs.PropertyDefn.StringPropertyDefn;
+import org.apache.druid.catalog.specs.PropertyDefn.StringListPropertyDefn;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonProperty;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverter;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverterImpl;
@@ -61,36 +61,11 @@ public class InputSources
   public static final List<JsonProperty> INLINE_SOURCE_FIELDS = Arrays.asList(
       new JsonProperty(
           "data",
-          new StringFieldDefn("data")
+          new StringPropertyDefn("data")
       )
   );
 
-  @SuppressWarnings("unchecked")
-  public static List<URI> convertUriList(Object value)
-  {
-    if (value == null) {
-      return null;
-    }
-    List<String> list;
-    try {
-      list = (List<String>) value;
-    }
-    catch (ClassCastException e) {
-      throw new IAE("Value [%s] must be a list of strings", value);
-    }
-    List<URI> uris = new ArrayList<>();
-    for (String strValue : list) {
-      try {
-        uris.add(new URI(strValue));
-      }
-      catch (URISyntaxException e) {
-        throw new IAE(StringUtils.format("Argument [%s] is not a valid URI", value));
-      }
-    }
-    return uris;
-  }
-
-  public static class UrisFieldDefn extends StringListDefn
+  public static class UrisFieldDefn extends StringListPropertyDefn
   {
     public UrisFieldDefn(String name)
     {
@@ -248,7 +223,7 @@ public class InputSources
 
   public static final JsonSubclassConverter<HttpInputSource> HTTP_SOURCE_CONVERTER = new HttpSourceConverter();
 
-  public static final CatalogFieldDefn<String> INPUT_SOURCE_FIELD = new StringFieldDefn("inputSource");
+  public static final PropertyDefn<String> INPUT_SOURCE_FIELD = new StringPropertyDefn("inputSource");
 
   /**
    * Converter for the set of input sources as a union with the type determined

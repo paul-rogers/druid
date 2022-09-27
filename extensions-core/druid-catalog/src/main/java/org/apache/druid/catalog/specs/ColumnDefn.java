@@ -68,7 +68,7 @@ public class ColumnDefn extends CatalogObjectDefn
   public ColumnDefn(
       final String name,
       final String typeValue,
-      final List<CatalogFieldDefn<?>> fields
+      final List<PropertyDefn> fields
   )
   {
     super(name, typeValue, fields);

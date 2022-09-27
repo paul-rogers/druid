@@ -120,7 +120,7 @@ public class TableSpecTest
   public void testAllProperties()
   {
     Map<String, Object> props = ImmutableMap.<String, Object>builder()
-        .put(DatasourceDefn.DESCRIPTION_FIELD, "My table")
+        .put(DatasourceDefn.DESCRIPTION_PROPERTY, "My table")
         .put(DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D")
         .put(DatasourceDefn.ROLLUP_GRANULARITY_FIELD, "PT1M")
         .put(DatasourceDefn.TARGET_SEGMENT_ROWS_FIELD, 1_000_000)
@@ -472,7 +472,7 @@ public class TableSpecTest
   private TableSpec exampleSpec()
   {
     Map<String, Object> props = ImmutableMap.<String, Object>builder()
-        .put(DatasourceDefn.DESCRIPTION_FIELD, "My table")
+        .put(DatasourceDefn.DESCRIPTION_PROPERTY, "My table")
         .put(DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "PT1H")
         .put(DatasourceDefn.ROLLUP_GRANULARITY_FIELD, "PT1M")
         .put(DatasourceDefn.TARGET_SEGMENT_ROWS_FIELD, 1_000_000)

@@ -22,7 +22,7 @@ package org.apache.druid.catalog.specs;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.catalog.specs.table.Constants;
+import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.java.util.common.IAE;
 
 import java.util.ArrayList;
@@ -39,19 +39,18 @@ public class TableDefn extends CatalogObjectDefn
   /**
    * Human-readable description of the datasource.
    */
-  public static final String DESCRIPTION_FIELD = "description";
+  public static final String DESCRIPTION_PROPERTY = "description";
 
-  protected static final CatalogFieldDefn<?>[] commonFields = {
-      new CatalogFieldDefn.StringFieldDefn(DESCRIPTION_FIELD)
+  protected static final PropertyDefn[] commonFields = {
+      new PropertyDefn.StringPropertyDefn(DESCRIPTION_PROPERTY)
   };
-
 
   private final Map<String, ColumnDefn> columnDefns;
 
   public TableDefn(
       final String name,
       final String typeValue,
-      final List<CatalogFieldDefn<?>> fields,
+      final List<PropertyDefn> fields,
       final List<ColumnDefn> columnDefns
   )
   {
@@ -59,12 +58,12 @@ public class TableDefn extends CatalogObjectDefn
     this.columnDefns = columnDefns == null ? Collections.emptyMap() : toColumnMap(columnDefns);
   }
 
-  protected static List<CatalogFieldDefn<?>> extendFields(
-      final CatalogFieldDefn<?>[] baseFields,
-      List<CatalogFieldDefn<?>> fields
+  protected static List<PropertyDefn> extendFields(
+      final PropertyDefn[] baseFields,
+      List<PropertyDefn> fields
   )
   {
-    List<CatalogFieldDefn<?>> extended = new ArrayList<>();
+    List<PropertyDefn> extended = new ArrayList<>();
     extended.addAll(Arrays.asList(baseFields));
     if (fields != null) {
       extended.addAll(fields);
@@ -86,19 +85,19 @@ public class TableDefn extends CatalogObjectDefn
    * here. The column definitions validate the type of each property value using
    * the object mapper.
    */
-  public void validate(TableSpec spec, ObjectMapper jsonMapper)
+  public void validate(ResolvedTable table)
   {
-    validate(spec.properties(), jsonMapper);
-    if (spec.columns() == null) {
+    validate(table.properties(), table.jsonMapper());
+    if (table.spec().columns() == null) {
       return;
     }
     Set<String> names = new HashSet<>();
-    for (ColumnSpec colSpec : spec.columns()) {
+    for (ColumnSpec colSpec : table.spec().columns()) {
       if (!names.add(colSpec.name())) {
         throw new IAE("Duplicate column name: " + colSpec.name());
       }
       ColumnDefn.ResolvedColumn resolvedCol = resolveColumn(colSpec);
-      resolvedCol.validate(jsonMapper);
+      resolvedCol.validate(table.jsonMapper());
     }
   }
 
@@ -132,7 +131,7 @@ public class TableDefn extends CatalogObjectDefn
     Map<String, Object> revisedProps = mergeProperties(spec.properties(), update.properties());
     List<ColumnSpec> revisedColumns = mergeColumns(spec.columns(), update.columns());
     TableSpec revisedSpec = new TableSpec(spec.type(), revisedProps, revisedColumns);
-    validate(revisedSpec, jsonMapper);
+    validate(new ResolvedTable(this, revisedSpec, jsonMapper));
     return revisedSpec;
   }
 

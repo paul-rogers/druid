@@ -1,19 +1,23 @@
 package org.apache.druid.catalog.specs.table;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.druid.catalog.specs.CatalogFieldDefn;
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.specs.ColumnDefn;
 import org.apache.druid.catalog.specs.ColumnSpec;
 import org.apache.druid.catalog.specs.Columns;
-import org.apache.druid.catalog.specs.FieldTypes.FieldClassDefn;
+import org.apache.druid.catalog.specs.PropertyDefn;
 import org.apache.druid.catalog.specs.TableDefn;
 import org.apache.druid.catalog.specs.TableSpec;
 import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
+import org.apache.druid.catalog.specs.table.InputFormats.InputFormatDefn;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.InputSource;
+import org.apache.druid.data.input.impl.HttpInputSource;
+import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,9 +29,93 @@ import java.util.Map;
  */
 public abstract class InputTableDefn extends TableDefn
 {
-  public static final String INPUT_FORMAT_PROPERTY = "format";
-  public static final String INPUT_SOURCE_PROPERTY = "source";
   public static final String INPUT_COLUMN_TYPE = "input";
+
+  public abstract static class FormattedInputTableDefn extends InputTableDefn
+  {
+    public static final String INPUT_FORMAT_PROPERTY = "format";
+
+    private Map<String, InputFormatDefn> formats;
+
+    public FormattedInputTableDefn(
+        final String name,
+        final String typeValue,
+        final List<PropertyDefn> fields,
+        final List<ColumnDefn> columnDefns,
+        final List<InputFormatDefn> formats
+    )
+    {
+      super(
+          name,
+          typeValue,
+          addFormatProperties(fields, formats),
+          columnDefns
+      );
+      ImmutableMap.Builder<String, InputFormatDefn> builder = ImmutableMap.builder();
+      for (InputFormatDefn format : formats) {
+        builder.put(format.typeTag(), format);
+      }
+      this.formats = builder.build();
+    }
+
+    private static List<PropertyDefn> addFormatProperties(
+        final List<PropertyDefn> properties,
+        final List<InputFormatDefn> formats
+    )
+    {
+      Map<String, PropertyDefn> formatProps = new HashMap<>();
+      for (InputFormatDefn format : formats) {
+        for (PropertyDefn prop : format.properties()) {
+          PropertyDefn existing = formatProps.putIfAbsent(prop.name(), prop);
+          if (existing != null && existing.getClass() != prop.getClass()) {
+            throw new ISE(
+                "Format %s, property %s of class %s conflicts with another format property of class %s",
+                format.name(),
+                prop.name(),
+                prop.getClass().getSimpleName(),
+                existing.getClass().getSimpleName()
+            );
+          }
+        }
+      }
+      List<PropertyDefn> props = new ArrayList<>();
+      if (properties != null) {
+        props.addAll(properties);
+      }
+      props.addAll(formatProps.values());
+      return props;
+    }
+
+    @Override
+    protected InputFormat convertFormat(ResolvedTable table)
+    {
+      return formatDefn(table).convert(table);
+    }
+
+    protected InputFormatDefn formatDefn(ResolvedTable table)
+    {
+      String formatTag = table.stringProperty(INPUT_FORMAT_PROPERTY);
+      if (formatTag == null) {
+        throw new IAE("%s property must be set", INPUT_FORMAT_PROPERTY);
+      }
+      InputFormatDefn formatDefn = formats.get(formatTag);
+      if (formatDefn == null) {
+        throw new IAE(
+            "Format type [%s] for property %s is not valid",
+            formatTag,
+            INPUT_FORMAT_PROPERTY
+        );
+      }
+      return formatDefn;
+    }
+
+    @Override
+    public void validate(ResolvedTable table)
+    {
+      super.validate(table);
+      formatDefn(table).validate(table);
+    }
+  }
 
   /**
    * Definition of a column in a detail (non-rollup) datasource.
@@ -53,18 +141,14 @@ public abstract class InputTableDefn extends TableDefn
 
   protected static final InputColumnDefn INPUT_COLUMN_DEFN = new InputColumnDefn();
 
-  protected static final CatalogFieldDefn<?>[] inputTableFields = {
-      new CatalogFieldDefn<>(INPUT_FORMAT_PROPERTY, new FieldClassDefn<InputFormat>(InputFormat.class))
-  };
-
   public InputTableDefn(
       final String name,
       final String typeValue,
-      final List<CatalogFieldDefn<?>> fields,
+      final List<PropertyDefn> fields,
       final List<ColumnDefn> columnDefns
   )
   {
-    super(name, typeValue, extendFields(inputTableFields, fields), columnDefns);
+    super(name, typeValue, fields, columnDefns);
   }
 
   public abstract TableSpec mergeParameters(ResolvedTable spec, Map<String, Object> values);
@@ -74,27 +158,29 @@ public abstract class InputTableDefn extends TableDefn
     ResolvedTable table = new ResolvedTable(this, spec, jsonMapper);
     return new ExternalSpec(
         convertSource(table),
-        InputFormats.INPUT_FORMAT_CONVERTER.convert(table),
+        convertFormat(table),
         Columns.convertSignature(spec)
     );
   }
 
-  protected InputSource convertSource(ResolvedTable table)
+  protected InputFormat convertFormat(ResolvedTable table)
+  {
+    return null;
+  }
+
+  protected abstract InputSource convertSource(ResolvedTable table);
+
+  protected InputSource convertObject(
+      final ObjectMapper jsonMapper,
+      final Map<String, Object> jsonMap,
+      final Class<? extends InputSource> targetClass
+  )
   {
     try {
-      return table.jsonMapper().convertValue(
-          table.properties().get(INPUT_SOURCE_PROPERTY),
-          InputSource.class
-      );
+      return jsonMapper.convertValue(jsonMap, targetClass);
     }
-    catch (Exception e)
-    {
-      throw new ISE(
-          e,
-          "Failed to deserialize an %s table to an instance of %s",
-          name(),
-          InputSource.class.getSimpleName()
-      );
+    catch (Exception e) {
+      throw new IAE(e, "Invalid table specification");
     }
   }
 }

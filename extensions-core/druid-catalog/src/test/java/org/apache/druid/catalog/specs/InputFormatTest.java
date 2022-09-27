@@ -21,10 +21,11 @@ package org.apache.druid.catalog.specs;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverter;
-import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverterImpl;
-import org.apache.druid.catalog.specs.table.InputFormats;
 import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
+import org.apache.druid.catalog.specs.table.InputFormats;
+import org.apache.druid.catalog.specs.table.InputFormats.GenericFormatDefn;
+import org.apache.druid.catalog.specs.table.InputFormats.InputFormatDefn;
+import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DelimitedInputFormat;
 import org.apache.druid.data.input.impl.JsonInputFormat;
@@ -36,7 +37,6 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
 
 public class InputFormatTest
 {
@@ -45,8 +45,7 @@ public class InputFormatTest
   @Test
   public void testCsvFormat()
   {
-    JsonSubclassConverter<CsvInputFormat> converter = InputFormats.CSV_FORMAT_CONVERTER;
-    JsonSubclassConverterImpl<CsvInputFormat> converterImpl = (JsonSubclassConverterImpl<CsvInputFormat>) converter;
+    InputFormatDefn converter = InputFormats.CSV_FORMAT_DEFN;
     List<ColumnSpec> cols = Arrays.asList(
         new ColumnSpec("type", "x", Columns.VARCHAR, null),
         new ColumnSpec("type", "y", Columns.BIGINT, null)
@@ -60,19 +59,6 @@ public class InputFormatTest
       TableSpec spec = new TableSpec("type", args, cols);
       ResolvedTable table = new ResolvedTable(null, spec, mapper);
 
-      Map<String, Object> jsonMap = converterImpl.gatherFields(table);
-      Map<String, Object> expected = ImmutableMap.of(
-          "listDelimiter",
-          "|",
-          "skipHeaderRows",
-          1,
-          "hasHeaderRow",
-          false,
-          "columns",
-          Arrays.asList("x", "y")
-      );
-      assertEquals(expected, jsonMap);
-
       CsvInputFormat expectedFormat = new CsvInputFormat(
           Arrays.asList("x", "y"),
           "|",
@@ -80,7 +66,7 @@ public class InputFormatTest
           false,
           1
       );
-      CsvInputFormat inputFormat = converter.convert(table, "type");
+      InputFormat inputFormat = converter.convert(table);
       assertEquals(expectedFormat, inputFormat);
     }
 
@@ -100,7 +86,7 @@ public class InputFormatTest
           false,
           1
       );
-      CsvInputFormat inputFormat = converter.convert(table, "type");
+      InputFormat inputFormat = converter.convert(table);
       assertEquals(expectedFormat, inputFormat);
     }
 
@@ -112,7 +98,7 @@ public class InputFormatTest
       TableSpec spec = new TableSpec("type", args, cols);
       ResolvedTable table = new ResolvedTable(null, spec, mapper);
 
-      assertThrows(Exception.class, () -> converter.convert(table, "type"));
+      assertThrows(Exception.class, () -> converter.convert(table));
     }
 
     // No columns
@@ -123,40 +109,24 @@ public class InputFormatTest
       TableSpec spec = new TableSpec("type", args, null);
       ResolvedTable table = new ResolvedTable(null, spec, mapper);
 
-      assertThrows(Exception.class, () -> converter.convert(table, "type"));
+      assertThrows(Exception.class, () -> converter.convert(table));
     }
   }
 
   @Test
-  public void testFlatTextFormat()
+  public void testDelimitedTextFormat()
   {
-    JsonSubclassConverter<DelimitedInputFormat> converter = InputFormats.FLAT_TEXT_FORMAT_CONVERTER;
-    JsonSubclassConverterImpl<DelimitedInputFormat> converterImpl = (JsonSubclassConverterImpl<DelimitedInputFormat>) converter;
-
-    Map<String, Object> args = ImmutableMap.of(
-        "delimiter", ",", "listDelimiter", "|", "skipRows", 1
-    );
+    InputFormatDefn converter = InputFormats.DELIMITED_FORMAT_DEFN;
     List<ColumnSpec> cols = Arrays.asList(
         new ColumnSpec("type", "x", Columns.VARCHAR, null),
         new ColumnSpec("type", "y", Columns.BIGINT, null)
     );
+
+    Map<String, Object> args = ImmutableMap.of(
+        "delimiter", ",", "listDelimiter", "|", "skipRows", 1
+    );
     TableSpec spec = new TableSpec("type", args, cols);
     ResolvedTable table = new ResolvedTable(null, spec, mapper);
-
-    Map<String, Object> jsonMap = converterImpl.gatherFields(table);
-    Map<String, Object> expected = ImmutableMap.of(
-        "delimiter",
-        ",",
-        "listDelimiter",
-        "|",
-        "skipHeaderRows",
-        1,
-        "hasHeaderRow",
-        false,
-        "columns",
-        Arrays.asList("x", "y")
-    );
-    assertEquals(expected, jsonMap);
 
     DelimitedInputFormat expectedFormat = new DelimitedInputFormat(
         Arrays.asList("x", "y"),
@@ -166,15 +136,14 @@ public class InputFormatTest
         false,
         1
     );
-    DelimitedInputFormat inputFormat = converter.convert(table, "type");
+    InputFormat inputFormat = converter.convert(table);
     assertEquals(expectedFormat, inputFormat);
   }
 
   @Test
   public void testJsonFormat()
   {
-    JsonSubclassConverter<JsonInputFormat> converter = InputFormats.JSON_FORMAT_CONVERTER;
-    JsonSubclassConverterImpl<JsonInputFormat> converterImpl = (JsonSubclassConverterImpl<JsonInputFormat>) converter;
+    InputFormatDefn converter = InputFormats.JSON_FORMAT_DEFN;
     List<ColumnSpec> cols = Arrays.asList(
         new ColumnSpec("type", "x", Columns.VARCHAR, null),
         new ColumnSpec("type", "y", Columns.BIGINT, null)
@@ -188,7 +157,7 @@ public class InputFormatTest
       TableSpec spec = new TableSpec("type", args, cols);
       ResolvedTable table = new ResolvedTable(null, spec, mapper);
 
-      JsonInputFormat inputFormat = converter.convert(table, "type");
+      InputFormat inputFormat = converter.convert(table);
       assertEquals(new JsonInputFormat(null, null, true), inputFormat);
     }
 
@@ -197,11 +166,116 @@ public class InputFormatTest
       TableSpec spec = new TableSpec("type", null, cols);
       ResolvedTable table = new ResolvedTable(null, spec, mapper);
 
-      Map<String, Object> jsonMap = converterImpl.gatherFields(table);
-      assertTrue(jsonMap.isEmpty());
-
-      JsonInputFormat inputFormat = converter.convert(table, "type");
+      InputFormat inputFormat = converter.convert(table);
       assertEquals(new JsonInputFormat(null, null, null), inputFormat);
+    }
+  }
+
+  /**
+   * Test the generic format which allows a literal input spec. The
+   * drawback is that the user must repeat the columns.
+   */
+  @Test
+  public void testGenericFormat()
+  {
+    InputFormatDefn converter = InputFormats.GENERIC_FORMAT_DEFN;
+    List<ColumnSpec> cols = Arrays.asList(
+        new ColumnSpec("type", "x", Columns.VARCHAR, null),
+        new ColumnSpec("type", "y", Columns.BIGINT, null)
+    );
+
+    // No type
+    {
+      Map<String, Object> args = ImmutableMap.of(
+          "skipRows", 1
+      );
+      TableSpec spec = new TableSpec("type", args, null);
+      ResolvedTable table = new ResolvedTable(null, spec, mapper);
+
+      assertThrows(Exception.class, () -> converter.convert(table));
+    }
+
+    // CSV
+    {
+      Map<String, Object> args = ImmutableMap.of(
+          GenericFormatDefn.INPUT_FORMAT_SPEC_PROPERTY,
+          ImmutableMap.of(
+              "type", CsvInputFormat.TYPE_KEY,
+              "listDelimiter", "|",
+              "skipHeaderRows", 1,
+              "findColumnsFromHeader", false,
+              "columns", Arrays.asList("x", "y")
+          )
+      );
+      TableSpec spec = new TableSpec("type", args, cols);
+      ResolvedTable table = new ResolvedTable(null, spec, mapper);
+
+      CsvInputFormat expectedFormat = new CsvInputFormat(
+          Arrays.asList("x", "y"),
+          "|",
+          false,
+          false,
+          1
+      );
+      InputFormat inputFormat = converter.convert(table);
+      assertEquals(expectedFormat, inputFormat);
+    }
+
+    // No columns: when using generic, the columns must be in the
+    // JSON spec.
+    {
+      Map<String, Object> args = ImmutableMap.of(
+          "type", CsvInputFormat.TYPE_KEY,
+          "skipRows", 1
+      );
+      TableSpec spec = new TableSpec("type", args, cols);
+      ResolvedTable table = new ResolvedTable(null, spec, mapper);
+
+      assertThrows(Exception.class, () -> converter.convert(table));
+    }
+
+    // Delimited text
+    {
+      Map<String, Object> args = ImmutableMap.of(
+          GenericFormatDefn.INPUT_FORMAT_SPEC_PROPERTY,
+          ImmutableMap.builder()
+              .put("type", DelimitedInputFormat.TYPE_KEY)
+              .put("delimiter", ",")
+              .put("listDelimiter", "|")
+              .put("skipHeaderRows", 1)
+              .put("findColumnsFromHeader", false)
+              .put("columns", Arrays.asList("x", "y"))
+              .build()
+      );
+      TableSpec spec = new TableSpec("type", args, cols);
+      ResolvedTable table = new ResolvedTable(null, spec, mapper);
+
+      DelimitedInputFormat expectedFormat = new DelimitedInputFormat(
+          Arrays.asList("x", "y"),
+          "|",
+          ",",
+          false,
+          false,
+          1
+      );
+      InputFormat inputFormat = converter.convert(table);
+      assertEquals(expectedFormat, inputFormat);
+    }
+
+    // JSON
+    {
+      Map<String, Object> args = ImmutableMap.of(
+          GenericFormatDefn.INPUT_FORMAT_SPEC_PROPERTY,
+          ImmutableMap.of(
+              "type", JsonInputFormat.TYPE_KEY,
+              "keepNullColumns", true
+          )
+      );
+      TableSpec spec = new TableSpec("type", args, cols);
+      ResolvedTable table = new ResolvedTable(null, spec, mapper);
+
+      InputFormat inputFormat = converter.convert(table);
+      assertEquals(new JsonInputFormat(null, null, true), inputFormat);
     }
   }
 }

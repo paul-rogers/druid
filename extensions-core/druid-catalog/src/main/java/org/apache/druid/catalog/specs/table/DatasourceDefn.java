@@ -19,17 +19,17 @@
 
 package org.apache.druid.catalog.specs.table;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import org.apache.druid.catalog.MeasureTypes;
-import org.apache.druid.catalog.specs.CatalogFieldDefn;
-import org.apache.druid.catalog.specs.CatalogFieldDefn.GranularityFieldDefn;
-import org.apache.druid.catalog.specs.CatalogFieldDefn.StringListDefn;
 import org.apache.druid.catalog.specs.ClusterKeySpec;
 import org.apache.druid.catalog.specs.ColumnDefn;
 import org.apache.druid.catalog.specs.ColumnSpec;
 import org.apache.druid.catalog.specs.Columns;
-import org.apache.druid.catalog.specs.FieldTypes;
+import org.apache.druid.catalog.specs.PropertyDefn;
+import org.apache.druid.catalog.specs.PropertyDefn.GranularityPropertyDefn;
+import org.apache.druid.catalog.specs.PropertyDefn.StringListPropertyDefn;
 import org.apache.druid.catalog.specs.TableDefn;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
@@ -40,7 +40,6 @@ import java.util.List;
 
 public class DatasourceDefn extends TableDefn
 {
-
   /**
    * Segment grain at ingestion and initial compaction. Aging rules
    * may override the value as segments age. If not provided here,
@@ -73,7 +72,7 @@ public class DatasourceDefn extends TableDefn
   public static final String MEASURE_TYPE = "measure";
   public static final String INPUT_COLUMN_TYPE = "input";
 
-  public static class SegmentGranularityFieldDefn extends GranularityFieldDefn
+  public static class SegmentGranularityFieldDefn extends GranularityPropertyDefn
   {
     public SegmentGranularityFieldDefn()
     {
@@ -91,7 +90,7 @@ public class DatasourceDefn extends TableDefn
     }
   }
 
-  public static class HiddenColumnsDefn extends StringListDefn
+  public static class HiddenColumnsDefn extends StringListPropertyDefn
   {
     public HiddenColumnsDefn()
     {
@@ -125,7 +124,7 @@ public class DatasourceDefn extends TableDefn
       super(
           "Column",
           DETAIL_COLUMN_TYPE,
-          Collections.emptyMap()
+          null
       );
     }
 
@@ -147,7 +146,7 @@ public class DatasourceDefn extends TableDefn
       super(
           "Dimension",
           DIMENSION_TYPE,
-          Collections.emptyMap()
+          null
       );
     }
 
@@ -172,7 +171,7 @@ public class DatasourceDefn extends TableDefn
       super(
           "Measure",
           MEASURE_TYPE,
-          Collections.emptyMap()
+          null
       );
     }
 
@@ -214,7 +213,7 @@ public class DatasourceDefn extends TableDefn
           "Rollup datasource",
           ROLLUP_DATASOURCE_TYPE,
           Collections.singletonList(
-              new CatalogFieldDefn.GranularityFieldDefn(ROLLUP_GRANULARITY_FIELD)
+              new PropertyDefn.GranularityPropertyDefn(ROLLUP_GRANULARITY_FIELD)
           ),
           Arrays.asList(
               new DimensionDefn(),
@@ -224,17 +223,21 @@ public class DatasourceDefn extends TableDefn
     }
   }
 
-  protected static final CatalogFieldDefn<?>[] datasourceFields = {
+  protected static final PropertyDefn[] datasourceFields = {
       new SegmentGranularityFieldDefn(),
-      new CatalogFieldDefn.IntFieldDefn(TARGET_SEGMENT_ROWS_FIELD),
-      new CatalogFieldDefn.ListFieldDefn<ClusterKeySpec>(CLUSTER_KEYS_FIELD, FieldTypes.CLUSTER_KEY_LIST_TYPE),
+      new PropertyDefn.IntPropertyDefn(TARGET_SEGMENT_ROWS_FIELD),
+      new PropertyDefn.ListPropertyDefn<ClusterKeySpec>(
+          CLUSTER_KEYS_FIELD,
+          "cluster keys",
+          new TypeReference<List<ClusterKeySpec>>() { }
+      ),
       new HiddenColumnsDefn()
   };
 
   public DatasourceDefn(
       final String name,
       final String typeValue,
-      final List<CatalogFieldDefn<?>> fields,
+      final List<PropertyDefn> fields,
       final List<ColumnDefn> columnDefns
   )
   {

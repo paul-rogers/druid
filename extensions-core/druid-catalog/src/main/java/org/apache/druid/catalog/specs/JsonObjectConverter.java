@@ -47,11 +47,11 @@ public interface JsonObjectConverter<T>
   public static class JsonProperty
   {
     protected final String jsonKey;
-    protected final CatalogFieldDefn<?> fieldDefn;
+    protected final PropertyDefn<?> fieldDefn;
 
     public JsonProperty(
         final String jsonKey,
-        final CatalogFieldDefn<?> fieldDefn
+        final PropertyDefn<?> fieldDefn
     )
     {
       this.jsonKey = jsonKey;
@@ -223,6 +223,29 @@ public interface JsonObjectConverter<T>
         }
       }
     }
+  }
+
+  public static class JsonObjectConverterFieldType<T> implements FieldTypeDefn<T>
+  {
+    public foo(JsonObjectConverter<T> converter)
+    {
+      this.converter = converter;
+    }
+
+    @Override
+    public String typeName()
+    {
+      // TODO Auto-generated method stub
+      return converter.typeName();
+    }
+
+    @Override
+    public T decode(ObjectMapper mapper, Object value)
+    {
+      // TODO Auto-generated method stub
+      return null;
+    }
+
   }
 
   public T convert(ResolvedTable table);

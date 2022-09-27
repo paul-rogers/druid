@@ -67,9 +67,14 @@ public class CatalogTableRegistry
       );
     }
 
+    public ResolvedTable withProperties(Map<String, Object> props)
+    {
+      return new ResolvedTable(defn, spec.withProperties(props), jsonMapper);
+    }
+
     public void validate()
     {
-      defn.validate(spec, jsonMapper);
+      defn.validate(this);
     }
 
     @Override

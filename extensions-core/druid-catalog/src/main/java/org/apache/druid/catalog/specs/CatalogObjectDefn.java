@@ -21,9 +21,7 @@ package org.apache.druid.catalog.specs;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.utils.CollectionUtils;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,12 +38,12 @@ public class CatalogObjectDefn
 {
   private final String name;
   private final String typeValue;
-  private final Map<String, CatalogFieldDefn<?>> fields;
+  private final Map<String, PropertyDefn> fields;
 
   public CatalogObjectDefn(
       final String name,
       final String typeValue,
-      final List<CatalogFieldDefn<?>> fields
+      final List<PropertyDefn> fields
   )
   {
     this.name = name;
@@ -53,11 +51,11 @@ public class CatalogObjectDefn
     this.fields = toFieldMap(fields);
   }
 
-  protected static Map<String, CatalogFieldDefn<?>> toFieldMap(final List<CatalogFieldDefn<?>> fields)
+  protected static Map<String, PropertyDefn> toFieldMap(final List<PropertyDefn> fields)
   {
-    ImmutableMap.Builder<String, CatalogFieldDefn<?>> builder = ImmutableMap.builder();
+    ImmutableMap.Builder<String, PropertyDefn> builder = ImmutableMap.builder();
     if (fields != null) {
-      for (CatalogFieldDefn<?> field : fields) {
+      for (PropertyDefn field : fields) {
         builder.put(field.name(), field);
       }
     }
@@ -79,12 +77,12 @@ public class CatalogObjectDefn
     return typeValue;
   }
 
-  public Map<String, CatalogFieldDefn<?>> fields()
+  public Map<String, PropertyDefn> fields()
   {
     return fields;
   }
 
-  public CatalogFieldDefn<?> resolveField(String key)
+  public PropertyDefn resolveField(String key)
   {
     return fields.get(key);
   }
@@ -114,7 +112,7 @@ public class CatalogObjectDefn
       if (entry.getValue() == null) {
         tags.remove(entry.getKey());
       } else {
-        CatalogFieldDefn<?> field = resolveField(entry.getKey());
+        PropertyDefn field = resolveField(entry.getKey());
         Object value = entry.getValue();
         if (field != null) {
           value = field.merge(tags.get(entry.getKey()), entry.getValue());
@@ -132,7 +130,7 @@ public class CatalogObjectDefn
    */
   public void validate(Map<String, Object> spec, ObjectMapper jsonMapper)
   {
-    for (CatalogFieldDefn<?> field : fields.values()) {
+    for (PropertyDefn field : fields.values()) {
       field.validate(spec.get(field.name()), jsonMapper);
     }
   }

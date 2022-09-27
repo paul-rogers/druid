@@ -48,7 +48,7 @@ import java.io.File;
  * }</pre>
  */
 @UnstableApi
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = InputSource.TYPE_PROPERTY)
 @JsonSubTypes(value = {
     @Type(name = LocalInputSource.TYPE_KEY, value = LocalInputSource.class),
     @Type(name = HttpInputSource.TYPE_KEY, value = HttpInputSource.class),
@@ -57,6 +57,8 @@ import java.io.File;
 })
 public interface InputSource
 {
+  public static final String TYPE_PROPERTY = "type";
+
   /**
    * Returns true if this inputSource can be processed in parallel using ParallelIndexSupervisorTask. It must be
    * castable to SplittableInputSource and the various SplittableInputSource methods must work as documented.
