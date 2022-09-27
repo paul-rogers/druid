@@ -23,7 +23,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.catalog.CatalogTest;
-import org.apache.druid.catalog.specs.CatalogTableRegistry.ResolvedTable;
+import org.apache.druid.catalog.specs.table.CatalogTableRegistry;
+import org.apache.druid.catalog.specs.table.Constants;
+import org.apache.druid.catalog.specs.table.DatasourceDefn;
+import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.java.util.common.IAE;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -57,10 +60,10 @@ public class TableSpecTest
   {
     // Minimum possible definition
     Map<String, Object> props = ImmutableMap.of(
-        Constants.SEGMENT_GRANULARITY_FIELD, "P1D"
+        DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D"
     );
     {
-      TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, null);
+      TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, null);
       CatalogTableRegistry.ResolvedTable table = registry.resolve(spec);
       assertNotNull(table);
       assertSame(CatalogTableRegistry.DETAIL_DATASOURCE_DEFN, table.defn());
@@ -68,7 +71,7 @@ public class TableSpecTest
     }
 
     {
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, null);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
       CatalogTableRegistry.ResolvedTable table = registry.resolve(spec);
       assertNotNull(table);
       assertSame(CatalogTableRegistry.ROLLUP_DATASOURCE_DEFN, table.defn());
@@ -102,13 +105,13 @@ public class TableSpecTest
     }
 
     {
-      TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, ImmutableMap.of(), null);
+      TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, ImmutableMap.of(), null);
       CatalogTableRegistry.ResolvedTable table = registry.resolve(spec);
       expectValidationFails(table);
     }
 
     {
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, ImmutableMap.of(), null);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, ImmutableMap.of(), null);
       expectValidationFails(spec);
     }
   }
@@ -117,20 +120,20 @@ public class TableSpecTest
   public void testAllProperties()
   {
     Map<String, Object> props = ImmutableMap.<String, Object>builder()
-        .put(Constants.DESCRIPTION_FIELD, "My table")
-        .put(Constants.SEGMENT_GRANULARITY_FIELD, "P1D")
-        .put(Constants.ROLLUP_GRANULARITY_FIELD, "PT1M")
-        .put(Constants.TARGET_SEGMENT_ROWS_FIELD, 1_000_000)
-        .put(Constants.HIDDEN_COLUMNS_FIELD, Arrays.asList("foo", "bar"))
+        .put(DatasourceDefn.DESCRIPTION_FIELD, "My table")
+        .put(DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D")
+        .put(DatasourceDefn.ROLLUP_GRANULARITY_FIELD, "PT1M")
+        .put(DatasourceDefn.TARGET_SEGMENT_ROWS_FIELD, 1_000_000)
+        .put(DatasourceDefn.HIDDEN_COLUMNS_FIELD, Arrays.asList("foo", "bar"))
         .build();
 
     {
-      TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, null);
+      TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, null);
       expectValidationSucceeds(spec);
     }
 
     {
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, null);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
       expectValidationSucceeds(spec);
     }
   }
@@ -146,64 +149,64 @@ public class TableSpecTest
     // Segment granularity
     {
       Map<String, Object> props = ImmutableMap.of(
-          Constants.SEGMENT_GRANULARITY_FIELD, "bogus"
+          DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "bogus"
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, null);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
       expectValidationFails(spec);
     }
 
     {
       Map<String, Object> props = ImmutableMap.of(
-          Constants.SEGMENT_GRANULARITY_FIELD, "bogus"
+          DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "bogus"
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, null);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
       expectValidationFails(spec);
     }
 
     // Rollup granularity
     {
       Map<String, Object> props = ImmutableMap.of(
-          Constants.SEGMENT_GRANULARITY_FIELD, "P1D",
-          Constants.ROLLUP_GRANULARITY_FIELD, "bogus"
+          DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D",
+          DatasourceDefn.ROLLUP_GRANULARITY_FIELD, "bogus"
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, null);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
       expectValidationFails(spec);
     }
 
     {
       Map<String, Object> props = ImmutableMap.of(
-          Constants.SEGMENT_GRANULARITY_FIELD, "P1D",
-          Constants.ROLLUP_GRANULARITY_FIELD, 10
+          DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D",
+          DatasourceDefn.ROLLUP_GRANULARITY_FIELD, 10
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, null);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
       expectValidationFails(spec);
     }
 
     // Target segment rows
     {
       Map<String, Object> props = ImmutableMap.of(
-          Constants.SEGMENT_GRANULARITY_FIELD, "P1D",
-          Constants.TARGET_SEGMENT_ROWS_FIELD, "bogus"
+          DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D",
+          DatasourceDefn.TARGET_SEGMENT_ROWS_FIELD, "bogus"
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, null);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
       expectValidationFails(spec);
     }
 
     // Hidden columns
     {
       Map<String, Object> props = ImmutableMap.of(
-          Constants.SEGMENT_GRANULARITY_FIELD, "P1D",
-          Constants.HIDDEN_COLUMNS_FIELD, "bogus"
+          DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D",
+          DatasourceDefn.HIDDEN_COLUMNS_FIELD, "bogus"
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, null);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
       expectValidationFails(spec);
     }
     {
       Map<String, Object> props = ImmutableMap.of(
-          Constants.SEGMENT_GRANULARITY_FIELD, "P1D",
-          Constants.HIDDEN_COLUMNS_FIELD, Arrays.asList("a", Columns.TIME_COLUMN)
+          DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D",
+          DatasourceDefn.HIDDEN_COLUMNS_FIELD, Arrays.asList("a", Columns.TIME_COLUMN)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, null);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
       expectValidationFails(spec);
     }
   }
@@ -212,11 +215,11 @@ public class TableSpecTest
   public void testExtendedProperties()
   {
     Map<String, Object> props = ImmutableMap.of(
-        Constants.SEGMENT_GRANULARITY_FIELD, "P1D",
+        DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D",
         "foo", 10,
         "bar", "mumble"
     );
-    TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, null);
+    TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, null);
     expectValidationSucceeds(spec);
   }
 
@@ -231,17 +234,17 @@ public class TableSpecTest
 
     // Name is required
     {
-      ColumnSpec spec = new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, null, null, null);
+      ColumnSpec spec = new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, null, null, null);
       assertThrows(IAE.class, () -> spec.validate());
     }
     {
-      ColumnSpec spec = new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, "foo", null, null);
+      ColumnSpec spec = new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, "foo", null, null);
       spec.validate();
     }
 
     // Type is optional
     {
-      ColumnSpec spec = new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, "foo", "VARCHAR", null);
+      ColumnSpec spec = new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, "foo", "VARCHAR", null);
       spec.validate();
     }
   }
@@ -250,94 +253,94 @@ public class TableSpecTest
   public void testDetailTableColumns()
   {
     Map<String, Object> props = ImmutableMap.of(
-        Constants.SEGMENT_GRANULARITY_FIELD, "P1D"
+        DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D"
     );
 
     // OK to have no columm type
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, "foo", null, null)
+          new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, "foo", null, null)
       );
-      TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, cols);
       expectValidationSucceeds(spec);
     }
 
     // Time column can have no type
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, Columns.TIME_COLUMN, null, null)
+          new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, Columns.TIME_COLUMN, null, null)
       );
-      TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, cols);
       expectValidationSucceeds(spec);
     }
 
     // Time column can only have TIMESTAMP type
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, Columns.TIME_COLUMN, Columns.TIMESTAMP, null)
+          new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, Columns.TIME_COLUMN, Columns.TIMESTAMP, null)
       );
-      TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, cols);
       expectValidationSucceeds(spec);
     }
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, Columns.TIME_COLUMN, Columns.VARCHAR, null)
+          new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, Columns.TIME_COLUMN, Columns.VARCHAR, null)
       );
-      TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, cols);
       expectValidationFails(spec);
     }
 
     // Can have a legal scalar type
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, "foo", Columns.VARCHAR, null)
+          new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, "foo", Columns.VARCHAR, null)
       );
-      TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, cols);
       expectValidationSucceeds(spec);
     }
 
     // Reject an unknown SQL type
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, "foo", "BOGUS", null)
+          new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, "foo", "BOGUS", null)
       );
-      TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, cols);
       expectValidationFails(spec);
     }
 
     // Cannot use a measure type
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, "foo", SUM_BIGINT, null)
+          new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, "foo", SUM_BIGINT, null)
       );
-      TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, cols);
       expectValidationFails(spec);
     }
 
     // Cannot use a measure
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.MEASURE_TYPE, "foo", SUM_BIGINT, null)
+          new ColumnSpec(DatasourceDefn.MEASURE_TYPE, "foo", SUM_BIGINT, null)
       );
-      TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, cols);
       expectValidationFails(spec);
     }
 
     // Reject duplicate columns
     {
       List<ColumnSpec> cols = Arrays.asList(
-          new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, "foo", Columns.VARCHAR, null),
-          new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, "bar", Columns.BIGINT, null)
+          new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, "foo", Columns.VARCHAR, null),
+          new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, "bar", Columns.BIGINT, null)
       );
-      TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, cols);
       expectValidationSucceeds(spec);
     }
     {
       List<ColumnSpec> cols = Arrays.asList(
-          new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, "foo", Columns.VARCHAR, null),
-          new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, "foo", Columns.BIGINT, null)
+          new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, "foo", Columns.VARCHAR, null),
+          new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, "foo", Columns.BIGINT, null)
       );
-      TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, cols);
       expectValidationFails(spec);
     }
   }
@@ -346,111 +349,111 @@ public class TableSpecTest
   public void testRollupTableColumns()
   {
     Map<String, Object> props = ImmutableMap.of(
-        Constants.SEGMENT_GRANULARITY_FIELD, "P1D"
+        DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D"
     );
 
     // OK for a dimension to have no type
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DIMENSION_TYPE, "foo", null, null)
+          new ColumnSpec(DatasourceDefn.DIMENSION_TYPE, "foo", null, null)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, cols);
       expectValidationSucceeds(spec);
     }
 
     // Dimensions must have a scalar type, if the type is non-null
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DIMENSION_TYPE, "foo", Columns.VARCHAR, null)
+          new ColumnSpec(DatasourceDefn.DIMENSION_TYPE, "foo", Columns.VARCHAR, null)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, cols);
       expectValidationSucceeds(spec);
     }
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DIMENSION_TYPE, "foo", "BOGUS", null)
+          new ColumnSpec(DatasourceDefn.DIMENSION_TYPE, "foo", "BOGUS", null)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, cols);
       expectValidationFails(spec);
     }
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DIMENSION_TYPE, "foo", SUM_BIGINT, null)
+          new ColumnSpec(DatasourceDefn.DIMENSION_TYPE, "foo", SUM_BIGINT, null)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, cols);
       expectValidationFails(spec);
     }
 
     // Time column can be a dimension and can only have TIMESTAMP type
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DIMENSION_TYPE, Columns.TIME_COLUMN, Columns.TIMESTAMP, null)
+          new ColumnSpec(DatasourceDefn.DIMENSION_TYPE, Columns.TIME_COLUMN, Columns.TIMESTAMP, null)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, cols);
       expectValidationSucceeds(spec);
     }
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DIMENSION_TYPE, Columns.TIME_COLUMN, Columns.VARCHAR, null)
+          new ColumnSpec(DatasourceDefn.DIMENSION_TYPE, Columns.TIME_COLUMN, Columns.VARCHAR, null)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, cols);
       expectValidationFails(spec);
     }
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DIMENSION_TYPE, "foo", SUM_BIGINT, null)
+          new ColumnSpec(DatasourceDefn.DIMENSION_TYPE, "foo", SUM_BIGINT, null)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, cols);
       expectValidationFails(spec);
     }
 
     // Measures must have an aggregate type
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.MEASURE_TYPE, "foo", null, null)
+          new ColumnSpec(DatasourceDefn.MEASURE_TYPE, "foo", null, null)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, cols);
       expectValidationFails(spec);
     }
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.MEASURE_TYPE, "foo", Columns.VARCHAR, null)
+          new ColumnSpec(DatasourceDefn.MEASURE_TYPE, "foo", Columns.VARCHAR, null)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, cols);
       expectValidationFails(spec);
     }
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.MEASURE_TYPE, "foo", SUM_BIGINT, null)
+          new ColumnSpec(DatasourceDefn.MEASURE_TYPE, "foo", SUM_BIGINT, null)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, cols);
       expectValidationSucceeds(spec);
     }
 
     // Cannot use a detail column
     {
       List<ColumnSpec> cols = Collections.singletonList(
-          new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, "foo", null, null)
+          new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, "foo", null, null)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, cols);
       expectValidationFails(spec);
     }
 
     // Reject duplicate columns
     {
       List<ColumnSpec> cols = Arrays.asList(
-          new ColumnSpec(Constants.DIMENSION_TYPE, "foo", Columns.VARCHAR, null),
-          new ColumnSpec(Constants.MEASURE_TYPE, "bar", SUM_BIGINT, null)
+          new ColumnSpec(DatasourceDefn.DIMENSION_TYPE, "foo", Columns.VARCHAR, null),
+          new ColumnSpec(DatasourceDefn.MEASURE_TYPE, "bar", SUM_BIGINT, null)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, cols);
       expectValidationSucceeds(spec);
     }
     {
       List<ColumnSpec> cols = Arrays.asList(
-          new ColumnSpec(Constants.DIMENSION_TYPE, "foo", Columns.VARCHAR, null),
-          new ColumnSpec(Constants.MEASURE_TYPE, "foo", SUM_BIGINT, null)
+          new ColumnSpec(DatasourceDefn.DIMENSION_TYPE, "foo", Columns.VARCHAR, null),
+          new ColumnSpec(DatasourceDefn.MEASURE_TYPE, "foo", SUM_BIGINT, null)
       );
-      TableSpec spec = new TableSpec(Constants.ROLLUP_DATASOURCE_TYPE, props, cols);
+      TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, cols);
       expectValidationFails(spec);
     }
   }
@@ -469,11 +472,11 @@ public class TableSpecTest
   private TableSpec exampleSpec()
   {
     Map<String, Object> props = ImmutableMap.<String, Object>builder()
-        .put(Constants.DESCRIPTION_FIELD, "My table")
-        .put(Constants.SEGMENT_GRANULARITY_FIELD, "PT1H")
-        .put(Constants.ROLLUP_GRANULARITY_FIELD, "PT1M")
-        .put(Constants.TARGET_SEGMENT_ROWS_FIELD, 1_000_000)
-        .put(Constants.HIDDEN_COLUMNS_FIELD, Arrays.asList("foo", "bar"))
+        .put(DatasourceDefn.DESCRIPTION_FIELD, "My table")
+        .put(DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "PT1H")
+        .put(DatasourceDefn.ROLLUP_GRANULARITY_FIELD, "PT1M")
+        .put(DatasourceDefn.TARGET_SEGMENT_ROWS_FIELD, 1_000_000)
+        .put(DatasourceDefn.HIDDEN_COLUMNS_FIELD, Arrays.asList("foo", "bar"))
         .put("tag1", "some value")
         .put("tag2", "second value")
         .build();
@@ -482,10 +485,10 @@ public class TableSpecTest
         .put("colProp2", "value 2")
         .build();
     List<ColumnSpec> cols = Arrays.asList(
-        new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, "a", null, colProps),
-        new ColumnSpec(Constants.DETAIL_COLUMN_TYPE, "b", Columns.VARCHAR, null)
+        new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, "a", null, colProps),
+        new ColumnSpec(DatasourceDefn.DETAIL_COLUMN_TYPE, "b", Columns.VARCHAR, null)
     );
-    TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, cols);
+    TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, cols);
 
     // Sanity check
     expectValidationSucceeds(spec);
@@ -553,7 +556,7 @@ public class TableSpecTest
     // such values to indicate which properties to remove.
     Map<String, Object> updatedProps = new HashMap<>();
     // Update a property
-    updatedProps.put(Constants.SEGMENT_GRANULARITY_FIELD, "P1D");
+    updatedProps.put(DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D");
     // Remove a property
     updatedProps.put("tag1", null);
     // Add a property
@@ -568,8 +571,8 @@ public class TableSpecTest
     // changed.
     assertNotEquals(spec, merged);
     assertEquals(
-        updatedProps.get(Constants.SEGMENT_GRANULARITY_FIELD),
-        merged.properties().get(Constants.SEGMENT_GRANULARITY_FIELD)
+        updatedProps.get(DatasourceDefn.SEGMENT_GRANULARITY_FIELD),
+        merged.properties().get(DatasourceDefn.SEGMENT_GRANULARITY_FIELD)
     );
     assertFalse(merged.properties().containsKey("tag1"));
     assertEquals(
@@ -585,24 +588,24 @@ public class TableSpecTest
 
     // Remove all hidden columns
     Map<String, Object> updatedProps = new HashMap<>();
-    updatedProps.put(Constants.HIDDEN_COLUMNS_FIELD, null);
+    updatedProps.put(DatasourceDefn.HIDDEN_COLUMNS_FIELD, null);
     TableSpec update = new TableSpec(null, updatedProps, null);
     TableSpec merged = mergeTables(spec, update);
     expectValidationSucceeds(merged);
     assertFalse(
-        merged.properties().containsKey(Constants.HIDDEN_COLUMNS_FIELD)
+        merged.properties().containsKey(DatasourceDefn.HIDDEN_COLUMNS_FIELD)
     );
 
     // Wrong type
     updatedProps = ImmutableMap.of(
-        Constants.HIDDEN_COLUMNS_FIELD, "mumble"
+        DatasourceDefn.HIDDEN_COLUMNS_FIELD, "mumble"
     );
     update = new TableSpec(null, updatedProps, null);
     assertMergeFails(spec, update);
 
     // Merge
     updatedProps = ImmutableMap.of(
-        Constants.HIDDEN_COLUMNS_FIELD, Collections.singletonList("mumble")
+        DatasourceDefn.HIDDEN_COLUMNS_FIELD, Collections.singletonList("mumble")
     );
     update = new TableSpec(null, updatedProps, null);
     merged = mergeTables(spec, update);
@@ -610,7 +613,7 @@ public class TableSpecTest
 
     assertEquals(
         Arrays.asList("foo", "bar", "mumble"),
-        merged.properties().get(Constants.HIDDEN_COLUMNS_FIELD)
+        merged.properties().get(DatasourceDefn.HIDDEN_COLUMNS_FIELD)
     );
   }
 
@@ -618,13 +621,13 @@ public class TableSpecTest
   public void testMergeColsWithEmptyList()
   {
     Map<String, Object> props = ImmutableMap.of(
-        Constants.SEGMENT_GRANULARITY_FIELD, "P1D"
+        DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D"
     );
-    TableSpec spec = new TableSpec(Constants.DETAIL_DATASOURCE_TYPE, props, null);
+    TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, null);
 
     List<ColumnSpec> colUpdates = Collections.singletonList(
         new ColumnSpec(
-            Constants.DETAIL_COLUMN_TYPE,
+            DatasourceDefn.DETAIL_COLUMN_TYPE,
             "a",
             Columns.BIGINT,
             null
@@ -653,13 +656,13 @@ public class TableSpecTest
 
     List<ColumnSpec> colUpdates = Arrays.asList(
         new ColumnSpec(
-            Constants.DETAIL_COLUMN_TYPE,
+            DatasourceDefn.DETAIL_COLUMN_TYPE,
             "a",
             Columns.BIGINT,
             updatedProps
         ),
         new ColumnSpec(
-            Constants.DETAIL_COLUMN_TYPE,
+            DatasourceDefn.DETAIL_COLUMN_TYPE,
             "c",
             Columns.VARCHAR,
             null

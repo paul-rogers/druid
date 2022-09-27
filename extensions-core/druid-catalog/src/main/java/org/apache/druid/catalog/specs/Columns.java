@@ -24,7 +24,9 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.RowSignature;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -84,5 +86,19 @@ public class Columns
   public static boolean isTimeColumn(String name)
   {
     return TIME_COLUMN.equals(name);
+  }
+
+  public static RowSignature convertSignature(TableSpec spec)
+  {
+    List<ColumnSpec> columns = spec.columns();
+    RowSignature.Builder builder = RowSignature.builder();
+    for (ColumnSpec col : columns) {
+      ColumnType druidType = Columns.SQL_TO_DRUID_TYPES.get(StringUtils.toUpperCase(col.sqlType()));
+      if (druidType == null) {
+        druidType = ColumnType.STRING;
+      }
+      builder.add(col.name(), druidType);
+    }
+    return builder.build();
   }
 }

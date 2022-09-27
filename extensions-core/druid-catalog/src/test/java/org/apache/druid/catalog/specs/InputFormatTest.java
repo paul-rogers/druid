@@ -21,9 +21,10 @@ package org.apache.druid.catalog.specs;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.catalog.specs.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverter;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverterImpl;
+import org.apache.druid.catalog.specs.table.InputFormats;
+import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DelimitedInputFormat;
 import org.apache.druid.data.input.impl.JsonInputFormat;

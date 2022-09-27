@@ -17,16 +17,18 @@
  * under the License.
  */
 
-package org.apache.druid.catalog.specs;
+package org.apache.druid.catalog.specs.table;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
+import org.apache.druid.catalog.specs.CatalogFieldDefn;
 import org.apache.druid.catalog.specs.CatalogFieldDefn.StringFieldDefn;
 import org.apache.druid.catalog.specs.CatalogFieldDefn.StringListDefn;
-import org.apache.druid.catalog.specs.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonProperty;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverter;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverterImpl;
+import org.apache.druid.catalog.specs.JsonUnionConverter;
+import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.data.input.impl.HttpInputSourceConfig;

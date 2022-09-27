@@ -23,16 +23,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import org.apache.curator.shaded.com.google.common.collect.Lists;
 import org.apache.druid.catalog.TableId;
-import org.apache.druid.catalog.specs.CatalogTableRegistry;
 import org.apache.druid.catalog.specs.CatalogUtils;
-import org.apache.druid.catalog.specs.Constants;
-import org.apache.druid.catalog.specs.SchemaRegistry.SchemaSpec;
 import org.apache.druid.catalog.storage.Actions;
 import org.apache.druid.catalog.storage.CatalogStorage;
 import org.apache.druid.catalog.storage.HideColumns;
 import org.apache.druid.catalog.storage.MoveColumn;
 import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.catalog.specs.TableSpec;
+import org.apache.druid.catalog.specs.table.CatalogTableRegistry;
+import org.apache.druid.catalog.specs.table.Constants;
+import org.apache.druid.catalog.specs.table.DatasourceDefn;
+import org.apache.druid.catalog.specs.table.SchemaRegistry.SchemaSpec;
 import org.apache.druid.catalog.storage.MoveColumn.Position;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
@@ -420,7 +421,7 @@ public class CatalogResource
         null,
         req,
         (spec) -> {
-          if (!CatalogUtils.isDatasource(spec.type())) {
+          if (!DatasourceDefn.isDatasource(spec.type())) {
             throw new ISE("hideColumns is supported only for data source specs");
           }
           @SuppressWarnings("unchecked")

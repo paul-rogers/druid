@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.catalog.specs;
+package org.apache.druid.catalog.specs.table;
 
 import org.apache.druid.catalog.TableId;
 import org.apache.druid.server.security.ResourceType;
@@ -93,7 +93,7 @@ public class SchemaRegistryImpl implements SchemaRegistry
     register(new SchemaDefnImpl(
         TableId.DRUID_SCHEMA,
         ResourceType.DATASOURCE,
-        setOf(Constants.DETAIL_DATASOURCE_TYPE, Constants.ROLLUP_DATASOURCE_TYPE)
+        setOf(DatasourceDefn.DETAIL_DATASOURCE_TYPE, DatasourceDefn.ROLLUP_DATASOURCE_TYPE)
     ));
     register(new SchemaDefnImpl(
         TableId.LOOKUP_SCHEMA,

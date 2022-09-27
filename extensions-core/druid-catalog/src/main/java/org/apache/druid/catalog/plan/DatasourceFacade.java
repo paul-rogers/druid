@@ -19,10 +19,10 @@
 
 package org.apache.druid.catalog.plan;
 
-import org.apache.druid.catalog.specs.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.catalog.specs.CatalogUtils;
 import org.apache.druid.catalog.specs.ClusterKeySpec;
-import org.apache.druid.catalog.specs.Constants;
+import org.apache.druid.catalog.specs.table.Constants;
+import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.java.util.common.granularity.Granularity;
 
 import java.util.Collections;

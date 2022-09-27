@@ -2,7 +2,9 @@ package org.apache.druid.catalog.specs;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.catalog.specs.CatalogTableRegistry.ResolvedTable;
+import org.apache.druid.catalog.specs.table.InputFormats;
+import org.apache.druid.catalog.specs.table.InputTableDefn;
+import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DelimitedInputFormat;
@@ -37,7 +39,7 @@ public class ExternalSpecTest
     // CSV
     {
       Map<String, Object> args = ImmutableMap.of(
-          InputFormats.INPUT_FORMAT_PROPERTY, CsvInputFormat.TYPE_KEY,
+          InputTableDefn.INPUT_FORMAT_PROPERTY, CsvInputFormat.TYPE_KEY,
           "skipRows", 1
       );
       TableSpec spec = new TableSpec("type", args, cols);
@@ -48,7 +50,7 @@ public class ExternalSpecTest
     // Delimited text
     {
       Map<String, Object> args = ImmutableMap.of(
-          InputFormats.INPUT_FORMAT_PROPERTY, DelimitedInputFormat.TYPE_KEY,
+          InputTableDefn.INPUT_FORMAT_PROPERTY, DelimitedInputFormat.TYPE_KEY,
           "delimiter", ",",
           "skipRows", 1
       );
@@ -60,7 +62,7 @@ public class ExternalSpecTest
     // JSON
     {
       Map<String, Object> args = ImmutableMap.of(
-          InputFormats.INPUT_FORMAT_PROPERTY, JsonInputFormat.TYPE_KEY,
+          InputTableDefn.INPUT_FORMAT_PROPERTY, JsonInputFormat.TYPE_KEY,
           "keepNulls", true
       );
       TableSpec spec = new TableSpec("type", args, cols);
@@ -71,7 +73,7 @@ public class ExternalSpecTest
     // Invalid
     {
       Map<String, Object> args = ImmutableMap.of(
-          InputFormats.INPUT_FORMAT_PROPERTY, "bogus",
+          InputTableDefn.INPUT_FORMAT_PROPERTY, "bogus",
           "skipRows", 1
       );
       TableSpec spec = new TableSpec("type", args, cols);

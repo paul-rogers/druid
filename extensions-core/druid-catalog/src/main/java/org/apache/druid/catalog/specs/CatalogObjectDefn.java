@@ -21,8 +21,11 @@ package org.apache.druid.catalog.specs;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.utils.CollectionUtils;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -42,19 +45,19 @@ public class CatalogObjectDefn
   public CatalogObjectDefn(
       final String name,
       final String typeValue,
-      final Map<String, CatalogFieldDefn<?>> fields
+      final List<CatalogFieldDefn<?>> fields
   )
   {
     this.name = name;
     this.typeValue = typeValue;
-    this.fields = fields;
+    this.fields = toFieldMap(fields);
   }
 
-  protected static Map<String, CatalogFieldDefn<?>> toFieldMap(final CatalogFieldDefn<?>[]...fields)
+  protected static Map<String, CatalogFieldDefn<?>> toFieldMap(final List<CatalogFieldDefn<?>> fields)
   {
     ImmutableMap.Builder<String, CatalogFieldDefn<?>> builder = ImmutableMap.builder();
-    for (CatalogFieldDefn<?>[] fieldList : fields) {
-      for (CatalogFieldDefn<?> field : fieldList) {
+    if (fields != null) {
+      for (CatalogFieldDefn<?> field : fields) {
         builder.put(field.name(), field);
       }
     }

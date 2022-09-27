@@ -17,14 +17,15 @@
  * under the License.
  */
 
-package org.apache.druid.catalog.specs;
+package org.apache.druid.catalog.specs.table;
 
 import org.apache.druid.catalog.specs.CatalogFieldDefn.BooleanFieldDefn;
 import org.apache.druid.catalog.specs.CatalogFieldDefn.StringFieldDefn;
-import org.apache.druid.catalog.specs.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonProperty;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverter;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverterImpl;
+import org.apache.druid.catalog.specs.JsonUnionConverter;
+import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DelimitedInputFormat;
@@ -136,9 +137,6 @@ public class InputFormats
           JsonInputFormat.class
       );
 
-  public static final String INPUT_FORMAT_PROPERTY = "inputFormat";
-  public static final CatalogFieldDefn<String> INPUT_FORMAT_FIELD = new StringFieldDefn(INPUT_FORMAT_PROPERTY);
-
   /**
    * Converter for the set of input formats as a union with the type determined
    * by (key, value) pairs in both the property and JSON representations.
@@ -146,7 +144,7 @@ public class InputFormats
   public static final JsonUnionConverter<InputFormat> INPUT_FORMAT_CONVERTER =
       new JsonUnionConverter<>(
           InputFormat.class.getSimpleName(),
-          INPUT_FORMAT_FIELD.name(),
+          InputTableDefn.INPUT_FORMAT_PROPERTY,
           "type",
           Arrays.asList(
               CSV_FORMAT_CONVERTER,

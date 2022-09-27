@@ -2,8 +2,8 @@ package org.apache.druid.catalog.specs;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import org.apache.druid.catalog.specs.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.catalog.specs.JsonObjectConverter.JsonSubclassConverter;
+import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.java.util.common.IAE;
 
 import java.util.List;

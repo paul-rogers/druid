@@ -21,6 +21,7 @@ package org.apache.druid.catalog.specs;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
+import org.apache.druid.catalog.specs.table.Constants;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.PeriodGranularity;
@@ -66,24 +67,6 @@ public class CatalogFieldDefn<T>
       catch (IllegalArgumentException e) {
         throw new IAE(StringUtils.format("[%s] is an invalid granularity string", value));
       }
-    }
-  }
-
-  public static class SegmentGranularityFieldDefn extends GranularityFieldDefn
-  {
-    public SegmentGranularityFieldDefn()
-    {
-      super(Constants.SEGMENT_GRANULARITY_FIELD);
-    }
-
-    @Override
-    public void validate(Object value, ObjectMapper jsonMapper)
-    {
-      String gran = decode(value, jsonMapper);
-      if (Strings.isNullOrEmpty(gran)) {
-        throw new IAE("Segment granularity is required.");
-      }
-      validateGranularity(gran);
     }
   }
 
@@ -158,30 +141,6 @@ public class CatalogFieldDefn<T>
     }
   }
 
-  public static class HiddenColumnsDefn extends StringListDefn
-  {
-    public HiddenColumnsDefn()
-    {
-      super(Constants.HIDDEN_COLUMNS_FIELD);
-    }
-
-    @Override
-    public void validate(Object value, ObjectMapper jsonMapper)
-    {
-      if (value == null) {
-        return;
-      }
-      List<String> hiddenColumns = decode(value, jsonMapper);
-      for (String col : hiddenColumns) {
-        if (Columns.TIME_COLUMN.equals(col)) {
-          throw new IAE(
-              StringUtils.format("Cannot hide column %s", col)
-          );
-        }
-      }
-    }
-  }
-
   private final String name;
   private final FieldTypes.FieldTypeDefn<T> fieldType;
 
@@ -219,21 +178,6 @@ public class CatalogFieldDefn<T>
     }
   }
 
-  public T decodeFromSql(Object value, ObjectMapper jsonMapper)
-  {
-    try {
-      return fieldType.decodeSqlValue(jsonMapper, value);
-    }
-    catch (Exception e) {
-      throw new IAE(
-          "Value [%s] is not valid for property [%s], expected %s",
-          value,
-          name,
-          fieldType.typeName()
-      );
-    }
-  }
-
   public void validate(Object value, ObjectMapper jsonMapper)
   {
     decode(value, jsonMapper);
@@ -243,5 +187,14 @@ public class CatalogFieldDefn<T>
   public T merge(Object current, Object update)
   {
     return (T) (update == null ? current : update);
+  }
+
+  @Override
+  public String toString()
+  {
+    return getClass().getSimpleName() + "{"
+        + "name: " + name
+        + "type:" + fieldType
+        + "}";
   }
 }

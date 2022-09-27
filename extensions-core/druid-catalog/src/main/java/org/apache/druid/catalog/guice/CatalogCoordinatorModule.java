@@ -21,8 +21,8 @@ package org.apache.druid.catalog.guice;
 
 import com.fasterxml.jackson.databind.Module;
 import com.google.inject.Binder;
-import org.apache.druid.catalog.specs.SchemaRegistry;
-import org.apache.druid.catalog.specs.SchemaRegistryImpl;
+import org.apache.druid.catalog.specs.table.SchemaRegistry;
+import org.apache.druid.catalog.specs.table.SchemaRegistryImpl;
 import org.apache.druid.catalog.storage.CatalogStorage;
 import org.apache.druid.catalog.storage.MetastoreManager;
 import org.apache.druid.catalog.storage.MetastoreManagerImpl;

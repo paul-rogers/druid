@@ -22,9 +22,11 @@ package org.apache.druid.catalog.specs;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.catalog.specs.table.Constants;
 import org.apache.druid.java.util.common.IAE;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -34,22 +36,42 @@ import java.util.Set;
 
 public class TableDefn extends CatalogObjectDefn
 {
-  protected static final CatalogFieldDefn<?>[] genericFields = {
-      new CatalogFieldDefn.StringFieldDefn(Constants.DESCRIPTION_FIELD)
+  /**
+   * Human-readable description of the datasource.
+   */
+  public static final String DESCRIPTION_FIELD = "description";
+
+  protected static final CatalogFieldDefn<?>[] commonFields = {
+      new CatalogFieldDefn.StringFieldDefn(DESCRIPTION_FIELD)
   };
+
 
   private final Map<String, ColumnDefn> columnDefns;
 
   public TableDefn(
       final String name,
       final String typeValue,
-      final Map<String, CatalogFieldDefn<?>> fields,
-      final Map<String, ColumnDefn> columnDefns
+      final List<CatalogFieldDefn<?>> fields,
+      final List<ColumnDefn> columnDefns
   )
   {
-    super(name, typeValue, fields);
-    this.columnDefns = columnDefns == null ? Collections.emptyMap() : columnDefns;
+    super(name, typeValue, extendFields(commonFields, fields));
+    this.columnDefns = columnDefns == null ? Collections.emptyMap() : toColumnMap(columnDefns);
   }
+
+  protected static List<CatalogFieldDefn<?>> extendFields(
+      final CatalogFieldDefn<?>[] baseFields,
+      List<CatalogFieldDefn<?>> fields
+  )
+  {
+    List<CatalogFieldDefn<?>> extended = new ArrayList<>();
+    extended.addAll(Arrays.asList(baseFields));
+    if (fields != null) {
+      extended.addAll(fields);
+    }
+    return extended;
+  }
+
   public static Map<String, ColumnDefn> toColumnMap(final List<ColumnDefn> colTypes)
   {
     ImmutableMap.Builder<String, ColumnDefn> builder = ImmutableMap.builder();

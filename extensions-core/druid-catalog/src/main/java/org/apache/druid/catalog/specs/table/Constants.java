@@ -17,26 +17,21 @@
  * under the License.
  */
 
-package org.apache.druid.catalog.specs;
+package org.apache.druid.catalog.specs.table;
 
-import java.util.Set;
+import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.java.util.common.granularity.Granularities;
+import org.apache.druid.java.util.common.granularity.Granularity;
 
-/**
- * Defines the set of schemas available in Druid and their properties.
- * Since Druid has a fixed set of schemas, this registry is currently
- * hard-coded. That will change if/when Druid allows user-defined
- * schemas.
- */
-public interface SchemaRegistry
+import java.util.HashMap;
+import java.util.Map;
+
+public class Constants
 {
-  interface SchemaSpec
-  {
-    String name();
-    String securityResource();
-    boolean writable();
-    boolean accepts(String tableType);
-  }
 
-  SchemaSpec schema(String name);
-  Set<String> names();
+  /**
+   * Internal table type used in updates to notify listeners that a table has
+   * been deleted. Avoids the need for a special "table deleted" message.
+   */
+  public static final String TOMBSTONE_TABLE_TYPE = "tombstone";
 }

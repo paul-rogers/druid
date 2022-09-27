@@ -17,11 +17,14 @@
  * under the License.
  */
 
-package org.apache.druid.catalog.specs;
+package org.apache.druid.catalog.specs.table;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.catalog.specs.CatalogObjectFacade;
+import org.apache.druid.catalog.specs.TableDefn;
+import org.apache.druid.catalog.specs.TableSpec;
 import org.apache.druid.java.util.common.IAE;
 
 import java.util.Map;
