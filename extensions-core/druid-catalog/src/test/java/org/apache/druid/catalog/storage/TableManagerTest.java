@@ -17,21 +17,22 @@
  * under the License.
  */
 
-package org.apache.druid.metadata.catalog;
+package org.apache.druid.catalog.storage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.CatalogTest;
-import org.apache.druid.catalog.TableId;
-import org.apache.druid.catalog.storage.DatasourceSpec;
-import org.apache.druid.catalog.storage.MetastoreManager;
-import org.apache.druid.catalog.storage.MetastoreManagerImpl;
-import org.apache.druid.catalog.storage.TableMetadata;
+import org.apache.druid.catalog.specs.TableId;
+import org.apache.druid.catalog.specs.TableSpec;
+import org.apache.druid.catalog.specs.table.DatasourceDefn;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.metadata.TestDerbyConnector;
+import org.apache.druid.metadata.catalog.CatalogManager;
 import org.apache.druid.metadata.catalog.CatalogManager.DuplicateKeyException;
 import org.apache.druid.metadata.catalog.CatalogManager.NotFoundException;
 import org.apache.druid.metadata.catalog.CatalogManager.OutOfDateException;
 import org.apache.druid.metadata.catalog.CatalogManager.TableState;
+import org.apache.druid.metadata.catalog.SQLCatalogManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -40,6 +41,7 @@ import org.junit.experimental.categories.Category;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -82,19 +84,20 @@ public class TableManagerTest
   @Test
   public void testCreate() throws DuplicateKeyException
   {
-    DatasourceSpec defn = DatasourceSpec.builder()
-        .segmentGranularity("PT1H")
-        .rollupGranularity("PT1M")
-        .targetSegmentRows(1_000_000)
-        .build();
-    TableMetadata table = TableMetadata.newSegmentTable("table1", defn);
+    Map<String, Object> props = ImmutableMap.of(
+        DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D",
+        DatasourceDefn.ROLLUP_GRANULARITY_FIELD, "PT1M",
+        DatasourceDefn.TARGET_SEGMENT_ROWS_FIELD, 1_000_000
+    );
+    TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
+    TableMetadata table = TableMetadata.newTable(TableId.datasource("table1"), spec);
 
     // Table does not exist, read returns nothing.
     assertNull(manager.read(table.id()));
 
     // Create the table
     long version = manager.create(table);
-    TableMetadata created = table.fromInsert(table.dbSchema(), version);
+    TableMetadata created = table.fromInsert(version);
 
     // Read the record
     TableMetadata read = manager.read(table.id());
@@ -107,28 +110,29 @@ public class TableManagerTest
   @Test
   public void testUpdate() throws DuplicateKeyException, OutOfDateException, NotFoundException
   {
-    DatasourceSpec defn = DatasourceSpec.builder()
-        .segmentGranularity("PT1H")
-        .rollupGranularity("PT1M")
-        .targetSegmentRows(1_000_000)
-        .build();
-    TableMetadata table = TableMetadata.newSegmentTable("table1", defn);
+    Map<String, Object> props = ImmutableMap.of(
+        DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D",
+        DatasourceDefn.ROLLUP_GRANULARITY_FIELD, "PT1M",
+        DatasourceDefn.TARGET_SEGMENT_ROWS_FIELD, 1_000_000
+    );
+    TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
+    TableMetadata table = TableMetadata.newTable(TableId.datasource("table1"), spec);
     long version = manager.create(table);
 
     // Change the definition
-    DatasourceSpec defn2 = DatasourceSpec.builder()
-        .segmentGranularity("PT1D")
-        .rollupGranularity("PT1H")
-        .targetSegmentRows(2_000_000)
-        .build();
-
-    TableMetadata table2 = table.withSpec(defn2);
+    props = ImmutableMap.of(
+        DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D",
+        DatasourceDefn.ROLLUP_GRANULARITY_FIELD, "PT1H",
+        DatasourceDefn.TARGET_SEGMENT_ROWS_FIELD, 2_000_000
+    );
+    TableSpec spec2 = spec.withProperties(props);
+    TableMetadata table2 = table.withSpec(spec2);
     assertThrows(OutOfDateException.class, () -> manager.update(table2, 3));
 
     assertEquals(version, manager.read(table.id()).updateTime());
     long newVersion = manager.update(table2, version);
     TableMetadata table3 = manager.read(table.id());
-    assertEquals(defn2, table3.spec());
+    assertEquals(spec2, table3.spec());
     assertEquals(newVersion, table3.updateTime());
 
     // Changing the state requires no version check
@@ -139,7 +143,7 @@ public class TableManagerTest
     assertEquals(newVersion, table4.updateTime());
 
     // Update: no version check)
-    TableMetadata table5 = table.withSpec(defn2);
+    TableMetadata table5 = table.withSpec(spec2);
     long newerVersion = manager.update(table5, 0);
     assertTrue(newerVersion > newVersion);
   }
@@ -147,12 +151,13 @@ public class TableManagerTest
   @Test
   public void testDelete() throws DuplicateKeyException
   {
-    DatasourceSpec defn = DatasourceSpec.builder()
-        .segmentGranularity("PT1H")
-        .rollupGranularity("PT1M")
-        .targetSegmentRows(1_000_000)
-        .build();
-    TableMetadata table = TableMetadata.newSegmentTable("table1", defn);
+    Map<String, Object> props = ImmutableMap.of(
+        DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D",
+        DatasourceDefn.ROLLUP_GRANULARITY_FIELD, "PT1M",
+        DatasourceDefn.TARGET_SEGMENT_ROWS_FIELD, 1_000_000
+    );
+    TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
+    TableMetadata table = TableMetadata.newTable(TableId.datasource("table1"), spec);
 
     assertFalse(manager.delete(table.id()));
     manager.create(table);
@@ -166,19 +171,20 @@ public class TableManagerTest
     List<TableId> list = manager.list();
     assertTrue(list.isEmpty());
 
-    DatasourceSpec defn = DatasourceSpec.builder()
-        .segmentGranularity("PT1H")
-        .rollupGranularity("PT1M")
-        .targetSegmentRows(1_000_000)
-        .build();
+    Map<String, Object> props = ImmutableMap.of(
+        DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "PT1H",
+        DatasourceDefn.ROLLUP_GRANULARITY_FIELD, "PT1M",
+        DatasourceDefn.TARGET_SEGMENT_ROWS_FIELD, 1_000_000
+    );
+    TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
 
     // Create tables in inverse order
-    TableMetadata table2 = TableMetadata.newSegmentTable("table2", defn);
+    TableMetadata table2 = TableMetadata.newTable(TableId.datasource("table2"), spec);
     long version = manager.create(table2);
-    table2 = table2.fromInsert(TableId.DRUID_SCHEMA, version);
-    TableMetadata table1 = TableMetadata.newSegmentTable("table1", defn);
+    table2 = table2.fromInsert(version);
+    TableMetadata table1 = TableMetadata.newTable(TableId.datasource("table1"), spec);
     version = manager.create(table1);
-    table1 = table1.fromInsert(TableId.DRUID_SCHEMA, version);
+    table1 = table1.fromInsert(version);
 
     list = manager.list();
     assertEquals(2, list.size());

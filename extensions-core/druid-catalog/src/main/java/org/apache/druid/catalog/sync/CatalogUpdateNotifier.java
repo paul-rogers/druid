@@ -20,9 +20,8 @@
 package org.apache.druid.catalog.sync;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.druid.catalog.TableId;
+import org.apache.druid.catalog.specs.TableId;
 import org.apache.druid.catalog.specs.TableSpec;
-import org.apache.druid.catalog.specs.table.Constants;
 import org.apache.druid.catalog.storage.CatalogStorage;
 import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.catalog.sync.MetadataCatalog.CatalogListener;
@@ -58,7 +57,13 @@ public class CatalogUpdateNotifier implements CatalogListener
 {
   private static final String CALLER_NAME = "Catalog Sync";
   private static final long TIMEOUT_MS = 5000;
-  private static final TableSpec TABLE_TOMBSTONE = new TableSpec(Constants.TOMBSTONE_TABLE_TYPE, null, null);
+
+  /**
+   * Internal table type used in updates to notify listeners that a table has
+   * been deleted. Avoids the need for a special "table deleted" message.
+   */
+  public static final String TOMBSTONE_TABLE_TYPE = "tombstone";
+  private static final TableSpec TABLE_TOMBSTONE = new TableSpec(TOMBSTONE_TABLE_TYPE, null, null);
 
   private final CacheNotifier notifier;
   private final ObjectMapper smileMapper;

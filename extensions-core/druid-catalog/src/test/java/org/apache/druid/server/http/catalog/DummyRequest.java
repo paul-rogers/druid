@@ -19,7 +19,7 @@
 
 package org.apache.druid.server.http.catalog;
 
-import org.apache.druid.catalog.CatalogTests;
+import org.apache.druid.catalog.storage.CatalogTests;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
 

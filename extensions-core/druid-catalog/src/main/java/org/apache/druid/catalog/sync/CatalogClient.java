@@ -21,7 +21,7 @@ package org.apache.druid.catalog.sync;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.druid.catalog.TableId;
+import org.apache.druid.catalog.specs.TableId;
 import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.catalog.sync.MetadataCatalog.CatalogSource;
 import org.apache.druid.client.coordinator.Coordinator;

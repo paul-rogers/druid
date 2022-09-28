@@ -22,19 +22,18 @@ package org.apache.druid.server.http;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import org.apache.curator.shaded.com.google.common.collect.Lists;
-import org.apache.druid.catalog.TableId;
 import org.apache.druid.catalog.specs.CatalogUtils;
+import org.apache.druid.catalog.specs.TableId;
+import org.apache.druid.catalog.specs.TableSpec;
+import org.apache.druid.catalog.specs.table.DatasourceDefn;
+import org.apache.druid.catalog.specs.table.SchemaRegistry.SchemaSpec;
+import org.apache.druid.catalog.specs.table.TableDefnRegistry;
 import org.apache.druid.catalog.storage.Actions;
 import org.apache.druid.catalog.storage.CatalogStorage;
 import org.apache.druid.catalog.storage.HideColumns;
 import org.apache.druid.catalog.storage.MoveColumn;
-import org.apache.druid.catalog.storage.TableMetadata;
-import org.apache.druid.catalog.specs.TableSpec;
-import org.apache.druid.catalog.specs.table.CatalogTableRegistry;
-import org.apache.druid.catalog.specs.table.Constants;
-import org.apache.druid.catalog.specs.table.DatasourceDefn;
-import org.apache.druid.catalog.specs.table.SchemaRegistry.SchemaSpec;
 import org.apache.druid.catalog.storage.MoveColumn.Position;
+import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
@@ -325,7 +324,7 @@ public class CatalogResource
       return Actions.badRequest(Actions.INVALID, "Invalid table specification");
     }
 
-    CatalogTableRegistry tableRegistry = catalog.tableRegistry();
+    TableDefnRegistry tableRegistry = catalog.tableRegistry();
     return incrementalUpdate(
         TableId.of(dbSchema, name),
         updateSpec,
@@ -425,9 +424,9 @@ public class CatalogResource
             throw new ISE("hideColumns is supported only for data source specs");
           }
           @SuppressWarnings("unchecked")
-          List<String> hiddenProps = (List<String>) spec.properties().get(Constants.HIDDEN_COLUMNS_FIELD);
+          List<String> hiddenProps = (List<String>) spec.properties().get(DatasourceDefn.HIDDEN_COLUMNS_FIELD);
           return spec.withProperty(
-              Constants.HIDDEN_COLUMNS_FIELD,
+              DatasourceDefn.HIDDEN_COLUMNS_FIELD,
               command.perform(hiddenProps)
           );
         }

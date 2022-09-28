@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.specs;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;

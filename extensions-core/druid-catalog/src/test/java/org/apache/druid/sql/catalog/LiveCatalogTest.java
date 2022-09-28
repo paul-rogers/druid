@@ -19,10 +19,10 @@
 
 package org.apache.druid.sql.catalog;
 
-import org.apache.druid.catalog.CatalogTests;
-import org.apache.druid.catalog.TableId;
 import org.apache.druid.catalog.specs.Columns;
+import org.apache.druid.catalog.specs.TableId;
 import org.apache.druid.catalog.storage.CatalogStorage;
+import org.apache.druid.catalog.storage.CatalogTests;
 import org.apache.druid.catalog.storage.DatasourceSpec;
 import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.catalog.sync.LocalMetadataCatalog;

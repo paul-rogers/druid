@@ -1,9 +1,7 @@
 package org.apache.druid.catalog.specs;
 
-import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.catalog.specs.table.ExternalSpec;
 
-import java.util.List;
 import java.util.Map;
 
 public interface Parameterized
@@ -38,6 +36,6 @@ public interface Parameterized
     }
   }
 
-  List<ParameterDefn> parameters();
+  Map<String, ParameterDefn> parameters();
   ExternalSpec applyParameters(ResolvedTable table, Map<String, Object> parameters);
 }

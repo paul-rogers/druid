@@ -20,7 +20,7 @@
 package org.apache.druid.testsEx.cluster;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import org.apache.druid.catalog.TableId;
+import org.apache.druid.catalog.specs.TableId;
 import org.apache.druid.catalog.storage.HideColumns;
 import org.apache.druid.catalog.storage.MoveColumn;
 import org.apache.druid.catalog.storage.TableMetadata;

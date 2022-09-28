@@ -17,10 +17,11 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.sync;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import org.apache.druid.catalog.CatalogTest;
 import org.apache.druid.catalog.sync.CacheNotifier;
 import org.apache.druid.catalog.sync.RestUpdateSender;
 import org.apache.druid.catalog.sync.RestUpdateSender.RestSender;

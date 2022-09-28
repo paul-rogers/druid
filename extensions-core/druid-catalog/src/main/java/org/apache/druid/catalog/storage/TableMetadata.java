@@ -22,8 +22,8 @@ package org.apache.druid.catalog.storage;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
-import org.apache.druid.catalog.TableId;
 import org.apache.druid.catalog.specs.CatalogSpecs;
+import org.apache.druid.catalog.specs.TableId;
 import org.apache.druid.catalog.specs.TableSpec;
 import org.apache.druid.guice.annotations.PublicApi;
 import org.apache.druid.java.util.common.IAE;
@@ -69,17 +69,6 @@ public class TableMetadata
         0,
         TableState.ACTIVE,
         defn);
-  }
-
-  public static TableMetadata newSegmentTable(
-      String name,
-      TableSpec defn
-  )
-  {
-    return newTable(
-        TableId.datasource(name),
-        defn
-    );
   }
 
   public TableMetadata fromInsert(long updateTime)

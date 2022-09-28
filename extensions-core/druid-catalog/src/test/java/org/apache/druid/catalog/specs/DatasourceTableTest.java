@@ -23,10 +23,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.catalog.CatalogTest;
-import org.apache.druid.catalog.specs.table.CatalogTableRegistry;
-import org.apache.druid.catalog.specs.table.Constants;
 import org.apache.druid.catalog.specs.table.DatasourceDefn;
-import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
+import org.apache.druid.catalog.specs.table.TableDefnRegistry;
 import org.apache.druid.java.util.common.IAE;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -48,12 +46,12 @@ import static org.junit.Assert.assertThrows;
  * Test of validation and serialization of the catalog table definitions.
  */
 @Category(CatalogTest.class)
-public class TableSpecTest
+public class DatasourceTableTest
 {
   private static final String SUM_BIGINT = "SUM(BIGINT)";
 
   private final ObjectMapper mapper = new ObjectMapper();
-  private final CatalogTableRegistry registry = new CatalogTableRegistry(mapper);
+  private final TableDefnRegistry registry = new TableDefnRegistry(mapper);
 
   @Test
   public void testMinimalSpec()
@@ -64,36 +62,36 @@ public class TableSpecTest
     );
     {
       TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, null);
-      CatalogTableRegistry.ResolvedTable table = registry.resolve(spec);
+      ResolvedTable table = registry.resolve(spec);
       assertNotNull(table);
-      assertSame(CatalogTableRegistry.DETAIL_DATASOURCE_DEFN, table.defn());
-      table.validate(mapper);
+      assertSame(TableDefnRegistry.DETAIL_DATASOURCE_DEFN, table.defn());
+      table.validate();
     }
 
     {
       TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
-      CatalogTableRegistry.ResolvedTable table = registry.resolve(spec);
+      ResolvedTable table = registry.resolve(spec);
       assertNotNull(table);
-      assertSame(CatalogTableRegistry.ROLLUP_DATASOURCE_DEFN, table.defn());
-      table.validate(mapper);
+      assertSame(TableDefnRegistry.ROLLUP_DATASOURCE_DEFN, table.defn());
+      table.validate();
     }
   }
 
-  private void expectValidationFails(final CatalogTableRegistry.ResolvedTable table)
+  private void expectValidationFails(final ResolvedTable table)
   {
-    assertThrows(IAE.class, () -> table.validate(mapper));
+    assertThrows(IAE.class, () -> table.validate());
   }
 
   private void expectValidationFails(final TableSpec spec)
   {
-    CatalogTableRegistry.ResolvedTable table = registry.resolve(spec);
+    ResolvedTable table = registry.resolve(spec);
     expectValidationFails(table);
   }
 
   private void expectValidationSucceeds(final TableSpec spec)
   {
-    CatalogTableRegistry.ResolvedTable table = registry.resolve(spec);
-    table.validate(mapper);
+    ResolvedTable table = registry.resolve(spec);
+    table.validate();
   }
 
   @Test
@@ -106,7 +104,7 @@ public class TableSpecTest
 
     {
       TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, ImmutableMap.of(), null);
-      CatalogTableRegistry.ResolvedTable table = registry.resolve(spec);
+      ResolvedTable table = registry.resolve(spec);
       expectValidationFails(table);
     }
 
@@ -130,11 +128,19 @@ public class TableSpecTest
     {
       TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, null);
       expectValidationSucceeds(spec);
+
+      // Check serialization
+      byte[] bytes = spec.toBytes(mapper);
+      assertEquals(spec, TableSpec.fromBytes(mapper, bytes));
     }
 
     {
       TableSpec spec = new TableSpec(DatasourceDefn.ROLLUP_DATASOURCE_TYPE, props, null);
       expectValidationSucceeds(spec);
+
+      // Check serialization
+      byte[] bytes = spec.toBytes(mapper);
+      assertEquals(spec, TableSpec.fromBytes(mapper, bytes));
     }
   }
 

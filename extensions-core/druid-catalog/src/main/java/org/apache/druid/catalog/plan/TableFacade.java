@@ -1,8 +1,8 @@
 package org.apache.druid.catalog.plan;
 
 import org.apache.druid.catalog.specs.CatalogObjectFacade;
+import org.apache.druid.catalog.specs.ResolvedTable;
 import org.apache.druid.catalog.specs.TableSpec;
-import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
 
 import java.util.Map;
 

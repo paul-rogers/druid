@@ -21,9 +21,9 @@ package org.apache.druid.testsEx.catalog;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
-import org.apache.druid.catalog.TableId;
 import org.apache.druid.catalog.guice.Catalog;
 import org.apache.druid.catalog.specs.CatalogUtils;
+import org.apache.druid.catalog.specs.TableId;
 import org.apache.druid.catalog.storage.DatasourceSpec;
 import org.apache.druid.catalog.storage.MoveColumn;
 import org.apache.druid.catalog.storage.TableMetadata;

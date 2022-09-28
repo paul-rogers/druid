@@ -21,7 +21,6 @@ package org.apache.druid.catalog.specs;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.catalog.specs.table.InputFormats;
 import org.apache.druid.catalog.specs.table.InputFormats.GenericFormatDefn;
 import org.apache.druid.catalog.specs.table.InputFormats.InputFormatDefn;

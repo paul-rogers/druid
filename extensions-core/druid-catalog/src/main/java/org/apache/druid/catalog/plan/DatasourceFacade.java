@@ -21,8 +21,8 @@ package org.apache.druid.catalog.plan;
 
 import org.apache.druid.catalog.specs.CatalogUtils;
 import org.apache.druid.catalog.specs.ClusterKeySpec;
-import org.apache.druid.catalog.specs.table.Constants;
-import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
+import org.apache.druid.catalog.specs.ResolvedTable;
+import org.apache.druid.catalog.specs.table.DatasourceDefn;
 import org.apache.druid.java.util.common.granularity.Granularity;
 
 import java.util.Collections;
@@ -37,7 +37,7 @@ public class DatasourceFacade extends TableFacade
 
   public boolean isRollup()
   {
-    return Constants.ROLLUP_DATASOURCE_TYPE.equals(spec().type());
+    return DatasourceDefn.ROLLUP_DATASOURCE_TYPE.equals(spec().type());
   }
 
   public boolean isDetail()
@@ -47,31 +47,31 @@ public class DatasourceFacade extends TableFacade
 
   public Granularity segmentGranularity()
   {
-    String value = stringProperty(Constants.SEGMENT_GRANULARITY_FIELD);
+    String value = stringProperty(DatasourceDefn.SEGMENT_GRANULARITY_FIELD);
     return value == null ? null : CatalogUtils.asDruidGranularity(value);
   }
 
   public Integer targetSegmentRows()
   {
-    return intProperty(Constants.TARGET_SEGMENT_ROWS_FIELD);
+    return intProperty(DatasourceDefn.TARGET_SEGMENT_ROWS_FIELD);
   }
 
   @SuppressWarnings("unchecked")
   public List<ClusterKeySpec> clusterKeys()
   {
-    return (List<ClusterKeySpec>) property(Constants.CLUSTER_KEYS_FIELD);
+    return (List<ClusterKeySpec>) property(DatasourceDefn.CLUSTER_KEYS_FIELD);
   }
 
   @SuppressWarnings("unchecked")
   public List<String> hiddenColumns()
   {
-    Object value = property(Constants.HIDDEN_COLUMNS_FIELD);
+    Object value = property(DatasourceDefn.HIDDEN_COLUMNS_FIELD);
     return value == null ? Collections.emptyList() : (List<String>) value;
   }
 
   public Granularity rollupGranularity()
   {
-    String value = stringProperty(Constants.ROLLUP_GRANULARITY_FIELD);
+    String value = stringProperty(DatasourceDefn.ROLLUP_GRANULARITY_FIELD);
     return value == null ? null : CatalogUtils.asDruidGranularity(value);
   }
 }

@@ -19,7 +19,7 @@
 
 package org.apache.druid.catalog.specs.table;
 
-import org.apache.druid.catalog.TableId;
+import org.apache.druid.catalog.specs.TableId;
 import org.apache.druid.server.security.ResourceType;
 
 import java.util.Arrays;

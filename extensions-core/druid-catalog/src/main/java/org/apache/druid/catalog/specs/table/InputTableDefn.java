@@ -6,15 +6,15 @@ import org.apache.druid.catalog.specs.ColumnDefn;
 import org.apache.druid.catalog.specs.ColumnSpec;
 import org.apache.druid.catalog.specs.Columns;
 import org.apache.druid.catalog.specs.PropertyDefn;
+import org.apache.druid.catalog.specs.ResolvedTable;
 import org.apache.druid.catalog.specs.TableDefn;
-import org.apache.druid.catalog.specs.TableSpec;
-import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
+import org.apache.druid.catalog.specs.Parameterized.ParameterDefn;
 import org.apache.druid.catalog.specs.table.InputFormats.InputFormatDefn;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.InputSource;
-import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.utils.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,6 +26,11 @@ import java.util.Map;
  * The components are derived from those for Druid ingestion: an
  * input source, a format and a set of columns. Also provides
  * properties, as do all table definitions.
+ * <p>
+ * The input table implements the mechanism for parameterized tables,
+ * but does not implement the {@link Parameterized} interface itself.
+ * Tables which are parameterized implement that interface to expose
+ * methods defined here.
  */
 public abstract class InputTableDefn extends TableDefn
 {
@@ -42,14 +47,16 @@ public abstract class InputTableDefn extends TableDefn
         final String typeValue,
         final List<PropertyDefn> fields,
         final List<ColumnDefn> columnDefns,
-        final List<InputFormatDefn> formats
+        final List<InputFormatDefn> formats,
+        final List<ParameterDefn> parameters
     )
     {
       super(
           name,
           typeValue,
           addFormatProperties(fields, formats),
-          columnDefns
+          columnDefns,
+          parameters
       );
       ImmutableMap.Builder<String, InputFormatDefn> builder = ImmutableMap.builder();
       for (InputFormatDefn format : formats) {
@@ -140,26 +147,44 @@ public abstract class InputTableDefn extends TableDefn
   }
 
   protected static final InputColumnDefn INPUT_COLUMN_DEFN = new InputColumnDefn();
+  private final Map<String, ParameterDefn> parameters;
+
 
   public InputTableDefn(
       final String name,
       final String typeValue,
       final List<PropertyDefn> fields,
-      final List<ColumnDefn> columnDefns
+      final List<ColumnDefn> columnDefns,
+      final List<ParameterDefn> parameters
   )
   {
     super(name, typeValue, fields, columnDefns);
+    if (CollectionUtils.isNullOrEmpty(parameters)) {
+      this.parameters = null;
+    } else {
+      Map<String, ParameterDefn> params = new HashMap<>();
+      for (ParameterDefn param : parameters) {
+        if (params.put(param.name(), param) != null) {
+          throw new ISE("Duplicate parameter: ", param.name());
+        }
+      }
+      this.parameters = ImmutableMap.copyOf(params);
+    }
   }
 
-  public abstract TableSpec mergeParameters(ResolvedTable spec, Map<String, Object> values);
-
-  public ExternalSpec convertToExtern(TableSpec spec, ObjectMapper jsonMapper)
+  public Map<String, ParameterDefn> parameters()
   {
-    ResolvedTable table = new ResolvedTable(this, spec, jsonMapper);
+    return parameters;
+  }
+
+  public abstract ResolvedTable mergeParameters(ResolvedTable table, Map<String, Object> values);
+
+  public ExternalSpec convertToExtern(ResolvedTable table)
+  {
     return new ExternalSpec(
         convertSource(table),
         convertFormat(table),
-        Columns.convertSignature(spec)
+        Columns.convertSignature(table.spec())
     );
   }
 
@@ -182,5 +207,11 @@ public abstract class InputTableDefn extends TableDefn
     catch (Exception e) {
       throw new IAE(e, "Invalid table specification");
     }
+  }
+
+  public ExternalSpec applyParameters(ResolvedTable table, Map<String, Object> parameters)
+  {
+    ResolvedTable revised = mergeParameters(table, parameters);
+    return convertToExtern(revised);
   }
 }

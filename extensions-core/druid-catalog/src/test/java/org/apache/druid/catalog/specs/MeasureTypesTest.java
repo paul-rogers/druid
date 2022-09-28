@@ -17,9 +17,10 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.specs;
 
-import org.apache.druid.catalog.MeasureTypes.MeasureType;
+import org.apache.druid.catalog.CatalogTest;
+import org.apache.druid.catalog.specs.MeasureTypes.MeasureType;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.junit.Test;

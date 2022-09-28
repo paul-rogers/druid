@@ -17,13 +17,17 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.sync;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.smile.SmileFactory;
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.catalog.CatalogTest;
+import org.apache.druid.catalog.specs.TableId;
 import org.apache.druid.catalog.storage.CatalogStorage;
+import org.apache.druid.catalog.storage.CatalogTests;
 import org.apache.druid.catalog.storage.TableMetadata;
+import org.apache.druid.catalog.storage.CatalogTests.DbFixture;
 import org.apache.druid.catalog.storage.ColumnSpec.ColumnKind;
 import org.apache.druid.catalog.storage.TableMetadata.TableType;
 import org.apache.druid.catalog.sync.CachedMetadataCatalog;

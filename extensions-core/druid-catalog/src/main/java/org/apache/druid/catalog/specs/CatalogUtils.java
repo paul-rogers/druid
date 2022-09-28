@@ -6,8 +6,6 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.java.util.common.granularity.PeriodGranularity;
-import org.apache.druid.segment.column.ColumnType;
-import org.apache.druid.segment.column.RowSignature;
 import org.joda.time.Period;
 
 import java.util.ArrayList;
@@ -55,30 +53,6 @@ public class CatalogUtils
   public static Granularity toGranularity(String value)
   {
     return GRANULARITIES.get(StringUtils.toLowerCase(value));
-  }
-
-  /**
-   * Merge of two maps. Uses a convention that if the value of an update is null,
-   * then this is a request to delete the key in the merged map. Supports JSON
-   * updates of the form <code>{"doomed": null, "updated": "foo"}</code>.
-   */
-  public static Map<String, Object> mergeMap(Map<String, Object> source, Map<String, Object> update)
-  {
-    if (update == null) {
-      return source;
-    }
-    if (source == null) {
-      return update;
-    }
-    Map<String, Object> tags = new HashMap<>(source);
-    for (Map.Entry<String, Object> entry : update.entrySet()) {
-      if (entry.getValue() == null) {
-        tags.remove(entry.getKey());
-      } else {
-        tags.put(entry.getKey(), entry.getValue());
-      }
-    }
-    return tags;
   }
 
   public static int findColumn(List<ColumnSpec> columns, String colName)
@@ -150,7 +124,7 @@ public class CatalogUtils
     if (value == null) {
       return null;
     }
-    return Arrays.asList(((String) value).split(",\\s*"));
+    return Arrays.asList(value.split(",\\s*"));
   }
 
   public static <T> T safeCast(Object value, Class<T> type, String propertyName)
@@ -169,5 +143,18 @@ public class CatalogUtils
           type.getSimpleName()
       );
     }
+  }
+
+  public static <T> T safeGet(Map<String, Object> map, String propertyName, Class<T> type)
+  {
+    return safeCast(map.get(propertyName), type, propertyName);
+  }
+
+  public static String stringListToLines(List<String> lines)
+  {
+    if (lines.isEmpty()) {
+      return "";
+    }
+    return String.join("\n", lines) + "\n";
   }
 }

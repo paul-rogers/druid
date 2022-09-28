@@ -22,7 +22,6 @@ package org.apache.druid.catalog.specs;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
 import org.apache.druid.java.util.common.IAE;
 
 import java.util.ArrayList;
@@ -34,6 +33,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Definition for all tables in the catalog. All tables have both
+ * properties and a schema. Subclasses define specific table types
+ * such as datasources or input tables. Some tables may be parameterized
+ * to allow the table to appear in a SQL table function by implementing
+ * the {@link Parameterized} interface.
+ */
 public class TableDefn extends CatalogObjectDefn
 {
   /**

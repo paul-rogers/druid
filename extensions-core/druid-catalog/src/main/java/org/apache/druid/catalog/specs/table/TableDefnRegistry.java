@@ -22,73 +22,15 @@ package org.apache.druid.catalog.specs.table;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.catalog.specs.CatalogObjectFacade;
+import org.apache.druid.catalog.specs.ResolvedTable;
 import org.apache.druid.catalog.specs.TableDefn;
 import org.apache.druid.catalog.specs.TableSpec;
 import org.apache.druid.java.util.common.IAE;
 
 import java.util.Map;
 
-public class CatalogTableRegistry
+public class TableDefnRegistry
 {
-  public static class ResolvedTable extends CatalogObjectFacade
-  {
-    private final TableDefn defn;
-    private final TableSpec spec;
-    private final ObjectMapper jsonMapper;
-
-    public ResolvedTable(
-        final TableDefn defn,
-        final TableSpec spec,
-        final ObjectMapper jsonMapper
-    )
-    {
-      this.defn = defn;
-      this.spec = spec;
-      this.jsonMapper = jsonMapper;
-    }
-
-    public TableDefn defn()
-    {
-      return defn;
-    }
-
-    public TableSpec spec()
-    {
-      return spec;
-    }
-
-    public ResolvedTable merge(TableSpec update)
-    {
-      return new ResolvedTable(
-          defn,
-          defn.merge(spec, update, jsonMapper),
-          jsonMapper
-      );
-    }
-
-    public ResolvedTable withProperties(Map<String, Object> props)
-    {
-      return new ResolvedTable(defn, spec.withProperties(props), jsonMapper);
-    }
-
-    public void validate()
-    {
-      defn.validate(this);
-    }
-
-    @Override
-    public Map<String, Object> properties()
-    {
-      return spec.properties();
-    }
-
-    public ObjectMapper jsonMapper()
-    {
-      return jsonMapper;
-    }
-  }
-
   public static final TableDefn DETAIL_DATASOURCE_DEFN = new DatasourceDefn.DetailDatasourceDefn();
   public static final TableDefn ROLLUP_DATASOURCE_DEFN = new DatasourceDefn.RollupDatasourceDefn();
 
@@ -100,7 +42,7 @@ public class CatalogTableRegistry
   private final Map<String, TableDefn> defns;
   private final ObjectMapper jsonMapper;
 
-  public CatalogTableRegistry(
+  public TableDefnRegistry(
       final TableDefn[] defns,
       final ObjectMapper jsonMapper
   )
@@ -113,7 +55,7 @@ public class CatalogTableRegistry
     this.jsonMapper = jsonMapper;
   }
 
-  public CatalogTableRegistry(
+  public TableDefnRegistry(
       final ObjectMapper jsonMapper
   )
   {
@@ -130,6 +72,6 @@ public class CatalogTableRegistry
     if (defn == null) {
       throw new IAE("Table type [%s] is not valid.", type);
     }
-    return new CatalogTableRegistry.ResolvedTable(defn, spec, jsonMapper);
+    return new ResolvedTable(defn, spec, jsonMapper);
   }
 }

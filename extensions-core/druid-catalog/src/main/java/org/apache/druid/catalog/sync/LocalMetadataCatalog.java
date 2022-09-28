@@ -19,7 +19,7 @@
 
 package org.apache.druid.catalog.sync;
 
-import org.apache.druid.catalog.TableId;
+import org.apache.druid.catalog.specs.TableId;
 import org.apache.druid.catalog.specs.table.SchemaRegistry;
 import org.apache.druid.catalog.specs.table.SchemaRegistry.SchemaSpec;
 import org.apache.druid.catalog.storage.TableMetadata;

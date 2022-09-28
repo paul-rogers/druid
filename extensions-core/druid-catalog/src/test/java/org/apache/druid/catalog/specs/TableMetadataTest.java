@@ -17,14 +17,19 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.specs;
 
+import com.google.common.collect.ImmutableMap;
 import nl.jqno.equalsverifier.EqualsVerifier;
+import org.apache.druid.catalog.CatalogTest;
+import org.apache.druid.catalog.specs.table.DatasourceDefn;
 import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.metadata.catalog.CatalogManager.TableState;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
+
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -32,7 +37,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 
 @Category(CatalogTest.class)
-public class CatalogObjectTest
+public class TableMetadataTest
 {
   @Test
   public void testId()
@@ -58,23 +63,23 @@ public class CatalogObjectTest
   }
 
   @Test
-  public void testMinimalTable()
+  public void testTableMetadata()
   {
-    DatasourceSpec spec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
-        .build();
+    Map<String, Object> props = ImmutableMap.of(
+        DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D"
+    );
+    TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, null);
     {
       TableMetadata table = new TableMetadata(
-          TableId.DRUID_SCHEMA,
-          "foo",
+          TableId.datasource("foo"),
           10,
           20,
           TableState.ACTIVE,
           spec
       );
       table.validate();
-      assertEquals(TableId.DRUID_SCHEMA, table.dbSchema());
-      assertEquals("foo", table.name());
+      assertEquals(TableId.DRUID_SCHEMA, table.id().schema());
+      assertEquals("foo", table.id().name());
       assertEquals(10, table.creationTime());
       assertEquals(20, table.updateTime());
       assertEquals(TableState.ACTIVE, table.state());
@@ -82,69 +87,30 @@ public class CatalogObjectTest
     }
 
     {
-      TableMetadata table = new TableMetadata(
-          null,
-          "foo",
-          10,
-          20,
-          TableState.ACTIVE,
-          null
+      TableMetadata table = TableMetadata.newTable(
+          TableId.of(null, "foo"),
+          spec
       );
       assertThrows(IAE.class, () -> table.validate());
     }
 
     {
-      TableMetadata table = new TableMetadata(
-          TableId.DRUID_SCHEMA,
-          null,
-          10,
-          20,
-          TableState.ACTIVE,
-          null
+      TableMetadata table = TableMetadata.newTable(
+          TableId.of(TableId.DRUID_SCHEMA, null),
+          spec
       );
       assertThrows(IAE.class, () -> table.validate());
     }
   }
-
-  @Test
-  public void testSpec()
-  {
-    DatasourceSpec spec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
-        .build();
-    TableMetadata table = new TableMetadata(
-        TableId.DRUID_SCHEMA,
-        "foo",
-        10,
-        20,
-        TableState.ACTIVE,
-        spec
-    );
-    table.validate();
-    assertSame(spec, table.spec());
-
-    // Segment grain is required.
-    spec = DatasourceSpec.builder()
-        .build();
-    TableMetadata table2 = new TableMetadata(
-        "wrong",
-        "foo",
-        10,
-        20,
-        TableState.ACTIVE,
-        spec
-    );
-    assertThrows(IAE.class, () -> table2.validate());
-  }
-
   @Test
   public void testConversions()
   {
-    DatasourceSpec spec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
-        .build();
-    TableMetadata table = TableMetadata.newSegmentTable(
-        "ds",
+    Map<String, Object> props = ImmutableMap.of(
+        DatasourceDefn.SEGMENT_GRANULARITY_FIELD, "P1D"
+    );
+    TableSpec spec = new TableSpec(DatasourceDefn.DETAIL_DATASOURCE_TYPE, props, null);
+    TableMetadata table = TableMetadata.newTable(
+        TableId.datasource("ds"),
         spec
     );
     assertEquals(TableId.datasource("ds"), table.id());
@@ -152,10 +118,18 @@ public class CatalogObjectTest
     assertEquals(0, table.updateTime());
     assertSame(spec, table.spec());
 
-    TableMetadata table2 = TableMetadata.newSegmentTable("ds", spec);
+    TableMetadata table2 = TableMetadata.newTable(
+        TableId.datasource("ds"),
+        spec
+    );
     assertEquals(table, table2);
 
-    TableMetadata table3 = table2.asUpdate(20);
+    TableMetadata table3 = table2.fromInsert(10);
+    assertEquals(10, table3.creationTime());
+    assertEquals(10, table3.updateTime());
+
+    table3 = table3.asUpdate(20);
+    assertEquals(10, table3.creationTime());
     assertEquals(20, table3.updateTime());
   }
 

@@ -31,9 +31,6 @@ import org.apache.druid.catalog.specs.PropertyDefn.StringPropertyDefn;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-import java.io.File;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;

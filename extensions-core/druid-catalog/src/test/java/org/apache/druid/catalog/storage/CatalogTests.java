@@ -17,14 +17,11 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.storage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.model.ExternalSpec.ExternalSpecConverter;
-import org.apache.druid.catalog.storage.CatalogStorage;
-import org.apache.druid.catalog.storage.MetastoreManager;
-import org.apache.druid.catalog.storage.MetastoreManagerImpl;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.jackson.DefaultObjectMapper;
@@ -111,7 +108,7 @@ public class CatalogTests
       storage = new CatalogStorage(
           manager,
           AUTH_MAPPER,
-          externModel
+          JSON_MAPPER
       );
     }
 

@@ -12,6 +12,11 @@ public abstract class CatalogObjectFacade
     return properties().get(key);
   }
 
+  public boolean hasProperty(String key)
+  {
+    return properties().containsKey(key);
+  }
+
   public boolean booleanProperty(String key)
   {
     return (Boolean) property(key);

@@ -23,7 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
 import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.catalog.specs.TableSpec;
-import org.apache.druid.catalog.specs.table.Constants;
+import org.apache.druid.catalog.sync.CatalogUpdateNotifier;
 import org.apache.druid.catalog.sync.MetadataCatalog.CatalogListener;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.annotations.Smile;
@@ -94,7 +94,7 @@ public class CatalogListenerResource
       return Response.serverError().entity(e.getMessage()).build();
     }
     TableSpec spec = tableSpec.spec();
-    if (Constants.TOMBSTONE_TABLE_TYPE.equals(spec.type())) {
+    if (CatalogUpdateNotifier.TOMBSTONE_TABLE_TYPE.equals(spec.type())) {
       listener.deleted(tableSpec.id());
     } else {
       listener.updated(tableSpec);

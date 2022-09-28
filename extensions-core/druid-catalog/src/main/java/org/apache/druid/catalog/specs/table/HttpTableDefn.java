@@ -1,3 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.druid.catalog.specs.table;
 
 import com.google.common.base.Strings;
@@ -6,8 +25,7 @@ import org.apache.druid.catalog.specs.CatalogUtils;
 import org.apache.druid.catalog.specs.Parameterized;
 import org.apache.druid.catalog.specs.PropertyDefn.StringListPropertyDefn;
 import org.apache.druid.catalog.specs.PropertyDefn.StringPropertyDefn;
-import org.apache.druid.catalog.specs.TableSpec;
-import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
+import org.apache.druid.catalog.specs.ResolvedTable;
 import org.apache.druid.catalog.specs.table.InputTableDefn.FormattedInputTableDefn;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.HttpInputSource;
@@ -29,9 +47,19 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Definition of an input table for an HTTP data source. Provides the same
+ * properties as the {@link HttpInputSource}, but as top-level properties
+ * that can be mapped to SQL function parameters. Property names are
+ * cleaned up for ease-of-use. The HTTP input source has multiple quirks,
+ * the conversion method smooths over those quirks for a simpler catalog
+ * experience. Provides a parameterized
+ * form where the user provides the partial URLs to use for a particular
+ * query.
+ */
 public class HttpTableDefn extends FormattedInputTableDefn implements Parameterized
 {
-  public static final String HTTP_TABLE_TYPE = HttpInputSource.TYPE_KEY;
+  public static final String TABLE_TYPE = HttpInputSource.TYPE_KEY;
   public static final String URI_TEMPLATE_PROPERTY = "template";
   public static final String USER_PROPERTY = "user";
   public static final String PASSWORD_PROPERTY = "password";
@@ -39,13 +67,11 @@ public class HttpTableDefn extends FormattedInputTableDefn implements Parameteri
   public static final String URIS_PROPERTY = "uris";
   public static final String URIS_PARAMETER = "uris";
 
-  private final List<ParameterDefn> parameters;
-
   public HttpTableDefn()
   {
     super(
         "HTTP input table",
-        HTTP_TABLE_TYPE,
+        TABLE_TYPE,
         Arrays.asList(
             new StringListPropertyDefn(URIS_PROPERTY),
             new StringPropertyDefn(USER_PROPERTY),
@@ -54,30 +80,20 @@ public class HttpTableDefn extends FormattedInputTableDefn implements Parameteri
             new StringPropertyDefn(URI_TEMPLATE_PROPERTY)
         ),
         Collections.singletonList(INPUT_COLUMN_DEFN),
-        InputFormats.ALL_FORMATS
-    );
-    parameters = Collections.singletonList(
-        new ParameterImpl(URIS_PARAMETER, String.class)
+        InputFormats.ALL_FORMATS,
+        Collections.singletonList(
+            new ParameterImpl(URIS_PARAMETER, String.class)
+        )
     );
   }
 
   @Override
-  public List<ParameterDefn> parameters()
+  public ResolvedTable mergeParameters(ResolvedTable table, Map<String, Object> values)
   {
-    return parameters;
-  }
-
-  @Override
-  public TableSpec mergeParameters(ResolvedTable table, Map<String, Object> values)
-  {
-    String urisValue = CatalogUtils.safeCast(
-        values.get(URIS_PARAMETER),
-        String.class,
-        URIS_PARAMETER
-    );
+    String urisValue = CatalogUtils.safeGet(values, URIS_PARAMETER, String.class);
     List<String> uriValues = CatalogUtils.stringToList(urisValue);
     if (CollectionUtils.isNullOrEmpty(uriValues)) {
-      throw new IAE("One or more values is required for parameter %s", URIS_PARAMETER);
+      throw new IAE("One or more values are required for parameter %s", URIS_PARAMETER);
     }
     String uriTemplate = table.stringProperty(URI_TEMPLATE_PROPERTY);
     if (Strings.isNullOrEmpty(uriTemplate)) {
@@ -100,14 +116,14 @@ public class HttpTableDefn extends FormattedInputTableDefn implements Parameteri
     Map<String, Object> revisedProps = new HashMap<>(table.properties());
     revisedProps.remove(URI_TEMPLATE_PROPERTY);
     revisedProps.put("uris", uris);
-    return table.spec().withProperties(revisedProps);
+    return table.withProperties(revisedProps);
   }
 
   @Override
   protected InputSource convertSource(ResolvedTable table)
   {
     Map<String, Object> jsonMap = new HashMap<>();
-    jsonMap.put("type", HttpInputSource.TYPE_KEY);
+    jsonMap.put(InputSource.TYPE_PROPERTY, HttpInputSource.TYPE_KEY);
     jsonMap.put("httpAuthenticationUsername", table.stringProperty(USER_PROPERTY));
     String password = table.stringProperty(PASSWORD_PROPERTY);
     String passwordEnvVar = table.stringProperty(PASSWORD_ENV_VAR_PROPERTY);
@@ -159,9 +175,16 @@ public class HttpTableDefn extends FormattedInputTableDefn implements Parameteri
   }
 
   @Override
-  public ExternalSpec applyParameters(ResolvedTable table, Map<String, Object> parameters)
+  public void validate(ResolvedTable table)
   {
-    TableSpec revised = mergeParameters(table, parameters);
-    return convertToExtern(revised, table.jsonMapper());
+    super.validate(table);
+
+    // Validate the HTTP properties only if we don't have a template.
+    // If we do have a template, then we don't know how to form
+    // a valid parameter for that template.
+    // TODO: plug in a dummy URL so we can validate other properties.
+    if (!table.hasProperty(URI_TEMPLATE_PROPERTY)) {
+      convertSource(table);
+    }
   }
 }

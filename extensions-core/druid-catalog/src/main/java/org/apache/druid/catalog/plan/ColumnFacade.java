@@ -1,15 +1,12 @@
 package org.apache.druid.catalog.plan;
 
-import org.apache.druid.catalog.InputColumnSpec;
-import org.apache.druid.catalog.MeasureTypes;
-import org.apache.druid.catalog.MeasureTypes.MeasureType;
 import org.apache.druid.catalog.specs.ColumnDefn.ResolvedColumn;
-import org.apache.druid.catalog.specs.table.Constants;
+import org.apache.druid.catalog.specs.MeasureTypes.MeasureType;
 import org.apache.druid.catalog.specs.Columns;
+import org.apache.druid.catalog.specs.MeasureTypes;
+import org.apache.druid.catalog.specs.table.DatasourceDefn;
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.segment.column.ColumnType;
-import org.apache.druid.segment.column.RowSignature;
 
 public class ColumnFacade
 {
@@ -31,7 +28,7 @@ public class ColumnFacade
 
     public boolean isMeasure()
     {
-      return Constants.MEASURE_TYPE.equals(column.spec().type());
+      return DatasourceDefn.MEASURE_TYPE.equals(column.spec().type());
     }
 
     public MeasureType measureType()
@@ -47,27 +44,6 @@ public class ColumnFacade
         return null;
       }
     }
-  }
-
-  public static class InputColumnFacade extends ColumnFacade
-  {
-    public RowSignature rowSignature()
-    {
-      List<ColumnSpec> columns = column.spec().c
-      RowSignature.Builder builder = RowSignature.builder();
-      if (columns() != null) {
-        for (InputColumnSpec col : columns()) {
-          ColumnType druidType = Columns.SQL_TO_DRUID_TYPES.get(StringUtils.toUpperCase(col.sqlType()));
-          if (druidType == null) {
-            druidType = ColumnType.STRING;
-          }
-          builder.add(col.name(), druidType);
-        }
-      }
-      return builder.build();
-    }
-
-
   }
 
   protected final ResolvedColumn column;

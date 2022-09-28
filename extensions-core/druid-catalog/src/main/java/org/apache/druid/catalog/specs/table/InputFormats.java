@@ -24,7 +24,7 @@ import org.apache.druid.catalog.specs.PropertyDefn.BooleanPropertyDefn;
 import org.apache.druid.catalog.specs.PropertyDefn.IntPropertyDefn;
 import org.apache.druid.catalog.specs.PropertyDefn.SimplePropertyDefn;
 import org.apache.druid.catalog.specs.PropertyDefn.StringPropertyDefn;
-import org.apache.druid.catalog.specs.table.CatalogTableRegistry.ResolvedTable;
+import org.apache.druid.catalog.specs.ResolvedTable;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DelimitedInputFormat;

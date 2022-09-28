@@ -17,11 +17,13 @@
  * under the License.
  */
 
-package org.apache.druid.catalog;
+package org.apache.druid.catalog.sync;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
+import org.apache.druid.catalog.specs.TableId;
 import org.apache.druid.catalog.storage.CatalogStorage;
+import org.apache.druid.catalog.storage.CatalogTests;
 import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.catalog.sync.CachedMetadataCatalog;
 import org.apache.druid.catalog.sync.MetadataCatalog;
