@@ -31,7 +31,7 @@ import java.util.Map;
  *
  * @see {@link TableMetadata} for the operational representation
  */
-public class ResolvedTable extends CatalogObjectFacade
+public class ResolvedTable extends ObjectFacade
 {
   private final TableDefn defn;
   private final TableSpec spec;

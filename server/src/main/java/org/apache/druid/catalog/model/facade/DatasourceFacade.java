@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.catalog.plan;
+package org.apache.druid.catalog.model.facade;
 
 import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ResolvedTable;
@@ -28,6 +28,12 @@ import org.apache.druid.java.util.common.granularity.Granularity;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Convenience wrapper on top of a resolved table (a table spec
+ * and its corresponding definition.) To be used by consumers
+ * of catalog objects that work with specific datasource properties
+ * rather than layers that work with specs generically.
+ */
 public class DatasourceFacade extends TableFacade
 {
   public DatasourceFacade(ResolvedTable resolved)

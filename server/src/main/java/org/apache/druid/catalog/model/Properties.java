@@ -42,9 +42,17 @@ import java.util.Set;
  * via the validation, as is needed when the type is actually a map
  * which represents a Java object, or when the value is a list.
  */
-public interface PropertyDefn
+public interface Properties
 {
-  public static abstract class BasePropertyDefn implements PropertyDefn
+  public interface PropertyDefn
+  {
+    String name();
+    String typeName();
+    void validate(Object value, ObjectMapper jsonMapper);
+    Object merge(Object existing, Object update);
+  }
+
+  public abstract class BasePropertyDefn implements PropertyDefn
   {
     protected final String name;
 
@@ -75,7 +83,7 @@ public interface PropertyDefn
     }
   }
 
-  public static class SimplePropertyDefn<T> extends BasePropertyDefn
+  public class SimplePropertyDefn<T> extends BasePropertyDefn
   {
     public final Class<T> valueClass;
 
@@ -129,7 +137,7 @@ public interface PropertyDefn
     }
   }
 
-  public static class TypeRefPropertyDefn<T> extends BasePropertyDefn
+  public class TypeRefPropertyDefn<T> extends BasePropertyDefn
   {
     public final String typeName;
     public final TypeReference<T> valueType;
@@ -182,7 +190,7 @@ public interface PropertyDefn
     }
   }
 
-  public static class StringPropertyDefn extends SimplePropertyDefn<String>
+  public class StringPropertyDefn extends SimplePropertyDefn<String>
   {
     public StringPropertyDefn(String name)
     {
@@ -190,7 +198,7 @@ public interface PropertyDefn
     }
   }
 
-  public static class GranularityPropertyDefn extends StringPropertyDefn
+  public class GranularityPropertyDefn extends StringPropertyDefn
   {
     public GranularityPropertyDefn(String name)
     {
@@ -218,7 +226,7 @@ public interface PropertyDefn
     }
   }
 
-  public static class IntPropertyDefn extends SimplePropertyDefn<Integer>
+  public class IntPropertyDefn extends SimplePropertyDefn<Integer>
   {
     public IntPropertyDefn(String name)
     {
@@ -226,7 +234,7 @@ public interface PropertyDefn
     }
   }
 
-  public static class BooleanPropertyDefn extends SimplePropertyDefn<Boolean>
+  public class BooleanPropertyDefn extends SimplePropertyDefn<Boolean>
   {
     public BooleanPropertyDefn(String name)
     {
@@ -234,7 +242,7 @@ public interface PropertyDefn
     }
   }
 
-  public static class ListPropertyDefn<T> extends TypeRefPropertyDefn<List<T>>
+  public class ListPropertyDefn<T> extends TypeRefPropertyDefn<List<T>>
   {
     public ListPropertyDefn(
         final String name,
@@ -279,7 +287,7 @@ public interface PropertyDefn
     }
   }
 
-  public static class StringListPropertyDefn extends ListPropertyDefn<String>
+  public class StringListPropertyDefn extends ListPropertyDefn<String>
   {
     public StringListPropertyDefn(String name)
     {
@@ -290,9 +298,4 @@ public interface PropertyDefn
       );
     }
   }
-
-  String name();
-  String typeName();
-  void validate(Object value, ObjectMapper jsonMapper);
-  Object merge(Object existing, Object update);
 }

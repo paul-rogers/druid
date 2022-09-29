@@ -26,9 +26,10 @@ import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ColumnDefn;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
-import org.apache.druid.catalog.model.PropertyDefn;
-import org.apache.druid.catalog.model.PropertyDefn.GranularityPropertyDefn;
-import org.apache.druid.catalog.model.PropertyDefn.StringListPropertyDefn;
+import org.apache.druid.catalog.model.Properties;
+import org.apache.druid.catalog.model.Properties.GranularityPropertyDefn;
+import org.apache.druid.catalog.model.Properties.PropertyDefn;
+import org.apache.druid.catalog.model.Properties.StringListPropertyDefn;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefn;
 import org.apache.druid.java.util.common.IAE;
@@ -214,7 +215,7 @@ public class DatasourceDefn extends TableDefn
           "Rollup datasource",
           ROLLUP_DATASOURCE_TYPE,
           Collections.singletonList(
-              new PropertyDefn.GranularityPropertyDefn(ROLLUP_GRANULARITY_FIELD)
+              new Properties.GranularityPropertyDefn(ROLLUP_GRANULARITY_FIELD)
           ),
           Arrays.asList(
               new DimensionDefn(),
@@ -224,28 +225,29 @@ public class DatasourceDefn extends TableDefn
     }
   }
 
-  protected static final PropertyDefn[] datasourceFields = {
-      new SegmentGranularityFieldDefn(),
-      new PropertyDefn.IntPropertyDefn(TARGET_SEGMENT_ROWS_FIELD),
-      new PropertyDefn.ListPropertyDefn<ClusterKeySpec>(
-          CLUSTER_KEYS_FIELD,
-          "cluster keys",
-          new TypeReference<List<ClusterKeySpec>>() { }
-      ),
-      new HiddenColumnsDefn()
-  };
-
   public DatasourceDefn(
       final String name,
       final String typeValue,
-      final List<PropertyDefn> fields,
+      final List<PropertyDefn> properties,
       final List<ColumnDefn> columnDefns
   )
   {
     super(
         name,
         typeValue,
-        extendFields(datasourceFields, fields),
+        CatalogUtils.concatLists(
+            Arrays.asList(
+                new SegmentGranularityFieldDefn(),
+                new Properties.IntPropertyDefn(TARGET_SEGMENT_ROWS_FIELD),
+                new Properties.ListPropertyDefn<ClusterKeySpec>(
+                    CLUSTER_KEYS_FIELD,
+                    "cluster keys",
+                    new TypeReference<List<ClusterKeySpec>>() { }
+                ),
+                new HiddenColumnsDefn()
+            ),
+            properties
+        ),
         columnDefns
     );
   }

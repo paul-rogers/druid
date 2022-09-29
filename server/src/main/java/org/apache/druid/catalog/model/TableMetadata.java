@@ -38,7 +38,7 @@ import java.util.Objects;
 @PublicApi
 public class TableMetadata
 {
-  public static enum TableState
+  public enum TableState
   {
     ACTIVE("A"),
     DELETING("D");
@@ -196,18 +196,18 @@ public class TableMetadata
 
   public byte[] toBytes(ObjectMapper jsonMapper)
   {
-    return CatalogSpecs.toBytes(jsonMapper, this);
+    return CatalogUtils.toBytes(jsonMapper, this);
   }
 
   public static TableMetadata fromBytes(ObjectMapper jsonMapper, byte[] bytes)
   {
-    return CatalogSpecs.fromBytes(jsonMapper, bytes, TableMetadata.class);
+    return CatalogUtils.fromBytes(jsonMapper, bytes, TableMetadata.class);
   }
 
   @Override
   public String toString()
   {
-    return CatalogSpecs.toString(this);
+    return CatalogUtils.toString(this);
   }
 
   @Override

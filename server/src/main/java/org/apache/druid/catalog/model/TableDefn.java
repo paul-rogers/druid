@@ -22,6 +22,7 @@ package org.apache.druid.catalog.model;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.catalog.model.Properties.PropertyDefn;
 import org.apache.druid.java.util.common.IAE;
 
 import java.util.ArrayList;
@@ -40,41 +41,33 @@ import java.util.Set;
  * to allow the table to appear in a SQL table function by implementing
  * the {@link Parameterized} interface.
  */
-public class TableDefn extends CatalogObjectDefn
+public class TableDefn extends ObjectDefn
 {
   /**
    * Human-readable description of the datasource.
    */
   public static final String DESCRIPTION_PROPERTY = "description";
 
-  protected static final PropertyDefn[] commonFields = {
-      new PropertyDefn.StringPropertyDefn(DESCRIPTION_PROPERTY)
-  };
-
   private final Map<String, ColumnDefn> columnDefns;
 
   public TableDefn(
       final String name,
       final String typeValue,
-      final List<PropertyDefn> fields,
+      final List<PropertyDefn> properties,
       final List<ColumnDefn> columnDefns
   )
   {
-    super(name, typeValue, extendFields(commonFields, fields));
+    super(
+        name,
+        typeValue,
+        CatalogUtils.concatLists(
+            Arrays.asList(
+                new Properties.StringPropertyDefn(DESCRIPTION_PROPERTY)
+            ),
+            properties
+        )
+    );
     this.columnDefns = columnDefns == null ? Collections.emptyMap() : toColumnMap(columnDefns);
-  }
-
-  protected static List<PropertyDefn> extendFields(
-      final PropertyDefn[] baseFields,
-      List<PropertyDefn> fields
-  )
-  {
-    List<PropertyDefn> extended = new ArrayList<>();
-    extended.addAll(Arrays.asList(baseFields));
-    if (fields != null) {
-      extended.addAll(fields);
-    }
-    return extended;
   }
 
   public static Map<String, ColumnDefn> toColumnMap(final List<ColumnDefn> colTypes)

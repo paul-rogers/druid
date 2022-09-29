@@ -19,19 +19,19 @@
 
 package org.apache.druid.catalog.model.table;
 
-import org.apache.druid.catalog.model.PropertyDefn;
+import org.apache.druid.catalog.model.CatalogUtils;
+import org.apache.druid.catalog.model.Properties.BooleanPropertyDefn;
+import org.apache.druid.catalog.model.Properties.IntPropertyDefn;
+import org.apache.druid.catalog.model.Properties.PropertyDefn;
+import org.apache.druid.catalog.model.Properties.SimplePropertyDefn;
+import org.apache.druid.catalog.model.Properties.StringPropertyDefn;
 import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.PropertyDefn.BooleanPropertyDefn;
-import org.apache.druid.catalog.model.PropertyDefn.IntPropertyDefn;
-import org.apache.druid.catalog.model.PropertyDefn.SimplePropertyDefn;
-import org.apache.druid.catalog.model.PropertyDefn.StringPropertyDefn;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DelimitedInputFormat;
 import org.apache.druid.data.input.impl.JsonInputFormat;
 import org.apache.druid.java.util.common.ISE;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -123,19 +123,14 @@ public class InputFormats
       super(
           name,
           typeTag,
-          appendProperties(properties)
+          CatalogUtils.concatLists(
+              Arrays.asList(
+                  new StringPropertyDefn(LIST_DELIMITER_PROPERTY),
+                  new IntPropertyDefn(SKIP_ROWS_PROPERTY)
+              ),
+              properties
+          )
       );
-    }
-
-    private static List<PropertyDefn> appendProperties(List<PropertyDefn> extras)
-    {
-      List<PropertyDefn> props = new ArrayList<>();
-      props.add(new StringPropertyDefn(LIST_DELIMITER_PROPERTY));
-      props.add(new IntPropertyDefn(SKIP_ROWS_PROPERTY));
-      if (extras != null) {
-        props.addAll(extras);
-      }
-      return props;
     }
 
     protected Map<String, Object> gatherFields(ResolvedTable table)

@@ -79,7 +79,7 @@ public class MeasureTypes
       this.name = name;
       this.argTypes = argTypes == null ? Collections.emptyList() : argTypes;
       this.sqlSeedFn = sqlSeedFn;
-      this.sqlReducerFn  = sqlReducerFn;
+      this.sqlReducerFn = sqlReducerFn;
       this.nativeType = nativeType;
       this.storageType = storageType;
       this.nativeAggFn = nativeAggFn;

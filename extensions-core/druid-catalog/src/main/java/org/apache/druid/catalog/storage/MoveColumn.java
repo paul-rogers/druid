@@ -85,18 +85,18 @@ public class MoveColumn
 
     ColumnSpec col = revised.remove(colPosn);
     switch (where) {
-    case FIRST:
-      revised.add(0, col);
-      break;
-    case LAST:
-      revised.add(col);
-      break;
-    case BEFORE:
-      revised.add(anchorPosn, col);
-      break;
-    case AFTER:
-      revised.add(anchorPosn + 1, col);
-      break;
+      case FIRST:
+        revised.add(0, col);
+        break;
+      case LAST:
+        revised.add(col);
+        break;
+      case BEFORE:
+        revised.add(anchorPosn, col);
+        break;
+      case AFTER:
+        revised.add(anchorPosn + 1, col);
+        break;
     }
     return revised;
   }

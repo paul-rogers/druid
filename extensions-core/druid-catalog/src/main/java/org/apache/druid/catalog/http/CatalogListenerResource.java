@@ -21,8 +21,8 @@ package org.apache.druid.catalog.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
-import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.model.TableMetadata;
+import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.sync.CatalogUpdateNotifier;
 import org.apache.druid.catalog.sync.MetadataCatalog.CatalogListener;
 import org.apache.druid.guice.annotations.Json;

@@ -23,10 +23,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import org.apache.curator.shaded.com.google.common.collect.Lists;
 import org.apache.druid.catalog.model.CatalogUtils;
+import org.apache.druid.catalog.model.SchemaRegistry.SchemaSpec;
 import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.TableId;
+import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.model.TableSpec;
-import org.apache.druid.catalog.model.SchemaRegistry.SchemaSpec;
 import org.apache.druid.catalog.model.table.DatasourceDefn;
 import org.apache.druid.catalog.storage.Actions;
 import org.apache.druid.catalog.storage.CatalogStorage;
@@ -36,7 +37,6 @@ import org.apache.druid.catalog.storage.MoveColumn.Position;
 import org.apache.druid.catalog.storage.sql.CatalogManager.DuplicateKeyException;
 import org.apache.druid.catalog.storage.sql.CatalogManager.NotFoundException;
 import org.apache.druid.catalog.storage.sql.CatalogManager.OutOfDateException;
-import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
@@ -158,16 +158,16 @@ public class CatalogResource
     }
 
     switch (action) {
-    case NEW:
-      return insertTableSpec(table, false);
-    case IFNEW:
-      return insertTableSpec(table, true);
-    case REPLACE:
-      return updateTableSpec(table, version);
-    case FORCE:
-      return addOrUpdateTableSpec(table);
-    default:
-      throw new ISE("Unknown action.");
+      case NEW:
+        return insertTableSpec(table, false);
+      case IFNEW:
+        return insertTableSpec(table, true);
+      case REPLACE:
+        return updateTableSpec(table, version);
+      case FORCE:
+        return addOrUpdateTableSpec(table);
+      default:
+        throw new ISE("Unknown action.");
     }
   }
 
@@ -271,7 +271,8 @@ public class CatalogResource
     try {
       long newVersion = catalog.tables().create(table);
       return Actions.okWithVersion(newVersion);
-    } catch (DuplicateKeyException e) {
+    }
+    catch (DuplicateKeyException e) {
       // Fall through
     }
     catch (Exception e) {

@@ -1,13 +1,36 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.druid.catalog.model;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.java.util.common.granularity.PeriodGranularity;
 import org.joda.time.Period;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -135,8 +158,7 @@ public class CatalogUtils
     try {
       return type.cast(value);
     }
-    catch (ClassCastException e)
-    {
+    catch (ClassCastException e) {
       throw new IAE("Value [%s] is not valid for property %s, expected type %s",
           value,
           propertyName,
@@ -164,5 +186,57 @@ public class CatalogUtils
       return null;
     }
     return new HashSet<>(Arrays.asList(items));
+  }
+
+  public static byte[] toBytes(ObjectMapper jsonMapper, Object obj)
+  {
+    try {
+      return jsonMapper.writeValueAsBytes(obj);
+    }
+    catch (JsonProcessingException e) {
+      throw new ISE("Failed to serialize " + obj.getClass().getSimpleName());
+    }
+  }
+
+  public static <T> T fromBytes(ObjectMapper jsonMapper, byte[] bytes, Class<T> clazz)
+  {
+    try {
+      return jsonMapper.readValue(bytes, clazz);
+    }
+    catch (IOException e) {
+      throw new ISE(e, "Failed to deserialize a " + clazz.getSimpleName());
+    }
+  }
+
+  public static String toString(Object obj)
+  {
+    ObjectMapper jsonMapper = new ObjectMapper();
+    try {
+      return jsonMapper.writeValueAsString(obj);
+    }
+    catch (JsonProcessingException e) {
+      throw new ISE("Failed to serialize TableDefn");
+    }
+  }
+
+  public static <T> List<T> concatLists(
+      final List<T> base,
+      final List<T> additions
+  )
+  {
+    if (base == null && additions != null) {
+      return additions;
+    }
+    if (base != null && additions == null) {
+      return base;
+    }
+    List<T> extended = new ArrayList<>();
+    if (base != null) {
+      extended.addAll(base);
+    }
+    if (additions != null) {
+      extended.addAll(additions);
+    }
+    return extended;
   }
 }

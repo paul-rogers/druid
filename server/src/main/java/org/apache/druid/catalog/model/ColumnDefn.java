@@ -20,13 +20,14 @@
 package org.apache.druid.catalog.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.druid.catalog.model.Properties.PropertyDefn;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
 
 import java.util.List;
 import java.util.Map;
 
-public class ColumnDefn extends CatalogObjectDefn
+public class ColumnDefn extends ObjectDefn
 {
   /**
    * Convenience class that holds a column specification and its corresponding

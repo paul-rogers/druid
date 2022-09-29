@@ -21,8 +21,8 @@ package org.apache.druid.catalog.model.table;
 
 import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.Parameterized;
-import org.apache.druid.catalog.model.PropertyDefn.StringListPropertyDefn;
-import org.apache.druid.catalog.model.PropertyDefn.StringPropertyDefn;
+import org.apache.druid.catalog.model.Properties.StringListPropertyDefn;
+import org.apache.druid.catalog.model.Properties.StringPropertyDefn;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.table.InputTableDefn.FormattedInputTableDefn;
 import org.apache.druid.data.input.InputSource;

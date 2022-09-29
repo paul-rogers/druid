@@ -20,6 +20,10 @@
 package org.apache.druid.sql.catalog;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.calcite.sql.SqlDataTypeSpec;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlTypeNameSpec;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.Parameterized.ParameterDefn;
@@ -36,11 +40,6 @@ import org.apache.druid.sql.calcite.table.ExternalTable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.apache.calcite.sql.SqlDataTypeSpec;
-import org.apache.calcite.sql.SqlIdentifier;
-import org.apache.calcite.sql.SqlTypeNameSpec;
-import org.apache.calcite.sql.type.SqlTypeName;
 
 public class CatalogConversions
 {

@@ -211,7 +211,7 @@ public class DatasourceTableTest
   {
     TableSpec spec = TableBuilder.detailTable("foo", "P1D")
         .property("foo", 10)
-        .property( "bar", "mumble")
+        .property("bar", "mumble")
         .buildSpec();
     expectValidationSucceeds(spec);
   }

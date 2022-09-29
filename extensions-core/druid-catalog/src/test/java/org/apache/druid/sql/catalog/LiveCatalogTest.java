@@ -78,7 +78,8 @@ public class LiveCatalogTest
   {
     try {
       storage.tables().create(table);
-    } catch (DuplicateKeyException e) {
+    }
+    catch (DuplicateKeyException e) {
       fail(e.getMessage());
     }
   }

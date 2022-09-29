@@ -21,6 +21,7 @@ package org.apache.druid.catalog.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.catalog.model.Properties.PropertyDefn;
 
 import java.util.HashMap;
 import java.util.List;
@@ -34,13 +35,13 @@ import java.util.Map;
  * properties which have no definition: the meaning of such properties is
  * defined elsewhere.
  */
-public class CatalogObjectDefn
+public class ObjectDefn
 {
   private final String name;
   private final String typeValue;
-  private final Map<String, PropertyDefn> fields;
+  private final Map<String, PropertyDefn> properties;
 
-  public CatalogObjectDefn(
+  public ObjectDefn(
       final String name,
       final String typeValue,
       final List<PropertyDefn> fields
@@ -48,15 +49,15 @@ public class CatalogObjectDefn
   {
     this.name = name;
     this.typeValue = typeValue;
-    this.fields = toFieldMap(fields);
+    this.properties = toPropertyMap(fields);
   }
 
-  protected static Map<String, PropertyDefn> toFieldMap(final List<PropertyDefn> fields)
+  protected static Map<String, PropertyDefn> toPropertyMap(final List<PropertyDefn> props)
   {
     ImmutableMap.Builder<String, PropertyDefn> builder = ImmutableMap.builder();
-    if (fields != null) {
-      for (PropertyDefn field : fields) {
-        builder.put(field.name(), field);
+    if (props != null) {
+      for (PropertyDefn prop : props) {
+        builder.put(prop.name(), prop);
       }
     }
     return builder.build();
@@ -77,14 +78,14 @@ public class CatalogObjectDefn
     return typeValue;
   }
 
-  public Map<String, PropertyDefn> fields()
+  public Map<String, PropertyDefn> properties()
   {
-    return fields;
+    return properties;
   }
 
-  public PropertyDefn resolveField(String key)
+  public PropertyDefn property(String key)
   {
-    return fields.get(key);
+    return properties.get(key);
   }
 
   /**
@@ -107,20 +108,20 @@ public class CatalogObjectDefn
     if (source == null) {
       return update;
     }
-    Map<String, Object> tags = new HashMap<>(source);
+    Map<String, Object> merged = new HashMap<>(source);
     for (Map.Entry<String, Object> entry : update.entrySet()) {
       if (entry.getValue() == null) {
-        tags.remove(entry.getKey());
+        merged.remove(entry.getKey());
       } else {
-        PropertyDefn field = resolveField(entry.getKey());
+        PropertyDefn propDefn = property(entry.getKey());
         Object value = entry.getValue();
-        if (field != null) {
-          value = field.merge(tags.get(entry.getKey()), entry.getValue());
+        if (propDefn != null) {
+          value = propDefn.merge(merged.get(entry.getKey()), entry.getValue());
         }
-        tags.put(entry.getKey(), value);
+        merged.put(entry.getKey(), value);
       }
     }
-    return tags;
+    return merged;
   }
 
   /**
@@ -130,8 +131,8 @@ public class CatalogObjectDefn
    */
   public void validate(Map<String, Object> spec, ObjectMapper jsonMapper)
   {
-    for (PropertyDefn field : fields.values()) {
-      field.validate(spec.get(field.name()), jsonMapper);
+    for (PropertyDefn propDefn : properties.values()) {
+      propDefn.validate(spec.get(propDefn.name()), jsonMapper);
     }
   }
 }
