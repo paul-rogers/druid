@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.CatalogTest;
 import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.model.TableMetadata;
+import org.apache.druid.catalog.model.TableMetadata.TableState;
 import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.model.table.DatasourceDefn;
 import org.apache.druid.catalog.storage.sql.CatalogManager;
@@ -31,7 +32,6 @@ import org.apache.druid.catalog.storage.sql.SQLCatalogManager;
 import org.apache.druid.catalog.storage.sql.CatalogManager.DuplicateKeyException;
 import org.apache.druid.catalog.storage.sql.CatalogManager.NotFoundException;
 import org.apache.druid.catalog.storage.sql.CatalogManager.OutOfDateException;
-import org.apache.druid.catalog.storage.sql.CatalogManager.TableState;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.metadata.TestDerbyConnector;
 import org.junit.After;
@@ -137,10 +137,10 @@ public class TableManagerTest
     assertEquals(newVersion, table3.updateTime());
 
     // Changing the state requires no version check
-    assertEquals(TableState.ACTIVE, table3.state());
+    assertEquals(TableMetadata.TableState.ACTIVE, table3.state());
     newVersion = manager.markDeleting(table.id());
     TableMetadata table4 = manager.read(table.id());
-    assertEquals(TableState.DELETING, table4.state());
+    assertEquals(TableMetadata.TableState.DELETING, table4.state());
     assertEquals(newVersion, table4.updateTime());
 
     // Update: no version check)

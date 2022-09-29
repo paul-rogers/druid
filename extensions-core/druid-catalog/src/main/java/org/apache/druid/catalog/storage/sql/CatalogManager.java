@@ -22,7 +22,6 @@ package org.apache.druid.catalog.storage.sql;
 import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.model.TableMetadata;
-import org.apache.druid.java.util.common.ISE;
 
 import javax.annotation.Nullable;
 
@@ -40,34 +39,6 @@ import java.util.function.Function;
  */
 public interface CatalogManager
 {
-  enum TableState
-  {
-    ACTIVE("A"),
-    DELETING("D");
-
-    private final String code;
-
-    TableState(String code)
-    {
-      this.code = code;
-    }
-
-    public String code()
-    {
-      return code;
-    }
-
-    public static TableState fromCode(String code)
-    {
-      for (TableState state : values()) {
-        if (state.code.equals(code)) {
-          return state;
-        }
-      }
-      throw new ISE("Unknown TableState code: " + code);
-    }
-  }
-
   /**
    * Thrown with an "optimistic lock" fails: the version of a
    * catalog object being updated is not the same as that of

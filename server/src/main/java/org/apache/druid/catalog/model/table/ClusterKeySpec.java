@@ -21,9 +21,10 @@ package org.apache.druid.catalog.model.table;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.api.client.util.Objects;
 
 import javax.annotation.Nullable;
+
+import java.util.Objects;
 
 public class ClusterKeySpec
 {
@@ -70,7 +71,7 @@ public class ClusterKeySpec
       return false;
     }
     ClusterKeySpec other = (ClusterKeySpec) o;
-    return Objects.equal(this.expr, other.expr)
+    return Objects.equals(this.expr, other.expr)
         && this.desc == other.desc;
   }
 }

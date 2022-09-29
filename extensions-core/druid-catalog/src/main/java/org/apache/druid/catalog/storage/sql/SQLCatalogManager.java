@@ -200,7 +200,7 @@ public class SQLCatalogManager implements CatalogManager
                   .bind("name", table.id().name())
                   .bind("creationTime", updateTime)
                   .bind("updateTime", updateTime)
-                  .bind("state", TableState.ACTIVE.code())
+                  .bind("state", TableMetadata.TableState.ACTIVE.code())
                   .bind("payload", table.spec().toBytes(jsonMapper));
               try {
                 stmt.execute();
@@ -249,7 +249,7 @@ public class SQLCatalogManager implements CatalogManager
                       id,
                       r.getLong(1),
                       r.getLong(2),
-                      TableState.fromCode(r.getString(3)),
+                      TableMetadata.TableState.fromCode(r.getString(3)),
                       TableSpec.fromBytes(jsonMapper, r.getBytes(4))
                   ))
                 .iterator();
@@ -371,7 +371,7 @@ public class SQLCatalogManager implements CatalogManager
                           id,
                           0,
                           0,
-                          TableState.fromCode(r.getString(1)),
+                          TableMetadata.TableState.fromCode(r.getString(1)),
                           TableSpec.fromBytes(jsonMapper, r.getBytes(2))
                       ))
                     .iterator();
@@ -384,7 +384,7 @@ public class SQLCatalogManager implements CatalogManager
                       StringUtils.format("Table %s: not found", id.sqlName())
                   );
                 }
-                if (table.state() != TableState.ACTIVE) {
+                if (table.state() != TableMetadata.TableState.ACTIVE) {
                   throw new ISE("Table is in state [%s] and cannot be updated", table.state());
                 }
                 TableSpec revised = transform.apply(table.spec());
@@ -435,7 +435,7 @@ public class SQLCatalogManager implements CatalogManager
                 .bind("schemaName", id.schema())
                 .bind("name", id.name())
                 .bind("updateTime", updateTime)
-                .bind("state", TableState.DELETING.code())
+                .bind("state", TableMetadata.TableState.DELETING.code())
                 .execute();
             sendDeletion(id);
             return updateCount == 1 ? updateTime : 0;
@@ -532,7 +532,7 @@ public class SQLCatalogManager implements CatalogManager
                       TableId.of(dbSchema, r.getString(1)),
                       r.getLong(2),
                       r.getLong(3),
-                      TableState.fromCode(r.getString(4)),
+                      TableMetadata.TableState.fromCode(r.getString(4)),
                       TableSpec.fromBytes(jsonMapper, r.getBytes(5))))
                 .iterator();
             return Lists.newArrayList(resultIterator);

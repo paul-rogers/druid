@@ -22,9 +22,9 @@ package org.apache.druid.catalog.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
-import org.apache.druid.catalog.storage.sql.CatalogManager.TableState;
 import org.apache.druid.guice.annotations.PublicApi;
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.java.util.common.ISE;
 
 import java.util.Objects;
 
@@ -38,6 +38,34 @@ import java.util.Objects;
 @PublicApi
 public class TableMetadata
 {
+  public static enum TableState
+  {
+    ACTIVE("A"),
+    DELETING("D");
+
+    private final String code;
+
+    TableState(String code)
+    {
+      this.code = code;
+    }
+
+    public String code()
+    {
+      return code;
+    }
+
+    public static TableState fromCode(String code)
+    {
+      for (TableState state : values()) {
+        if (state.code.equals(code)) {
+          return state;
+        }
+      }
+      throw new ISE("Unknown TableState code: " + code);
+    }
+  }
+
   private final TableId id;
   private final long creationTime;
   private final long updateTime;

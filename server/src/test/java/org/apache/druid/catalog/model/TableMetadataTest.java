@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.catalog.CatalogTest;
 import org.apache.druid.catalog.model.table.DatasourceDefn;
-import org.apache.druid.catalog.storage.sql.CatalogManager.TableState;
+import org.apache.druid.catalog.model.TableMetadata.TableState;
 import org.apache.druid.java.util.common.IAE;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
