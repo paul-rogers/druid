@@ -30,14 +30,14 @@ import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.TableMacro;
 import org.apache.calcite.schema.TranslatableTable;
-import org.apache.druid.catalog.model.ExternalSpec;
-import org.apache.druid.catalog.specs.TableId;
-import org.apache.druid.catalog.storage.InputTableSpec;
-import org.apache.druid.catalog.storage.TableMetadata;
+import org.apache.druid.catalog.model.Parameterized;
+import org.apache.druid.catalog.model.ResolvedTable;
+import org.apache.druid.catalog.model.TableId;
+import org.apache.druid.catalog.model.table.ExternalSpec;
+import org.apache.druid.catalog.model.table.InputTableDefn;
 import org.apache.druid.catalog.sync.MetadataCatalog;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
-import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.calcite.external.InputTableMacro;
 import org.apache.druid.sql.calcite.schema.AbstractTableSchema;
@@ -46,7 +46,6 @@ import org.apache.druid.sql.calcite.table.DatasourceTable;
 
 import javax.inject.Inject;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -118,28 +117,26 @@ public class InputSchema extends AbstractTableSchema implements NamedSchema, Sch
   @Override
   public final Table getTable(String name)
   {
-    InputTableSpec inputTable = getInputTable(name);
+    ResolvedTable inputTable = getInputTable(name);
     if (inputTable == null) {
       return null;
     }
-    ExternalSpec externSpec = inputTableMacro.model().convert(
-        inputTable.properties(),
-        inputTable.columnSchemas());
-    return CatalogConversions.toDruidTable(externSpec, inputTable.rowSignature(), jsonMapper);
+    InputTableDefn inputDefn = (InputTableDefn) inputTable.defn();
+    ExternalSpec externSpec = inputDefn.convertToExtern(inputTable);
+    return CatalogConversions.toDruidTable(externSpec, jsonMapper);
   }
 
-  private InputTableSpec getInputTable(String name)
+  private ResolvedTable getInputTable(String name)
   {
     TableId id = TableId.of(schemaName, name);
-    TableMetadata table = catalog.resolveTable(id);
-    if (table == null || table.spec() == null) {
+    ResolvedTable table = catalog.resolveTable(id);
+    if (table == null) {
       return null;
     }
-    if (table.spec().type() != TableMetadata.TableType.INPUT) {
-      throw new IAE(
-          StringUtils.format("Table [%s] is not an input table", id.sqlName()));
+    if (!InputTableDefn.isInputTable(table)) {
+      throw new IAE("Table [%s] is not an input table", id.sqlName());
     }
-    return (InputTableSpec) table.spec();
+    return table;
   }
 
   /**
@@ -166,7 +163,7 @@ public class InputSchema extends AbstractTableSchema implements NamedSchema, Sch
           boolean caseSensitive
       )
       {
-        InputTableSpec inputTable = getInputTable(name);
+        ResolvedTable inputTable = getInputTable(name);
         if (inputTable != null) {
           builder.add(
               new ParameterizedTableMacro(
@@ -189,11 +186,12 @@ public class InputSchema extends AbstractTableSchema implements NamedSchema, Sch
   public static class ParameterizedTableMacro implements TableMacro
   {
     private final InputTableMacro delegate;
-    private final InputTableSpec tableSpec;
+    private final ResolvedTable tableSpec;
 
     public ParameterizedTableMacro(
         InputTableMacro delegate,
-        InputTableSpec tableSpec)
+        ResolvedTable tableSpec
+    )
     {
       this.delegate = delegate;
       this.tableSpec = tableSpec;
@@ -202,9 +200,10 @@ public class InputSchema extends AbstractTableSchema implements NamedSchema, Sch
     @Override
     public TranslatableTable apply(List<Object> arguments)
     {
-      Map<String, Object> args = new HashMap<>(tableSpec.properties());
-      args.putAll(delegate.model().argsFromCalcite(arguments));
-      return delegate.apply(args, tableSpec.columnSchemas());
+      Parameterized parameterizedTable = (Parameterized) tableSpec;
+      Map<String, Object> args = CatalogConversions.argsFromCalcite(parameterizedTable.parameters(), arguments);
+      ExternalSpec externalSpec = parameterizedTable.applyParameters(tableSpec, args);
+      return CatalogConversions.toDruidTable(externalSpec, tableSpec.jsonMapper());
     }
 
     @Override

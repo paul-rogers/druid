@@ -20,18 +20,21 @@
 package org.apache.druid.server.http.catalog;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.CatalogTest;
-import org.apache.druid.catalog.specs.CatalogUtils;
-import org.apache.druid.catalog.specs.TableId;
+import org.apache.druid.catalog.http.CatalogResource;
+import org.apache.druid.catalog.model.CatalogUtils;
+import org.apache.druid.catalog.model.Columns;
+import org.apache.druid.catalog.model.TableId;
+import org.apache.druid.catalog.model.TableMetadata;
+import org.apache.druid.catalog.model.TableSpec;
+import org.apache.druid.catalog.model.table.DatasourceDefn;
+import org.apache.druid.catalog.model.table.InlineTableDefn;
+import org.apache.druid.catalog.model.table.InputFormats;
+import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.storage.CatalogTests;
-import org.apache.druid.catalog.storage.DatasourceSpec;
 import org.apache.druid.catalog.storage.HideColumns;
-import org.apache.druid.catalog.storage.InputTableSpec;
 import org.apache.druid.catalog.storage.MoveColumn;
-import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.metadata.TestDerbyConnector;
-import org.apache.druid.server.http.CatalogResource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -89,10 +92,8 @@ public class CatalogResourceTest
   @Test
   public void testCreate()
   {
-    DatasourceSpec dsSpec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
-        .build();
     final String tableName = "create";
+    TableSpec dsSpec = TableBuilder.detailTable(tableName, "P1D").buildSpec();
 
     // Blank schema name: infer the schema.
     Response resp = resource.postTable("", tableName, dsSpec, null, 0, postBy(CatalogTests.SUPER_USER));
@@ -140,21 +141,15 @@ public class CatalogResourceTest
     assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
     assertEquals(0, getVersion(resp));
 
-    // Input source
-    Map<String, Object> props = ImmutableMap.of(
-        "source",
-        "inline",
-        "format",
-        "csv",
-        "data",
-        "a,b,1\nc,d,2\n"
-    );
-    InputTableSpec inputSpec = InputTableSpec
-        .builder()
-        .properties(props)
-        .column("a", "varchar")
-        .build();
-    resp = resource.postTable(TableId.INPUT_SCHEMA, "input", inputSpec, null, 0, postBy(CatalogTests.WRITER_USER));
+    // Inline input source
+    TableSpec inputSpec = TableBuilder.inputTable(InlineTableDefn.TABLE_TYPE, "inline")
+        .format(InputFormats.CSV_FORMAT_TYPE)
+        .data("a,b,1", "c,d,2")
+        .column("a", Columns.VARCHAR)
+        .column("b", Columns.VARCHAR)
+        .column("c", Columns.BIGINT)
+        .buildSpec();
+    resp = resource.postTable(TableId.INPUT_SCHEMA, "inline", inputSpec, null, 0, postBy(CatalogTests.WRITER_USER));
     assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
 
     // Wrong spec type
@@ -165,10 +160,8 @@ public class CatalogResourceTest
   @Test
   public void testUpdate()
   {
-    DatasourceSpec dsSpec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
-        .build();
     final String tableName = "update";
+    TableSpec dsSpec = TableBuilder.detailTable(tableName, "P1D").buildSpec();
 
     // Does not exist
     Response resp = resource.postTable(TableId.DRUID_SCHEMA, tableName, dsSpec, "replace", 0, postBy(CatalogTests.SUPER_USER));
@@ -202,10 +195,8 @@ public class CatalogResourceTest
   @Test
   public void testForce()
   {
-    DatasourceSpec dsSpec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
-        .build();
     final String tableName = "force";
+    TableSpec dsSpec = TableBuilder.detailTable(tableName, "P1D").buildSpec();
 
     // Create the table
     Response resp = resource.postTable(TableId.DRUID_SCHEMA, tableName, dsSpec, "force", 0, postBy(CatalogTests.WRITER_USER));
@@ -221,12 +212,10 @@ public class CatalogResourceTest
   @Test
   public void testRead()
   {
-    DatasourceSpec dsSpec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
-        .build();
+    final String tableName = "read";
+    TableSpec dsSpec = TableBuilder.detailTable(tableName, "P1D").buildSpec();
 
     // Missing schema name
-    String tableName = "read";
     Response resp = resource.getTable("", tableName, getBy(CatalogTests.SUPER_USER));
     assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), resp.getStatus());
 
@@ -307,9 +296,8 @@ public class CatalogResourceTest
     assertEquals(Response.Status.NOT_FOUND.getStatusCode(), resp.getStatus());
 
     // Create a table
-    DatasourceSpec dsSpec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
-        .build();
+    final String tableName = "list";
+    TableSpec dsSpec = TableBuilder.detailTable(tableName, "P1D").buildSpec();
     resp = resource.postTable(TableId.DRUID_SCHEMA, "list", dsSpec, null, 0, postBy(CatalogTests.WRITER_USER));
     assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
 
@@ -379,9 +367,7 @@ public class CatalogResourceTest
     assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
 
     // Create the table
-    DatasourceSpec dsSpec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
-        .build();
+    TableSpec dsSpec = TableBuilder.detailTable(tableName, "P1D").buildSpec();
     resp = resource.postTable(TableId.DRUID_SCHEMA, tableName, dsSpec, null, 0, postBy(CatalogTests.WRITER_USER));
     assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
 
@@ -405,9 +391,7 @@ public class CatalogResourceTest
   {
     // Operations for one table - create
     String table1Name = "lifecycle1";
-    DatasourceSpec dsSpec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
-        .build();
+    TableSpec dsSpec = TableBuilder.detailTable(table1Name, "P1D").buildSpec();
     Response resp = resource.postTable(TableId.DRUID_SCHEMA, table1Name, dsSpec, null, 0, postBy(CatalogTests.WRITER_USER));
     assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
     long version = getVersion(resp);
@@ -435,10 +419,8 @@ public class CatalogResourceTest
     assertEquals(id1.name(), tables.get(0));
 
     // update
-    DatasourceSpec defn2 = DatasourceSpec.builder()
-        .segmentGranularity("PT1H")
-        .build();
-    resp = resource.postTable(TableId.DRUID_SCHEMA, table1Name, defn2, "replace", version, postBy(CatalogTests.WRITER_USER));
+    TableSpec table2Spec = TableBuilder.detailTable(table1Name, "PT1H").buildSpec();
+    resp = resource.postTable(TableId.DRUID_SCHEMA, table1Name, table2Spec, "replace", version, postBy(CatalogTests.WRITER_USER));
     assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
     assertTrue(getVersion(resp) > version);
     version = getVersion(resp);
@@ -449,7 +431,7 @@ public class CatalogResourceTest
     TableMetadata read = (TableMetadata) resp.getEntity();
     assertEquals(read1.creationTime(), read.creationTime());
     assertEquals(version, read.updateTime());
-    assertEquals(defn2, read.spec());
+    assertEquals(table2Spec, read.spec());
 
     // add second table
     String table2Name = "lifecycle2";
@@ -494,12 +476,11 @@ public class CatalogResourceTest
   public void testMoveColumn()
   {
     String tableName = "move";
-    DatasourceSpec dsSpec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
+    TableSpec dsSpec = TableBuilder.detailTable(tableName, "P1D")
         .column("a", "VARCHAR")
         .column("b", "BIGINT")
         .column("c", "FLOAT")
-        .build();
+        .buildSpec();
     Response resp = resource.postTable(TableId.DRUID_SCHEMA, tableName, dsSpec, null, 0, postBy(CatalogTests.WRITER_USER));
     assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
     long version = getVersion(resp);
@@ -534,7 +515,7 @@ public class CatalogResourceTest
     TableMetadata read = (TableMetadata) resp.getEntity();
     assertEquals(
         Arrays.asList("c", "a", "b"),
-        CatalogUtils.columnNames(((DatasourceSpec) read.spec()).columns())
+        CatalogUtils.columnNames(read.spec().columns())
     );
 
     // Other cases are tested in CommandTest since all the REST plumbing is the same
@@ -544,9 +525,8 @@ public class CatalogResourceTest
   public void testHideColumns()
   {
     String tableName = "hide";
-    DatasourceSpec dsSpec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
-        .build();
+    TableSpec dsSpec = TableBuilder.detailTable(tableName, "P1D")
+         .buildSpec();
     Response resp = resource.postTable(TableId.DRUID_SCHEMA, tableName, dsSpec, null, 0, postBy(CatalogTests.WRITER_USER));
     assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
     long version = getVersion(resp);
@@ -566,7 +546,7 @@ public class CatalogResourceTest
 
     resp = resource.getTable(TableId.DRUID_SCHEMA, tableName, postBy(CatalogTests.READER_USER));
     TableMetadata read = (TableMetadata) resp.getEntity();
-    assertNull(((DatasourceSpec) read.spec()).hiddenColumns());
+    assertNull(read.spec().properties().get(DatasourceDefn.HIDDEN_COLUMNS_FIELD));
 
     // Hide
     cmd = new HideColumns(Arrays.asList("a", "b"), null);
@@ -575,7 +555,10 @@ public class CatalogResourceTest
 
     resp = resource.getTable(TableId.DRUID_SCHEMA, tableName, postBy(CatalogTests.READER_USER));
     read = (TableMetadata) resp.getEntity();
-    assertEquals(Arrays.asList("a", "b"), ((DatasourceSpec) read.spec()).hiddenColumns());
+    assertEquals(
+        Arrays.asList("a", "b"),
+        read.spec().properties().get(DatasourceDefn.HIDDEN_COLUMNS_FIELD)
+    );
     assertTrue(read.updateTime() > version);
 
     // Unhide + hide
@@ -585,7 +568,10 @@ public class CatalogResourceTest
 
     resp = resource.getTable(TableId.DRUID_SCHEMA, tableName, postBy(CatalogTests.READER_USER));
     read = (TableMetadata) resp.getEntity();
-    assertEquals(Arrays.asList("b", "c"), ((DatasourceSpec) read.spec()).hiddenColumns());
+    assertEquals(
+        Arrays.asList("b", "c"),
+        read.spec().properties().get(DatasourceDefn.HIDDEN_COLUMNS_FIELD)
+    );
     assertTrue(read.updateTime() > version);
 
     // Other cases are tested in CommandTest
@@ -595,12 +581,11 @@ public class CatalogResourceTest
   public void testDropColumns()
   {
     String tableName = "drop";
-    DatasourceSpec dsSpec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
+    TableSpec dsSpec = TableBuilder.detailTable(tableName, "P1D")
         .column("a", "VARCHAR")
         .column("b", "BIGINT")
         .column("c", "FLOAT")
-        .build();
+        .buildSpec();
 
     Response resp = resource.postTable(TableId.DRUID_SCHEMA, tableName, dsSpec, null, 0, postBy(CatalogTests.WRITER_USER));
     assertEquals(Response.Status.OK.getStatusCode(), resp.getStatus());
@@ -622,7 +607,7 @@ public class CatalogResourceTest
     TableMetadata read = (TableMetadata) resp.getEntity();
     assertEquals(
         CatalogUtils.columnNames(dsSpec.columns()),
-        CatalogUtils.columnNames(((DatasourceSpec) read.spec()).columns())
+        CatalogUtils.columnNames(read.spec().columns())
     );
 
     // Drop
@@ -634,7 +619,7 @@ public class CatalogResourceTest
     assertTrue(read.updateTime() > version);
     assertEquals(
         Collections.singletonList("b"),
-        CatalogUtils.columnNames(((DatasourceSpec) read.spec()).columns())
+        CatalogUtils.columnNames(read.spec().columns())
     );
   }
 }

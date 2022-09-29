@@ -20,17 +20,18 @@
 package org.apache.druid.catalog.storage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.druid.catalog.specs.ResolvedTable;
-import org.apache.druid.catalog.specs.TableId;
-import org.apache.druid.catalog.specs.table.SchemaRegistry;
-import org.apache.druid.catalog.specs.table.SchemaRegistry.SchemaSpec;
-import org.apache.druid.catalog.specs.table.SchemaRegistryImpl;
-import org.apache.druid.catalog.specs.table.TableDefnRegistry;
+import org.apache.druid.catalog.model.ResolvedTable;
+import org.apache.druid.catalog.model.SchemaRegistry;
+import org.apache.druid.catalog.model.SchemaRegistryImpl;
+import org.apache.druid.catalog.model.TableDefnRegistry;
+import org.apache.druid.catalog.model.TableId;
+import org.apache.druid.catalog.model.TableMetadata;
+import org.apache.druid.catalog.model.SchemaRegistry.SchemaSpec;
+import org.apache.druid.catalog.storage.sql.CatalogManager;
 import org.apache.druid.catalog.sync.MetadataCatalog.CatalogListener;
 import org.apache.druid.catalog.sync.MetadataCatalog.CatalogSource;
 import org.apache.druid.catalog.sync.MetadataCatalog.CatalogUpdateProvider;
 import org.apache.druid.guice.annotations.Json;
-import org.apache.druid.metadata.catalog.CatalogManager;
 import org.apache.druid.server.security.AuthorizerMapper;
 
 import javax.inject.Inject;
@@ -137,5 +138,12 @@ public class CatalogStorage implements CatalogUpdateProvider, CatalogSource
   public TableDefnRegistry tableRegistry()
   {
     return tableRegistry;
+  }
+
+  @Override
+  public ResolvedTable resolveTable(TableId id)
+  {
+    TableMetadata table = table(id);
+    return table == null ? null : tableRegistry.resolve(table.spec());
   }
 }

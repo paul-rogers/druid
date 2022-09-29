@@ -1,10 +1,10 @@
 package org.apache.druid.catalog.plan;
 
-import org.apache.druid.catalog.specs.ColumnDefn.ResolvedColumn;
-import org.apache.druid.catalog.specs.MeasureTypes.MeasureType;
-import org.apache.druid.catalog.specs.Columns;
-import org.apache.druid.catalog.specs.MeasureTypes;
-import org.apache.druid.catalog.specs.table.DatasourceDefn;
+import org.apache.druid.catalog.model.Columns;
+import org.apache.druid.catalog.model.ColumnDefn.ResolvedColumn;
+import org.apache.druid.catalog.model.table.DatasourceDefn;
+import org.apache.druid.catalog.model.table.MeasureTypes;
+import org.apache.druid.catalog.model.table.MeasureTypes.MeasureType;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.segment.column.ColumnType;
 

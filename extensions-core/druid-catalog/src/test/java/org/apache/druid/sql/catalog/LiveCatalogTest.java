@@ -19,16 +19,15 @@
 
 package org.apache.druid.sql.catalog;
 
-import org.apache.druid.catalog.specs.Columns;
-import org.apache.druid.catalog.specs.TableId;
+import org.apache.druid.catalog.model.Columns;
+import org.apache.druid.catalog.model.TableMetadata;
+import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.storage.CatalogStorage;
 import org.apache.druid.catalog.storage.CatalogTests;
-import org.apache.druid.catalog.storage.DatasourceSpec;
-import org.apache.druid.catalog.storage.TableMetadata;
+import org.apache.druid.catalog.storage.sql.CatalogManager.DuplicateKeyException;
 import org.apache.druid.catalog.sync.LocalMetadataCatalog;
 import org.apache.druid.catalog.sync.MetadataCatalog;
 import org.apache.druid.metadata.TestDerbyConnector;
-import org.apache.druid.metadata.catalog.CatalogManager.DuplicateKeyException;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
@@ -75,12 +74,8 @@ public class LiveCatalogTest
     CatalogTests.tearDown(dbFixture);
   }
 
-  private void createTableMetadata(String name, DatasourceSpec spec)
+  private void createTableMetadata(TableMetadata table)
   {
-    TableMetadata table = TableMetadata.newTable(
-        TableId.DRUID_SCHEMA,
-        name,
-        spec);
     try {
       storage.tables().create(table);
     } catch (DuplicateKeyException e) {
@@ -94,30 +89,29 @@ public class LiveCatalogTest
    */
   private void populateCatalog(boolean withTimeCol)
   {
-    DatasourceSpec spec = DatasourceSpec.builder()
-        .segmentGranularity("PT1D")
+    TableMetadata table = TableBuilder.detailTable("trivial", "P1D")
         .build();
-    createTableMetadata("trivial", spec);
+    createTableMetadata(table);
 
-    DatasourceSpec.Builder builder = DatasourceSpec.builder();
+    TableBuilder builder = TableBuilder.detailTable("merge", "P1D");
     if (withTimeCol) {
       builder.timeColumn();
     }
-    spec = builder
-        .segmentGranularity("PT1D")
-        .column("dsa", null)
-        .column("dsb", Columns.VARCHAR)
+    table = builder
+        .column("dsa", null) // Use physical type
+        .column("dsb", Columns.VARCHAR) // Override types
         .column("dsc", Columns.BIGINT)
         .column("dsd", Columns.FLOAT)
         .column("dse", Columns.DOUBLE)
-        .column("newa", null)
-        .column("newb", Columns.VARCHAR)
+        .column("dsi", null) // Both null
+        .column("newa", null) // Catalog only, no type
+        .column("newb", Columns.VARCHAR) // Catalog only, defined type
         .column("newc", Columns.BIGINT)
         .column("newd", Columns.FLOAT)
         .column("newe", Columns.DOUBLE)
         .hiddenColumns(Arrays.asList("dsf", "dsg"))
         .build();
-    createTableMetadata("merge", spec);
+    createTableMetadata(table);
   }
 
   private PhysicalDatasourceMetadata mockDatasource()
@@ -132,6 +126,8 @@ public class LiveCatalogTest
         .add("dsf", ColumnType.STRING)
         .add("dsg", ColumnType.LONG)
         .add("dsh", ColumnType.DOUBLE)
+        .add("dsi", null) // In catalog, but null type
+        .add("dsj", null) // Not in catalog
         .build();
     return new PhysicalDatasourceMetadata(
         new TableDataSource("merge"),
@@ -161,7 +157,7 @@ public class LiveCatalogTest
 
     // Catalog, no datasource
     DruidTable table = resolver.resolveDatasource("merge", null);
-    assertEquals(11, table.getRowSignature().size());
+    assertEquals(12, table.getRowSignature().size());
     assertEquals("merge", ((TableDataSource) table.getDataSource()).getName());
 
     // Spot check
@@ -169,12 +165,13 @@ public class LiveCatalogTest
     assertColumnEquals(table, 1, "dsa", ColumnType.STRING);
     assertColumnEquals(table, 2, "dsb", ColumnType.STRING);
     assertColumnEquals(table, 3, "dsc", ColumnType.LONG);
+    assertColumnEquals(table, 6, "dsi", ColumnType.STRING);
 
     // Catalog, with datasource, result is merged
     // Catalog has no time column
     PhysicalDatasourceMetadata dsMetadata = mockDatasource();
     table = resolver.resolveDatasource("merge", dsMetadata);
-    assertEquals(12, table.getRowSignature().size());
+    assertEquals(14, table.getRowSignature().size());
     assertSame(dsMetadata.dataSource(), table.getDataSource());
     assertEquals(dsMetadata.isBroadcast(), table.isBroadcast());
     assertEquals(dsMetadata.isJoinable(), table.isJoinable());
@@ -185,10 +182,12 @@ public class LiveCatalogTest
     assertColumnEquals(table, 2, "dsc", ColumnType.LONG);
     assertColumnEquals(table, 3, "dsd", ColumnType.FLOAT);
     assertColumnEquals(table, 4, "dse", ColumnType.DOUBLE);
-    assertColumnEquals(table, 5, "newa", ColumnType.STRING);
-    assertColumnEquals(table, 9, "newe", ColumnType.DOUBLE);
-    assertColumnEquals(table, 10, Columns.TIME_COLUMN, ColumnType.LONG);
-    assertColumnEquals(table, 11, "dsh", ColumnType.DOUBLE);
+    assertColumnEquals(table, 5, "dsi", ColumnType.STRING);
+    assertColumnEquals(table, 6, "newa", ColumnType.STRING);
+    assertColumnEquals(table, 10, "newe", ColumnType.DOUBLE);
+    assertColumnEquals(table, 11, Columns.TIME_COLUMN, ColumnType.LONG);
+    assertColumnEquals(table, 12, "dsh", ColumnType.DOUBLE);
+    assertColumnEquals(table, 13, "dsj", ColumnType.STRING);
   }
 
   @Test
@@ -198,7 +197,7 @@ public class LiveCatalogTest
 
     // Catalog, no datasource
     DruidTable table = resolver.resolveDatasource("merge", null);
-    assertEquals(11, table.getRowSignature().size());
+    assertEquals(12, table.getRowSignature().size());
     assertEquals("merge", ((TableDataSource) table.getDataSource()).getName());
 
     // Spot check
@@ -206,11 +205,14 @@ public class LiveCatalogTest
     assertColumnEquals(table, 1, "dsa", ColumnType.STRING);
     assertColumnEquals(table, 2, "dsb", ColumnType.STRING);
     assertColumnEquals(table, 3, "dsc", ColumnType.LONG);
+    assertColumnEquals(table, 6, "dsi", ColumnType.STRING);
+    assertColumnEquals(table, 7, "newa", ColumnType.STRING);
+    assertColumnEquals(table, 11, "newe", ColumnType.DOUBLE);
 
     // Catalog, with datasource, result is merged
     PhysicalDatasourceMetadata dsMetadata = mockDatasource();
     table = resolver.resolveDatasource("merge", dsMetadata);
-    assertEquals(12, table.getRowSignature().size());
+    assertEquals(14, table.getRowSignature().size());
     assertSame(dsMetadata.dataSource(), table.getDataSource());
     assertEquals(dsMetadata.isBroadcast(), table.isBroadcast());
     assertEquals(dsMetadata.isJoinable(), table.isJoinable());
@@ -222,15 +224,17 @@ public class LiveCatalogTest
     assertColumnEquals(table, 3, "dsc", ColumnType.LONG);
     assertColumnEquals(table, 4, "dsd", ColumnType.FLOAT);
     assertColumnEquals(table, 5, "dse", ColumnType.DOUBLE);
-    assertColumnEquals(table, 6, "newa", ColumnType.STRING);
-    assertColumnEquals(table, 10, "newe", ColumnType.DOUBLE);
-    assertColumnEquals(table, 11, "dsh", ColumnType.DOUBLE);
+    assertColumnEquals(table, 6, "dsi", ColumnType.STRING);
+    assertColumnEquals(table, 7, "newa", ColumnType.STRING);
+    assertColumnEquals(table, 11, "newe", ColumnType.DOUBLE);
+    assertColumnEquals(table, 12, "dsh", ColumnType.DOUBLE);
+    assertColumnEquals(table, 13, "dsj", ColumnType.STRING);
   }
 
   private void assertColumnEquals(DruidTable table, int i, String name, ColumnType type)
   {
     RowSignature sig = table.getRowSignature();
     assertEquals(name, sig.getColumnName(i));
-    assertEquals(type, sig.getColumnType(i).get());
+    assertEquals(type, sig.getColumnType(i).orElse(null));
   }
 }

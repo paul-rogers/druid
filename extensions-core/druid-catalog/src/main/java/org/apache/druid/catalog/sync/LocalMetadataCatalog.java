@@ -19,10 +19,11 @@
 
 package org.apache.druid.catalog.sync;
 
-import org.apache.druid.catalog.specs.TableId;
-import org.apache.druid.catalog.specs.table.SchemaRegistry;
-import org.apache.druid.catalog.specs.table.SchemaRegistry.SchemaSpec;
-import org.apache.druid.catalog.storage.TableMetadata;
+import org.apache.druid.catalog.model.ResolvedTable;
+import org.apache.druid.catalog.model.SchemaRegistry;
+import org.apache.druid.catalog.model.SchemaRegistry.SchemaSpec;
+import org.apache.druid.catalog.model.TableId;
+import org.apache.druid.catalog.model.TableMetadata;
 
 import javax.inject.Inject;
 
@@ -52,9 +53,15 @@ public class LocalMetadataCatalog implements MetadataCatalog
   }
 
   @Override
-  public TableMetadata resolveTable(TableId tableId)
+  public TableMetadata getTable(TableId tableId)
   {
     return catalog.table(tableId);
+  }
+
+  @Override
+  public ResolvedTable resolveTable(TableId tableId)
+  {
+    return catalog.resolveTable(tableId);
   }
 
   @Override

@@ -19,7 +19,7 @@
 
 package org.apache.druid.catalog.storage;
 
-import org.apache.druid.catalog.specs.table.SchemaRegistry.SchemaSpec;
+import org.apache.druid.catalog.model.SchemaRegistry.SchemaSpec;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthorizationUtils;

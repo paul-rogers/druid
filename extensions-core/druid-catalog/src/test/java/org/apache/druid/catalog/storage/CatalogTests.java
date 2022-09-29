@@ -21,13 +21,12 @@ package org.apache.druid.catalog.storage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.catalog.model.ExternalSpec.ExternalSpecConverter;
+import org.apache.druid.catalog.storage.sql.CatalogManager;
+import org.apache.druid.catalog.storage.sql.SQLCatalogManager;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.metadata.TestDerbyConnector.DerbyConnectorRule;
-import org.apache.druid.metadata.catalog.CatalogManager;
-import org.apache.druid.metadata.catalog.SQLCatalogManager;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -92,7 +91,6 @@ public class CatalogTests
   {
     public CatalogManager manager;
     public CatalogStorage storage;
-    public ExternalSpecConverter externModel;
 
     public DbFixture(DerbyConnectorRule derbyConnectorRule)
     {
@@ -104,7 +102,6 @@ public class CatalogTests
       );
       manager = new SQLCatalogManager(metastoreMgr);
       manager.start();
-      externModel = new ExternalSpecConverter(JSON_MAPPER);
       storage = new CatalogStorage(
           manager,
           AUTH_MAPPER,

@@ -21,8 +21,8 @@ package org.apache.druid.catalog.storage;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.druid.catalog.specs.CatalogUtils;
-import org.apache.druid.catalog.specs.ColumnSpec;
+import org.apache.druid.catalog.model.CatalogUtils;
+import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.java.util.common.ISE;
 
 import javax.annotation.Nullable;

@@ -19,8 +19,9 @@
 
 package org.apache.druid.catalog.sync;
 
-import org.apache.druid.catalog.specs.TableId;
-import org.apache.druid.catalog.storage.TableMetadata;
+import org.apache.druid.catalog.model.ResolvedTable;
+import org.apache.druid.catalog.model.TableId;
+import org.apache.druid.catalog.model.TableMetadata;
 
 import java.util.List;
 import java.util.Set;
@@ -40,6 +41,7 @@ public interface MetadataCatalog
   {
     List<TableMetadata> tablesForSchema(String dbSchema);
     TableMetadata table(TableId id);
+    ResolvedTable resolveTable(TableId id);
   }
 
   interface CatalogListener
@@ -62,7 +64,8 @@ public interface MetadataCatalog
    * metadata. Views and input sources exist <i>only</i> if their
    * metadata exists. System tables never have metadata.
    */
-  TableMetadata resolveTable(TableId tableId);
+  TableMetadata getTable(TableId tableId);
+  ResolvedTable resolveTable(TableId tableId);
 
   /**
    * List of tables defined within the given schema. Does not filter the

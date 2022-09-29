@@ -21,14 +21,13 @@ package org.apache.druid.catalog.sync;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
-import org.apache.druid.catalog.specs.TableId;
+import org.apache.druid.catalog.http.CatalogListenerResource;
+import org.apache.druid.catalog.model.TableId;
+import org.apache.druid.catalog.model.TableMetadata;
+import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.storage.CatalogStorage;
 import org.apache.druid.catalog.storage.CatalogTests;
-import org.apache.druid.catalog.storage.TableMetadata;
-import org.apache.druid.catalog.sync.CachedMetadataCatalog;
-import org.apache.druid.catalog.sync.MetadataCatalog;
 import org.apache.druid.catalog.sync.MetadataCatalog.CatalogListener;
-import org.apache.druid.server.http.CatalogListenerResource;
 import org.apache.druid.server.http.catalog.DummyRequest;
 
 import javax.ws.rs.core.MediaType;
@@ -53,7 +52,7 @@ public class MockCatalogSync implements CatalogListener
       boolean useSmile
   )
   {
-    this.catalog = new CachedMetadataCatalog(storage, storage.schemaRegistry);
+    this.catalog = new CachedMetadataCatalog(storage, storage.schemaRegistry(), jsonMapper);
     this.listenerResource = new CatalogListenerResource(
         catalog,
         smileMapper,
@@ -88,9 +87,8 @@ public class MockCatalogSync implements CatalogListener
   public void deleted(TableId tableId)
   {
     TableMetadata spec = TableMetadata.newTable(
-        tableId.schema(),
-        tableId.name(),
-        new TableSpec.Tombstone()
+        tableId,
+        new TableSpec(CatalogUpdateNotifier.TOMBSTONE_TABLE_TYPE, null, null)
     );
     doSync(spec);
   }

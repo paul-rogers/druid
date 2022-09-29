@@ -21,11 +21,14 @@ package org.apache.druid.catalog.guice;
 
 import com.fasterxml.jackson.databind.Module;
 import com.google.inject.Binder;
-import org.apache.druid.catalog.specs.table.SchemaRegistry;
-import org.apache.druid.catalog.specs.table.SchemaRegistryImpl;
+import org.apache.druid.catalog.http.CatalogResource;
+import org.apache.druid.catalog.model.SchemaRegistry;
+import org.apache.druid.catalog.model.SchemaRegistryImpl;
 import org.apache.druid.catalog.storage.CatalogStorage;
 import org.apache.druid.catalog.storage.MetastoreManager;
 import org.apache.druid.catalog.storage.MetastoreManagerImpl;
+import org.apache.druid.catalog.storage.sql.CatalogManager;
+import org.apache.druid.catalog.storage.sql.SQLCatalogManager;
 import org.apache.druid.catalog.sync.CatalogUpdateNotifier;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.Jerseys;
@@ -34,9 +37,6 @@ import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.annotations.LoadScope;
 import org.apache.druid.initialization.DruidModule;
-import org.apache.druid.metadata.catalog.CatalogManager;
-import org.apache.druid.metadata.catalog.SQLCatalogManager;
-import org.apache.druid.server.http.CatalogResource;
 
 import java.util.Collections;
 import java.util.List;

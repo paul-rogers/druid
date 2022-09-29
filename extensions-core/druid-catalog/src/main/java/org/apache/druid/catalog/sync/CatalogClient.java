@@ -21,17 +21,20 @@ package org.apache.druid.catalog.sync;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.druid.catalog.specs.TableId;
-import org.apache.druid.catalog.storage.TableMetadata;
+import org.apache.druid.catalog.http.CatalogResource;
+import org.apache.druid.catalog.model.ResolvedTable;
+import org.apache.druid.catalog.model.TableDefnRegistry;
+import org.apache.druid.catalog.model.TableId;
+import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.sync.MetadataCatalog.CatalogSource;
 import org.apache.druid.client.coordinator.Coordinator;
 import org.apache.druid.discovery.DruidLeaderClient;
+import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.annotations.Smile;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.http.client.Request;
 import org.apache.druid.java.util.http.client.response.StringFullResponseHolder;
-import org.apache.druid.server.http.CatalogResource;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
@@ -66,15 +69,18 @@ public class CatalogClient implements CatalogSource
 
   private final DruidLeaderClient coordClient;
   private final ObjectMapper smileMapper;
+  private final TableDefnRegistry tableRegistry;
 
   @Inject
   public CatalogClient(
       @Coordinator DruidLeaderClient coordClient,
-      @Smile ObjectMapper smileMapper
+      @Smile ObjectMapper smileMapper,
+      @Json ObjectMapper jsonMapper
   )
   {
     this.coordClient = coordClient;
     this.smileMapper = smileMapper;
+    this.tableRegistry = new TableDefnRegistry(jsonMapper);
   }
 
   @Override
@@ -93,6 +99,13 @@ public class CatalogClient implements CatalogSource
     String url = StringUtils.replace(TABLE_SYNC_PATH, "{dbSchema}", id.schema());
     url = StringUtils.replace(url, "{name}", id.name());
     return send(url, TABLE_METADATA_TYPE);
+  }
+
+  @Override
+  public ResolvedTable resolveTable(TableId id)
+  {
+    TableMetadata table = table(id);
+    return table == null ? null : tableRegistry.resolve(table.spec());
   }
 
   /**

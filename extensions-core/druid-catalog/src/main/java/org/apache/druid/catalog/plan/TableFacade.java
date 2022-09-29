@@ -1,9 +1,11 @@
 package org.apache.druid.catalog.plan;
 
-import org.apache.druid.catalog.specs.CatalogObjectFacade;
-import org.apache.druid.catalog.specs.ResolvedTable;
-import org.apache.druid.catalog.specs.TableSpec;
+import org.apache.druid.catalog.model.CatalogObjectFacade;
+import org.apache.druid.catalog.model.ColumnSpec;
+import org.apache.druid.catalog.model.ResolvedTable;
+import org.apache.druid.catalog.model.TableSpec;
 
+import java.util.List;
 import java.util.Map;
 
 public class TableFacade extends CatalogObjectFacade
@@ -24,5 +26,10 @@ public class TableFacade extends CatalogObjectFacade
   public Map<String, Object> properties()
   {
     return spec().properties();
+  }
+
+  public List<ColumnSpec> columns()
+  {
+    return spec().columns();
   }
 }

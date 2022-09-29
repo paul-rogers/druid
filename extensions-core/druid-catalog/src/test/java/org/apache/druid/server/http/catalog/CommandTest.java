@@ -19,9 +19,10 @@
 
 package org.apache.druid.server.http.catalog;
 
-import org.apache.druid.catalog.specs.CatalogUtils;
-import org.apache.druid.catalog.storage.DatasourceColumnSpec;
-import org.apache.druid.catalog.storage.DatasourceSpec;
+import org.apache.druid.catalog.model.CatalogUtils;
+import org.apache.druid.catalog.model.ColumnSpec;
+import org.apache.druid.catalog.model.TableSpec;
+import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.storage.HideColumns;
 import org.apache.druid.catalog.storage.MoveColumn;
 import org.junit.Test;
@@ -38,16 +39,15 @@ public class CommandTest
   @Test
   public void testMoveColumn()
   {
-    DatasourceSpec dsSpec = DatasourceSpec.builder()
-        .segmentGranularity("P1D")
+    TableSpec dsSpec = TableBuilder.detailTable("foo", "P1D")
         .column("a", "VARCHAR")
         .column("b", "BIGINT")
         .column("c", "FLOAT")
-        .build();
+        .buildSpec();
 
     // Move first
     MoveColumn cmd = new MoveColumn("c", MoveColumn.Position.FIRST, null);
-    List<DatasourceColumnSpec> revised = cmd.perform(dsSpec.columns());
+    List<ColumnSpec> revised = cmd.perform(dsSpec.columns());
     assertEquals(
         Arrays.asList("c", "a", "b"),
         CatalogUtils.columnNames(revised)

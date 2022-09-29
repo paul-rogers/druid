@@ -20,10 +20,11 @@
 package org.apache.druid.catalog.sync;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.druid.catalog.specs.TableId;
-import org.apache.druid.catalog.specs.TableSpec;
+import org.apache.druid.catalog.http.CatalogListenerResource;
+import org.apache.druid.catalog.model.TableId;
+import org.apache.druid.catalog.model.TableMetadata;
+import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.storage.CatalogStorage;
-import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.catalog.sync.MetadataCatalog.CatalogListener;
 import org.apache.druid.catalog.sync.RestUpdateSender.RestSender;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
@@ -35,7 +36,6 @@ import org.apache.druid.java.util.common.lifecycle.LifecycleStart;
 import org.apache.druid.java.util.common.lifecycle.LifecycleStop;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.http.CatalogListenerResource;
 import org.joda.time.Duration;
 
 import javax.inject.Inject;

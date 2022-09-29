@@ -108,7 +108,7 @@ public class DatasourceTable extends DruidTable
       Map<String, EffectiveColumnMetadata> columns = new HashMap<>();
       for (int i = 0; i < rowSignature.size(); i++) {
         String colName = rowSignature.getColumnName(i);
-        ColumnType colType = rowSignature.getColumnType(i).get();
+        ColumnType colType = rowSignature.getColumnType(i).orElse(ColumnType.STRING);
         AggregatorFactory agg = aggregators == null ? null : aggregators.get(colName);
 
         EffectiveColumnMetadata colMetadata = EffectiveColumnMetadata.fromPhysical(colName, colType, agg);

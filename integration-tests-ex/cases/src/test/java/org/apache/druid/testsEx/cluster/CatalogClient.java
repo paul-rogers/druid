@@ -20,13 +20,13 @@
 package org.apache.druid.testsEx.cluster;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import org.apache.druid.catalog.specs.TableId;
+import org.apache.druid.catalog.http.CatalogResource;
+import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.storage.HideColumns;
 import org.apache.druid.catalog.storage.MoveColumn;
 import org.apache.druid.catalog.storage.TableMetadata;
 import org.apache.druid.catalog.storage.TableSpec;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.server.http.CatalogResource;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 
 import java.util.List;

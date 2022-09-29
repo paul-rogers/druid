@@ -19,11 +19,15 @@
 
 package org.apache.druid.catalog.sync;
 
-import org.apache.druid.catalog.specs.TableId;
-import org.apache.druid.catalog.specs.table.SchemaRegistry;
-import org.apache.druid.catalog.specs.table.SchemaRegistry.SchemaSpec;
-import org.apache.druid.catalog.storage.TableMetadata;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.druid.catalog.model.ResolvedTable;
+import org.apache.druid.catalog.model.SchemaRegistry;
+import org.apache.druid.catalog.model.TableId;
+import org.apache.druid.catalog.model.SchemaRegistry.SchemaSpec;
+import org.apache.druid.catalog.model.TableDefnRegistry;
+import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.sync.MetadataCatalog.CatalogListener;
+import org.apache.druid.guice.annotations.Json;
 
 import javax.inject.Inject;
 
@@ -148,22 +152,32 @@ public class CachedMetadataCatalog implements MetadataCatalog, CatalogListener
   private final ConcurrentHashMap<String, SchemaEntry> schemaCache = new ConcurrentHashMap<>();
   private final CatalogSource base;
   private final SchemaRegistry schemaRegistry;
+  private final TableDefnRegistry tableRegistry;
 
   @Inject
   public CachedMetadataCatalog(
       CatalogSource catalog,
-      SchemaRegistry schemaRegistry
+      SchemaRegistry schemaRegistry,
+      @Json ObjectMapper jsonMapper
   )
   {
     this.base = catalog;
     this.schemaRegistry = schemaRegistry;
+    this.tableRegistry = new TableDefnRegistry(jsonMapper);
   }
 
   @Override
-  public TableMetadata resolveTable(TableId tableId)
+  public TableMetadata getTable(TableId tableId)
   {
     SchemaEntry schemaEntry = entryFor(tableId.schema());
     return schemaEntry == null ? null : schemaEntry.resolveTable(tableId);
+  }
+
+  @Override
+  public ResolvedTable resolveTable(TableId tableId)
+  {
+    TableMetadata table = getTable(tableId);
+    return table == null ? null : tableRegistry.resolve(table.spec());
   }
 
   @Override

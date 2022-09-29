@@ -19,10 +19,10 @@
 
 package org.apache.druid.catalog.plan;
 
-import org.apache.druid.catalog.specs.CatalogUtils;
-import org.apache.druid.catalog.specs.ClusterKeySpec;
-import org.apache.druid.catalog.specs.ResolvedTable;
-import org.apache.druid.catalog.specs.table.DatasourceDefn;
+import org.apache.druid.catalog.model.CatalogUtils;
+import org.apache.druid.catalog.model.ResolvedTable;
+import org.apache.druid.catalog.model.table.ClusterKeySpec;
+import org.apache.druid.catalog.model.table.DatasourceDefn;
 import org.apache.druid.java.util.common.granularity.Granularity;
 
 import java.util.Collections;
@@ -43,6 +43,11 @@ public class DatasourceFacade extends TableFacade
   public boolean isDetail()
   {
     return !isRollup();
+  }
+
+  public String segmentGranularityString()
+  {
+    return stringProperty(DatasourceDefn.SEGMENT_GRANULARITY_FIELD);
   }
 
   public Granularity segmentGranularity()

@@ -24,13 +24,14 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.druid.catalog.specs.ClusterKeySpec;
-import org.apache.druid.catalog.specs.Columns;
-import org.apache.druid.catalog.specs.TableId;
-import org.apache.druid.catalog.storage.DatasourceColumnSpec;
-import org.apache.druid.catalog.storage.DatasourceSpec;
-import org.apache.druid.catalog.storage.TableMetadata;
-import org.apache.druid.catalog.storage.DatasourceColumnSpec.MeasureSpec;
+import org.apache.druid.catalog.model.CatalogUtils;
+import org.apache.druid.catalog.model.ColumnSpec;
+import org.apache.druid.catalog.model.Columns;
+import org.apache.druid.catalog.model.ResolvedTable;
+import org.apache.druid.catalog.model.TableId;
+import org.apache.druid.catalog.model.table.ClusterKeySpec;
+import org.apache.druid.catalog.model.table.DatasourceDefn;
+import org.apache.druid.catalog.plan.DatasourceFacade;
 import org.apache.druid.catalog.sync.MetadataCatalog;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.aggregation.AggregatorFactory;
@@ -58,6 +59,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 public class LiveCatalogResolver implements CatalogResolver
@@ -80,16 +82,17 @@ public class LiveCatalogResolver implements CatalogResolver
   @Override
   public void resolveInsert(BaseDruidSqlInsert insert, String datasource, Map<String, Object> context)
   {
-    DatasourceSpec dsSpec = datasourceSpec(datasource);
+    DatasourceFacade dsSpec = datasourceSpec(datasource);
     if (dsSpec == null) {
       return;
     }
 
     // Segment granularity
     if (insert.getPartitionedBy() == null) {
+      String gran = dsSpec.segmentGranularityString();
       insert.updateParitionedBy(
-          DatasourceSpec.asDruidGranularity(dsSpec.segmentGranularity()),
-          dsSpec.segmentGranularity());
+          CatalogUtils.asDruidGranularity(gran),
+          gran);
     }
 
     // Cluster keys
@@ -119,22 +122,23 @@ public class LiveCatalogResolver implements CatalogResolver
     }
 
     // Segment size
-    if (dsSpec.hasTargetSegmentRows()) {
-      context.put(CTX_ROWS_PER_SEGMENT, dsSpec.targetSegmentRows());
+    Integer target = dsSpec.targetSegmentRows();
+    if (target != null) {
+      context.put(CTX_ROWS_PER_SEGMENT, target);
     }
   }
 
-  private DatasourceSpec datasourceSpec(String name)
+  private DatasourceFacade datasourceSpec(String name)
   {
     TableId tableId = TableId.datasource(name);
-    TableMetadata table = catalog.resolveTable(tableId);
+    ResolvedTable table = catalog.resolveTable(tableId);
     if (table == null) {
       return null;
     }
-    if (!(table.spec() instanceof DatasourceSpec)) {
+    if (!DatasourceDefn.isDatasource(table)) {
       return null;
     }
-    return (DatasourceSpec) table.spec();
+    return new DatasourceFacade(table);
   }
 
   @Override
@@ -155,11 +159,11 @@ public class LiveCatalogResolver implements CatalogResolver
       @Nullable final PhysicalDatasourceMetadata dsMetadata
   )
   {
-    DatasourceSpec dsSpec = datasourceSpec(name);
+    DatasourceFacade dsSpec = datasourceSpec(name);
     if (dsSpec == null) {
       return null;
     }
-    if (dsSpec.columns().isEmpty()) {
+    if (dsSpec.spec().columns().isEmpty()) {
       return null;
     }
 
@@ -170,13 +174,13 @@ public class LiveCatalogResolver implements CatalogResolver
     }
   }
 
-  private DruidTable emptyDatasource(String name, DatasourceSpec dsSpec)
+  private DruidTable emptyDatasource(String name, DatasourceFacade dsSpec)
   {
     RowSignature.Builder builder = RowSignature.builder();
     Map<String, EffectiveColumnMetadata> columns = new HashMap<>();
     boolean isAggTable = dsSpec.isRollup();
     boolean hasTime = false;
-    for (DatasourceColumnSpec col : dsSpec.columns()) {
+    for (ColumnSpec col : dsSpec.columns()) {
       EffectiveColumnMetadata colMetadata = columnFromCatalog(isAggTable, col, null);
       if (colMetadata.kind() == ColumnKind.TIME) {
         hasTime = true;
@@ -211,9 +215,9 @@ public class LiveCatalogResolver implements CatalogResolver
         effectiveMetadata);
   }
 
-  private EffectiveColumnMetadata columnFromCatalog(boolean isAggTable, DatasourceColumnSpec col, ColumnType physicalType)
+  private EffectiveColumnMetadata columnFromCatalog(boolean isAggTable, ColumnSpec col, ColumnType physicalType)
   {
-    ColumnType type = col.druidType();
+    ColumnType type = Columns.druidType(col.sqlType());
     if (type != null) {
       // Use the type that the user provided.
     } else if (physicalType == null) {
@@ -226,7 +230,7 @@ public class LiveCatalogResolver implements CatalogResolver
     } else {
       type = physicalType;
     }
-    if (isAggTable && col instanceof MeasureSpec) {
+    if (isAggTable && DatasourceDefn.isMeasure(col)) {
       return new EffectiveMeasureMetadata(col.name(), type, null);
     }
     final ColumnKind kind;
@@ -243,47 +247,68 @@ public class LiveCatalogResolver implements CatalogResolver
   private DruidTable mergeDatasource(
       final String name,
       final PhysicalDatasourceMetadata dsMetadata,
-      final DatasourceSpec dsSpec)
+      final DatasourceFacade dsSpec
+  )
   {
-    boolean isAggTable = dsSpec.isRollup();
-    Set<String> physicalCols = new HashSet<>();
+    Set<String> hiddenCols;
+    List<String> hiddenColsProp = dsSpec.hiddenColumns();
+    if (hiddenColsProp == null) {
+      hiddenCols = new HashSet<>();
+    } else {
+      hiddenCols = new HashSet<>(hiddenColsProp);
+    }
+
+    // Track the physical columns.
     final RowSignature physicalSchema = dsMetadata.rowSignature();
+    Set<String> physicalCols = new HashSet<>();
     for (Entry<String, ColumnType> entry : physicalSchema.entries()) {
       physicalCols.add(entry.getKey());
     }
 
-    // Merge columns. All catalog-defined columns come first,
-    // in the order defined in the catalog.
+    // Merge columns. All catalog-defined columns come first, in the order
+    // defined in the catalog, ignoring hidden columns. (Ideally, the hidden
+    // columns are a disjoint set from the defined columns, but play it safe.)
+    boolean isAggTable = dsSpec.isRollup();
     final RowSignature.Builder builder = RowSignature.builder();
+    Map<String, AggregatorFactory> aggregators = dsMetadata.aggregators();
     Map<String, EffectiveColumnMetadata> columns = new HashMap<>();
-    for (DatasourceColumnSpec col : dsSpec.columns()) {
-      ColumnType type = col.druidType();
-      ColumnType physicalType = null;
-      if (physicalCols.remove(col.name())) {
-        physicalType = dsMetadata.rowSignature().getColumnType(col.name()).get();
+    for (ColumnSpec col : dsSpec.columns()) {
+      final String colName = col.name();
+      if (hiddenCols.contains(colName)) {
+        continue;
       }
-      EffectiveColumnMetadata colMetadata = columnFromCatalog(isAggTable, col, physicalType);
+
+      // Coerce type to that from the catalog, if provided, else use the
+      // physical type, if known.
+      ColumnType type = Columns.druidType(col.sqlType());
+      EffectiveColumnMetadata colMetadata = null;
+      if (physicalCols.remove(colName)) {
+        Optional<ColumnType> physicalType = dsMetadata.rowSignature().getColumnType(colName);
+        if (physicalType.isPresent()) {
+          AggregatorFactory agg = aggregators == null ? null : aggregators.get(colName);
+          type = type == null ? physicalType.get() : type;
+          colMetadata = EffectiveColumnMetadata.fromPhysical(colName, type, agg);
+        }
+      }
+      if (colMetadata == null) {
+        // Not in the physical schema, or physical type not known.
+        // Guess a type of STRING, since that's generally safe.
+        type = type == null ? ColumnType.STRING : type;
+        colMetadata = columnFromCatalog(isAggTable, col, type);
+      }
+
       builder.add(col.name(), type);
       columns.put(col.name(), colMetadata);
     }
 
-    // Mark any hidden columns. Assumes that the hidden columns are a disjoint set
-    // from the defined columns.
-    if (dsSpec.hiddenColumns() != null) {
-      for (String colName : dsSpec.hiddenColumns()) {
-        physicalCols.remove(colName);
-      }
-    }
-
-    // Any remaining columns follow, if not marked as hidden
-    // in the catalog.
-    Map<String, AggregatorFactory> aggregators = dsMetadata.aggregators();
+    // Any remaining un-hidden physical columns follow.
+    // Use the physical type, except if not known, in which case guess String.
     for (int i = 0; i < physicalSchema.size(); i++) {
       String colName = physicalSchema.getColumnName(i);
-      if (!physicalCols.contains(colName)) {
+      if (!physicalCols.contains(colName) || hiddenCols.contains(colName)) {
         continue;
       }
-      ColumnType physicalType = dsMetadata.rowSignature().getColumnType(colName).get();
+      ColumnType physicalType = dsMetadata.rowSignature().getColumnType(colName).orElse(ColumnType.STRING);
       AggregatorFactory agg = aggregators == null ? null : aggregators.get(colName);
 
       EffectiveColumnMetadata colMetadata = EffectiveColumnMetadata.fromPhysical(colName, physicalType, agg);
