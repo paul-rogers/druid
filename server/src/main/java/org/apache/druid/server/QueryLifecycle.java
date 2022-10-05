@@ -153,23 +153,6 @@ public class QueryLifecycle
       final Access authorizationResult
   )
   {
-    return runSimpleWithResponse(query, authenticationResult, authorizationResult).getResults();
-  }
-
-  /**
-   * Runs the query directly when the query is part of a query chain, such as
-   * when run from SQL.
-   *
-   * @return a {@link QueryResponse} that provides both the Sequence and
-   * operator form of the query. The Sequence form is always available; the operator
-   * form is available if operators are enabled for this particular query.
-   */
-  public <T> QueryResponse<T> runSimpleWithResponse(
-      final Query<T> query,
-      final AuthenticationResult authenticationResult,
-      final Access authorizationResult
-  )
-  {
     initialize(query);
 
     final QueryResponse<T> queryResponse;
@@ -180,8 +163,6 @@ public class QueryLifecycle
       }
 
       queryResponse = execute();
-      results = queryResponse.getResults();
-      return execute();
     }
     catch (Throwable e) {
       emitLogsAndMetrics(e, null, -1);
@@ -190,26 +171,33 @@ public class QueryLifecycle
 
     /*
      * It seems extremely weird that the below code is wrapping the Sequence in order to emitLogsAndMetrics.
-     * The Sequence was returned by the call to execute, it would be worthwile to figure out why this wrapping
+     * The Sequence was returned by the call to execute, it would be worthwhile to figure out why this wrapping
      * cannot be moved into execute().  We leave this as an exercise for the future, however as this oddity
      * was discovered while just trying to expose HTTP response headers
      */
-    return new QueryResponse<T>(
-        Sequences.wrap(
-            results,
-            new SequenceWrapper()
-            {
-              @Override
-              public void after(final boolean isDone, final Throwable thrown)
+    if (queryResponse.isFragment()) {
+      // Operator version of the below.
+      // TODO: Move to an actual operator class, which will require refactoring
+      // the emitLogsAndMetrics method.
+      queryResponse.fragment().onClose(f -> {
+        emitLogsAndMetrics(f.exception(), null, -1);
+      });
+      return queryResponse;
+    } else {
+      return queryResponse.withSequence(
+          Sequences.wrap(
+              queryResponse.getResults(),
+              new SequenceWrapper()
               {
-                emitLogsAndMetrics(thrown, null, -1);
+                @Override
+                public void after(final boolean isDone, final Throwable thrown)
+                {
+                  emitLogsAndMetrics(thrown, null, -1);
+                }
               }
-            }
-        ),
-        queryResponse.getResponseContext()
-    );
-=======
->>>>>>> 9f27dbc731 (Convert native queries to use operators)
+          )
+      );
+    }
   }
 
   /**
@@ -331,19 +319,13 @@ public class QueryLifecycle
             }
           }
       );
-      return new SequenceResponse<>(responseContext, wrapped);
+      return new QueryResponse.SequenceResponse<T>(wrapped, responseContext);
     } else {
-      // Operator version of the above.
-      // TODO: Move to an actual operator class, which will require refactoring
-      // the emitLogsAndMetrics method.
-      fragment.onClose(f -> {
-        emitLogsAndMetrics(f.exception(), null, -1);
-      });
       fragment.onClose(f -> {
         Fragments.logProfile(f);
       });
       fragment.registerRoot(res);
-      return new FragmentResponse<>(responseContext, fragment);
+      return new QueryResponse.FragmentResponse<T>(fragment, responseContext);
     }
   }
 
@@ -499,99 +481,5 @@ public class QueryLifecycle
     EXECUTING,
     UNAUTHORIZED,
     DONE
-  }
-
-  public abstract static class QueryResponse<T>
-  {
-    private final ResponseContext responseContext;
-
-    private QueryResponse(
-        final ResponseContext responseContext
-    )
-    {
-      this.responseContext = responseContext;
-    }
-
-    public abstract boolean isFragment();
-
-    public ResponseContext getResponseContext()
-    {
-      return responseContext;
-    }
-
-    public abstract Sequence<T> getResults();
-
-    public FragmentManager fragment()
-    {
-      return null;
-    }
-  }
-
-  public static class FragmentResponse<T> extends QueryResponse<T>
-  {
-    /**
-     * Fragment context is included because the SQL layer adds another
-     * operator on top of the sequence returned here, and that operator
-     * (if enabled), needs visibility to the fragment context.
-     */
-    private final FragmentManager fragment;
-
-    private FragmentResponse(
-        final ResponseContext responseContext,
-        final FragmentManager fragment
-    )
-    {
-      super(responseContext);
-      this.fragment = fragment;
-    }
-
-    @Override
-    public boolean isFragment()
-    {
-      return true;
-    }
-
-    @Override
-    public Sequence<T> getResults()
-    {
-      return fragment.runAsSequence();
-    }
-
-    @Override
-    public FragmentManager fragment()
-    {
-      return fragment;
-    }
-  }
-
-  public static class SequenceResponse<T> extends QueryResponse<T>
-  {
-    private final Sequence<T> results;
-
-    private SequenceResponse(
-        final ResponseContext responseContext,
-        final Sequence<T> results
-    )
-    {
-      super(responseContext);
-      this.results = results == null ? Sequences.empty() : results;
-    }
-
-    @Override
-    public boolean isFragment()
-    {
-      return false;
-    }
-
-    @Override
-    public Sequence<T> getResults()
-    {
-      return results;
-    }
-
-    public <U> QueryResponse<U> withSequence(final Sequence<U> results)
-    {
-      return new SequenceResponse<U>(getResponseContext(), results);
-    }
   }
 }

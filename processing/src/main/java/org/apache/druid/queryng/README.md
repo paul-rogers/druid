@@ -21,10 +21,14 @@
 
 This package, and its children, implements a "next generation" version of the
 Druid Broker/Historical query engine designed around the classic "operator
-DAG" structure. The implementation is part of the "multi-stage query engine"
-(MSQE) project proposed for Druid, and focuses on the low-latency query path.
+DAG" structure. The implementation is part of the "multi-stage query"
+(MSQ) project proposed for Druid, and focuses on the low-latency query path.
+The current batch version of MSQ (so-called "MSQb") handles ingest. The work
+here are the first steps toward an MSQ interactive (MSQi) path. MSQi QueryNG
+is just one part of the larger MSQi project.
 
-Background information can be found in [Issue #11933](https://github.com/apache/druid/issues/11933).
+Background information can be found in [Issue #11933](
+https://github.com/apache/druid/issues/11933).
 
 This version is experimental and is a "shim" layer that works with much of
 the existing structure of the scatter/gather engine. It establishes a
@@ -36,24 +40,108 @@ beyond just scatter and gather.
 Druid uses a unique query engine that evolved to serve a specific use case:
 native queries with a scatter/gather distribution model. The structure is optimized
 for efficiency, but is heavily tied to the scatter-gather model. As we move toward
-and MSQE design, we want to revisit the engine architecture.
+and MSQ design, we want to revisit the engine architecture.
 
 Most modern database implementations involve a set of *operators*. The planner works
 with a set of *logical operators*, such as the `RelNode` objects in Druid's Calcite
 planner. The planner then converts these to descriptions of *physical operators* which
 comprise the *physical plan*. Distributed engines divide the physical plan into
-*fragments* (also called *slices*) which are farmed out to the various execution
-nodes. Each fragment consists of a set of one or more operators that execute on the
+*slices*, with *exchanges* between them. Slices are similar to (but have important
+differences from) the MSQb idea of a *stage*. All but the root slice are replicated
+across a distributed cluster, where each slice "instance" is a *fragment*.
+Each fragment consists of a set of one or more operators that execute on the
 given node. The execution node converts the fragment descriptions into a set of
 concrete operators (called by many names) which then run to perform the desired
 operations.
 
-The resulting structure forms a *DAG* (directed acyclic graph), typically in the form
-of a tree. A root fragment drives the query. The root fragment lives in the Druid
-Broker. Other fragments live in execution nodes (Historicals for Druid.) The set
-of fragments forms a tree. In classic Druid, it is a two-level tree: the root fragment
+The general process is:
+
+```text
+SQL -> Planner --> Logical Plan --> Distribution Plan --> Physical Plan -->
+  Exection Engine --> Executable Fragments (containing Operators)
+```
+
+The above is the abbreviated (and target future) form. At present, Druid converts
+the logical plan to a native query, giving us:
+
+```text
+SQL -> Planner --> Logical Plan --> Native Query --> QueryRunner --> Operators
+```
+
+The set of operators within the physical plan forms a *DAG* (directed acyclic graph),
+typically in the form of a tree. Here is the DAG for a very simple qurey of the form
+`SELECT * FROM foo`:
+
+```text
+REST API sender
+|
+Scatter/gather Exchange
+|
+Segment Scan
+```
+
+The top node, the *root*, is the *sink* for the query: the place where rows disappear into.
+(In this case, they disappear into the Jetty response back to a REST client.) The bottom, the
+*leaf*, is the *source* of rows. In this case the scan of a segment. Note that the term
+"scan" is generic; in practice Druid has very sophsticated mechanism to access segments.
+Still, such an operator is still generally called a "scan." The Exchange is an internal
+node and represents the scatter/gather network connection.
+
+A more realistic query has other nodes. For example:
+
+```sql
+SELECT * FROM foo
+WHERE city='Tahoe City'
+ORDER BY __time
+LIMIT 10
+```
+
+might look like this:
+
+```
+REST API sender
+|
+Limit
+|
+Ordered Scatter/gather Exchange
+|
+Limit
+|
+Filter
+|
+Segment Scan
+```
+
+## Fragments
+
+The above query divides into slices at the exchange. The slices, when replicated
+across Historical nodes (say), produce fragments. The slices also form a DAG.
+For the above scatter/gather queries:
+
+```text
+Broker Slice
+|
+Historical Slice
+```
+
+Since the Historical slices are replicated, the fragments form a tree:
+
+```text
+                    Broker Fragment
+                          |
+      +------------+------+-----+------------+
+      |            |            |            |
+  Fragment 1   Fragment 2   Fragment 3   Fragment 4
+```
+
+We sendom find the need to draw the actual Fragment DAG, however, we mostly need
+the slice or operator DAG.
+
+The root fragment drives the query and lives in the Druid
+Broker. Other fragments live in execution nodes (Historicals for Druid.)
+In classic Druid, the fragment tree has two-levels: the root fragment
 represent the "gather" step, a single set of distributed leaf nodes forms the
-"scatter" step. In MSQE there can be additional, intermediate fragments.
+"scatter" step. In MSQi there can be additional, intermediate fragments.
 
 Each fragment is itself composed of a DAG of operators, where an operator is a
 single relational operation: filter, merge, limit, etc. Each operator reads from
@@ -65,13 +153,23 @@ the batch might correspond to a single buffer. In Druid, it corresponds to an ar
 of rows.
 
 The result is that each operator is an interator that returns batches of rows until
-EOF. The `Operator` interface has a very simple protocol:
+EOF.
+
+## Operator Interface
+
+The `Operator` interface has a very simple protocol, derived from the classic
+Volcano approach:
 
 ```java
-public interface Operator
+public interface Operator<T>
 {
-  Iterator<Object> open(FragmentContext context);
+  ResultIterator<T> open();
   void close(boolean cascade);
+}
+
+public interface ResultIterator<T>
+{
+  T next() throws EofException;
 }
 ```
 
@@ -79,6 +177,12 @@ Opening an operator provides an iterator to read results. Closing an operator re
 resources. Notice that the operator returns an iterator, but isn't itself an interator.
 This structure allows an operator to be a "pass-through": it does nothing per-row but
 only does things at open and close time.
+
+To avoid the overhead of "are we done yet?" checking on each `next()` call, the
+`ResultIterator` raises an exception when it is done. Similarly, when we move to
+support async opreators, the iterator may throw a `NotYet` exception to indicate that
+it must wait for some action to complete, and some other fragment should run in
+the mean time.
 
 See `Operator`, `NullOperator` and `MockOperator` for very simple examples of the
 idea. See `MockOperatorTest` to see how operators work in practice.
@@ -88,7 +192,7 @@ idea. See `MockOperatorTest` to see how operators work in practice.
 Druid has historically used an engine architecture based on the `QueryRunner` and
 `Sequence` classes. A `QueryRunner` takes a native query, does some portion of the
 work, and delegates the rest to a "base" or "delegate" query runner. The result is a
-structure that roughly mimics that of operator. However, query runners are more
+structure that roughly mimics that of an operatorDAG. However, query runners are more
 complex than an operator: query runners combine planning and execution, and are
 often tightly coupled to their implementation and to their upstream (delegate) query
 runners. Operators, by contrast, handle only execution: planning is done by a separate
@@ -120,6 +224,8 @@ The general mapping, in this version of the new engine is:
 needed.
 * `Operator` corresponds to `Sequence`: it is the physical implementation of a data
 transformation task.
+* `ResultIterator` corresponds to `Yielder`: it provides rows (or batches) one at
+a time.
 
 ## Support Structure
 
@@ -127,6 +233,8 @@ The above description touched on several of the support classes that support
 operators:
 
 * `QueryPlanner`: figures out which operators to create given a native query.
+* `QueryManager`: is a stub form of the class that manages all fragments within
+a query.
 * `FragmentRunner`: runs a set of operators, handles failures, and ensures clean-up.
 * `FragmentContext`: fragment-wide information shared by all operators.
 
@@ -141,11 +249,11 @@ bit tricky:
 
 * Druid's query stack still produces the set of query runners, and we still invoke `run()`.
 on each.
-* When the "next gen" engine is enaled, each query runner delegates to the
+* When the "next gen" engine is enabled, each query runner delegates to the
 `QueryPlanner` to work out an operator equivalent for what the query runner previously
-did. When the engine is disabled, the query runner does its normal thing.
+did. When QueryNG is disabled, the query runner does its normal thing.
 * The `QueryPlanner` has a modified copy of the query runner code, but in a form that
-works out an operator to use. Sometimes the planner determines that no operator is
+works the operators to use. Sometimes the planner determines that no operator is
 needed for a particular query.
 * The `QueryPlanner` then creates an operator. Since the outer query runner is tasked
 with returning a `Sequence`, we then wrap the operator in a `Sequence` so it fits into
@@ -155,7 +263,7 @@ the existing protocol.
 hands that to the newly created operator as its input.
 
 The result is that we've got two parallel structures going: query runners speak `Sequence`
-while the `QueryPlanner` speaks `Operator`. To make this work, we use "adapter" to
+while the `QueryPlanner` speaks `Operator`. To make this work, we use "adapters" to
 convert an operator to a sequence and a sequence to an operator. If we literally did
 this, every query runner would produce a sequence/operator pair and a chain of two
 query runners would look like this:
@@ -165,7 +273,7 @@ query runners would look like this:
 Sequence <-- Operator <-- Sequence <-- Operator <-- ...
 ```
 
-Of course, the above would be silly. So, we emply another trick: when we wrap a sequence
+Of course, the above would be silly. So, we employ another trick: when we wrap a sequence
 in an operator, we check if the sequence in question is one which wraps an operator. If
 so, we just discard the intermediate sequence so we get:
 
@@ -180,13 +288,18 @@ The result is a structure that plays well with both query runners and operators.
 we have a string of operators: we have an operator stack. When we interface to parts of
 Druid that want a sequence, we have a sequence.
 
-The operator-wrapping sequence ensures that the operator is closed when the sequence
-is closed. The operator cascades the close call to its children. This ensures that the
-operator is closed as early as possible.
+It is advantages to open operators as late as possible, and to close them as early
+as possible. Thus each operator is responsible for deciding when to open its
+children (i.e. upstream) operators (if any). Also, the operator can close its child
+as soon as possible, with the close cascading down the DAG to the leaf.
 
 A fragment context also holds all operators and ensures that they are all closed at
 query completion, if not closed previously. In the eventual sructure, this mechanism
 will ensure operators close even if an error occurs.
+
+At the "top" of the query, we introduce a special sequence (to be consumed by the
+API layer) which returns rows from the root operator, and closes the fragment when
+the sequence itself is closed.
 
 ### Next Steps
 
@@ -197,7 +310,12 @@ that we produce an operator-based structure that cuts out the (now superflorous)
 runnners.
 
 Later, we can introduce an revised network exchange layer so that we can send a fragment
-description to the Historical rather than sending a native query.
+description to the Historical rather than sending a native query. This then sets us up
+to introduce more layers (stages) in a query, to take load off of the Broker for
+complex queries. It also sets us up to add full-fledged joins in a failrly standard way.
+
+Even layer work can cut the native queries out of the SQL stack: we can convert
+directly from
 
 During all of this, we will keep the "classic" engine in place, adding the "next gen"
 engine alongside.
@@ -226,4 +344,5 @@ segment tasks outside the set of operations which have thus far been converted t
 ## Tests
 
 One handy feature of operators is that they can be tested independently. A set of tests
-exist for each of the currently-supported operators.
+exist for each of the currently-supported operators. Further, all the existing "Calcite
+query" tests were run with opertors enabled.

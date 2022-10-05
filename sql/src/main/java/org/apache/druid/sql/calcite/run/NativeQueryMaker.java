@@ -56,7 +56,6 @@ import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.data.ComparableList;
 import org.apache.druid.segment.data.ComparableStringArray;
 import org.apache.druid.server.QueryLifecycle;
-import org.apache.druid.server.QueryLifecycle.QueryResponse;
 import org.apache.druid.server.QueryLifecycleFactory;
 import org.apache.druid.server.QueryResponse;
 import org.apache.druid.server.security.Access;
@@ -177,7 +176,7 @@ public class NativeQueryMaker implements QueryMaker
   }
 
   @SuppressWarnings("unchecked")
-  private <T> QueryResponse<Object[]> execute(Query<?> query, final List<String> newFields, final List<SqlTypeName> newTypes)
+  private <T> QueryResponse<Object[]> execute(Query<T> query, final List<String> newFields, final List<SqlTypeName> newTypes)
   {
     Hook.QUERY_PLAN.run(query);
 
@@ -199,18 +198,16 @@ public class NativeQueryMaker implements QueryMaker
     // otherwise it won't yet be initialized. (A bummer, since ideally, we'd verify the toolChest exists and can do
     // array-based results before starting the query; but in practice we don't expect this to happen since we keep
     // tight control over which query types we generate in the SQL layer. They all support array-based results.)
-    final QueryResponse<T> response = queryLifecycle.runSimpleWithResponse(query, authenticationResult, authorizationResult);
+    final QueryResponse<T> results = queryLifecycle.runSimple(query, authenticationResult, authorizationResult);
 
-    //noinspection unchecked
-    @SuppressWarnings("unchecked")
     final QueryToolChest<T, Query<T>> toolChest = queryLifecycle.getToolChest();
     final List<String> resultArrayFields = toolChest.resultArraySignature(query).getColumnNames();
-    QueryPlus<T> queryPlus = QueryPlus.wrap(query).withFragment(response.fragment());
+    QueryPlus<T> queryPlus = QueryPlus.wrap(query).withFragment(results.fragment());
 
-    if (response.isFragment()) {
-      FragmentManager fragment = response.fragment();
-      final Sequence<T> results = fragment.rootSequence();
-      final Sequence<Object[]> resultArrays = toolChest.resultsAsArrays(queryPlus, results);
+    if (results.isFragment()) {
+      FragmentManager fragment = results.fragment();
+      final Sequence<T> seq = fragment.rootSequence();
+      final Sequence<Object[]> resultArrays = toolChest.resultsAsArrays(queryPlus, seq);
       fragment.registerRoot(
           SqlPlanner.projectResults(
               fragment,
@@ -222,11 +219,15 @@ public class NativeQueryMaker implements QueryMaker
               newTypes
           )
       );
-      return fragment.runAsSequence();
+      return results.withRoot();
     } else {
-      final Sequence<T> results = response.getResults();
-      final Sequence<Object[]> resultArrays = toolChest.resultsAsArrays(queryPlus, results);
-      return mapResultSequence(resultArrays, resultArrayFields, newFields, newTypes);
+      return mapResultSequence(
+          results,
+          (QueryToolChest<T, Query<T>>) queryLifecycle.getToolChest(),
+          (Query<T>) query,
+          newFields,
+          newTypes
+      );
     }
   }
 
@@ -265,7 +266,7 @@ public class NativeQueryMaker implements QueryMaker
 
     //noinspection unchecked
     final Sequence<Object[]> sequence = toolChest.resultsAsArrays(query, results.getResults());
-    return new QueryResponse(
+    return results.withSequence(
         Sequences.map(
             sequence,
             array -> {
@@ -275,8 +276,7 @@ public class NativeQueryMaker implements QueryMaker
               }
               return newArray;
             }
-        ),
-        results.getResponseContext()
+        )
     );
   }
 
