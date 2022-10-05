@@ -22,7 +22,6 @@ package org.apache.druid.queryng.operators;
 import org.apache.druid.queryng.fragment.FragmentManager;
 import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.Operator.State;
-import org.apache.druid.queryng.operators.ResultIterator.EofException;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 

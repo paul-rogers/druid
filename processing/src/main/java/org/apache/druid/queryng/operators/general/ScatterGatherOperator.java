@@ -56,6 +56,13 @@ import java.util.concurrent.TimeoutException;
  * Runs the "scatter" portion of a scatter/gather operation using a processing pool,
  * then "gathers" the results to a single result iterator using the strategy defined
  * by the subclass.
+ * <p>
+ * Follows the pattern from {@code ChainedExecutionQueryRunner} which materializes
+ * each child result set for delivery via a {@code Future}. A good optimization
+ * would be to deliver results via a producer/consumer queue so that the merge
+ * fragment can operate concurrently with the child fragments. That mechanism does
+ * not seem to exist in Druid, so we'll do that later: our goal here is to repackage
+ * the existing functionality.
  *
  * @see org.apache.druid.query.ChainedExecutionQueryRunner
  */

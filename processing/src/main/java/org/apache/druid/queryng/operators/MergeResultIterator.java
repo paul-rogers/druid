@@ -20,8 +20,6 @@
 package org.apache.druid.queryng.operators;
 
 import com.google.common.collect.Ordering;
-import org.apache.druid.queryng.operators.ResultIterator.CloseableResultIterator;
-import org.apache.druid.queryng.operators.ResultIterator.EofException;
 
 import java.util.PriorityQueue;
 

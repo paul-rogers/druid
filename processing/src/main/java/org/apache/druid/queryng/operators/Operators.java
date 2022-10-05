@@ -27,7 +27,6 @@ import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operators.ResultIterator.EofException;
 import org.apache.druid.queryng.operators.general.QueryRunnerOperator;
 
 import java.io.IOException;

@@ -169,12 +169,6 @@ public class QueryLifecycle
       throw e;
     }
 
-    /*
-     * It seems extremely weird that the below code is wrapping the Sequence in order to emitLogsAndMetrics.
-     * The Sequence was returned by the call to execute, it would be worthwhile to figure out why this wrapping
-     * cannot be moved into execute().  We leave this as an exercise for the future, however as this oddity
-     * was discovered while just trying to expose HTTP response headers
-     */
     if (queryResponse.isFragment()) {
       // Operator version of the below.
       // TODO: Move to an actual operator class, which will require refactoring
@@ -184,6 +178,12 @@ public class QueryLifecycle
       });
       return queryResponse;
     } else {
+      /*
+       * It seems extremely weird that the below code is wrapping the Sequence in order to emitLogsAndMetrics.
+       * The Sequence was returned by the call to execute, it would be worthwhile to figure out why this wrapping
+       * cannot be moved into execute().  We leave this as an exercise for the future, however as this oddity
+       * was discovered while just trying to expose HTTP response headers
+       */
       return queryResponse.withSequence(
           Sequences.wrap(
               queryResponse.getResults(),

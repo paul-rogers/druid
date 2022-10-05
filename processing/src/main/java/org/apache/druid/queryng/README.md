@@ -112,6 +112,9 @@ Filter
 Segment Scan
 ```
 
+(The above is conceptual: in practice, Druid usually pushes the limit and
+filter into the `Cursor` which implements the segment scan.)
+
 ## Fragments
 
 The above query divides into slices at the exchange. The slices, when replicated

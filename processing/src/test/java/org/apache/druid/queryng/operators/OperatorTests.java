@@ -22,7 +22,6 @@ package org.apache.druid.queryng.operators;
 import org.apache.druid.java.util.common.RE;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.Operator.IterableOperator;
-import org.apache.druid.queryng.operators.ResultIterator.EofException;
 
 import static org.junit.Assert.fail;
 

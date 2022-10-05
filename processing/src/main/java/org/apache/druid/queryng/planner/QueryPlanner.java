@@ -63,6 +63,7 @@ import org.apache.druid.queryng.operators.general.QueryRunnerFactoryOperator;
 import org.apache.druid.queryng.operators.general.SegmentLockOperator;
 import org.apache.druid.queryng.operators.general.ThreadLabelOperator;
 import org.apache.druid.segment.SegmentReference;
+import org.apache.druid.utils.JvmUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -132,7 +133,7 @@ public class QueryPlanner
     final QueryPlus<T> queryWithMetrics = queryPlus.withQueryMetrics(queryToolChest);
 
     // Short circuit if not reporting CPU time.
-    if (!report) {
+    if (!report || !JvmUtils.isThreadCpuTimeEnabled()) {
       return delegate.run(queryWithMetrics, responseContext);
     }
     Operator<T> inputOp = Operators.toOperator(
