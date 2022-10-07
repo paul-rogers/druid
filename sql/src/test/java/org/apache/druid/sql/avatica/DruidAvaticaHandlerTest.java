@@ -817,7 +817,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
    * can be closed, but not the statement.
    */
   @Test
-  public void tesErrorsDoNotCloseStatements() throws SQLException
+  public void testErrorsDoNotCloseStatements() throws SQLException
   {
     try (Statement statement = client.createStatement()) {
       try {

@@ -37,7 +37,10 @@ public class TestQueryManagerFactory implements QueryManagerFactory
   @SuppressWarnings("unused") // Used, but IntelliJ doesn't think so.
   public TestQueryManagerFactory()
   {
-    this.enabled = Boolean.parseBoolean(System.getProperty(ENABLED_KEY));
+    String propValue = System.getProperty(ENABLED_KEY);
+    if (propValue != null) {
+      this.enabled = Boolean.parseBoolean(propValue);
+    }
   }
 
   public TestQueryManagerFactory(boolean enabled)

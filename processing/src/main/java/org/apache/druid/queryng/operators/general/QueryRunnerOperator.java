@@ -55,7 +55,7 @@ public class QueryRunnerOperator<T> implements Operator<T>
   @Override
   public ResultIterator<T> open()
   {
-    Sequence<T> seq = runner.run(query, context.responseContext());
+    final Sequence<T> seq = runner.run(query, context.responseContext());
     child = Operators.toOperator(context, seq);
     context.registerChild(this, child);
     return child.open();
@@ -68,5 +68,6 @@ public class QueryRunnerOperator<T> implements Operator<T>
       child.close(cascade);
     }
     child = null;
+    context.updateProfile(this, OperatorProfile.silentOperator(this));
   }
 }

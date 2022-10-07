@@ -88,6 +88,10 @@ public class ResultLevelCachingQueryRunner<T> implements QueryRunner<T>
   @Override
   public Sequence<T> run(QueryPlus<T> queryPlus, ResponseContext responseContext)
   {
+    if (!useResultCache && !populateResultCache) {
+      return baseRunner.run(queryPlus, responseContext);
+    }
+
     if (QueryNGConfig.enabledFor(queryPlus)) {
       return ServerExecutionPlanner.planCache(
           baseRunner,
@@ -98,10 +102,6 @@ public class ResultLevelCachingQueryRunner<T> implements QueryRunner<T>
           queryPlus
        );
     }
-    if (!useResultCache && !populateResultCache) {
-      return baseRunner.run(queryPlus, responseContext);
-    }
-
     final String cacheKeyStr = StringUtils.fromUtf8(strategy.computeResultLevelCacheKey(query));
     final byte[] cachedResultSet = fetchResultsFromResultLevelCache(cacheKeyStr);
     String existingResultSetId = extractEtagFromResults(queryPlus.getQuery(), cachedResultSet);

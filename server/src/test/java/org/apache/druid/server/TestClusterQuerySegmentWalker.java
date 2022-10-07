@@ -173,7 +173,8 @@ public class TestClusterQuerySegmentWalker implements QuerySegmentWalker
             baseRunner,
             responseContext,
             specs,
-            scheduler);
+            scheduler
+        );
       }
       responseContext.initializeRemainingResponses();
       responseContext.addRemainingResponse(
