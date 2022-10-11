@@ -21,9 +21,12 @@ package org.apache.druid.queryng.fragment;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.queryng.operators.Temporary;
 
+import java.io.Closeable;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
@@ -35,7 +38,7 @@ import java.util.Map;
  * is a third tier on data nodes, not represented here, with logical
  * level 3.
  */
-public class QueryManager
+public class QueryManager implements Closeable
 {
   public static class FragmentTracker
   {
@@ -130,6 +133,17 @@ public class QueryManager
     return fragments;
   }
 
+  /**
+   * Run the query as a sequence. Runs the root fragment, then wraps
+   * the result to close the query manager.
+   */
+  @Temporary
+  public <T> Sequence<T> runAsSequence()
+  {
+    return rootFragment.runAsSequence(this);
+  }
+
+  @Override
   public void close()
   {
     if (endTimeMs != 0) {

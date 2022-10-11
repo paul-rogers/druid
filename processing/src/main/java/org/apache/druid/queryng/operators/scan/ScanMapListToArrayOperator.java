@@ -22,7 +22,9 @@ package org.apache.druid.queryng.operators.scan;
 import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
+import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.ResultIterator;
+import org.apache.druid.queryng.operators.Operator.State;
 
 import java.util.List;
 import java.util.Map;
@@ -36,27 +38,41 @@ import java.util.Map;
  * @see {@link org.apache.druid.query.scan.ScanQueryQueryToolChest#resultsAsArrays
  * ScanQueryQueryToolChest.resultsAsArrays}
  */
-public class ScanListToArrayOperator extends MappingOperator<Map<String, Object>, Object[]>
+public class ScanMapListToArrayOperator extends MappingOperator<Map<String, Object>, Object[]>
 {
   private final List<String> fields;
+  private int rowCount;
 
-  public ScanListToArrayOperator(
-      FragmentContext context,
-      Operator<Map<String, Object>> input,
-      List<String> fields)
+  public ScanMapListToArrayOperator(
+      final FragmentContext context,
+      final Operator<Map<String, Object>> input,
+      final List<String> fields
+  )
   {
     super(context, input);
     this.fields = fields;
   }
 
   @Override
-  public Object[] next() throws ResultIterator.EofException
+  public Object[] next() throws EofException
   {
     Map<String, Object> row = inputIter.next();
     final Object[] rowArray = new Object[fields.size()];
     for (int i = 0; i < fields.size(); i++) {
       rowArray[i] = row.get(fields.get(i));
     }
+    rowCount++;
     return rowArray;
+  }
+
+  @Override
+  public void close(boolean cascade)
+  {
+    if (state == State.RUN) {
+      OperatorProfile profile = new OperatorProfile("map-list-to-array");
+      profile.add(OperatorProfile.ROW_COUNT_METRIC, rowCount);
+      context.updateProfile(this, profile);
+    }
+    super.close(cascade);
   }
 }

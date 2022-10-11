@@ -23,6 +23,7 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.queryng.fragment.FragmentManager;
+import org.apache.druid.queryng.fragment.QueryManager;
 
 public abstract class QueryResponse<T>
 {
@@ -33,15 +34,15 @@ public abstract class QueryResponse<T>
      * operator on top of the sequence returned here, and that operator
      * (if enabled), needs visibility to the fragment context.
      */
-    private final FragmentManager fragment;
+    private final QueryManager queryManager;
 
     public FragmentResponse(
-        final FragmentManager fragment,
+        final QueryManager queryManager,
         final ResponseContext responseContext
     )
     {
       super(responseContext);
-      this.fragment = fragment;
+      this.queryManager = queryManager;
     }
 
     @Override
@@ -53,13 +54,19 @@ public abstract class QueryResponse<T>
     @Override
     public Sequence<T> getResults()
     {
-      return fragment.runAsSequence();
+      return queryManager.runAsSequence();
+    }
+
+    @Override
+    public QueryManager queryManager()
+    {
+      return queryManager;
     }
 
     @Override
     public FragmentManager fragment()
     {
-      return fragment;
+      return queryManager.rootFragment();
     }
   }
 
@@ -110,6 +117,11 @@ public abstract class QueryResponse<T>
     return null;
   }
 
+  public QueryManager queryManager()
+  {
+    return null;
+  }
+
   public ResponseContext getResponseContext()
   {
     return responseContext;
@@ -122,7 +134,7 @@ public abstract class QueryResponse<T>
 
   public <U> QueryResponse<U> withRoot()
   {
-    return new FragmentResponse<U>(fragment(), getResponseContext());
+    return new FragmentResponse<U>(queryManager(), getResponseContext());
   }
 
   public static <T> QueryResponse<T> empty()

@@ -41,13 +41,13 @@ import org.apache.druid.queryng.operators.ConcatOperator;
 import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.general.CursorDefinition;
 import org.apache.druid.queryng.operators.scan.GroupedScanResultLimitOperator;
 import org.apache.druid.queryng.operators.scan.ScanBatchToRowOperator;
 import org.apache.druid.queryng.operators.scan.ScanCompactListToArrayOperator;
 import org.apache.druid.queryng.operators.scan.ScanEngineOperator;
-import org.apache.druid.queryng.operators.scan.ScanEngineOperator.CursorDefinition;
 import org.apache.druid.queryng.operators.scan.ScanEngineOperator.Order;
-import org.apache.druid.queryng.operators.scan.ScanListToArrayOperator;
+import org.apache.druid.queryng.operators.scan.ScanMapListToArrayOperator;
 import org.apache.druid.queryng.operators.scan.ScanResultOffsetOperator;
 import org.apache.druid.queryng.operators.scan.UngroupedScanResultLimitOperator;
 import org.apache.druid.segment.QueryableIndex;
@@ -308,7 +308,8 @@ public class ScanPlanner
         query.getVirtualColumns(),
         order == Order.DESCENDING,
         Granularities.ALL,
-        queryMetrics
+        queryMetrics,
+        0
     );
     return new ScanEngineOperator(
           context,
@@ -382,7 +383,7 @@ public class ScanPlanner
     ScanQuery query = (ScanQuery) queryPlus.getQuery();
     switch (query.getResultFormat()) {
       case RESULT_FORMAT_LIST:
-        outputOp = new ScanListToArrayOperator(
+        outputOp = new ScanMapListToArrayOperator(
             context,
             new ScanBatchToRowOperator<Map<String, Object>>(
                 context,

@@ -43,10 +43,11 @@ public class UngroupedScanResultLimitOperator extends MappingOperator<ScanResult
 
   @VisibleForTesting
   public UngroupedScanResultLimitOperator(
-      FragmentContext context,
-      Operator<ScanResultValue> child,
-      long limit,
-      int batchSize)
+      final FragmentContext context,
+      final Operator<ScanResultValue> child,
+      final long limit,
+      final int batchSize
+  )
   {
     super(context, child);
     this.limit = limit;
@@ -54,7 +55,7 @@ public class UngroupedScanResultLimitOperator extends MappingOperator<ScanResult
   }
 
   @Override
-  public ScanResultValue next() throws ResultIterator.EofException
+  public ScanResultValue next() throws EofException
   {
     if (rowCount >= limit) {
       throw Operators.eof();
@@ -73,7 +74,7 @@ public class UngroupedScanResultLimitOperator extends MappingOperator<ScanResult
         eventsToAdd.add(srv.getRows().get(0));
         rowCount++;
       }
-      catch (ResultIterator.EofException e) {
+      catch (EofException e) {
         if (eventsToAdd.isEmpty()) {
           throw Operators.eof();
         }

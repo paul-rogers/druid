@@ -24,7 +24,6 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
-import org.apache.druid.queryng.operators.ResultIterator;
 
 import java.util.List;
 
@@ -43,16 +42,17 @@ public class ScanCompactListToArrayOperator extends MappingOperator<List<Object>
   private int rowCount;
 
   public ScanCompactListToArrayOperator(
-      FragmentContext context,
-      Operator<List<Object>> input,
-      List<String> fields)
+      final FragmentContext context,
+      final Operator<List<Object>> input,
+      final List<String> fields
+  )
   {
     super(context, input);
     this.fields = fields;
   }
 
   @Override
-  public Object[] next() throws ResultIterator.EofException
+  public Object[] next() throws EofException
   {
     List<Object> row = inputIter.next();
     rowCount++;

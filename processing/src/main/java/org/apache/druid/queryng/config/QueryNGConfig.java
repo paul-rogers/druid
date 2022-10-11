@@ -20,6 +20,7 @@
 package org.apache.druid.queryng.config;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 
@@ -28,7 +29,6 @@ import org.apache.druid.query.QueryPlus;
  */
 public class QueryNGConfig
 {
-  @SuppressWarnings("unused") // To be used later
   public static final String CONFIG_ROOT = "druid.queryng";
 
   public static final String CONTEXT_VAR = "queryng";
@@ -57,6 +57,12 @@ public class QueryNGConfig
   public boolean enabled()
   {
     return enabled;
+  }
+
+  @VisibleForTesting
+  public boolean requireContext()
+  {
+    return requireContext;
   }
 
   /**

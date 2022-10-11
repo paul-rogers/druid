@@ -118,7 +118,6 @@ public interface TypeSignature<Type extends TypeDescriptor>
     return new NullableTypeStrategy<>(getStrategy());
   }
 
-
   /**
    * Check if the value of {@link #getType()} is equal to the candidate {@link TypeDescriptor}.
    */

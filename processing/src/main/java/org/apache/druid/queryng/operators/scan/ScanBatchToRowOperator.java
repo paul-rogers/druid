@@ -24,7 +24,6 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.MappingOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.OperatorProfile;
-import org.apache.druid.queryng.operators.ResultIterator;
 
 import java.util.Iterator;
 
@@ -40,14 +39,17 @@ public class ScanBatchToRowOperator<T> extends MappingOperator<ScanResultValue, 
   private int batchCount;
   private int rowCount;
 
-  public ScanBatchToRowOperator(FragmentContext context, Operator<ScanResultValue> input)
+  public ScanBatchToRowOperator(
+      final FragmentContext context,
+      final Operator<ScanResultValue> input
+  )
   {
     super(context, input);
   }
 
   @SuppressWarnings("unchecked")
   @Override
-  public T next() throws ResultIterator.EofException
+  public T next() throws EofException
   {
     while (true) {
       if (batchIter == null) {

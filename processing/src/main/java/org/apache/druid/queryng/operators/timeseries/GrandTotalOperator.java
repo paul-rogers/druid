@@ -50,9 +50,9 @@ public class GrandTotalOperator implements IterableOperator<Result<TimeseriesRes
   private int rowCount;
 
   public GrandTotalOperator(
-      FragmentContext fragmentContext,
-      Operator<Result<TimeseriesResultValue>> op,
-      List<AggregatorFactory> aggregatorSpecs
+      final FragmentContext fragmentContext,
+      final Operator<Result<TimeseriesResultValue>> op,
+      final List<AggregatorFactory> aggregatorSpecs
   )
   {
     this.context = fragmentContext;
@@ -71,7 +71,7 @@ public class GrandTotalOperator implements IterableOperator<Result<TimeseriesRes
   }
 
   @Override
-  public Result<TimeseriesResultValue> next() throws ResultIterator.EofException
+  public Result<TimeseriesResultValue> next() throws EofException
   {
     if (inputIter == null) {
       // All rows delivered.

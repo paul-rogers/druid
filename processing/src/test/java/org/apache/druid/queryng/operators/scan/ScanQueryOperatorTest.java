@@ -21,31 +21,26 @@ package org.apache.druid.queryng.operators.scan;
 
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.granularity.Granularities;
-import org.apache.druid.java.util.common.granularity.Granularity;
-import org.apache.druid.java.util.common.guava.Sequence;
-import org.apache.druid.java.util.common.guava.Sequences;
-import org.apache.druid.query.QueryMetrics;
-import org.apache.druid.query.filter.Filter;
+import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
+import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.fragment.FragmentManager;
 import org.apache.druid.queryng.fragment.Fragments;
 import org.apache.druid.queryng.operators.ConcatOperator;
 import org.apache.druid.queryng.operators.Operator;
-import org.apache.druid.queryng.operators.general.MockCursor;
+import org.apache.druid.queryng.operators.general.CursorDefinition;
 import org.apache.druid.queryng.operators.general.MockStorageAdapter;
 import org.apache.druid.queryng.operators.general.MockStorageAdapter.MockSegment;
-import org.apache.druid.queryng.operators.scan.ScanEngineOperator.CursorDefinition;
-import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.Segment;
-import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnHolder;
-import org.joda.time.Interval;
+import org.joda.time.DateTime;
 import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -54,40 +49,6 @@ import static org.junit.Assert.assertTrue;
 
 public class ScanQueryOperatorTest
 {
-  /**
-   * Segment that creates two cursors. Not very realistic, but realism
-   * isn't needed: just the two cursors are needed.
-   */
-  private static class MockDualCursorSegment extends MockSegment
-  {
-    public MockDualCursorSegment(int segmentSize)
-    {
-      super(segmentSize);
-    }
-
-    @Override
-    public StorageAdapter asStorageAdapter()
-    {
-      return new MockStorageAdapter(segmentSize)
-      {
-        @Override
-        public Sequence<Cursor> makeCursors(
-            Filter filter,
-            Interval interval,
-            VirtualColumns virtualColumns,
-            Granularity gran,
-            boolean descending,
-            QueryMetrics<?> queryMetrics)
-        {
-          return Sequences.simple(Arrays.asList(
-              new MockCursor(interval, segmentSize),
-              new MockCursor(interval, segmentSize)
-          ));
-        }
-      };
-    }
-  }
-
   private CursorDefinition mockCursor(Segment segment)
   {
     return new CursorDefinition(
@@ -97,13 +58,19 @@ public class ScanQueryOperatorTest
         VirtualColumns.EMPTY,
         false,
         Granularities.ALL,
-        null // No query metrics
+        null, // No query metrics
+        0 // No vector
     );
   }
 
   private CursorDefinition mockCursor(int rowCount)
   {
     return mockCursor(new MockSegment(rowCount));
+  }
+
+  private CursorDefinition mockCursor(int rowCount, int cursorCount)
+  {
+    return mockCursor(new MockSegment(rowCount, cursorCount, false));
   }
 
   @Test
@@ -189,6 +156,42 @@ public class ScanQueryOperatorTest
     assertNull(row.get(2));
   }
 
+  @Test
+  public void testProjectionWithMapFormat()
+  {
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<ScanResultValue> op = new ScanEngineOperator(
+        fragment,
+        mockCursor(5),
+        10, // Batch size
+        false, // Not legacy
+        // Projection, omit metrics, add unknown column
+        Arrays.asList("page", ColumnHolder.TIME_COLUMN_NAME, "bogus"),
+        ScanEngineOperator.Order.NONE,
+        Long.MAX_VALUE, // No limit
+        ResultFormat.RESULT_FORMAT_LIST,
+        Long.MAX_VALUE // No timeout
+    );
+    fragment.registerRoot(op);
+    List<ScanResultValue> results = fragment.toList();
+    assertEquals(1, results.size());
+    ScanResultValue first = results.get(0);
+    assertEquals(3, first.getColumns().size());
+
+    // Column order from the projection list.
+    assertEquals("page", first.getColumns().get(0));
+    assertEquals(ColumnHolder.TIME_COLUMN_NAME, first.getColumns().get(1));
+    assertEquals("bogus", first.getColumns().get(2));
+
+    // Sample one row
+    List<Map<String, Object>> rows = first.getRows();
+    assertEquals(5, rows.size());
+    Map<String, Object> row = rows.get(0);
+    assertEquals("row 1", row.get("page"));
+    assertEquals((Long) 1442062800000L, row.get(ColumnHolder.TIME_COLUMN_NAME));
+    assertNull(row.get("bogus"));
+  }
+
   /**
    * Simulate a filter that matches no rows
    */
@@ -237,7 +240,7 @@ public class ScanQueryOperatorTest
     FragmentManager fragment = Fragments.defaultFragment();
     Operator<ScanResultValue> op = new ScanEngineOperator(
         fragment,
-        mockCursor(new MockDualCursorSegment(20)),
+        mockCursor(40, 2),
         100, // Batch size
         false, // Not legacy
         null, // No columns AKA "wildcard"
@@ -259,7 +262,7 @@ public class ScanQueryOperatorTest
     FragmentManager fragment = Fragments.defaultFragment();
     Operator<ScanResultValue> op = new ScanEngineOperator(
         fragment,
-        mockCursor(new MockDualCursorSegment(0)),
+        mockCursor(0, 2),
         10, // Batch size
         false, // Not legacy
         null, // No columns AKA "wildcard"
@@ -317,7 +320,7 @@ public class ScanQueryOperatorTest
     FragmentManager fragment = Fragments.defaultFragment();
     Operator<ScanResultValue> op = new ScanEngineOperator(
         fragment,
-        mockCursor(new MockDualCursorSegment(20)),
+        mockCursor(40, 2),
         10, // Batch size
         false, // Not legacy
         null, // No columns AKA "wildcard"
@@ -465,5 +468,60 @@ public class ScanQueryOperatorTest
     assertEquals(10, results.get(1).getRows().size());
     assertEquals(10, results.get(2).getRows().size());
     assertEquals(10, results.get(3).getRows().size());
+  }
+
+  @Test
+  public void testLegacy()
+  {
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<ScanResultValue> op = new ScanEngineOperator(
+        fragment,
+        mockCursor(5),
+        10, // Batch size
+        true, // Legacy
+        Arrays.asList(ScanEngineOperator.LEGACY_TIMESTAMP_KEY, "page"),
+        ScanEngineOperator.Order.NONE,
+        Integer.MAX_VALUE, // No limit
+        ResultFormat.RESULT_FORMAT_COMPACTED_LIST,
+        Long.MAX_VALUE // No timeout
+    );
+
+    fragment.registerRoot(op);
+    List<ScanResultValue> results = fragment.toList();
+    assertEquals(1, results.size());
+    ScanResultValue first = results.get(0);
+    assertEquals(2, first.getColumns().size());
+
+    // Column order from the projection list.
+    assertEquals(ScanEngineOperator.LEGACY_TIMESTAMP_KEY, first.getColumns().get(0));
+    assertEquals("page", first.getColumns().get(1));
+
+    // Sample one row
+    List<List<Object>> rows = first.getRows();
+    assertEquals(5, rows.size());
+    List<Object> row = rows.get(0);
+    assertEquals(1442062800000L, ((DateTime) row.get(0)).getMillis());
+    assertEquals("row 1", (String) row.get(1));
+  }
+
+  @Test
+  public void testTimeout()
+  {
+    FragmentManager fragment = Fragments.defaultFragment();
+    Operator<ScanResultValue> op = new ScanEngineOperator(
+        fragment,
+        mockCursor(5),
+        10, // Batch size
+        false, // Not legacy
+        null, // No columns AKA "wildcard"
+        ScanEngineOperator.Order.NONE,
+        Integer.MAX_VALUE, // No limit
+        ResultFormat.RESULT_FORMAT_COMPACTED_LIST,
+        System.currentTimeMillis() - 1 // Already timed out
+    );
+
+    fragment.registerRoot(op);
+    assertThrows(QueryTimeoutException.class, () -> fragment.toList());
+    assertEquals(FragmentContext.State.CLOSED, fragment.state());
   }
 }

@@ -315,8 +315,7 @@ public class QueryPlanner
       final SegmentReference segment,
       final SegmentDescriptor descriptor,
       final QueryPlus<T> queryPlus,
-      final QueryRunnerFactory<T, Query<T>> factory,
-      final ResponseContext responseContext
+      final QueryRunnerFactory<T, Query<T>> factory
   )
   {
     // The factory operator defers creating the runner until

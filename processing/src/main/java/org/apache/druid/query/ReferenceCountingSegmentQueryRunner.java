@@ -47,7 +47,7 @@ public class ReferenceCountingSegmentQueryRunner<T> implements QueryRunner<T>
   public Sequence<T> run(final QueryPlus<T> queryPlus, ResponseContext responseContext)
   {
     if (QueryNGConfig.enabledFor(queryPlus)) {
-      return QueryPlanner.runSegmentLock(segment, descriptor, queryPlus, factory, responseContext);
+      return QueryPlanner.runSegmentLock(segment, descriptor, queryPlus, factory);
     }
     return segment.acquireReferences().map(closeable -> {
       try {

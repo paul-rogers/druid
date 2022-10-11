@@ -74,8 +74,7 @@ public final class QueryPlus<T>
   }
 
   /**
-   * Returns the same QueryPlus object with the identity replaced. This new identity will affect future calls to
-   * {@link #withoutQueryMetrics()} but will not affect any currently-existing queryMetrics.
+   * Returns the same QueryPlus object with the identity replaced.
    */
   public QueryPlus<T> withIdentity(String identity)
   {
@@ -119,9 +118,6 @@ public final class QueryPlus<T>
   /**
    * Returns a QueryPlus object without the components which are unsafe for concurrent use from multiple threads,
    * therefore couldn't be passed down in concurrent or async {@link QueryRunner}s.
-   *
-   * Currently the only unsafe component is {@link QueryMetrics}, i. e. {@code withoutThreadUnsafeState()} call is
-   * equivalent to {@link #withoutQueryMetrics()}.
    */
   public QueryPlus<T> withoutThreadUnsafeState()
   {

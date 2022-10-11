@@ -86,7 +86,17 @@ public class ProfileVisualizer
     for (FragmentNode fragment : slice.fragments) {
       buf.append("\nFragment ")
          .append(fragment.fragmentId)
-         .append("\n\n");
+         .append("\n  Runtime (ms): ")
+         .append(profile.runTimeMs)
+         .append("\n");
+      if (fragment.error != null) {
+        buf.append("  Error: ")
+           .append(fragment.error.getClass().getSimpleName())
+           .append(" - ")
+           .append(fragment.error.getMessage())
+           .append("\n");
+      }
+      buf.append("\n");
       renderFragment(fragment);
     }
   }

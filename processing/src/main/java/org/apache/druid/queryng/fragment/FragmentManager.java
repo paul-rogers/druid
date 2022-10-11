@@ -277,7 +277,7 @@ public class FragmentManager implements FragmentContext, Closeable
 
   /**
    * Run the root operator (converted from a sequence if necessary) and return
-   * the operator's {@link ResultSequence}. If there is no root (pathological case),
+   * the operator's {@link ResultIterator}. If there is no root (pathological case),
    * create one as a null operator.
    */
   public <T> ResultIterator<T> run()
@@ -292,22 +292,28 @@ public class FragmentManager implements FragmentContext, Closeable
   }
 
   /**
-   * Run the operator as a sequence. If there is no root, define one as an
+   * Run the fragment as a sequence. If there is no root, define one as an
    * empty sequence. If the root is an operator, wrap it in a sequence. Then
    * wrap the root sequence with baggage which will close the fragment.
    * @param <T>
    * @return
    */
-  @SuppressWarnings("unchecked")
   @Temporary
   public <T> Sequence<T> runAsSequence()
+  {
+    return runAsSequence(this);
+  }
+
+  @SuppressWarnings("unchecked")
+  @Temporary
+  public <T> Sequence<T> runAsSequence(Closeable manager)
   {
     Preconditions.checkState(state == State.START);
     if (!rootIsOperator() && !rootIsSequence()) {
       registerRoot(Sequences.empty());
     }
     state = State.RUN;
-    return Sequences.withBaggage((Sequence<T>) rootSequence(), this);
+    return Sequences.withBaggage((Sequence<T>) rootSequence(), manager);
   }
 
   /**

@@ -40,14 +40,13 @@ import org.apache.druid.queryng.fragment.FragmentContext;
 import org.apache.druid.queryng.operators.LimitOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
+import org.apache.druid.queryng.operators.general.CursorDefinition;
 import org.apache.druid.queryng.operators.general.ScatterGatherOperator.OrderedScatterGatherOperator;
 import org.apache.druid.queryng.operators.timeseries.GrandTotalOperator;
 import org.apache.druid.queryng.operators.timeseries.IntermediateAggOperator;
 import org.apache.druid.queryng.operators.timeseries.TimeseriesEngineOperator;
-import org.apache.druid.queryng.operators.timeseries.TimeseriesEngineOperator.CursorDefinition;
 import org.apache.druid.queryng.operators.timeseries.ToArrayOperator;
 import org.apache.druid.segment.ColumnInspector;
-import org.apache.druid.segment.SegmentMissingException;
 import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.RowSignature;
@@ -174,16 +173,10 @@ public class TimeSeriesPlanner
     }
     final TimeseriesQuery query = (TimeseriesQuery) input;
 
-    if (adapter == null) {
-      throw new SegmentMissingException(
-          "Null storage adapter found. Probably trying to issue a query against a segment being memory unmapped."
-      );
-    }
-
     final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
     final boolean descending = query.isDescending();
     final CursorDefinition cursorDefn = new CursorDefinition(
-        adapter,
+        null, // No segment on this path: adapter only
         Iterables.getOnlyElement(query.getIntervals()),
         filter,
         query.getVirtualColumns(),
@@ -192,6 +185,7 @@ public class TimeSeriesPlanner
         queryPlus.getQueryMetrics(),
         QueryContexts.getVectorSize(query) // Vectorized only
     );
+    cursorDefn.setAdapter(adapter);
 
     final ColumnInspector inspector = query.getVirtualColumns().wrapInspector(adapter);
     final boolean doVectorize = QueryContexts.getVectorize(query).shouldVectorize(

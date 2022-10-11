@@ -58,6 +58,7 @@ public class QueryProfile
    */
   public static class FragmentNode
   {
+    @SuppressWarnings("unused") // Not yet
     public final String queryId;
     public final int fragmentId;
     public final long runTimeMs;

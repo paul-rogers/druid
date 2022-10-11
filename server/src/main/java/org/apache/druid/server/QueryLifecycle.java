@@ -314,7 +314,7 @@ public class QueryLifecycle
       Fragments.logProfile(f);
     });
     fragment.registerRoot(res);
-    return new QueryResponse.FragmentResponse<T>(fragment, responseContext);
+    return new QueryResponse.FragmentResponse<T>(queryManager, responseContext);
   }
 
   /**

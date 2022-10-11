@@ -21,11 +21,7 @@ package org.apache.druid.queryng.operators.scan;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.granularity.Granularity;
-import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
@@ -35,15 +31,10 @@ import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.ResultIterator;
 import org.apache.druid.queryng.operators.SequenceIterator;
+import org.apache.druid.queryng.operators.general.CursorDefinition;
 import org.apache.druid.segment.Cursor;
-import org.apache.druid.segment.Segment;
-import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.VirtualColumn;
-import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnHolder;
-import org.joda.time.Interval;
-
-import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -67,65 +58,6 @@ public class ScanEngineOperator implements Operator<ScanResultValue>
     NONE,
     ASCENDING,
     DESCENDING
-  }
-
-  // TODO: Unify this with the class of the same name for time series.
-  public static class CursorDefinition
-  {
-    private final Segment segment;
-    private final Interval queryInterval;
-    private final Filter filter;
-    private final VirtualColumns virtualColumns;
-    private final boolean descending;
-    private final Granularity granularity;
-    @Nullable private final QueryMetrics<?> queryMetrics;
-    private StorageAdapter adapter;
-
-    public CursorDefinition(
-        final Segment segment,
-        final Interval queryInterval,
-        @Nullable final Filter filter,
-        @Nullable final VirtualColumns virtualColumns,
-        final boolean descending,
-        final Granularity granularity,
-        @Nullable final QueryMetrics<?> queryMetrics
-    )
-    {
-      this.segment = segment;
-      this.queryInterval = queryInterval;
-      this.filter = filter;
-      this.virtualColumns = virtualColumns;
-      this.descending = descending;
-      this.granularity = granularity;
-      this.queryMetrics = queryMetrics;
-    }
-
-    private StorageAdapter adapter()
-    {
-      if (adapter == null) {
-        adapter = segment.asStorageAdapter();
-        if (adapter == null) {
-          throw new ISE(
-              "Null storage adapter found. Probably trying to issue a query against a segment being memory unmapped."
-          );
-        }
-      }
-      return adapter;
-    }
-
-    public SequenceIterator<Cursor> cursors()
-    {
-      return SequenceIterator.of(
-          adapter().makeCursors(
-              filter,
-              queryInterval,
-              virtualColumns,
-              granularity,
-              descending,
-              queryMetrics
-          )
-      );
-    }
   }
 
   /**
@@ -159,8 +91,8 @@ public class ScanEngineOperator implements Operator<ScanResultValue>
                   Arrays.asList(cursorDefn.virtualColumns.getVirtualColumns()),
                   VirtualColumn::getOutputName
               ),
-              cursorDefn.adapter.getAvailableDimensions(),
-              cursorDefn.adapter.getAvailableMetrics()
+              cursorDefn.adapter().getAvailableDimensions(),
+              cursorDefn.adapter().getAvailableMetrics()
           )
       );
 

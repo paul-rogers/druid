@@ -20,6 +20,7 @@
 package org.apache.druid.queryng.operators.scan;
 
 import com.google.common.base.Strings;
+import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -35,12 +36,14 @@ import org.apache.druid.segment.column.ColumnHolder;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 @Category(OperatorTest.class)
@@ -222,7 +225,48 @@ public class ScanQueryOperatorsTest
   }
 
   @Test
-  public void testBatchToRow()
+  public void testCompactListBatchToRow()
+  {
+    {
+      FragmentManager fragment = Fragments.defaultFragment();
+      MockScanResultReader scan = scan(fragment, 3, 25, 4, ResultFormat.RESULT_FORMAT_COMPACTED_LIST);
+      Operator<List<Object>> op =
+          new ScanBatchToRowOperator<List<Object>>(fragment, scan);
+      Operator<Object[]> root =
+          new ScanCompactListToArrayOperator(fragment, op, scan.columns);
+      fragment.registerRoot(root);
+      List<Object[]> results = fragment.toList();
+      assertEquals(25, results.size());
+      assertEquals(scan.columns.size(), results.get(0).length);
+    }
+    {
+      // Empty projection set is special cased for some reason
+      FragmentManager fragment = Fragments.defaultFragment();
+      MockScanResultReader scan = scan(fragment, 3, 25, 4, ResultFormat.RESULT_FORMAT_COMPACTED_LIST);
+      Operator<List<Object>> op =
+          new ScanBatchToRowOperator<List<Object>>(fragment, scan);
+      Operator<Object[]> root =
+          new ScanCompactListToArrayOperator(fragment, op, Collections.emptyList());
+      fragment.registerRoot(root);
+      List<Object[]> results = fragment.toList();
+      assertEquals(25, results.size());
+      assertEquals(0, results.get(0).length);
+    }
+    {
+      // Failure on mismatch
+      FragmentManager fragment = Fragments.defaultFragment();
+      MockScanResultReader scan = scan(fragment, 3, 25, 4, ResultFormat.RESULT_FORMAT_COMPACTED_LIST);
+      Operator<List<Object>> op =
+          new ScanBatchToRowOperator<List<Object>>(fragment, scan);
+      Operator<Object[]> root =
+          new ScanCompactListToArrayOperator(fragment, op, Collections.singletonList("foo"));
+      fragment.registerRoot(root);
+      assertThrows(ISE.class, () -> fragment.toList());
+    }
+  }
+
+  @Test
+  public void testMapBatchToRow()
   {
     {
       FragmentManager fragment = Fragments.defaultFragment();
@@ -241,7 +285,7 @@ public class ScanQueryOperatorsTest
       Operator<Map<String, Object>> op =
           new ScanBatchToRowOperator<Map<String, Object>>(fragment, scan);
       Operator<Object[]> root =
-          new ScanListToArrayOperator(fragment, op, scan.columns);
+          new ScanMapListToArrayOperator(fragment, op, scan.columns);
       fragment.registerRoot(root);
       List<Object[]> results = fragment.toList();
       assertEquals(25, results.size());

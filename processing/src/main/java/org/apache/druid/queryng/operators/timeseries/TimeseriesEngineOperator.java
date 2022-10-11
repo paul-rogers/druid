@@ -22,14 +22,11 @@ package org.apache.druid.queryng.operators.timeseries;
 import org.apache.druid.collections.NonBlockingPool;
 import org.apache.druid.collections.ResourceHolder;
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.java.util.common.io.Closer;
-import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.aggregation.AggregatorAdapters;
 import org.apache.druid.query.aggregation.AggregatorFactory;
-import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.timeseries.TimeseriesResultBuilder;
 import org.apache.druid.query.timeseries.TimeseriesResultValue;
 import org.apache.druid.queryng.fragment.FragmentContext;
@@ -40,15 +37,11 @@ import org.apache.druid.queryng.operators.OperatorProfile;
 import org.apache.druid.queryng.operators.Operators;
 import org.apache.druid.queryng.operators.ResultIterator;
 import org.apache.druid.queryng.operators.SequenceIterator;
+import org.apache.druid.queryng.operators.general.CursorDefinition;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.Cursor;
-import org.apache.druid.segment.StorageAdapter;
-import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 import org.apache.druid.segment.vector.VectorCursor;
-import org.joda.time.Interval;
-
-import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -65,67 +58,8 @@ import java.util.List;
  */
 public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResultValue>>
 {
-  public static class CursorDefinition
-  {
-    private final StorageAdapter adapter;
-    private final Interval queryInterval;
-    @Nullable private final Filter filter;
-    @Nullable private final VirtualColumns virtualColumns;
-    private final boolean descending;
-    private final Granularity granularity;
-    @Nullable private final QueryMetrics<?> queryMetrics;
-    private final int vectorSize;
-
-    public CursorDefinition(
-        final StorageAdapter adapter,
-        final Interval queryInterval,
-        @Nullable final Filter filter,
-        @Nullable final VirtualColumns virtualColumns,
-        final boolean descending,
-        final Granularity granularity,
-        @Nullable final QueryMetrics<?> queryMetrics,
-        final int vectorSize
-    )
-    {
-      this.adapter = adapter;
-      this.queryInterval = queryInterval;
-      this.filter = filter;
-      this.virtualColumns = virtualColumns;
-      this.descending = descending;
-      this.granularity = granularity;
-      this.queryMetrics = queryMetrics;
-      this.vectorSize = vectorSize;
-    }
-
-    public SequenceIterator<Cursor> cursors()
-    {
-      return SequenceIterator.of(
-          adapter.makeCursors(
-              filter,
-              queryInterval,
-              virtualColumns,
-              granularity,
-              descending,
-              queryMetrics
-          )
-      );
-    }
-
-    public VectorCursor vectorCursor()
-    {
-      return adapter.makeVectorCursor(
-          filter,
-          queryInterval,
-          virtualColumns,
-          descending,
-          vectorSize,
-          queryMetrics
-      );
-    }
-  }
-
   /**
-   * Class that delivers results on top of the native engine.
+   * Delivers results on top of the native engine.
    */
   public abstract static class BaseResultIterator extends CountingResultIterator<Result<TimeseriesResultValue>>
   {
@@ -150,8 +84,8 @@ public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResul
   }
 
   /**
-   * Non-vectorized. The storage adapter provides one or more cursors: one for each
-   * contiguous span of times.
+   * Non-vectorized. The storage adapter provides one cursor per query
+   * granularity interval. This class aggregates the rows for that interval.
    */
   public static class NonVectorizedResultIterator extends BaseResultIterator
   {
@@ -164,15 +98,12 @@ public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResul
         final boolean skipEmptyBuckets
     )
     {
-      super(
-          aggregatorSpecs,
-          skipEmptyBuckets
-      );
+      super(aggregatorSpecs, skipEmptyBuckets);
       this.cursorIter = cursorIter;
     }
 
     @Override
-    public Result<TimeseriesResultValue> next() throws ResultIterator.EofException
+    public Result<TimeseriesResultValue> next() throws EofException
     {
       while (true) {
         if (!cursorIter.hasNext()) {
@@ -184,8 +115,9 @@ public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResul
           continue;
         }
 
-        ColumnSelectorFactory columnSelectorFactory = cursor.getColumnSelectorFactory();
-        Aggregator[] aggregators = new Aggregator[aggregatorSpecs.size()];
+        final TimeseriesResultBuilder bob = new TimeseriesResultBuilder(cursor.getTime());
+        final ColumnSelectorFactory columnSelectorFactory = cursor.getColumnSelectorFactory();
+        final Aggregator[] aggregators = new Aggregator[aggregatorSpecs.size()];
         for (int i = 0; i < aggregatorSpecs.size(); i++) {
           aggregators[i] = aggregatorSpecs.get(i).factorize(columnSelectorFactory);
         }
@@ -199,7 +131,6 @@ public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResul
             cursor.advance();
           }
 
-          TimeseriesResultBuilder bob = new TimeseriesResultBuilder(cursor.getTime());
           for (int i = 0; i < aggregators.length; i++) {
             bob.addMetric(aggregatorNames[i], aggregators[i].get());
           }
@@ -249,7 +180,7 @@ public class TimeseriesEngineOperator implements Operator<Result<TimeseriesResul
           skipEmptyBuckets
       );
       this.groupIter = new TimeGroupVectorIterator(
-          cursorDefinition.adapter,
+          cursorDefinition.adapter(),
           cursor,
           cursorDefinition.granularity,
           cursorDefinition.queryInterval,

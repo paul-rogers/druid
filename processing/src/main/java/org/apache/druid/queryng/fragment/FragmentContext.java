@@ -96,6 +96,7 @@ public interface FragmentContext
    * Register a parent-child relationship between an operator and a slice
    * of this query.
    */
+  @SuppressWarnings("unused") // Needed in future work
   void registerChild(Operator<?> parent, int posn, int sliceID);
 
   /**

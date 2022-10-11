@@ -40,7 +40,7 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
     @Override
     public long getLong()
     {
-      return segmentBase + posn / divideBy;
+      return startTime + posn * msPerRow;
     }
 
     @Override
@@ -60,7 +60,7 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
     @Override
     public long getLong()
     {
-      return posn % 10_000;
+      return posn % 100;
     }
 
     @Override
@@ -75,7 +75,7 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
     }
   }
 
-  private class MockStringColumn implements ColumnValueSelector<String>
+  private abstract class MockStringColumn implements ColumnValueSelector<String>
   {
     @Override
     public long getLong()
@@ -107,32 +107,53 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
     }
 
     @Override
-    public String getObject()
-    {
-      return "row " + (posn + 1);
-    }
-
-    @Override
     public Class<String> classOfObject()
     {
       return String.class;
     }
   }
 
+  private class MockRowLabelColumn extends MockStringColumn
+  {
+    @Override
+    public String getObject()
+    {
+      return "row " + (posn + 1);
+    }
+  }
+
+  private class MockDimColumn extends MockStringColumn
+  {
+    @Override
+    public String getObject()
+    {
+      return "dim " + (posn % 3 + 1);
+    }
+  }
+
+  private final MockStorageAdapter adapter;
   private final int targetRowCount;
-  private final long segmentBase;
-  private final int divideBy;
+  private final long startTime;
+  private final int msPerRow;
   private int posn;
 
-  public MockCursor(Interval interval, int segmentSize)
+  public MockCursor(
+      final MockStorageAdapter adapter,
+      final Interval interval,
+      final int segmentSize
+  )
   {
-    this.segmentBase = interval.getStartMillis();
+    this.adapter = adapter;
+    this.startTime = interval.getStartMillis();
     this.targetRowCount = segmentSize;
-    long span = interval.getEndMillis() - segmentBase;
-    if (span > targetRowCount) {
-      this.divideBy = 1;
+    long span = interval.getEndMillis() - startTime;
+
+    // A zero-row cursor is a bit silly, but is needed to test the
+    // zero-row path.
+    if (targetRowCount == 0) {
+      this.msPerRow = 1;
     } else {
-      this.divideBy = (int) (targetRowCount / span);
+      this.msPerRow = (int) Math.max(1, span / targetRowCount);
     }
   }
 
@@ -157,8 +178,14 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
         return new MockTimeColumn();
       case "delta":
         return new MockLongColumn();
+
+      // Unique column for each row
       case "page":
-        return new MockStringColumn();
+        return new MockRowLabelColumn();
+
+      // Repeats every three rows
+      case "dim":
+        return new MockDimColumn();
       default:
         return null;
     }
@@ -167,13 +194,13 @@ public class MockCursor implements Cursor, ColumnSelectorFactory
   @Override
   public ColumnCapabilities getColumnCapabilities(String column)
   {
-    throw new ISE("Not supported");
+    return adapter.getColumnCapabilities(column);
   }
 
   @Override
   public DateTime getTime()
   {
-    return DateTimes.utc(segmentBase + posn / divideBy);
+    return DateTimes.utc(startTime + posn * msPerRow);
   }
 
   @Override
