@@ -106,7 +106,7 @@ public class ScanQueryOffsetSequence extends YieldingSequenceBase<ScanResultValu
     {
       if (skipped < skip) {
         final long toSkip = skip - skipped;
-        final List<?> rows = (List) result.getEvents();
+        final List<?> rows = result.getRows();
         if (toSkip >= rows.size()) {
           // Skip everything.
           skipped += rows.size();

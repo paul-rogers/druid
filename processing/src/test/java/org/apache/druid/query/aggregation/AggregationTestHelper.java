@@ -47,6 +47,7 @@ import org.apache.druid.java.util.common.guava.YieldingAccumulator;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.query.DefaultGenericQueryMetricsFactory;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
+import org.apache.druid.query.NativeQueryRunner;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
@@ -555,7 +556,7 @@ public class AggregationTestHelper implements Closeable
   }
 
   public void createIndex(
-      Iterator rows,
+      Iterator<?> rows,
       InputRowParser parser,
       final AggregatorFactory[] metrics,
       File outDir,
@@ -640,7 +641,8 @@ public class AggregationTestHelper implements Closeable
     }
   }
 
-  public Query readQuery(final String queryJson)
+  @SuppressWarnings("unchecked")
+  public <T> Query<T> readQuery(final String queryJson)
   {
     try {
       return mapper.readValue(queryJson, Query.class);
@@ -651,7 +653,7 @@ public class AggregationTestHelper implements Closeable
   }
 
   public static IncrementalIndex createIncrementalIndex(
-      Iterator rows,
+      Iterator<?> rows,
       InputRowParser parser,
       List<DimensionSchema> dimensions,
       final AggregatorFactory[] metrics,
@@ -694,7 +696,7 @@ public class AggregationTestHelper implements Closeable
   }
 
   public static IncrementalIndex createIncrementalIndex(
-      Iterator rows,
+      Iterator<?> rows,
       InputRowParser parser,
       final AggregatorFactory[] metrics,
       long minTimestamp,
@@ -734,7 +736,9 @@ public class AggregationTestHelper implements Closeable
   //from each segment, later deserialize and merge and finally return the results
   public <T> Sequence<T> runQueryOnSegments(final List<File> segmentDirs, final String queryJson)
   {
-    return runQueryOnSegments(segmentDirs, readQuery(queryJson).withOverriddenContext(queryContext));
+    @SuppressWarnings("unchecked")
+    Query<T> query = (Query<T>) readQuery(queryJson).withOverriddenContext(queryContext);
+    return runQueryOnSegments(segmentDirs, query);
   }
 
   public <T> Sequence<T> runQueryOnSegments(final List<File> segmentDirs, final Query<T> query)
@@ -768,7 +772,7 @@ public class AggregationTestHelper implements Closeable
 
   public <T> Sequence<T> runQueryOnSegmentsObjs(final List<Segment> segments, final Query<T> query)
   {
-    final FinalizeResultsQueryRunner baseRunner = new FinalizeResultsQueryRunner(
+    final FinalizeResultsQueryRunner<T> baseRunner = new FinalizeResultsQueryRunner<>(
         toolChest.postMergeQueryDecoration(
             toolChest.mergeResults(
                 toolChest.preMergeQueryDecoration(
@@ -801,7 +805,7 @@ public class AggregationTestHelper implements Closeable
         toolChest
     );
 
-    return baseRunner.run(QueryPlus.wrap(query));
+    return NativeQueryRunner.run(baseRunner, query);
   }
 
   public QueryRunner<ResultRow> makeStringSerdeQueryRunner(
@@ -831,7 +835,7 @@ public class AggregationTestHelper implements Closeable
           );
           String resultStr = mapper.writer().writeValueAsString(yielder);
 
-          List resultRows = Lists.transform(
+          List<ResultRow> resultRows = Lists.transform(
               readQueryResultArrayFromString(resultStr),
               toolChest.makePreComputeManipulatorFn(
                   queryPlus.getQuery(),
@@ -847,9 +851,9 @@ public class AggregationTestHelper implements Closeable
     };
   }
 
-  private List readQueryResultArrayFromString(String str) throws Exception
+  private List<?> readQueryResultArrayFromString(String str) throws Exception
   {
-    List result = new ArrayList();
+    List<?> result = new ArrayList<>();
 
     JsonParser jp = mapper.getFactory().createParser(str);
 
@@ -870,18 +874,30 @@ public class AggregationTestHelper implements Closeable
     return mapper;
   }
 
+  @SuppressWarnings("unchecked")
+  private static <T> T[] newArray(Class<T> clazz, int size)
+  {
+    return (T[]) Array.newInstance(clazz, 2);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static <T> T aggGet(BufferAggregator agg, ByteBuffer buf, int i)
+  {
+    return (T) agg.get(buf, i);
+  }
+
   public <T> T[] runRelocateVerificationTest(
       AggregatorFactory factory,
       ColumnSelectorFactory selector,
       Class<T> clazz
   )
   {
-    T[] results = (T[]) Array.newInstance(clazz, 2);
+    T[] results = newArray(clazz, 2);
     BufferAggregator agg = factory.factorizeBuffered(selector);
     ByteBuffer myBuf = ByteBuffer.allocate(10040902);
     agg.init(myBuf, 0);
     agg.aggregate(myBuf, 0);
-    results[0] = (T) agg.get(myBuf, 0);
+    results[0] = aggGet(agg, myBuf, 0);
 
     byte[] theBytes = new byte[factory.getMaxIntermediateSizeWithNulls()];
     myBuf.get(theBytes);
@@ -891,7 +907,7 @@ public class AggregationTestHelper implements Closeable
     newBuf.put(theBytes);
     newBuf.position(0);
     agg.relocate(0, 7574, myBuf, newBuf);
-    results[1] = (T) agg.get(newBuf, 7574);
+    results[1] = aggGet(agg, newBuf, 7574);
     return results;
   }
 

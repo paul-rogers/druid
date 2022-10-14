@@ -20,6 +20,7 @@
 package org.apache.druid.queryng.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.apache.druid.collections.NonBlockingPool;
 import org.apache.druid.java.util.common.ISE;
@@ -70,7 +71,7 @@ public class TimeSeriesPlanner
    *
    * @see TimeseriesQueryQueryToolChest#mergeResults
    */
-  public static Sequence<Result<TimeseriesResultValue>> mergeResults(
+  public static Sequence<Result<TimeseriesResultValue>> grandTotals(
       QueryPlus<Result<TimeseriesResultValue>> queryPlus,
       QueryRunner<Result<TimeseriesResultValue>> inputQueryRunner,
       Function<Query<Result<TimeseriesResultValue>>, Comparator<Result<TimeseriesResultValue>>> comparatorGenerator,
@@ -79,51 +80,67 @@ public class TimeSeriesPlanner
   {
     final FragmentContext fragmentContext = queryPlus.fragment();
     final TimeseriesQuery query = (TimeseriesQuery) queryPlus.getQuery();
-    final Operator<Result<TimeseriesResultValue>> inputOp = Operators.toOperator(inputQueryRunner, queryPlus);
 
+    // Produce the base results, pre-merge.
+    final Operator<Result<TimeseriesResultValue>> inputOp = Operators.toOperator(
+        inputQueryRunner,
+        queryPlus.withQuery(
+            // Don't do post aggs until makePostComputeManipulatorFn() is called
+            query.withPostAggregatorSpecs(ImmutableList.of())
+                  // Remove the grand total from the query passed to children.
+                 .withOverriddenContext(
+                       ImmutableMap.of(TimeseriesQuery.CTX_GRAND_TOTAL, false)
+                  )
+        )
+    );
+
+    // Determine how to do the merge.
     Operator<Result<TimeseriesResultValue>> op;
-    if (QueryContexts.isBySegment(queryPlus.getQuery())) {
+    if (QueryContexts.isBySegment(query)) {
+      // By segment: no merge.
+      // If there are no results, then this path returns an empty result
+      // if bySegment is set because bySegment results are mostly used for
+      // caching in historicals or debugging where the exact results are preferred.
       op = inputOp;
     } else {
+      // Normal case: merge the results. Prepare a zero-results supplier
+      // to handle the empty-results case.
       final Supplier<Result<TimeseriesResultValue>> zeroResultSupplier;
       // When granularity = ALL, there is no grouping key for this query.
       // To be more sql-compliant, we should return something (e.g., 0 for count queries) even when
       // the sequence is empty.
       if (query.getGranularity().equals(Granularities.ALL) &&
-              // Returns empty sequence if this query allows skipping empty buckets
-              !query.isSkipEmptyBuckets() &&
-              // Returns empty sequence if bySegment is set because bySegment results are mostly used for
-              // caching in historicals or debugging where the exact results are preferred.
-              !QueryContexts.isBySegment(query)) {
+          // Returns empty sequence if this query allows skipping empty buckets
+          !query.isSkipEmptyBuckets()) {
         // A bit of a hack to avoid passing the query into the operator.
         zeroResultSupplier = () -> TimeseriesQueryQueryToolChest.getNullTimeseriesResultValue(query);
       } else {
         zeroResultSupplier = null;
       }
-      // Don't do post aggs until
-      // TimeseriesQueryQueryToolChest.makePostComputeManipulatorFn() is called
-      TimeseriesQuery aggQuery = query.withPostAggregatorSpecs(ImmutableList.of());
       op = new IntermediateAggOperator(
           fragmentContext,
           inputOp,
-          comparatorGenerator.apply(aggQuery),
-          mergeFnGenerator.apply(aggQuery),
+          comparatorGenerator.apply(query),
+          mergeFnGenerator.apply(query),
           zeroResultSupplier
       );
     }
 
-    // Apply limit to the aggregated values.
-    final int limit = query.getLimit();
-    if (limit < Integer.MAX_VALUE) {
-      op = new LimitOperator<Result<TimeseriesResultValue>>(fragmentContext, op, limit);
-    }
-
+    // Add a grand total if requested.
     if (query.isGrandTotal()) {
       op = new GrandTotalOperator(
           fragmentContext,
           op,
           query.getAggregatorSpecs()
       );
+    }
+
+    // Apply limit to the aggregated values.
+    // Note that the limit is applied after the grand total: there will be no
+    // grand total if the results hit the limit: such a grand total is inaccurate.
+    final int limit = query.getLimit();
+    if (limit < Integer.MAX_VALUE) {
+      op = new LimitOperator<Result<TimeseriesResultValue>>(fragmentContext, op, limit);
     }
 
     // Return the result as a sequence.

@@ -34,6 +34,7 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.DefaultGenericQueryMetricsFactory;
 import org.apache.druid.query.Druids;
+import org.apache.druid.query.NativeQueryRunner;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
@@ -235,10 +236,10 @@ public class MultiSegmentScanQueryTest extends NullHandlingTest
         }
     );
     ScanQuery query = newBuilder().build();
-    List<ScanResultValue> results = runner.run(QueryPlus.wrap(query)).toList();
+    List<ScanResultValue> results = NativeQueryRunner.runToList(runner, query);
     int totalCount = 0;
     for (ScanResultValue result : results) {
-      totalCount += ((List) result.getEvents()).size();
+      totalCount += result.getRows().size();
     }
     Assert.assertEquals(
         totalCount,

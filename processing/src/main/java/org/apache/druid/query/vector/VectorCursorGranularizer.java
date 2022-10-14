@@ -111,7 +111,8 @@ public class VectorCursorGranularizer
       return;
     }
 
-    if (timestamps == null) {
+    if (timestamps == null && vectorSize > 0) {
+      // Can't get the vector if it is empty.
       timestamps = timeSelector.getLongVector();
     }
 

@@ -20,9 +20,7 @@
 package org.apache.druid.queryng.operators.general;
 
 import com.google.common.collect.ImmutableMap;
-import com.ibm.icu.util.TimeZone;
 import org.apache.druid.java.util.common.Intervals;
-import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
@@ -55,7 +53,7 @@ import java.util.Map;
 public class MockStorageAdapter implements StorageAdapter
 {
   public static final Interval MOCK_INTERVAL = Intervals.of("2015-09-12T13:00:00.000Z/2015-09-12T14:00:00.000Z");
-  public static final SegmentDescriptor MOCK_DESCRIPTOR = new SegmentDescriptor(MOCK_INTERVAL, "1", 1 );
+  public static final SegmentDescriptor MOCK_DESCRIPTOR = new SegmentDescriptor(MOCK_INTERVAL, "1", 1);
 
   public static class MockColumn
   {
@@ -83,7 +81,7 @@ public class MockStorageAdapter implements StorageAdapter
 
     public MockSegment(int segmentSize)
     {
-       this(segmentSize, 1, false);
+      this(segmentSize, 1, false);
     }
 
     public MockSegment(int segmentSize, int cursorCount, boolean sparse)
@@ -105,7 +103,8 @@ public class MockStorageAdapter implements StorageAdapter
           "dummyDS",
           MOCK_DESCRIPTOR.getInterval(),
           MOCK_DESCRIPTOR.getVersion(),
-          MOCK_DESCRIPTOR.getPartitionNumber());
+          MOCK_DESCRIPTOR.getPartitionNumber()
+      );
     }
 
     @Override

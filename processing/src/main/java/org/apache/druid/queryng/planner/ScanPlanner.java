@@ -273,8 +273,8 @@ public class ScanPlanner
             query,
             segment,
             queryPlus.getQueryMetrics()
-            )
-        );
+        )
+    );
   }
 
   public static ScanEngineOperator buildScanOperator(
@@ -291,6 +291,25 @@ public class ScanPlanner
 
     final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getFilter()));
     final List<String> columns = defineColumns(query, isLegacy);
+
+    // Compute query timeout, if any.
+    final long timeoutAt;
+    final long queryTimeout = QueryContexts.getTimeout(query);
+    if (queryTimeout == QueryContexts.NO_TIMEOUT) {
+      // No timeout
+      timeoutAt = JodaUtils.MAX_INSTANT;
+    } else {
+      final Long timeoutValue = context.responseContext().getTimeoutTime();
+      if (timeoutValue == null || timeoutValue == 0L) {
+        // Tests do not set the response context timeout.
+        // Go ahead and compute it here.
+        timeoutAt = System.currentTimeMillis() + queryTimeout;
+        context.responseContext().putTimeoutTime(timeoutAt);
+      } else {
+        // Use the timeout stored in the response context
+        timeoutAt = timeoutValue;
+      }
+    }
 
     final ScanEngineOperator.Order order;
     if (query.getTimeOrder() == ScanQuery.Order.NONE) {
@@ -320,7 +339,7 @@ public class ScanPlanner
           order,
           query.getScanRowsLimit(),
           query.getResultFormat(),
-          QueryContexts.hasTimeout(query) ? context.responseContext().getTimeoutTime() : Long.MAX_VALUE
+          timeoutAt
     );
   }
 
@@ -387,16 +406,20 @@ public class ScanPlanner
             context,
             new ScanBatchToRowOperator<Map<String, Object>>(
                 context,
-                inputOp),
-            fields);
+                inputOp
+            ),
+            fields
+        );
         break;
       case RESULT_FORMAT_COMPACTED_LIST:
         outputOp = new ScanCompactListToArrayOperator(
             context,
             new ScanBatchToRowOperator<List<Object>>(
                 context,
-                inputOp),
-            fields);
+                inputOp
+            ),
+            fields
+        );
         break;
       default:
         throw new UOE("Unsupported resultFormat for array-based results: %s", query.getResultFormat());

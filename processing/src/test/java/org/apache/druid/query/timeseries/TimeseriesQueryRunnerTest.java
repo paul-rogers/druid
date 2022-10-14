@@ -38,8 +38,9 @@ import org.apache.druid.java.util.metrics.StubServiceEmitter;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
 import org.apache.druid.query.MetricsEmittingQueryRunner;
+import org.apache.druid.query.NativeQueryRunner;
+import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
-import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.QueryToolChest;
@@ -148,13 +149,13 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
     TestHelper.assertExpectedResults(expectedResults, results);
   }
 
-  protected final QueryRunner runner;
+  protected final QueryRunner<Result<TimeseriesResultValue>> runner;
   protected final boolean descending;
   protected final boolean vectorize;
   private final List<AggregatorFactory> aggregatorFactoryList;
 
   public TimeseriesQueryRunnerTest(
-      QueryRunner runner,
+      QueryRunner<Result<TimeseriesResultValue>> runner,
       boolean descending,
       boolean vectorize,
       List<AggregatorFactory> aggregatorFactoryList
@@ -164,6 +165,16 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
     this.descending = descending;
     this.vectorize = vectorize;
     this.aggregatorFactoryList = aggregatorFactoryList;
+  }
+
+  public Sequence<Result<TimeseriesResultValue>> run(Query<Result<TimeseriesResultValue>> query)
+  {
+    return NativeQueryRunner.run(runner, query);
+  }
+
+  public List<Result<TimeseriesResultValue>> runToList(Query<Result<TimeseriesResultValue>> query)
+  {
+    return run(query).toList();
   }
 
   @Test
@@ -200,7 +211,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
     TestHelper.assertExpectedResults(expectedResults, actualResults);
   }
 
@@ -231,7 +242,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             (obj, lng) -> {},
             (metrics) -> {}
         ).withWaitMeasuredFromNow();
-    Iterable<Result<TimeseriesResultValue>> results = metricsEmittingQueryRunner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = NativeQueryRunner.runToList(metricsEmittingQueryRunner, query);
 
     final String[] expectedIndex = descending ?
                                    QueryRunnerTestHelper.EXPECTED_FULL_ON_INDEX_VALUES_DESC :
@@ -242,11 +253,11 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
                                   QueryRunnerTestHelper.LAST;
 
     int count = 0;
-    Result lastResult = null;
+    Result<TimeseriesResultValue> lastResult = null;
     for (Result<TimeseriesResultValue> result : results) {
       DateTime current = result.getTimestamp();
       Assert.assertFalse(
-          StringUtils.format("Timestamp[%s] > expectedLast[%s]", current, expectedLast),
+          StringUtils.format("Timestamp [%s] > expectedLast [%s]", current, expectedLast),
           descending ? current.isBefore(expectedLast) : current.isAfter(expectedLast)
       );
 
@@ -267,7 +278,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         );
         Assert.assertEquals(
             result.toString(),
-            new Double(expectedIndex[count]) +
+            Double.valueOf(expectedIndex[count]) +
             13L + 1L,
             value.getDoubleMetric("addRowsIndexConstant"),
             value.getDoubleMetric("addRowsIndexConstant") * 1e-6
@@ -287,7 +298,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
           );
           Assert.assertEquals(
               result.toString(),
-              new Double(expectedIndex[count]) + 1L,
+              Double.valueOf(expectedIndex[count]) + 1L,
               value.getDoubleMetric("addRowsIndexConstant"),
               value.getDoubleMetric("addRowsIndexConstant") * 1e-6
           );
@@ -337,13 +348,13 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
                                   .context(makeContext())
                                   .build();
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
 
     final DateTime expectedLast = descending ?
                                   QueryRunnerTestHelper.EARLIEST :
                                   QueryRunnerTestHelper.LAST;
 
-    Result lastResult = null;
+    Result<TimeseriesResultValue> lastResult = null;
     for (Result<TimeseriesResultValue> result : results) {
       DateTime current = result.getTimestamp();
       Assert.assertFalse(
@@ -377,7 +388,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
     DateTime expectedEarliest = DateTimes.of("2011-01-12");
     DateTime expectedLast = DateTimes.of("2011-04-15");
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     Result<TimeseriesResultValue> result = results.iterator().next();
 
     Assert.assertEquals(expectedEarliest, result.getTimestamp());
@@ -414,7 +425,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
     DateTime expectedEarliest = DateTimes.of("2011-01-12");
     DateTime expectedLast = DateTimes.of("2011-04-15");
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     Result<TimeseriesResultValue> result = results.iterator().next();
     Assert.assertEquals(expectedEarliest, result.getTimestamp());
     Assert.assertFalse(
@@ -458,7 +469,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
                                   QueryRunnerTestHelper.EARLIEST :
                                   QueryRunnerTestHelper.LAST;
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
 
     for (Result<TimeseriesResultValue> result : results) {
       DateTime current = result.getTimestamp();
@@ -527,7 +538,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -615,13 +626,13 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
     // Must create a toolChest so we can run mergeResults (which applies grand totals).
     QueryToolChest<Result<TimeseriesResultValue>, TimeseriesQuery> toolChest = new TimeseriesQueryQueryToolChest();
 
-    // Must wrapped in a results finalizer to stop the runner's builtin finalizer from being called.
-    final FinalizeResultsQueryRunner finalRunner = new FinalizeResultsQueryRunner(
+    // Must wrap in a results finalizer to stop the runner's builtin finalizer from being called.
+    final FinalizeResultsQueryRunner<Result<TimeseriesResultValue>> finalRunner = new FinalizeResultsQueryRunner(
         toolChest.mergeResults(runner),
         toolChest
     );
 
-    final List results = finalRunner.run(QueryPlus.wrap(query)).toList();
+    final List<Result<TimeseriesResultValue>> results = NativeQueryRunner.runToList(finalRunner, query);
 
     TestHelper.assertExpectedResults(expectedResults, results);
   }
@@ -683,12 +694,12 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
     QueryToolChest<Result<TimeseriesResultValue>, TimeseriesQuery> toolChest = new TimeseriesQueryQueryToolChest();
 
     // Must wrapped in a results finalizer to stop the runner's builtin finalizer from being called.
-    final FinalizeResultsQueryRunner finalRunner = new FinalizeResultsQueryRunner(
+    final FinalizeResultsQueryRunner<Result<TimeseriesResultValue>> finalRunner = new FinalizeResultsQueryRunner(
         toolChest.mergeResults(runner),
         toolChest
     );
 
-    final List results = finalRunner.run(QueryPlus.wrap(query)).toList();
+    final List<Result<TimeseriesResultValue>> results = NativeQueryRunner.runToList(finalRunner, query);
     TestHelper.assertExpectedResults(expectedResults, results);
   }
 
@@ -733,7 +744,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
 
     assertExpectedResults(expectedResults, results);
   }
@@ -779,7 +790,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
 
     assertExpectedResults(expectedResults, results);
   }
@@ -818,7 +829,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results1 = runner.run(QueryPlus.wrap(query1)).toList();
+    Iterable<Result<TimeseriesResultValue>> results1 = runToList(query1);
     assertExpectedResults(expectedResults1, results1);
 
     TimeseriesQuery query2 = Druids.newTimeseriesQueryBuilder()
@@ -851,7 +862,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results2 = runner.run(QueryPlus.wrap(query2)).toList();
+    Iterable<Result<TimeseriesResultValue>> results2 = runToList(query2);
     assertExpectedResults(expectedResults2, results2);
   }
 
@@ -901,7 +912,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results1 = runner.run(QueryPlus.wrap(query1)).toList();
+    Iterable<Result<TimeseriesResultValue>> results1 = runToList(query1);
     assertExpectedResults(expectedResults1, results1);
   }
 
@@ -934,7 +945,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
     final Iterable<Interval> iterable = Granularities.HOUR.getIterable(
         new Interval(DateTimes.of("2011-04-14T01"), DateTimes.of("2011-04-15"))
     );
-    Map noRowsResult = new HashMap<>();
+    Map<String, Object> noRowsResult = new HashMap<>();
     noRowsResult.put("rows", 0L);
     noRowsResult.put("idx", NullHandling.defaultLongValue());
     for (Interval interval : iterable) {
@@ -968,7 +979,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results1 = runner.run(QueryPlus.wrap(query1)).toList();
+    Iterable<Result<TimeseriesResultValue>> results1 = runToList(query1);
     assertExpectedResults(expectedResults1, results1);
   }
 
@@ -1008,7 +1019,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results1 = runner.run(QueryPlus.wrap(query1)).toList();
+    Iterable<Result<TimeseriesResultValue>> results1 = runToList(query1);
     assertExpectedResults(expectedResults1, results1);
   }
 
@@ -1046,7 +1057,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             )
         )
     );
-    Iterable<Result<TimeseriesResultValue>> results1 = runner.run(QueryPlus.wrap(query1)).toList();
+    Iterable<Result<TimeseriesResultValue>> results1 = runToList(query1);
     assertExpectedResults(expectedResults1, results1);
 
     TimeseriesQuery query2 = Druids.newTimeseriesQueryBuilder()
@@ -1080,7 +1091,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results2 = runner.run(QueryPlus.wrap(query2)).toList();
+    Iterable<Result<TimeseriesResultValue>> results2 = runToList(query2);
     assertExpectedResults(expectedResults2, results2);
   }
 
@@ -1110,7 +1121,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
 
     List<Result<TimeseriesResultValue>> expectedResults = Collections.emptyList();
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1157,7 +1168,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1208,7 +1219,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1258,7 +1269,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1305,7 +1316,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1352,7 +1363,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1399,7 +1410,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1427,8 +1438,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             new TimeseriesResultValue(
                 ImmutableMap.of(
                     "rows", 1L,
-                    "index", new Float(135.885094).doubleValue(),
-                    "addRowsIndexConstant", new Float(137.885094).doubleValue(),
+                    "index", Float.valueOf(135.885094f).doubleValue(),
+                    "addRowsIndexConstant", Float.valueOf(137.885094f).doubleValue(),
                     "uniques", QueryRunnerTestHelper.UNIQUES_1
                 )
             )
@@ -1438,15 +1449,15 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             new TimeseriesResultValue(
                 ImmutableMap.of(
                     "rows", 1L,
-                    "index", new Float(147.425935).doubleValue(),
-                    "addRowsIndexConstant", new Float(149.425935).doubleValue(),
+                    "index", Float.valueOf(147.425935f).doubleValue(),
+                    "addRowsIndexConstant", Float.valueOf(149.425935f).doubleValue(),
                     "uniques", QueryRunnerTestHelper.UNIQUES_1
                 )
             )
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1474,8 +1485,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             new TimeseriesResultValue(
                 ImmutableMap.of(
                     "rows", 1L,
-                    "index", new Float(118.570340).doubleValue(),
-                    "addRowsIndexConstant", new Float(120.570340).doubleValue(),
+                    "index", Float.valueOf(118.570340f).doubleValue(),
+                    "addRowsIndexConstant", Float.valueOf(120.570340f).doubleValue(),
                     "uniques", QueryRunnerTestHelper.UNIQUES_1
                 )
             )
@@ -1485,15 +1496,15 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             new TimeseriesResultValue(
                 ImmutableMap.of(
                     "rows", 1L,
-                    "index", new Float(112.987027).doubleValue(),
-                    "addRowsIndexConstant", new Float(114.987027).doubleValue(),
+                    "index", Float.valueOf(112.987027f).doubleValue(),
+                    "addRowsIndexConstant", Float.valueOf(114.987027f).doubleValue(),
                     "uniques", QueryRunnerTestHelper.UNIQUES_1
                 )
             )
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1546,7 +1557,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1605,7 +1616,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1652,7 +1663,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1691,7 +1702,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1709,11 +1720,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
                                   .context(makeContext(ImmutableMap.of(TimeseriesQuery.SKIP_EMPTY_BUCKETS, "true")))
                                   .build();
 
-    List<Result<TimeseriesResultValue>> expectedResults = Collections.emptyList();
-
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query))
-                                                            .toList();
-    assertExpectedResults(expectedResults, results);
+    List<Result<TimeseriesResultValue>> results = runToList(query);
+    assertExpectedResults(Collections.emptyList(), results);
   }
 
   @Test
@@ -1755,8 +1763,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query))
-                                                            .toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1799,8 +1806,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query))
-                                                            .toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1838,7 +1844,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1880,7 +1886,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -1918,7 +1924,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
     assertExpectedResults(expectedResults, actualResults);
   }
 
@@ -1957,7 +1963,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
     assertExpectedResults(expectedResults, actualResults);
   }
 
@@ -1989,8 +1995,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             DateTimes.of("2011-01-01"),
             new TimeseriesResultValue(
                 ImmutableMap.of(
-                    "first", new Float(100.000000).doubleValue(),
-                    "last", new Float(943.497198).doubleValue()
+                    "first", Float.valueOf(100.000000f).doubleValue(),
+                    "last", Float.valueOf(943.497198f).doubleValue()
                 )
             )
         ),
@@ -1998,8 +2004,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             DateTimes.of("2011-02-01"),
             new TimeseriesResultValue(
                 ImmutableMap.of(
-                    "first", new Float(132.123776).doubleValue(),
-                    "last", new Float(1101.918270).doubleValue()
+                    "first", Float.valueOf(132.123776f).doubleValue(),
+                    "last", Float.valueOf(1101.918270f).doubleValue()
                 )
             )
         ),
@@ -2007,8 +2013,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             DateTimes.of("2011-03-01"),
             new TimeseriesResultValue(
                 ImmutableMap.of(
-                    "first", new Float(153.059937).doubleValue(),
-                    "last", new Float(1063.201156).doubleValue()
+                    "first", Float.valueOf(153.059937f).doubleValue(),
+                    "last", Float.valueOf(1063.201156f).doubleValue()
                 )
             )
         ),
@@ -2016,8 +2022,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             DateTimes.of("2011-04-01"),
             new TimeseriesResultValue(
                 ImmutableMap.of(
-                    "first", new Float(135.885094).doubleValue(),
-                    "last", new Float(780.271977).doubleValue()
+                    "first", Float.valueOf(135.885094f).doubleValue(),
+                    "last", Float.valueOf(780.271977f).doubleValue()
                 )
             )
         )
@@ -2028,8 +2034,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             DateTimes.of("2011-04-01"),
             new TimeseriesResultValue(
                 ImmutableMap.of(
-                    "first", new Float(1234.247546).doubleValue(),
-                    "last", new Float(106.793700).doubleValue()
+                    "first", Float.valueOf(1234.247546f).doubleValue(),
+                    "last", Float.valueOf(106.793700f).doubleValue()
                 )
             )
         ),
@@ -2037,8 +2043,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             DateTimes.of("2011-03-01"),
             new TimeseriesResultValue(
                 ImmutableMap.of(
-                    "first", new Float(1004.940887).doubleValue(),
-                    "last", new Float(151.752485).doubleValue()
+                    "first", Float.valueOf(1004.940887f).doubleValue(),
+                    "last", Float.valueOf(151.752485f).doubleValue()
                 )
             )
         ),
@@ -2046,8 +2052,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             DateTimes.of("2011-02-01"),
             new TimeseriesResultValue(
                 ImmutableMap.of(
-                    "first", new Float(913.561076).doubleValue(),
-                    "last", new Float(122.258195).doubleValue()
+                    "first", Float.valueOf(913.561076f).doubleValue(),
+                    "last", Float.valueOf(122.258195f).doubleValue()
                 )
             )
         ),
@@ -2055,14 +2061,14 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             DateTimes.of("2011-01-01"),
             new TimeseriesResultValue(
                 ImmutableMap.of(
-                    "first", new Float(800.000000).doubleValue(),
-                    "last", new Float(133.740047).doubleValue()
+                    "first", Float.valueOf(800.000000f).doubleValue(),
+                    "last", Float.valueOf(133.740047f).doubleValue()
                 )
             )
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
     if (descending) {
       TestHelper.assertExpectedResults(expectedDescendingResults, actualResults);
     } else {
@@ -2095,8 +2101,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         .descending(descending)
         .context(makeContext())
         .build();
-    Iterable<Result<TimeseriesResultValue>> expectedResults = runner.run(QueryPlus.wrap(query1)).toList();
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> expectedResults = runToList(query1);
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
     TestHelper.assertExpectedResults(expectedResults, actualResults);
   }
 
@@ -2126,8 +2132,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         .descending(descending)
         .context(makeContext())
         .build();
-    Iterable<Result<TimeseriesResultValue>> expectedResults = runner.run(QueryPlus.wrap(query1)).toList();
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> expectedResults = runToList(query1);
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
     TestHelper.assertExpectedResults(expectedResults, actualResults);
   }
 
@@ -2166,8 +2172,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         .descending(descending)
         .context(makeContext())
         .build();
-    Iterable<Result<TimeseriesResultValue>> expectedResults = runner.run(QueryPlus.wrap(query2)).toList();
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> expectedResults = runToList(query2);
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
     TestHelper.assertExpectedResults(expectedResults, actualResults);
   }
 
@@ -2206,8 +2212,8 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         .descending(descending)
         .context(makeContext())
         .build();
-    Iterable<Result<TimeseriesResultValue>> expectedResults = runner.run(QueryPlus.wrap(query2)).toList();
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> expectedResults = runToList(query2);
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
     TestHelper.assertExpectedResults(expectedResults, actualResults);
   }
 
@@ -2237,7 +2243,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         .context(makeContext())
         .build();
 
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
     List<Result<TimeseriesResultValue>> expectedResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-04-01"),
@@ -2302,7 +2308,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         .context(makeContext())
         .build();
 
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
     List<Result<TimeseriesResultValue>> expectedResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-04-01"),
@@ -2350,7 +2356,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         .context(makeContext())
         .build();
 
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
 
     List<Result<TimeseriesResultValue>> expectedResults = Collections.singletonList(
         new Result<>(
@@ -2396,7 +2402,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         .context(makeContext())
         .build();
 
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
 
     List<Result<TimeseriesResultValue>> expectedResults = Collections.singletonList(
         new Result<>(
@@ -2444,7 +2450,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         .context(makeContext())
         .build();
 
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
     List<Result<TimeseriesResultValue>> expectedResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-04-01"),
@@ -2489,7 +2495,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         .context(makeContext())
         .build();
 
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
     List<Result<TimeseriesResultValue>> expectedResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-04-01"),
@@ -2543,7 +2549,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> actualResults = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> actualResults = runToList(query);
 
     assertExpectedResults(expectedResults, actualResults);
   }
@@ -2625,7 +2631,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     TestHelper.assertExpectedResults(expectedResults, results);
   }
 
@@ -2670,7 +2676,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
     Assert.assertEquals("uniques", columnNames.get(4));
     Assert.assertEquals("addRowsIndexConstant", columnNames.get(5));
 
-    Sequence<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query));
+    Sequence<Result<TimeseriesResultValue>> results = run(query);
     Sequence<Object[]> resultsAsArrays = toolChest.resultsAsArrays(query, results);
 
     Assert.assertNotNull(resultsAsArrays);
@@ -2718,7 +2724,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
             0.02
         );
         Assert.assertEquals(
-            new Double(expectedIndexToUse[count]) + 13L + 1L,
+            Double.valueOf(expectedIndexToUse[count]) + 13L + 1L,
             (Double) result[5],
             (Double) result[5] * 1e-6
         );
@@ -2735,7 +2741,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
               0.02
           );
           Assert.assertEquals(
-              new Double(expectedIndexToUse[count]) + 1L,
+              Double.valueOf(expectedIndexToUse[count]) + 1L,
               (Double) result[5],
               (Double) result[5] * 1e-6
           );
@@ -2787,7 +2793,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
 
     Assert.assertEquals(TIMESTAMP_RESULT_FIELD_NAME, query.getTimestampResultField());
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
 
     final String[] expectedIndex = descending ?
                                    QueryRunnerTestHelper.EXPECTED_FULL_ON_INDEX_VALUES_DESC :
@@ -2801,7 +2807,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
                                   QueryRunnerTestHelper.LAST;
 
     int count = 0;
-    Result lastResult = null;
+    Result<TimeseriesResultValue> lastResult = null;
     for (Result<TimeseriesResultValue> result : results) {
       DateTime current = result.getTimestamp();
       Assert.assertFalse(
@@ -2832,7 +2838,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         );
         Assert.assertEquals(
             result.toString(),
-            new Double(expectedIndexToUse[count]) +
+            Double.valueOf(expectedIndexToUse[count]) +
             13L + 1L,
             value.getDoubleMetric("addRowsIndexConstant"),
             value.getDoubleMetric("addRowsIndexConstant") * 1e-6
@@ -2852,7 +2858,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
           );
           Assert.assertEquals(
               result.toString(),
-              new Double(expectedIndexToUse[count]) + 1L,
+              Double.valueOf(expectedIndexToUse[count]) + 1L,
               value.getDoubleMetric("addRowsIndexConstant"),
               value.getDoubleMetric("addRowsIndexConstant") * 1e-6
           );
@@ -2938,17 +2944,17 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     TestHelper.assertExpectedResults(expectedResults, results);
 
     QueryToolChest<Result<TimeseriesResultValue>, TimeseriesQuery> toolChest = new TimeseriesQueryQueryToolChest();
     QueryRunner<Result<TimeseriesResultValue>> optimizedRunner = toolChest.postMergeQueryDecoration(
         toolChest.mergeResults(toolChest.preMergeQueryDecoration(runner)));
-    Iterable<Result<TimeseriesResultValue>> results2 = new FinalizeResultsQueryRunner(optimizedRunner, toolChest)
-        .run(QueryPlus.wrap(query))
-        .toList();
+    Iterable<Result<TimeseriesResultValue>> results2 = NativeQueryRunner.runToList(
+        new FinalizeResultsQueryRunner(optimizedRunner, toolChest),
+        query
+    );
     TestHelper.assertExpectedResults(expectedResults, results2);
-
   }
 
   @Test
@@ -2973,12 +2979,12 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
     QueryToolChest<Result<TimeseriesResultValue>, TimeseriesQuery> toolChest = new TimeseriesQueryQueryToolChest();
 
     // Must wrapped in a results finalizer to stop the runner's builtin finalizer from being called.
-    final FinalizeResultsQueryRunner finalRunner = new FinalizeResultsQueryRunner(
+    final FinalizeResultsQueryRunner<Result<TimeseriesResultValue>> finalRunner = new FinalizeResultsQueryRunner(
         toolChest.mergeResults(runner),
         toolChest
     );
 
-    final List list = finalRunner.run(QueryPlus.wrap(query)).toList();
+    final List<Result<TimeseriesResultValue>> list = NativeQueryRunner.runToList(finalRunner, query);
     Assert.assertEquals(10, list.size());
   }
 
@@ -3025,7 +3031,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -3135,7 +3141,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -3176,7 +3182,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
                                   .context(makeContext())
                                   .build();
 
-    runner.run(QueryPlus.wrap(query)).toList();
+    runToList(query);
   }
 
   @Test
@@ -3213,7 +3219,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 
@@ -3253,7 +3259,7 @@ public class TimeseriesQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    Iterable<Result<TimeseriesResultValue>> results = runToList(query);
     assertExpectedResults(expectedResults, results);
   }
 

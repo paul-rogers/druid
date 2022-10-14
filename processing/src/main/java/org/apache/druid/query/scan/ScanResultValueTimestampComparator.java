@@ -42,12 +42,13 @@ public class ScanResultValueTimestampComparator implements Comparator<ScanResult
   @Override
   public int compare(ScanResultValue o1, ScanResultValue o2)
   {
-    int comparison = Longs.compare(
+    final int comparison = Longs.compare(
         o1.getFirstEventTimestamp(scanQuery.getResultFormat()),
-        o2.getFirstEventTimestamp(scanQuery.getResultFormat()));
+        o2.getFirstEventTimestamp(scanQuery.getResultFormat())
+    );
     if (scanQuery.getTimeOrder().equals(ScanQuery.Order.ASCENDING)) {
       return comparison;
     }
-    return comparison * -1;
+    return -comparison;
   }
 }

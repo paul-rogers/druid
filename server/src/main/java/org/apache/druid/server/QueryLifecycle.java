@@ -98,7 +98,7 @@ public class QueryLifecycle
   private final AuthorizerMapper authorizerMapper;
   private final DefaultQueryConfig defaultQueryConfig;
   private final AuthConfig authConfig;
-  private final QueryManagerFactory fragmentContextFactory;
+  private final QueryManagerFactory queryManagerFactory;
   private final long startMs;
   private final long startNs;
 
@@ -131,7 +131,7 @@ public class QueryLifecycle
     this.authorizerMapper = authorizerMapper;
     this.defaultQueryConfig = defaultQueryConfig;
     this.authConfig = authConfig;
-    this.fragmentContextFactory = fragmentContextFactory;
+    this.queryManagerFactory = fragmentContextFactory;
     this.startMs = startMs;
     this.startNs = startNs;
   }
@@ -299,7 +299,7 @@ public class QueryLifecycle
 
     final ResponseContext responseContext = DirectDruidClient.makeResponseContextForQuery();
 
-    final QueryManager queryManager = fragmentContextFactory.create(baseQuery);
+    final QueryManager queryManager = queryManagerFactory.create(baseQuery);
     final FragmentManager fragment = queryManager == null ? null : queryManager.createRootFragment(responseContext);
     @SuppressWarnings("unchecked")
     final Sequence<T> res = QueryPlus.wrap((Query<T>) baseQuery)

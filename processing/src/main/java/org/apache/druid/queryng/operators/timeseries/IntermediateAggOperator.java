@@ -92,26 +92,30 @@ public class IntermediateAggOperator implements IterableOperator<Result<Timeseri
     // previous group.
     Result<TimeseriesResultValue> row;
     Result<TimeseriesResultValue> merged;
-    try {
-      if (lookAheadRow == null) {
+    if (lookAheadRow != null) {
+      row = lookAheadRow;
+    } else {
+      // No previous value: this is the first row for the first group.
+      try {
         row = inputIter.next();
-        rowCount++;
-      } else {
-        row = lookAheadRow;
       }
-      merged = mergeFn.apply(row, null);
-    }
-    catch (ResultIterator.EofException e) {
-      // EOF on first row for the first group. Will not happen in the
-      // Broker as the Historicals handle this case.
-      input.close(true);
-      inputIter = null;
-      if (emptyTotalsProducer == null) {
-        throw Operators.eof();
-      } else {
-        return emptyTotalsProducer.get();
+      catch (EofException e) {
+        // EOF on first row for the first group. Will not happen in the
+        // Broker as the Historicals handle this case.
+        input.close(true);
+        inputIter = null;
+        if (emptyTotalsProducer == null) {
+          throw Operators.eof();
+        } else {
+          // Will throw EOF on the next call
+          return emptyTotalsProducer.get();
+        }
       }
     }
+
+    // Initialize the aggregation.
+    rowCount++;
+    merged = mergeFn.apply(row, null);
     groupCount++;
 
     // Merge the other rows for the current group.
@@ -121,7 +125,7 @@ public class IntermediateAggOperator implements IterableOperator<Result<Timeseri
         row = inputIter.next();
         rowCount++;
       }
-      catch (ResultIterator.EofException e) {
+      catch (EofException e) {
         // EOF while looking for the end of a group.
         input.close(true);
         inputIter = null;
@@ -133,7 +137,7 @@ public class IntermediateAggOperator implements IterableOperator<Result<Timeseri
         return merged;
       }
 
-      // Another row for the same group.
+      // Another value within the existing group: accumulate the row.
       merged = mergeFn.apply(merged, row);
     }
   }

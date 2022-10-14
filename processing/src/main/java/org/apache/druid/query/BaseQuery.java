@@ -220,7 +220,7 @@ public abstract class BaseQuery<T> implements Query<T>
   @SuppressWarnings("unchecked") // assumes T is Comparable; see method javadoc
   public Ordering<T> getResultOrdering()
   {
-    Ordering retVal = Ordering.natural();
+    Ordering<T> retVal = (Ordering<T>) Ordering.natural();
     return descending ? retVal.reverse() : retVal;
   }
 

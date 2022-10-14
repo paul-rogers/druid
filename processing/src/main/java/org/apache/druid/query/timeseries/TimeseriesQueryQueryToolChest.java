@@ -113,25 +113,26 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
           ResponseContext context
       )
       {
-        int limit = ((TimeseriesQuery) queryPlus.getQuery()).getLimit();
-        Sequence<Result<TimeseriesResultValue>> result = super.doRun(
+        final Sequence<Result<TimeseriesResultValue>> result = super.doRun(
             baseRunner,
             // Don't do post aggs until makePostComputeManipulatorFn() is called
             queryPlus.withQuery(((TimeseriesQuery) queryPlus.getQuery()).withPostAggregatorSpecs(ImmutableList.of())),
             context
         );
-        if (limit < Integer.MAX_VALUE) {
-          return result.limit(limit);
+        final int limit = ((TimeseriesQuery) queryPlus.getQuery()).getLimit();
+        if (limit == Integer.MAX_VALUE) {
+          return result;
         }
-        return result;
+        return result.limit(limit);
       }
     };
 
     return (queryPlus, responseContext) -> {
       if (QueryNGConfig.enabledFor(queryPlus)) {
         // A bit awkward: when using operators, we create the resultMergeQueryRunner, but
-        // don't use it. Reason: in the outer function, we don't have visibility to the query.
-        return TimeSeriesPlanner.mergeResults(
+        // don't use it. Reason: in the outer function, we don't have visibility to the query,
+        // so we can't go down the QueryNG path there.
+        return TimeSeriesPlanner.grandTotals(
             queryPlus,
             queryRunner,
             this::createResultComparator,
@@ -169,49 +170,49 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
         finalSequence = baseResults;
       }
 
-      if (query.isGrandTotal()) {
-        // Accumulate grand totals while iterating the sequence.
-        final Object[] grandTotals = new Object[query.getAggregatorSpecs().size()];
-        final Sequence<Result<TimeseriesResultValue>> mappedSequence = Sequences.map(
-            finalSequence,
-            resultValue -> {
-              for (int i = 0; i < query.getAggregatorSpecs().size(); i++) {
-                final AggregatorFactory aggregatorFactory = query.getAggregatorSpecs().get(i);
-                final Object value = resultValue.getValue().getMetric(aggregatorFactory.getName());
-                if (grandTotals[i] == null) {
-                  grandTotals[i] = value;
-                } else {
-                  grandTotals[i] = aggregatorFactory.combine(grandTotals[i], value);
-                }
-              }
-              return resultValue;
-            }
-        );
-
-        return Sequences.concat(
-            ImmutableList.of(
-                mappedSequence,
-                Sequences.simple(
-                    () -> {
-                      final Map<String, Object> totalsMap = new HashMap<>();
-
-                      for (int i = 0; i < query.getAggregatorSpecs().size(); i++) {
-                        totalsMap.put(query.getAggregatorSpecs().get(i).getName(), grandTotals[i]);
-                      }
-
-                      final Result<TimeseriesResultValue> result = new Result<>(
-                          null,
-                          new TimeseriesResultValue(totalsMap)
-                      );
-
-                      return Collections.singletonList(result).iterator();
-                    }
-                )
-            )
-        );
-      } else {
+      if (!query.isGrandTotal()) {
         return finalSequence;
       }
+
+      // Accumulate grand totals while iterating the sequence.
+      final Object[] grandTotals = new Object[query.getAggregatorSpecs().size()];
+      final Sequence<Result<TimeseriesResultValue>> mappedSequence = Sequences.map(
+          finalSequence,
+          resultValue -> {
+            for (int i = 0; i < query.getAggregatorSpecs().size(); i++) {
+              final AggregatorFactory aggregatorFactory = query.getAggregatorSpecs().get(i);
+              final Object value = resultValue.getValue().getMetric(aggregatorFactory.getName());
+              if (grandTotals[i] == null) {
+                grandTotals[i] = value;
+              } else {
+                grandTotals[i] = aggregatorFactory.combine(grandTotals[i], value);
+              }
+            }
+            return resultValue;
+          }
+      );
+
+      return Sequences.concat(
+          ImmutableList.of(
+              mappedSequence,
+              Sequences.simple(
+                  () -> {
+                    final Map<String, Object> totalsMap = new HashMap<>();
+
+                    for (int i = 0; i < query.getAggregatorSpecs().size(); i++) {
+                      totalsMap.put(query.getAggregatorSpecs().get(i).getName(), grandTotals[i]);
+                    }
+
+                    final Result<TimeseriesResultValue> result = new Result<>(
+                        null,
+                        new TimeseriesResultValue(totalsMap)
+                    );
+
+                    return Collections.singletonList(result).iterator();
+                  }
+              )
+          )
+      );
     };
   }
 

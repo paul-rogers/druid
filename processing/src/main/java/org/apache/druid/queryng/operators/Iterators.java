@@ -20,6 +20,7 @@
 package org.apache.druid.queryng.operators;
 
 import com.google.common.collect.Lists;
+import org.apache.druid.queryng.operators.ResultIterator.EofException;
 
 import java.util.Iterator;
 import java.util.List;
@@ -63,7 +64,7 @@ public class Iterators
         lookAhead = operIter.next();
         return true;
       }
-      catch (ResultIterator.EofException e) {
+      catch (EofException e) {
         eof = false;
         return false;
       }

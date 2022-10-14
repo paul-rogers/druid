@@ -31,10 +31,10 @@ public interface QueryRunner<T>
    * Runs the given query and returns results in a time-ordered sequence.
    */
   Sequence<T> run(QueryPlus<T> queryPlus, ResponseContext responseContext);
-  
+
   @VisibleForTesting
   default Sequence<T> run(QueryPlus<T> queryPlus)
   {
-    return this.run(queryPlus, ResponseContext.createEmpty());
+    return run(queryPlus, ResponseContext.createEmpty());
   }
 }

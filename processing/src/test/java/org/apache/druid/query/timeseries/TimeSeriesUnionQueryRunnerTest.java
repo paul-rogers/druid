@@ -25,6 +25,7 @@ import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.Druids;
+import org.apache.druid.query.NativeQueryRunner;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerTestHelper;
@@ -44,13 +45,16 @@ import org.junit.runners.Parameterized;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Test requires the following on the command line: -Duser.timezone=UTC
+ */
 @RunWith(Parameterized.class)
 public class TimeSeriesUnionQueryRunnerTest extends InitializedNullHandlingTest
 {
-  private final QueryRunner runner;
+  private final QueryRunner<Result<TimeseriesResultValue>> runner;
   private final boolean descending;
 
-  public TimeSeriesUnionQueryRunnerTest(QueryRunner runner, boolean descending)
+  public TimeSeriesUnionQueryRunnerTest(QueryRunner<Result<TimeseriesResultValue>> runner, boolean descending)
   {
     this.runner = runner;
     this.descending = descending;
@@ -114,7 +118,7 @@ public class TimeSeriesUnionQueryRunnerTest extends InitializedNullHandlingTest
             )
         )
     );
-    Iterable<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
+    List<Result<TimeseriesResultValue>> results = NativeQueryRunner.runToList(runner, query);
 
     assertExpectedResults(expectedResults, results);
   }
@@ -145,7 +149,7 @@ public class TimeSeriesUnionQueryRunnerTest extends InitializedNullHandlingTest
                                   .descending(descending)
                                   .build();
     QueryToolChest toolChest = new TimeseriesQueryQueryToolChest();
-    final List<Result<TimeseriesResultValue>> ds1 = Lists.newArrayList(
+    final List<Result<TimeseriesResultValue>> ds1 = Arrays.asList(
         new Result<>(
             DateTimes.of("2011-04-02"),
             new TimeseriesResultValue(ImmutableMap.of("rows", 1L, "idx", 2L))
@@ -155,7 +159,7 @@ public class TimeSeriesUnionQueryRunnerTest extends InitializedNullHandlingTest
             new TimeseriesResultValue(ImmutableMap.of("rows", 3L, "idx", 4L))
         )
     );
-    final List<Result<TimeseriesResultValue>> ds2 = Lists.newArrayList(
+    final List<Result<TimeseriesResultValue>> ds2 = Arrays.asList(
         new Result<>(
             DateTimes.of("2011-04-01"),
             new TimeseriesResultValue(ImmutableMap.of("rows", 5L, "idx", 6L))
@@ -170,7 +174,7 @@ public class TimeSeriesUnionQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    QueryRunner mergingrunner = toolChest.mergeResults(
+    QueryRunner<Result<TimeseriesResultValue>> mergingRunner = toolChest.mergeResults(
         new UnionQueryRunner<>(
             new QueryRunner<Result<TimeseriesResultValue>>()
             {
@@ -217,10 +221,9 @@ public class TimeSeriesUnionQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
 
-    Iterable<Result<TimeseriesResultValue>> results = mergingrunner.run(QueryPlus.wrap(query)).toList();
+    List<Result<TimeseriesResultValue>> results = NativeQueryRunner.runToList(mergingRunner, query);
 
+    System.out.println(results);
     assertExpectedResults(expectedResults, results);
-
   }
-
 }

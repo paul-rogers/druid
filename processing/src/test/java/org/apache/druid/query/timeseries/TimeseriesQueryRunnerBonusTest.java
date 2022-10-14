@@ -27,8 +27,8 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
+import org.apache.druid.query.NativeQueryRunner;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.QueryRunnerTestHelper;
@@ -39,6 +39,7 @@ import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.incremental.OnheapIncrementalIndex;
+import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.apache.druid.timeline.SegmentId;
 import org.junit.Assert;
 import org.junit.Test;
@@ -49,7 +50,7 @@ import java.util.Arrays;
 import java.util.List;
 
 @RunWith(Parameterized.class)
-public class TimeseriesQueryRunnerBonusTest
+public class TimeseriesQueryRunnerBonusTest extends InitializedNullHandlingTest
 {
   @Parameterized.Parameters(name = "descending={0}")
   public static Iterable<Object[]> constructorFeeder()
@@ -129,7 +130,7 @@ public class TimeseriesQueryRunnerBonusTest
                                   .aggregators(new CountAggregatorFactory("rows"))
                                   .descending(descending)
                                   .build();
-    return runner.run(QueryPlus.wrap(query)).toList();
+    return NativeQueryRunner.runToList(runner, query);
   }
 
   private static <T> QueryRunner<T> makeQueryRunner(QueryRunnerFactory<T, Query<T>> factory, Segment adapter)

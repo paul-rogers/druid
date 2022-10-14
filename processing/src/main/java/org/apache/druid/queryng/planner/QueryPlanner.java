@@ -22,8 +22,8 @@ package org.apache.druid.queryng.planner;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Ordering;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
@@ -51,7 +51,6 @@ import org.apache.druid.query.spec.SpecificSegmentQueryRunner;
 import org.apache.druid.query.spec.SpecificSegmentSpec;
 import org.apache.druid.queryng.Timer;
 import org.apache.druid.queryng.fragment.FragmentContext;
-import org.apache.druid.queryng.operators.ConcatOperator;
 import org.apache.druid.queryng.operators.NullOperator;
 import org.apache.druid.queryng.operators.Operator;
 import org.apache.druid.queryng.operators.Operators;
@@ -333,14 +332,19 @@ public class QueryPlanner
     return Operators.toSequence(op);
   }
 
+  /**
+   * Create an operator version of the union query runner. Despite its name,
+   * the union query runner is not a true union (concatenation), instead it
+   * is an ordered merge of the {@code T} values.
+   */
   public static <T> Sequence<T> runUnionQuery(
       final QueryPlus<T> queryPlus,
       final QueryRunner<T> baseRunner,
       final ResponseContext responseContext
   )
   {
-    FragmentContext fragmentContext = queryPlus.fragment();
-    Query<T> query = queryPlus.getQuery();
+    final FragmentContext fragmentContext = queryPlus.fragment();
+    final Query<T> query = queryPlus.getQuery();
     final DataSourceAnalysis analysis = DataSourceAnalysis.forDataSource(query.getDataSource());
 
     if (!analysis.isConcreteTableBased() || !analysis.getBaseUnionDataSource().isPresent()) {
@@ -352,26 +356,39 @@ public class QueryPlanner
     final UnionDataSource unionDataSource = analysis.getBaseUnionDataSource().get();
     if (unionDataSource.getDataSources().isEmpty()) {
       // Shouldn't happen, because UnionDataSource doesn't allow empty unions.
-      return Operators.toSequence(
-          new NullOperator<T>(fragmentContext)
+      // Just return an empty result set rather than throwing an exception.
+      return Operators.toSequence(new NullOperator<T>(fragmentContext));
+    }
+
+    if (unionDataSource.getDataSources().size() == 1) {
+      // Single table. Run as a normal query.
+      return baseRunner.run(
+          queryPlus.withQuery(
+              Queries.withBaseDataSource(
+                  query,
+                  Iterables.getOnlyElement(unionDataSource.getDataSources())
+              )
+          ),
+          responseContext
       );
     }
 
-    List<Operator<T>> inputs = new ArrayList<>();
+    // Split up the tables and merge their results.
+    final List<Operator<T>> inputs = new ArrayList<>();
     for (int i = 0; i < unionDataSource.getDataSources().size(); i++) {
-      TableDataSource dataSource = unionDataSource.getDataSources().get(i);
-      Query<T> childQuery = Queries
+      final TableDataSource dataSource = unionDataSource.getDataSources().get(i);
+      final Query<T> childQuery = Queries
                 .withBaseDataSource(query, dataSource)
-                 // assign the subqueryId. this will be used to validate that every query servers
-                 // have responded per subquery in RetryQueryRunner
+                 // Assign the subqueryId. Used to validate that every query servers
+                 // have responded per subquery in RetryQueryRunner.
                  .withSubQueryId(
-                     UnionQueryRunner.generateSubqueryId(
-                       query.getSubQueryId(),
-                       dataSource.getName(),
-                       i
-                     )
+                       UnionQueryRunner.generateSubqueryId(
+                           query.getSubQueryId(),
+                           dataSource.getName(),
+                           i
+                       )
                   );
-      Operator<T> inputOp = Operators.toOperator(
+      final Operator<T> inputOp = Operators.toOperator(
           fragmentContext,
           baseRunner.run(
               queryPlus.withQuery(childQuery),
@@ -380,14 +397,14 @@ public class QueryPlanner
       );
       inputs.add(inputOp);
     }
-    Ordering<T> ordering = query.getResultOrdering();
-    Operator<T> mergeOp;
-    if (ordering.equals(Ordering.natural())) {
-      mergeOp = new ConcatOperator<T>(fragmentContext, inputs);
-    } else {
-      mergeOp = new MergeOperator<T>(fragmentContext, ordering, inputs);
-    }
-    return Operators.toSequence(mergeOp);
+
+    return Operators.toSequence(
+        new MergeOperator<T>(
+            fragmentContext,
+            query.getResultOrdering(),
+            inputs
+         )
+    );
   }
 
   @SuppressWarnings("unchecked")

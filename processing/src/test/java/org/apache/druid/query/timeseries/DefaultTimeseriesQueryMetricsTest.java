@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 
 public class DefaultTimeseriesQueryMetricsTest
 {
-
   /**
    * Tests that passed a query {@link DefaultTimeseriesQueryMetrics} produces events with a certain set of dimensions,
    * no more, no less.
