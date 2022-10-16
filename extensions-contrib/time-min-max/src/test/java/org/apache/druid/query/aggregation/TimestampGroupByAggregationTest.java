@@ -24,6 +24,7 @@ import com.google.common.collect.Lists;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.query.Query;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByQueryRunnerTest;
@@ -185,8 +186,9 @@ public class TimestampGroupByAggregationTest
         groupBy
     );
 
-    int groupByFieldNumber = ((GroupByQuery) helper.readQuery(groupBy)).getResultRowSignature()
-                                                                       .indexOf(groupByField);
+    Query<ResultRow> query = helper.readQuery(groupBy);
+    int groupByFieldNumber = ((GroupByQuery) query).getResultRowSignature()
+                                                   .indexOf(groupByField);
 
     List<ResultRow> results = seq.toList();
     Assert.assertEquals(36, results.size());
