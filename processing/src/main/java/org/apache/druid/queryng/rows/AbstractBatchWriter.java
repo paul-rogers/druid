@@ -19,13 +19,21 @@
 
 package org.apache.druid.queryng.rows;
 
-/**
- * Generic description of a batch of data. A batch is <i>either</i>
- * writable or readable, but not both at the same time. See the
- * {@link BatchReader} and {@link BatchWriter} interfaces for the concrete
- * actions on a batch.
- */
-public interface Batch
+import org.apache.druid.queryng.rows.RowWriter.BindableRowWriter;
+
+public abstract class AbstractBatchWriter<T> extends AbstractBatch implements BatchWriter<T>
 {
-  RowSchema schema();
+  protected T batch;
+  protected BindableRowWriter rowWriter;
+
+  public AbstractBatchWriter(RowSchema schema)
+  {
+    super(schema);
+  }
+
+  @Override
+  public RowWriter row()
+  {
+    return rowWriter;
+  }
 }

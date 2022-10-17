@@ -20,7 +20,6 @@
 package org.apache.druid.queryng.rows;
 
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.queryng.rows.Batch.BatchReader;
 import org.junit.Assert;
 
 public class BatchValidator

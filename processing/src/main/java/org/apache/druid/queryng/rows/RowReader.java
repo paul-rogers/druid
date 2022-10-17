@@ -34,6 +34,11 @@ public interface RowReader
     int index();
   }
 
+  public interface BindableRowReader extends RowReader
+  {
+    void bind();
+  }
+
   /**
    * Reader for a column. Columns have a type, as given by the {@link ColumnSchema}.
    * But, the reader is generic: one interface for all column types. The only
@@ -67,6 +72,4 @@ public interface RowReader
   RowSchema schema();
   ScalarColumnReader scalar(String name);
   ScalarColumnReader scalar(int ordinal);
-  void reset();
-  boolean next();
 }

@@ -24,24 +24,16 @@ import java.util.Map;
 
 public class MapListReader extends ListReader<Map<String, Object>>
 {
-  private final RowReader reader;
-
   public MapListReader(RowSchema schema)
   {
     super(schema);
-    this.reader = new MapReader(this, i -> batch.get(i));
+    rowReader = new MapReader(schema, () -> batch.get(index()));
   }
 
   public static MapListReader of(RowSchema schema, List<Map<String, Object>> batch)
   {
     MapListReader reader = new MapListReader(schema);
-    reader.reset(batch);
-    return reader;
-  }
-
-  @Override
-  public RowReader reader()
-  {
+    reader.bind(batch);
     return reader;
   }
 }

@@ -23,24 +23,16 @@ import java.util.List;
 
 public class ObjectArrayListReader extends ListReader<Object[]>
 {
-  private final RowReader reader;
-
   public ObjectArrayListReader(RowSchema schema)
   {
     super(schema);
-    this.reader = new ObjectArrayReader(this, i -> batch.get(i));
+    rowReader = new ObjectArrayReader(schema, () -> batch.get(posn));
   }
 
   public static ObjectArrayListReader of(RowSchema schema, List<Object[]> batch)
   {
     ObjectArrayListReader reader = new ObjectArrayListReader(schema);
-    reader.reset(batch);
-    return reader;
-  }
-
-  @Override
-  public RowReader reader()
-  {
+    reader.bind(batch);
     return reader;
   }
 }

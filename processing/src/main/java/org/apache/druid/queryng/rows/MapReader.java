@@ -19,12 +19,12 @@
 
 package org.apache.druid.queryng.rows;
 
-import org.apache.druid.queryng.rows.Batch.ReadableBatch;
 import org.apache.druid.queryng.rows.RowSchema.ColumnSchema;
 
 import java.util.Map;
+import java.util.function.Supplier;
 
-class MapReader extends AbstractRowReader
+class MapReader extends AbstractRowReader<Map<String, Object>>
 {
   class ColumnReaderImpl extends AbstractScalarReader
   {
@@ -48,19 +48,9 @@ class MapReader extends AbstractRowReader
     }
   }
 
-  private RowSupplier<Map<String, Object>> rowSupplier;
-  private Map<String, Object> row;
-
-  public MapReader(ReadableBatch batch, RowSupplier<Map<String, Object>> rowSupplier)
+  public MapReader(final RowSchema schema, final Supplier<Map<String, Object>> rowSupplier)
   {
-    super(batch);
-    this.rowSupplier = rowSupplier;
-  }
-
-  @Override
-  protected void readRow()
-  {
-    row = rowSupplier.get(posn);
+    super(schema, rowSupplier);
   }
 
   @Override

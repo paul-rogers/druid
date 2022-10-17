@@ -19,10 +19,11 @@
 
 package org.apache.druid.queryng.rows;
 
-import org.apache.druid.queryng.rows.Batch.ReadableBatch;
 import org.apache.druid.queryng.rows.RowSchema.ColumnSchema;
 
-public class ObjectArrayReader extends AbstractRowReader
+import java.util.function.Supplier;
+
+public class ObjectArrayReader extends AbstractRowReader<Object[]>
 {
   class ColumnReaderImpl extends AbstractScalarReader
   {
@@ -46,19 +47,9 @@ public class ObjectArrayReader extends AbstractRowReader
     }
   }
 
-  private final RowSupplier<Object[]> rowSupplier;
-  private Object[] row;
-
-  public ObjectArrayReader(ReadableBatch batch, final RowSupplier<Object[]> rowSupplier)
+  public ObjectArrayReader(final RowSchema schema, Supplier<Object[]> rowSupplier)
   {
-    super(batch);
-    this.rowSupplier = rowSupplier;
-  }
-
-  @Override
-  protected void readRow()
-  {
-    row = rowSupplier.get(posn);
+    super(schema, rowSupplier);
   }
 
   @Override

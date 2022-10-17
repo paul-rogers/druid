@@ -19,24 +19,30 @@
 
 package org.apache.druid.queryng.rows;
 
+import java.util.List;
+
 public class ObjectArrayListWriter extends ListWriter<Object[]>
 {
-  private RowWriter writer;
-
   public ObjectArrayListWriter(RowSchema schema)
   {
-    super(schema);
-    this.writer = new ObjectArrayWriter(this, () -> {
-      Object[] row = new Object[schema.size()];
-      rows.add(row);
-      return row;
-    });
-    clear();
+    this(schema, Integer.MAX_VALUE);
+  }
+
+  public ObjectArrayListWriter(RowSchema schema, int sizeLimit)
+  {
+    super(schema, sizeLimit);
+    this.rowWriter = new ObjectArrayWriter(schema, () -> batch.get(batch.size() - 1));
   }
 
   @Override
-  public RowWriter writer()
+  protected Object[] createRow()
   {
-    return writer;
+    return new Object[schema.size()];
+  }
+
+  @Override
+  public BatchReader<List<Object[]>> toReader()
+  {
+    return ObjectArrayListReader.of(schema, harvest());
   }
 }

@@ -20,26 +20,31 @@
 package org.apache.druid.queryng.rows;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class MapListWriter extends ListWriter<Map<String, Object>>
 {
-  private RowWriter writer;
-
   public MapListWriter(RowSchema schema)
   {
-    super(schema);
-    this.writer = new MapWriter(this, () -> {
-      Map<String, Object> row = new HashMap<>(schema.size());
-      rows.add(row);
-      return row;
-    });
-    clear();
+    this(schema, Integer.MAX_VALUE);
+  }
+
+  public MapListWriter(RowSchema schema, int sizeLimit)
+  {
+    super(schema, sizeLimit);
+    this.rowWriter = new MapWriter(schema, () -> batch.get(batch.size() - 1));
   }
 
   @Override
-  public RowWriter writer()
+  protected Map<String, Object> createRow()
   {
-    return writer;
+    return new HashMap<>(schema.size());
+  }
+
+  @Override
+  public BatchReader<List<Map<String, Object>>> toReader()
+  {
+    return MapListReader.of(schema, harvest());
   }
 }

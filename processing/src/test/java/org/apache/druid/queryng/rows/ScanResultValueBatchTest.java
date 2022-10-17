@@ -20,7 +20,6 @@
 package org.apache.druid.queryng.rows;
 
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.queryng.rows.RowReader.ScalarColumnReader;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;
 
@@ -34,8 +33,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 
+/**
+ * Test the schema inference aspect of the scan result batch.
+ * Basic functionality is covered in {@link ListBatchTest}.
+ */
 public class ScanResultValueBatchTest
 {
   @Test
@@ -48,9 +50,9 @@ public class ScanResultValueBatchTest
     assertEquals(0, batch.size());
     assertEquals(0, batch.schema().size());
 
-    RowReader reader = batch.reader();
+    RowReader reader = batch.row();
     assertSame(batch.schema(), reader.schema());
-    assertFalse(reader.next());
+    assertFalse(batch.next());
   }
 
   @Test
@@ -70,7 +72,7 @@ public class ScanResultValueBatchTest
     assertEquals(expected, batch.schema());
 
     // Reader only does EOF
-    RowReader reader = batch.reader();
+    RowReader reader = batch.row();
     assertSame(batch.schema(), reader.schema());
     assertNotNull(reader.scalar(0));
     assertSame(reader.scalar(0), reader.scalar("a"));
@@ -108,33 +110,6 @@ public class ScanResultValueBatchTest
         .scalar("n", null)
         .build();
     assertEquals(expected, batch.schema());
-
-    // Reader does actual reading.
-    RowReader rowReader = batch.reader();
-    ScalarColumnReader lReader = rowReader.scalar(0);
-    ScalarColumnReader sReader = rowReader.scalar("s");
-    ScalarColumnReader fReader = rowReader.scalar(2);
-    ScalarColumnReader dReader = rowReader.scalar("d");
-    ScalarColumnReader oReader = rowReader.scalar(4);
-    ScalarColumnReader nReader = rowReader.scalar("n");
-
-    assertTrue(rowReader.next());
-    assertFalse(lReader.isNull());
-    assertEquals(1L, lReader.getLong());
-    assertTrue(sReader.isNull());
-    assertTrue(nReader.isNull());
-
-    assertTrue(rowReader.next());
-    assertFalse(lReader.isNull());
-    assertEquals(2L, lReader.getLong());
-    assertFalse(sReader.isNull());
-    assertEquals("second", sReader.getString());
-    assertEquals(10D, fReader.getDouble(), 0.000001);
-    assertEquals(20D, dReader.getDouble(), 0.000001);
-    assertTrue(oReader.getObject() instanceof Object);
-    assertTrue(nReader.isNull());
-
-    assertFalse(rowReader.next());
   }
 
   @Test

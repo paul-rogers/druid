@@ -19,12 +19,12 @@
 
 package org.apache.druid.queryng.rows;
 
-import org.apache.druid.queryng.rows.Batch.WritableBatch;
 import org.apache.druid.queryng.rows.RowSchema.ColumnSchema;
 
 import java.util.Map;
+import java.util.function.Supplier;
 
-public class MapWriter extends AbstractRowWriter
+public class MapWriter extends AbstractRowWriter<Map<String, Object>>
 {
   private class ScalarWriterImpl extends AbstractScalarWriter
   {
@@ -48,23 +48,11 @@ public class MapWriter extends AbstractRowWriter
     }
   }
 
-  private final RowProvider<Map<String, Object>> rowProvider;
-  private Map<String, Object> row;
-
-  public MapWriter(WritableBatch batch, RowProvider<Map<String, Object>> rowProvider)
+  public MapWriter(final RowSchema schema, final Supplier<Map<String, Object>> rowProvider)
   {
-    super(batch);
-    this.rowProvider = rowProvider;
-    RowSchema schema = batch.schema();
+    super(schema, rowProvider);
     for (int i = 0; i < columnWriters.length; i++) {
       columnWriters[i] = new ScalarWriterImpl(schema.column(i).name());
     }
-  }
-
-  @Override
-  public boolean next()
-  {
-    row = rowProvider.newRow();
-    return true;
   }
 }

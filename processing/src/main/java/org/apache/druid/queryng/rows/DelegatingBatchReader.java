@@ -19,13 +19,49 @@
 
 package org.apache.druid.queryng.rows;
 
-/**
- * Generic description of a batch of data. A batch is <i>either</i>
- * writable or readable, but not both at the same time. See the
- * {@link BatchReader} and {@link BatchWriter} interfaces for the concrete
- * actions on a batch.
- */
-public interface Batch
+public abstract class DelegatingBatchReader<T> implements BatchReader<T>
 {
-  RowSchema schema();
+  protected abstract BatchReader<?> delegate();
+
+  @Override
+  public RowSchema schema()
+  {
+    return delegate().schema();
+  }
+
+  @Override
+  public int size()
+  {
+    return delegate().size();
+  }
+
+  @Override
+  public void reset()
+  {
+    delegate().reset();
+  }
+
+  @Override
+  public int index()
+  {
+    return delegate().index();
+  }
+
+  @Override
+  public boolean seek(int posn)
+  {
+    return delegate().seek(posn);
+  }
+
+  @Override
+  public boolean next()
+  {
+    return delegate().next();
+  }
+
+  @Override
+  public RowReader row()
+  {
+    return delegate().row();
+  }
 }

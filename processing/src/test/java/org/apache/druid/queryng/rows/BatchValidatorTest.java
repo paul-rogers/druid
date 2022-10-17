@@ -19,7 +19,6 @@
 
 package org.apache.druid.queryng.rows;
 
-import org.apache.druid.queryng.rows.Batch.BatchReader;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;
 
@@ -44,8 +43,8 @@ public class BatchValidatorTest
     BatchValidator.assertNotEquals(null, reader2);
     BatchValidator.assertEquals(reader1, reader2);
 
-    RowReader rowReader1 = reader1.reader();
-    RowReader rowReader2 = reader2.reader();
+    RowReader rowReader1 = reader1.row();
+    RowReader rowReader2 = reader2.row();
     BatchValidator.assertEquals((RowReader) null, null);
     BatchValidator.assertNotEquals(rowReader1, null);
     BatchValidator.assertNotEquals(null, rowReader2);
@@ -68,15 +67,15 @@ public class BatchValidatorTest
 
     // Test the row reader variation one more time. This test is sufficient
     // as the later batch reader tests call the row reader validation.
-    RowReader rowReader1 = reader1.reader();
-    RowReader rowReader2 = reader2.reader();
+    RowReader rowReader1 = reader1.row();
+    RowReader rowReader2 = reader2.row();
     BatchValidator.assertEquals(rowReader1, rowReader2);
 
     // Vs. an empty schema
     RowSchema schema2 = new SchemaBuilder().build();
     BatchReader<List<Object[]>> reader3 = ObjectArrayListReader.of(schema2, batch1);
     BatchValidator.assertNotEquals(reader1, reader3);
-    RowReader rowReader3 = reader3.reader();
+    RowReader rowReader3 = reader3.row();
     BatchValidator.assertNotEquals(rowReader1, rowReader3);
   }
 
@@ -103,15 +102,15 @@ public class BatchValidatorTest
 
     BatchValidator.assertEquals(reader1, reader2);
 
-    RowReader rowReader1 = reader1.reader();
-    RowReader rowReader2 = reader2.reader();
+    RowReader rowReader1 = reader1.row();
+    RowReader rowReader2 = reader2.row();
     BatchValidator.assertEquals(rowReader1, rowReader2);
 
     // Vs. an empty batch
     List<Object[]> batch3 = BatchBuilder.arrayList(schema).build();
     BatchReader<List<Object[]>> reader3 = ObjectArrayListReader.of(schema, batch3);
     BatchValidator.assertNotEquals(reader1, reader3);
-    BatchValidator.assertNotEquals(rowReader1, reader3.reader());
+    BatchValidator.assertNotEquals(rowReader1, reader3.row());
 
     // Vs. a different schema
     RowSchema schema2 = new SchemaBuilder()
@@ -124,7 +123,7 @@ public class BatchValidatorTest
         .build();
     BatchReader<List<Object[]>> reader4 = ObjectArrayListReader.of(schema2, batch4);
     BatchValidator.assertNotEquals(reader1, reader4);
-    BatchValidator.assertNotEquals(rowReader1, reader4.reader());
+    BatchValidator.assertNotEquals(rowReader1, reader4.row());
 
     // Vs. short results
     List<Object[]> batch5 = BatchBuilder.arrayList(schema)

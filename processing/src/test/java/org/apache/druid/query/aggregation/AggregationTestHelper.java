@@ -641,8 +641,7 @@ public class AggregationTestHelper implements Closeable
     }
   }
 
-  @SuppressWarnings("unchecked")
-  public <T> Query<T> readQuery(final String queryJson)
+  public Query<?> readQuery(final String queryJson)
   {
     try {
       return mapper.readValue(queryJson, Query.class);

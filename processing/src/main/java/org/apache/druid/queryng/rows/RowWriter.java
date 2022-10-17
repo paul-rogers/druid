@@ -23,7 +23,12 @@ import org.apache.druid.queryng.rows.RowSchema.ColumnSchema;
 
 public interface RowWriter
 {
-  interface ScalarColumnWriter
+  public interface BindableRowWriter extends RowWriter
+  {
+    void bind();
+  }
+
+  public interface ScalarColumnWriter
   {
     ColumnSchema schema();
     void setNull();
@@ -37,6 +42,4 @@ public interface RowWriter
   RowSchema schema();
   ScalarColumnWriter scalar(String name);
   ScalarColumnWriter scalar(int ordinal);
-  void reset();
-  boolean next();
 }

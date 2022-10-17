@@ -21,6 +21,8 @@ package org.apache.druid.queryng.rows;
 
 import org.apache.druid.segment.column.ColumnType;
 
+import java.util.List;
+
 /**
  * Description of a Druid data row independent of the physical
  * implementation of the row.
@@ -37,4 +39,5 @@ public interface RowSchema
   ColumnSchema column(String name);
   int ordinal(String name);
   ColumnSchema column(int ordinal);
+  List<String> columnNames();
 }

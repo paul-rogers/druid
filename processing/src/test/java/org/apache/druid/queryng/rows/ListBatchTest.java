@@ -19,31 +19,39 @@
 
 package org.apache.druid.queryng.rows;
 
+import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.queryng.rows.RowReader.ScalarColumnReader;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;
 
-import java.util.List;
-import java.util.Map;
+import java.util.function.Consumer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
-/**
- * Test the object array batch, which tests many of the component
- * pieces. Note: we do not use the batch validator here because
- * the batch validator requires this code to work.
- */
-public class MapListTest
+public class ListBatchTest
 {
   @Test
   public void testEmptySchema()
   {
     RowSchema schema = new SchemaBuilder().build();
-    List<Map<String, Object>> batch = BatchBuilder.mapList(schema).build();
-    BatchReader<List<Map<String, Object>>> reader = MapListReader.of(schema, batch);
+    verify(schema, ListBatchTest::verifyEmptySchema);
+  }
+
+  private void verify(RowSchema schema, Consumer<BatchBuilder<?>> verifyFn)
+  {
+    verifyFn.accept(BatchBuilder.arrayList(schema));
+    verifyFn.accept(BatchBuilder.mapList(schema));
+    verifyFn.accept(BatchBuilder.scanResultValue("dummy", schema, ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST));
+    verifyFn.accept(BatchBuilder.scanResultValue("dummy", schema, ScanQuery.ResultFormat.RESULT_FORMAT_LIST));
+  }
+
+  private static void verifyEmptySchema(BatchBuilder<?> batchBuilder)
+  {
+    RowSchema schema = batchBuilder.schema();
+    BatchReader<?> reader = batchBuilder.toReader();
 
     assertSame(schema, reader.schema());
     RowReader rowReader = reader.row();
@@ -68,8 +76,13 @@ public class MapListTest
         .scalar("a", ColumnType.STRING)
         .scalar("b", ColumnType.LONG)
         .build();
-    List<Map<String, Object>> batch = BatchBuilder.mapList(schema).build();
-    BatchReader<List<Map<String, Object>>> reader = MapListReader.of(schema, batch);
+    verify(schema, ListBatchTest::verifyEmptyBatch);
+  }
+
+  private static void verifyEmptyBatch(BatchBuilder<?> batchBuilder)
+  {
+    RowSchema schema = batchBuilder.schema();
+    BatchReader<?> reader = batchBuilder.toReader();
 
     assertSame(schema, reader.schema());
     assertEquals(0, reader.size());
@@ -88,14 +101,19 @@ public class MapListTest
     RowSchema schema = new SchemaBuilder()
         .scalar("a", ColumnType.STRING)
         .build();
+    verify(schema, ListBatchTest::verifySingleColumn);
+  }
+
+  private static void verifySingleColumn(BatchBuilder<?> batchBuilder)
+  {
+    RowSchema schema = batchBuilder.schema();
 
     // Use singletonRow(), mostly in the case that the one
     // column is an array, but also works for scalars.
-    List<Map<String, Object>> batch = BatchBuilder.mapList(schema)
+    BatchReader<?> reader = batchBuilder
         .singletonRow("first")
         .singletonRow("second")
-        .build();
-    BatchReader<List<Map<String, Object>>> reader = MapListReader.of(schema, batch);
+        .toReader();
 
     assertSame(schema, reader.schema());
     assertEquals(2, reader.size());
@@ -137,14 +155,15 @@ public class MapListTest
         .scalar("a", ColumnType.STRING)
         .scalar("b", ColumnType.LONG)
         .build();
+    verify(schema, ListBatchTest::verifyMultipleColumns);
+  }
 
-    // Pass an int value for "b". Should map to the defined
-    // type.
-    List<Map<String, Object>> batch = BatchBuilder.mapList(schema)
+  private static void verifyMultipleColumns(BatchBuilder<?> batchBuilder)
+  {
+    BatchReader<?> reader = batchBuilder
         .row("first", 1)
         .row("second", 2)
-        .build();
-    BatchReader<List<Map<String, Object>>> reader = MapListReader.of(schema, batch);
+        .toReader();
     RowReader rowReader = reader.row();
 
     assertTrue(reader.next());
@@ -163,15 +182,15 @@ public class MapListTest
         .scalar("a", ColumnType.STRING)
         .scalar("b", ColumnType.LONG)
         .build();
+    verify(schema, ListBatchTest::verifyMultipleBatches);
+  }
 
-    // First batch & setup
-    BatchBuilder<List<Map<String, Object>>> batchBuilder = BatchBuilder.mapList(schema);
-    List<Map<String, Object>> batch = batchBuilder
+  private static void verifyMultipleBatches(BatchBuilder<?> batchBuilder)
+  {
+    BatchReader<?> reader = batchBuilder
         .row("first", 1)
         .row("second", 2)
-        .build();
-    BatchReader<List<Map<String, Object>>> reader = MapListReader.of(schema, batch);
-    reader.bind(batch);
+        .toReader();
     RowReader rowReader = reader.row();
 
     assertTrue(reader.next());
@@ -183,12 +202,11 @@ public class MapListTest
     assertFalse(reader.next());
 
     // Second batch
-    batch = batchBuilder
+    reader = batchBuilder
         .newBatch()
         .row("third", 3)
         .row("fourth", 4)
-        .build();
-    reader.bind(batch);
+        .toReader();
 
     assertTrue(reader.next());
     assertEquals("third", rowReader.scalar(0).getString());
@@ -198,6 +216,7 @@ public class MapListTest
     assertEquals(4L, rowReader.scalar(1).getLong());
     assertFalse(reader.next());
   }
+
 
   @Test
   public void testAllScalarTypes()
@@ -210,11 +229,15 @@ public class MapListTest
         .scalar("o", ColumnType.UNKNOWN_COMPLEX)
         .scalar("n", null)
         .build();
-    List<Map<String, Object>> batch = BatchBuilder.mapList(schema)
+    verify(schema, ListBatchTest::verifAllScalarTypes);
+  }
+
+  private static void verifAllScalarTypes(BatchBuilder<?> batchBuilder)
+  {
+    BatchReader<?> reader = batchBuilder
         .row(1L, null, null, null, null, null)
         .row(2L, "second", 10f, 20D, new Object(), null)
-        .build();
-    BatchReader<List<Map<String, Object>>> reader = MapListReader.of(schema, batch);
+        .toReader();
 
     // Reader does actual reading.
     RowReader rowReader = reader.row();

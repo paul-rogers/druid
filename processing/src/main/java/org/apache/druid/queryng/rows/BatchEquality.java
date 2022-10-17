@@ -19,7 +19,6 @@
 
 package org.apache.druid.queryng.rows;
 
-import org.apache.druid.queryng.rows.Batch.BatchReader;
 import org.apache.druid.queryng.rows.RowReader.ScalarColumnReader;
 import org.apache.druid.segment.column.ColumnType;
 
@@ -64,10 +63,37 @@ public class BatchEquality
     if (batch1 == null && batch2 == null) {
       return true;
     }
-    if (batch1 == null || batch2 == null) {
+    if (batch1 == null) {
+      reporter.error("Batch 1 is null but Batch 2 is not");
       return false;
     }
-    return isEqual(batch1.reader(), batch2.reader());
+    if (batch2 == null) {
+      reporter.error("Batch 2 is null but Batch 1 is not");
+      return false;
+    }
+    RowReader reader1 = batch1.row();
+    RowReader reader2 = batch2.row();
+    batch1.reset();
+    batch2.reset();
+    while (true) {
+      boolean ok1 = batch1.next();
+      boolean ok2 = batch2.next();
+      if (!ok1 && !ok2) {
+        return true;
+      }
+      int row = batch1.index() + 1;
+      if (!ok1) {
+        reporter.error("EOF on batch 1 at row %d, batch 2 has more rows", row);
+        return false;
+      }
+      if (!ok2) {
+        reporter.error("EOF on batch 2 at row %d, batch 1 has more rows", row);
+        return false;
+      }
+      if (!isRowEqual(row, reader1, reader2)) {
+        return false;
+      }
+    }
   }
 
   public static boolean equals(RowReader reader1, RowReader reader2)
@@ -86,90 +112,77 @@ public class BatchEquality
     if (!reader1.schema().equals(reader2.schema())) {
       return false;
     }
-    reader1.reset();
-    reader2.reset();
-    int row = 1;
-    while (true) {
-      boolean ok1 = reader1.next();
-      boolean ok2 = reader2.next();
-      if (!ok1 && !ok2) {
-        return true;
+    return isRowEqual(0, reader1, reader2);
+  }
+
+  public boolean isRowEqual(int row, RowReader reader1, RowReader reader2)
+  {
+    for (int col = 0; col < reader1.schema().size(); col++) {
+      ScalarColumnReader colReader1 = reader1.scalar(col);
+      ScalarColumnReader colReader2 = reader2.scalar(col);
+      boolean null1 = colReader1.isNull();
+      boolean null2 = colReader2.isNull();
+      if (null1 && null2) {
+        continue;
       }
-      if (!ok1) {
-        reporter.error("EOF on batch 1 at row %d, batch 2 has more rows", row);
+      if (null1) {
+        reporter.error(
+            "Row %d, column %d [%s] batch 1 is null, but batch 2 is not",
+            row,
+            col + 1,
+            reader1.schema().column(col).name()
+        );
         return false;
       }
-      if (!ok2) {
-        reporter.error("EOF on batch 2 at row %d, batch 1 has more rows", row);
+      if (null2) {
+        reporter.error(
+            "Row %d, column %d [%s] batch 2 is null, but batch 1 is not",
+            row,
+            col + 1,
+            reader1.schema().column(col).name()
+        );
         return false;
       }
-      row++;
-      for (int col = 0; col < reader1.schema().size(); col++) {
-        ScalarColumnReader colReader1 = reader1.scalar(col);
-        ScalarColumnReader colReader2 = reader2.scalar(col);
-        boolean null1 = colReader1.isNull();
-        boolean null2 = colReader2.isNull();
-        if (null1 && null2) {
+      ColumnType colType = reader1.schema().column(col).type();
+      if (colType == null) {
+        colType = ColumnType.UNKNOWN_COMPLEX;
+      }
+      if (colType == ColumnType.FLOAT || colType == ColumnType.DOUBLE) {
+        double value1 = colReader1.getDouble();
+        double value2 = colReader2.getDouble();
+        if (value1 == value2) {
           continue;
         }
-        if (null1) {
-          reporter.error(
-              "Row %d, column %d [%s] batch 1 is null, but batch 2 is not",
-              row,
-              col + 1,
-              reader1.schema().column(col).name()
-          );
-          return false;
-        }
-        if (null2) {
-          reporter.error(
-              "Row %d, column %d [%s] batch 2 is null, but batch 1 is not",
-              row,
-              col + 1,
-              reader1.schema().column(col).name()
-          );
-          return false;
-        }
-        ColumnType colType = reader1.schema().column(col).type();
-        if (colType == null) {
-          colType = ColumnType.UNKNOWN_COMPLEX;
-        }
-        if (colType == ColumnType.FLOAT || colType == ColumnType.DOUBLE) {
-          double value1 = colReader1.getDouble();
-          double value2 = colReader2.getDouble();
-          if (value1 == value2) {
-            continue;
-          }
 
-          // Compute the error as a ratio of the value. This is more stable
-          // than the JUnit simple difference and allows us to hard-code the delta.
-          double diff = Math.abs(value1 - value2);
-          double err = Math.abs(diff / value1);
-          if (err < 0.001) {
-            continue;
-          }
-          reporter.error(
-              "Row %d, column %d [%s], values differ: [%f] and [%f]",
-              row,
-              col + 1,
-              reader1.schema().column(col).name(),
-              value1,
-              value2
-          );
-          return false;
+        // Compute the error as a ratio of the value. This is more stable
+        // than the JUnit simple difference and allows us to hard-code the delta.
+        double diff = Math.abs(value1 - value2);
+        double err = Math.abs(diff / value1);
+        if (err < 0.001) {
+          continue;
         }
-        if (!Objects.equals(colReader1.getValue(), colReader2.getValue())) {
-          reporter.error(
-              "Row %d, column %d [%s], values differ: [%s] and [%s]",
-              row,
-              col + 1,
-              reader1.schema().column(col).name(),
-              colReader1.getValue(),
-              colReader2.getValue()
-          );
-          return false;
-        }
+        reporter.error(
+            "Row %d, column %d [%s], values differ: [%f] and [%f]",
+            row,
+            col + 1,
+            reader1.schema().column(col).name(),
+            value1,
+            value2
+        );
+        return false;
+      }
+      if (!Objects.equals(colReader1.getValue(), colReader2.getValue())) {
+        reporter.error(
+            "Row %d, column %d [%s], values differ: [%s] and [%s]",
+            row,
+            col + 1,
+            reader1.schema().column(col).name(),
+            colReader1.getValue(),
+            colReader2.getValue()
+        );
+        return false;
       }
     }
+    return true;
   }
 }

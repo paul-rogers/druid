@@ -19,34 +19,34 @@
 
 package org.apache.druid.queryng.rows;
 
-import org.apache.druid.queryng.rows.Batch.WritableBatch;
+import org.apache.druid.queryng.rows.RowWriter.BindableRowWriter;
 
-public abstract class AbstractRowWriter implements RowWriter
+import java.util.function.Supplier;
+
+public abstract class AbstractRowWriter<T> implements BindableRowWriter
 {
-  public interface RowProvider<T>
-  {
-    T newRow();
-  }
-
-  protected final WritableBatch batch;
+  protected final RowSchema schema;
   protected final ScalarColumnWriter[] columnWriters;
+  private final Supplier<T> rowProvider;
+  protected T row;
 
-  public AbstractRowWriter(WritableBatch batch)
+  public AbstractRowWriter(final RowSchema schema, Supplier<T> rowProvider)
   {
-    this.batch = batch;
-    this.columnWriters = new ScalarColumnWriter[batch.schema().size()];
+    this.schema = schema;
+    this.rowProvider = rowProvider;
+    this.columnWriters = new ScalarColumnWriter[schema.size()];
   }
 
   @Override
   public RowSchema schema()
   {
-    return batch.schema();
+    return schema;
   }
 
   @Override
   public ScalarColumnWriter scalar(String name)
   {
-    return scalar(schema().ordinal(name));
+    return scalar(schema.ordinal(name));
   }
 
   @Override
@@ -56,7 +56,8 @@ public abstract class AbstractRowWriter implements RowWriter
   }
 
   @Override
-  public void reset()
+  public void bind()
   {
+    row = rowProvider.get();
   }
 }

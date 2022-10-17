@@ -21,49 +21,68 @@ package org.apache.druid.queryng.rows;
 
 import org.apache.druid.queryng.rows.RowReader.BindableRowReader;
 
-import java.util.function.Supplier;
-
-public abstract class AbstractRowReader<T> implements BindableRowReader
+public abstract class AbstractBatchReader<T> extends AbstractBatch implements BatchReader<T>
 {
-  private final RowSchema schema;
-  private final ScalarColumnReader[] columnReaders;
-  private final Supplier<T> rowSupplier;
-  protected T row;
+  protected T batch;
+  protected int posn = -1;
+  protected BindableRowReader rowReader;
 
-  public AbstractRowReader(final RowSchema schema, final Supplier<T> rowSupplier)
+  public AbstractBatchReader(final RowSchema schema)
   {
-    this.schema = schema;
-    columnReaders = new ScalarColumnReader[schema.size()];
-    this.rowSupplier = rowSupplier;
+    super(schema);
   }
 
   @Override
-  public ScalarColumnReader scalar(String name)
+  public void bind(T batch)
   {
-    int index = schema.ordinal(name);
-    return index == -1 ? null : scalar(index);
+    this.batch = batch;
+    reset();
   }
 
   @Override
-  public ScalarColumnReader scalar(int ordinal)
+  public void reset()
   {
-    if (columnReaders[ordinal] == null) {
-      columnReaders[ordinal] = makeColumn(ordinal);
+    this.posn = -1;
+  }
+
+  @Override
+  public boolean next()
+  {
+    if (++posn >= size()) {
+      posn = size();
+      return false;
     }
-    return columnReaders[ordinal];
-  }
-
-  protected abstract ScalarColumnReader makeColumn(int ordinal);
-
-  @Override
-  public void bind()
-  {
-    row = rowSupplier.get();
+    rowReader.bind();
+    return true;
   }
 
   @Override
-  public RowSchema schema()
+  public boolean seek(int newPosn)
   {
-    return schema;
+    // Bound the new position to the valid range. If the
+    // batch is empty, the new position will be -1: before the
+    // (non-existent) first row.
+    if (newPosn < 0) {
+      posn = -1;
+      return false;
+    } else if (newPosn >= size()) {
+      posn = size();
+      return false;
+    }
+    posn = newPosn;
+    rowReader.bind();
+    return true;
+  }
+
+  @Override
+  public int index()
+  {
+    return posn;
+  }
+
+  @Override
+  public RowReader row()
+  {
+    return rowReader;
   }
 }

@@ -150,7 +150,7 @@ public interface Operator<T>
   /**
    * Convenience interface for an operator which is its own iterator.
    */
-  interface IterableOperator<T> extends Operator<T>, ResultIterator<T>
+  public interface IterableOperator<T> extends Operator<T>, ResultIterator<T>
   {
   }
 

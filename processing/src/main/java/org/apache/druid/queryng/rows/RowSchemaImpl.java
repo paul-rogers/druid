@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Simple implementation of the row schema for rows with only (name, type) pairs.
@@ -121,6 +122,12 @@ public class RowSchemaImpl implements RowSchema
   {
     Integer ordinal = index.get(name);
     return ordinal == null ? -1 : ordinal;
+  }
+
+  @Override
+  public List<String> columnNames()
+  {
+    return columns.stream().map(col -> col.name()).collect(Collectors.toList());
   }
 
   @Override

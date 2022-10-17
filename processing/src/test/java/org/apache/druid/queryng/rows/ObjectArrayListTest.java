@@ -19,7 +19,6 @@
 
 package org.apache.druid.queryng.rows;
 
-import org.apache.druid.queryng.rows.Batch.BatchReader;
 import org.apache.druid.queryng.rows.RowReader.ScalarColumnReader;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;
@@ -44,13 +43,22 @@ public class ObjectArrayListTest
     RowSchema schema = new SchemaBuilder().build();
     List<Object[]> batch = BatchBuilder.arrayList(schema).build();
     BatchReader<List<Object[]>> reader = new ObjectArrayListReader(schema);
-    reader.reset(batch);
+    reader.bind(batch);
 
     assertSame(schema, reader.schema());
-    assertEquals(0, reader.size());
-    RowReader rowReader = reader.reader();
+    RowReader rowReader = reader.row();
     assertSame(schema, rowReader.schema());
-    assertFalse(rowReader.next());
+
+    assertEquals(0, reader.size());
+    assertEquals(-1, reader.index());
+    assertFalse(reader.next());
+
+    reader.reset();
+    assertEquals(-1, reader.index());
+
+    assertFalse(reader.seek(-1));
+    assertFalse(reader.seek(1));
+    assertEquals(0, reader.index());
   }
 
   @Test
@@ -64,14 +72,33 @@ public class ObjectArrayListTest
     BatchReader<List<Object[]>> reader = ObjectArrayListReader.of(schema, batch);
 
     assertSame(schema, reader.schema());
-    assertEquals(0, reader.size());
-    RowReader rowReader = reader.reader();
+    assertEquals(2, reader.size());
+    RowReader rowReader = reader.row();
     assertSame(schema, rowReader.schema());
-    assertFalse(rowReader.next());
 
-    // Can obtain column readers but nothing to read
-    assertSame(schema.column(0), rowReader.scalar(0).schema());
-    assertSame(schema.column("b"), rowReader.scalar("b").schema());
+    assertEquals(-1, reader.index());
+    assertTrue(reader.next());
+    assertEquals(0, reader.index());
+    assertEquals("first", rowReader.scalar(0).getString());
+    assertTrue(reader.next());
+    assertEquals(1, reader.index());
+    assertEquals("second", rowReader.scalar(0).getString());
+    assertFalse(reader.next());
+    assertEquals(2, reader.index());
+
+    // OK to move next at EOF, stays at EOF.
+    assertFalse(reader.next());
+    assertEquals(2, reader.index());
+
+    reader.reset();
+    assertEquals(-1, reader.index());
+
+    assertTrue(reader.seek(1));
+    assertEquals(1, reader.index());
+    assertEquals("second", rowReader.scalar(0).getString());
+    assertTrue(reader.seek(0));
+    assertEquals(0, reader.index());
+    assertEquals("first", rowReader.scalar(0).getString());
   }
 
   @Test
@@ -91,14 +118,14 @@ public class ObjectArrayListTest
 
     assertSame(schema, reader.schema());
     assertEquals(2, reader.size());
-    RowReader rowReader = reader.reader();
+    RowReader rowReader = reader.row();
     assertSame(schema, rowReader.schema());
 
-    assertTrue(rowReader.next());
+    assertTrue(reader.next());
     assertEquals("first", rowReader.scalar(0).getString());
-    assertTrue(rowReader.next());
+    assertTrue(reader.next());
     assertEquals("second", rowReader.scalar(0).getString());
-    assertFalse(rowReader.next());
+    assertFalse(reader.next());
   }
 
   /**
@@ -119,15 +146,15 @@ public class ObjectArrayListTest
         .row("second", 2)
         .build();
     BatchReader<List<Object[]>> reader = ObjectArrayListReader.of(schema, batch);
-    RowReader rowReader = reader.reader();
+    RowReader rowReader = reader.row();
 
-    assertTrue(rowReader.next());
+    assertTrue(reader.next());
     assertEquals("first", rowReader.scalar(0).getString());
     assertEquals(1L, rowReader.scalar(1).getLong());
-    assertTrue(rowReader.next());
+    assertTrue(reader.next());
     assertEquals("second", rowReader.scalar(0).getString());
     assertEquals(2L, rowReader.scalar(1).getLong());
-    assertFalse(rowReader.next());
+    assertFalse(reader.next());
   }
 
   @Test
@@ -145,31 +172,31 @@ public class ObjectArrayListTest
         .row("second", 2)
         .build();
     BatchReader<List<Object[]>> reader = new ObjectArrayListReader(schema);
-    reader.reset(batch);
-    RowReader rowReader = reader.reader();
+    reader.bind(batch);
+    RowReader rowReader = reader.row();
 
-    assertTrue(rowReader.next());
+    assertTrue(reader.next());
     assertEquals("first", rowReader.scalar(0).getString());
     assertEquals(1L, rowReader.scalar(1).getLong());
-    assertTrue(rowReader.next());
+    assertTrue(reader.next());
     assertEquals("second", rowReader.scalar(0).getString());
     assertEquals(2L, rowReader.scalar(1).getLong());
-    assertFalse(rowReader.next());
+    assertFalse(reader.next());
 
     // Second batch
     batch = batchBuilder
         .row("third", 3)
         .row("fourth", 4)
         .build();
-    reader.reset(batch);
+    reader.bind(batch);
 
-    assertTrue(rowReader.next());
+    assertTrue(reader.next());
     assertEquals("third", rowReader.scalar(0).getString());
     assertEquals(3L, rowReader.scalar(1).getLong());
-    assertTrue(rowReader.next());
+    assertTrue(reader.next());
     assertEquals("fourth", rowReader.scalar(0).getString());
     assertEquals(4L, rowReader.scalar(1).getLong());
-    assertFalse(rowReader.next());
+    assertFalse(reader.next());
   }
 
   @Test
@@ -190,7 +217,7 @@ public class ObjectArrayListTest
     BatchReader<List<Object[]>> reader = ObjectArrayListReader.of(schema, batch);
 
     // Reader does actual reading.
-    RowReader rowReader = reader.reader();
+    RowReader rowReader = reader.row();
     ScalarColumnReader lReader = rowReader.scalar(0);
     ScalarColumnReader sReader = rowReader.scalar("s");
     ScalarColumnReader fReader = rowReader.scalar(2);
@@ -198,13 +225,13 @@ public class ObjectArrayListTest
     ScalarColumnReader oReader = rowReader.scalar(4);
     ScalarColumnReader nReader = rowReader.scalar("n");
 
-    assertTrue(rowReader.next());
+    assertTrue(reader.next());
     assertFalse(lReader.isNull());
     assertEquals(1L, lReader.getLong());
     assertTrue(sReader.isNull());
     assertTrue(nReader.isNull());
 
-    assertTrue(rowReader.next());
+    assertTrue(reader.next());
     assertFalse(lReader.isNull());
     assertEquals(2L, lReader.getLong());
     assertFalse(sReader.isNull());
@@ -214,6 +241,6 @@ public class ObjectArrayListTest
     assertTrue(oReader.getObject() instanceof Object);
     assertTrue(nReader.isNull());
 
-    assertFalse(rowReader.next());
+    assertFalse(reader.next());
   }
 }

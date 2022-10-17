@@ -19,25 +19,13 @@
 
 package org.apache.druid.queryng.rows;
 
-import org.apache.druid.queryng.rows.Batch.AbstractBatch;
-import org.apache.druid.queryng.rows.Batch.BatchReader;
-
 import java.util.List;
 
-public abstract class ListReader<T> extends AbstractBatch implements BatchReader<List<T>>
+public abstract class ListReader<T> extends AbstractBatchReader<List<T>>
 {
-  protected List<T> batch;
-
-  public ListReader(RowSchema schema)
+  public ListReader(final RowSchema schema)
   {
     super(schema);
-  }
-
-  @Override
-  public void reset(List<T> batch)
-  {
-    this.batch = batch;
-    reader().reset();
   }
 
   @Override

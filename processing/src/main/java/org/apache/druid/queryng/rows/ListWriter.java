@@ -19,33 +19,60 @@
 
 package org.apache.druid.queryng.rows;
 
-import org.apache.druid.queryng.rows.Batch.AbstractBatch;
-import org.apache.druid.queryng.rows.Batch.BatchWriter;
-
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class ListWriter<T> extends AbstractBatch implements BatchWriter<List<T>>
+public abstract class ListWriter<T> extends AbstractBatchWriter<List<T>>
 {
-  protected List<T> rows;
+  protected final int sizeLimit;
 
   public ListWriter(RowSchema schema)
   {
+    this(schema, Integer.MAX_VALUE);
+  }
+
+  public ListWriter(RowSchema schema, int sizeLimit)
+  {
     super(schema);
+    this.sizeLimit = sizeLimit;
   }
 
   @Override
-  public void clear()
+  public void newBatch()
   {
-    rows = new ArrayList<>();
-    writer().reset();
+    batch = new ArrayList<>();
   }
 
   @Override
   public List<T> harvest()
   {
-    List<T> batch = rows;
-    clear();
-    return batch;
+    List<T> result = batch;
+    batch = null;
+    return result;
   }
+
+  @Override
+  public int size()
+  {
+    return batch == null ? 0 : batch.size();
+  }
+
+  @Override
+  public boolean isFull()
+  {
+    return size() >= sizeLimit;
+  }
+
+  @Override
+  public boolean newRow()
+  {
+    if (isFull()) {
+      return false;
+    }
+    batch.add(createRow());
+    rowWriter.bind();
+    return true;
+  }
+
+  protected abstract T createRow();
 }
