@@ -65,7 +65,7 @@ public class Iterators
         return true;
       }
       catch (EofException e) {
-        eof = false;
+        eof = true;
         return false;
       }
     }

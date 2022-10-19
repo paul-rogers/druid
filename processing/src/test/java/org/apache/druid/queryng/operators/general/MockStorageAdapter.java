@@ -179,14 +179,21 @@ public class MockStorageAdapter implements StorageAdapter
 
   @Override
   public Sequence<Cursor> makeCursors(
-      Filter filter,
-      Interval interval,
-      VirtualColumns virtualColumns,
-      Granularity gran,
-      boolean descending,
-      QueryMetrics<?> queryMetrics)
+      final Filter filter,
+      final Interval interval,
+      final VirtualColumns virtualColumns,
+      final Granularity gran,
+      final boolean descending,
+      final QueryMetrics<?> queryMetrics)
   {
-    int rowsPerCursor = segment.segmentSize / segment.cursorCount;
+    final int rowsPerCursor;
+    if (segment.cursorCount == 0) {
+      rowsPerCursor = 0;
+    } else if (segment.sparse) {
+      rowsPerCursor = segment.segmentSize / (segment.cursorCount + 1) * 2;
+    } else {
+      rowsPerCursor = segment.segmentSize / segment.cursorCount;
+    }
     final Interval actualInterval = computeCursorInterval(gran, interval);
     long nextCursorStart = actualInterval.getStartMillis();
     long increment = gran.increment(0);
@@ -200,14 +207,12 @@ public class MockStorageAdapter implements StorageAdapter
       int blockCount = segment.sparse ? 2 * segment.cursorCount - 1 : segment.cursorCount;
       increment = actualInterval.toDurationMillis() / blockCount;
     }
-    List<Cursor> cursors = new ArrayList<>();
+    final List<Cursor> cursors = new ArrayList<>();
     for (int i = 0; i < segment.cursorCount; i++) {
       Interval cursorInterval = new Interval(nextCursorStart, nextCursorStart + increment, DateTimeZone.UTC);
-      cursors.add(new MockCursor(this, cursorInterval, rowsPerCursor));
+      int rows = (segment.sparse && i % 2 == 1) ? 0 : rowsPerCursor;
+      cursors.add(new MockCursor(this, cursorInterval, rows));
       nextCursorStart += increment;
-      if (segment.sparse) {
-        nextCursorStart += increment;
-      }
     }
     return Sequences.simple(cursors);
   }
