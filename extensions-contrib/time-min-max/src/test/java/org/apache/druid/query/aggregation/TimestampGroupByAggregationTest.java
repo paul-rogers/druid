@@ -186,8 +186,7 @@ public class TimestampGroupByAggregationTest
         groupBy
     );
 
-    @SuppressWarnings("unchecked")
-    Query<ResultRow> query = (Query<ResultRow>) helper.readQuery(groupBy);
+    Query<ResultRow> query = helper.readQuery(groupBy);
     int groupByFieldNumber = ((GroupByQuery) query).getResultRowSignature()
                                                    .indexOf(groupByField);
 

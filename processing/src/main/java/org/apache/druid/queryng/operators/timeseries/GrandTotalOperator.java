@@ -80,7 +80,7 @@ public class GrandTotalOperator implements IterableOperator<Result<TimeseriesRes
 
     try {
       // Accumulate grand totals while iterating the input.
-      Result<TimeseriesResultValue> resultValue = inputIter.next();
+      final Result<TimeseriesResultValue> resultValue = inputIter.next();
       rowCount++;
       accumulate(resultValue);
       return resultValue;
