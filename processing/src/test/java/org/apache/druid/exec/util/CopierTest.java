@@ -1,0 +1,156 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.apache.druid.exec.util;
+
+import org.apache.druid.exec.operator.Batch;
+import org.apache.druid.exec.operator.BatchReader;
+import org.apache.druid.exec.operator.BatchWriter;
+import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.operator.impl.Batches;
+import org.apache.druid.exec.shim.MapListWriter;
+import org.apache.druid.exec.shim.ObjectArrayListWriter;
+import org.apache.druid.exec.shim.ScanResultValueWriter;
+import org.apache.druid.java.util.common.UOE;
+import org.apache.druid.query.scan.ScanQuery;
+import org.apache.druid.segment.column.ColumnType;
+import org.junit.Test;
+
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+public class CopierTest
+{
+  enum BatchFormat
+  {
+    OBJECT_ARRAY,
+    MAP,
+    SCAN_ARRAY,
+    SCAN_MAP;
+
+    public boolean directCopyable(BatchFormat from)
+    {
+      if (this == from) {
+        return true;
+      }
+      if (this == OBJECT_ARRAY && from == SCAN_ARRAY) {
+        return true;
+      }
+      if (this == MAP && from == SCAN_MAP) {
+        return true;
+      }
+      if (this == SCAN_ARRAY && from == OBJECT_ARRAY) {
+        return true;
+      }
+      if (this == SCAN_MAP && from == MAP) {
+        return true;
+      }
+      return false;
+    }
+  }
+
+  private BatchBuilder builderFor(RowSchema schema, BatchFormat format)
+  {
+    return BatchBuilder.of(writerFor(schema, format, Integer.MAX_VALUE));
+  }
+
+  private BatchWriter writerFor(RowSchema schema, BatchFormat format, int limit)
+  {
+    switch (format) {
+      case OBJECT_ARRAY:
+        return new ObjectArrayListWriter(schema, limit);
+      case MAP:
+        return new MapListWriter(schema, limit);
+      case SCAN_ARRAY:
+        return new ScanResultValueWriter("dummy", schema, ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST, limit);
+      case SCAN_MAP:
+        return new ScanResultValueWriter("dummy", schema, ScanQuery.ResultFormat.RESULT_FORMAT_LIST, limit);
+      default:
+        throw new UOE("Invalid batch format");
+    }
+  }
+
+  @Test
+  public void testCopy()
+  {
+    for (BatchFormat sourceFormat : BatchFormat.values()) {
+      for (BatchFormat destFormat : BatchFormat.values()) {
+        doCopyTest(sourceFormat, destFormat);
+      }
+    }
+  }
+
+  private void doCopyTest(BatchFormat sourceFormat, BatchFormat destFormat)
+  {
+    RowSchema schema = new SchemaBuilder()
+        .scalar("a", ColumnType.STRING)
+        .scalar("b", ColumnType.LONG)
+        .build();
+
+    BatchWriter destWriter = writerFor(schema, destFormat, 6);
+    destWriter.newBatch();
+
+    // Create a batch and verify the correct copier kind is created.
+    Batch sourceBatch = builderFor(schema, sourceFormat)
+        .row("first", 1)
+        .row("second", 2)
+        .build();
+    BatchReader sourceReader = sourceBatch.newReader();
+
+    BatchCopier copier = Batches.copier(sourceReader, destWriter);
+    if (sourceFormat.directCopyable(destFormat)) {
+      assertTrue(copier instanceof BatchCopierFactory.DirectCopier);
+    } else {
+      assertTrue(copier instanceof BatchCopierFactory.GenericCopier);
+    }
+
+    // Copy the first batch row-by-row
+    assertTrue(copier.copyRow(sourceReader, destWriter));
+    assertTrue(copier.copyRow(sourceReader, destWriter));
+    assertFalse(copier.copyRow(sourceReader, destWriter));
+
+    // Copy the second batch in bulk.
+    sourceBatch = builderFor(schema, sourceFormat)
+        .row("third", 3)
+        .row("fourth", 4)
+        .build();
+    sourceBatch.bindReader(sourceReader);
+    assertTrue(copier.copyAll(sourceReader, destWriter));
+
+    // Copy the third batch in bulk, but only 2 of the 3 rows fit.
+    sourceBatch = builderFor(schema, sourceFormat)
+        .row("fifth", 5)
+        .row("sixth", 6)
+        .row("seventh", 7)
+        .build();
+    sourceBatch.bindReader(sourceReader);
+    assertFalse(copier.copyAll(sourceReader, destWriter));
+
+    // Verify the combined result.
+    Batch expected = builderFor(schema, sourceFormat)
+        .row("first", 1)
+        .row("second", 2)
+        .row("third", 3)
+        .row("fourth", 4)
+        .row("fifth", 5)
+        .row("sixth", 6)
+        .build();
+    BatchValidator.assertEquals(expected, destWriter.harvest());
+  }
+}
