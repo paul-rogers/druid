@@ -20,6 +20,7 @@
 package org.apache.druid.exec.util;
 
 import org.apache.druid.exec.operator.Batch;
+import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
 import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.BatchWriter;
 import org.apache.druid.exec.operator.RowSchema;
@@ -37,31 +38,22 @@ import static org.junit.Assert.assertTrue;
 
 public class CopierTest
 {
-  enum BatchFormat
+  public boolean directCopyable(BatchFormat from, BatchFormat to)
   {
-    OBJECT_ARRAY,
-    MAP,
-    SCAN_ARRAY,
-    SCAN_MAP;
-
-    public boolean directCopyable(BatchFormat from)
-    {
-      if (this == from) {
-        return true;
-      }
-      if (this == OBJECT_ARRAY && from == SCAN_ARRAY) {
-        return true;
-      }
-      if (this == MAP && from == SCAN_MAP) {
-        return true;
-      }
-      if (this == SCAN_ARRAY && from == OBJECT_ARRAY) {
-        return true;
-      }
-      if (this == SCAN_MAP && from == MAP) {
-        return true;
-      }
-      return false;
+    if (from == to) {
+      return true;
+    }
+    switch (from) {
+      case OBJECT_ARRAY:
+        return to == BatchFormat.SCAN_OBJECT_ARRAY;
+      case MAP:
+        return to == BatchFormat.SCAN_MAP;
+      case SCAN_OBJECT_ARRAY:
+        return to == BatchFormat.OBJECT_ARRAY;
+      case SCAN_MAP:
+        return to == BatchFormat.MAP;
+      default:
+        return false;
     }
   }
 
@@ -77,7 +69,7 @@ public class CopierTest
         return new ObjectArrayListWriter(schema, limit);
       case MAP:
         return new MapListWriter(schema, limit);
-      case SCAN_ARRAY:
+      case SCAN_OBJECT_ARRAY:
         return new ScanResultValueWriter("dummy", schema, ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST, limit);
       case SCAN_MAP:
         return new ScanResultValueWriter("dummy", schema, ScanQuery.ResultFormat.RESULT_FORMAT_LIST, limit);
@@ -114,7 +106,7 @@ public class CopierTest
     BatchReader sourceReader = sourceBatch.newReader();
 
     BatchCopier copier = Batches.copier(sourceReader, destWriter);
-    if (sourceFormat.directCopyable(destFormat)) {
+    if (directCopyable(sourceFormat, destFormat)) {
       assertTrue(copier instanceof BatchCopierFactory.DirectCopier);
     } else {
       assertTrue(copier instanceof BatchCopierFactory.GenericCopier);

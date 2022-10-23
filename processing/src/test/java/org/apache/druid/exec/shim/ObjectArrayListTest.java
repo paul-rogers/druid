@@ -20,16 +20,21 @@
 package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.operator.Batch;
+import org.apache.druid.exec.operator.BatchCapabilities;
 import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.BatchReader.BatchCursor;
 import org.apache.druid.exec.operator.ColumnReaderFactory;
 import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.operator.impl.Batches;
+import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
 import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
 import org.apache.druid.exec.util.BatchBuilder;
 import org.apache.druid.exec.util.BatchValidator;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;
+
+import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -46,6 +51,16 @@ import static org.junit.Assert.assertTrue;
  */
 public class ObjectArrayListTest
 {
+  @Test
+  public void testCapabilities()
+  {
+    ObjectArrayBatch batch = new ObjectArrayBatch(Batches.emptySchema(), Collections.emptyList());
+    BatchCapabilities cap = batch.capabilities();
+    assertEquals(BatchFormat.OBJECT_ARRAY, cap.format());
+    assertTrue(cap.canSeek());
+    assertFalse(cap.canSort());
+  }
+
   @Test
   public void testEmptySchema()
   {
@@ -270,7 +285,7 @@ public class ObjectArrayListTest
     assertSame(reader2, reader);
 
     writer.directCopy(reader, 1);
-    assertEquals(1, reader.cursor().index());
+    assertEquals(0, reader.cursor().index());
     writer.directCopy(reader, 10);
     assertTrue(reader.cursor().isEOF());
 
@@ -320,12 +335,12 @@ public class ObjectArrayListTest
     batch.bindReader(reader);
     writer.directCopy(reader, 10);
     assertFalse(reader.cursor().isEOF());
-    assertEquals(2, reader.cursor().index());
+    assertEquals(1, reader.cursor().index());
 
     // Stubbornly try again
     writer.directCopy(reader, 10);
     assertFalse(reader.cursor().isEOF());
-    assertEquals(2, reader.cursor().index());
+    assertEquals(1, reader.cursor().index());
 
     batchBuilder.newBatch();
     Batch expected = batchBuilder

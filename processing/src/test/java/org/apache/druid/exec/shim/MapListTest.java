@@ -20,15 +20,20 @@
 package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.operator.Batch;
+import org.apache.druid.exec.operator.BatchCapabilities;
 import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.ColumnReaderFactory;
 import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
 import org.apache.druid.exec.operator.BatchReader.BatchCursor;
 import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.operator.impl.Batches;
 import org.apache.druid.exec.util.BatchBuilder;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;
+
+import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -45,6 +50,16 @@ import static org.junit.Assert.assertTrue;
  */
 public class MapListTest
 {
+  @Test
+  public void testCapabilities()
+  {
+    MapListBatch batch = new MapListBatch(Batches.emptySchema(), Collections.emptyList());
+    BatchCapabilities cap = batch.capabilities();
+    assertEquals(BatchFormat.MAP, cap.format());
+    assertTrue(cap.canSeek());
+    assertFalse(cap.canSort());
+  }
+
   @Test
   public void testEmptySchema()
   {

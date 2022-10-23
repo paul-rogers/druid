@@ -20,10 +20,13 @@
 package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.operator.Batch;
+import org.apache.druid.exec.operator.BatchCapabilities;
 import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.ColumnReaderFactory;
 import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
 import org.apache.druid.exec.operator.BatchReader.BatchCursor;
+import org.apache.druid.exec.operator.impl.Batches;
 import org.apache.druid.exec.util.BatchBuilder;
 import org.apache.druid.exec.util.BatchValidator;
 import org.apache.druid.exec.util.SchemaBuilder;
@@ -50,6 +53,22 @@ import static org.junit.Assert.assertTrue;
  */
 public class ScanResultValueBatchTest
 {
+  @Test
+  public void testCapabilities()
+  {
+    ScanResultValueBatch batch = new ScanResultValueBatch(Batches.emptySchema(), ScanQuery.ResultFormat.RESULT_FORMAT_LIST, null);
+    BatchCapabilities cap = batch.capabilities();
+    assertEquals(BatchFormat.SCAN_MAP, cap.format());
+    assertTrue(cap.canSeek());
+    assertFalse(cap.canSort());
+
+    batch = new ScanResultValueBatch(Batches.emptySchema(), ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST, null);
+    cap = batch.capabilities();
+    assertEquals(BatchFormat.SCAN_OBJECT_ARRAY, cap.format());
+    assertTrue(cap.canSeek());
+    assertFalse(cap.canSort());
+  }
+
   @Test
   public void testEmptySchema()
   {

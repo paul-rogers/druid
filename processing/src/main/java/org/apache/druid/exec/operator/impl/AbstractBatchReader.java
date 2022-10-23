@@ -20,6 +20,7 @@
 package org.apache.druid.exec.operator.impl;
 
 import org.apache.druid.exec.operator.BatchReader;
+import org.apache.druid.exec.util.ExecUtils;
 
 public abstract class AbstractBatchReader implements BatchReader
 {
@@ -37,5 +38,11 @@ public abstract class AbstractBatchReader implements BatchReader
   public BatchCursor cursor()
   {
     return cursor;
+  }
+
+  @Override
+  public <T> T unwrap(Class<T> readerClass)
+  {
+    return ExecUtils.unwrap(this, readerClass);
   }
 }

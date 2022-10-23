@@ -5,7 +5,7 @@ import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.BatchWriter;
 import org.apache.druid.exec.operator.ColumnReaderFactory;
 import org.apache.druid.exec.operator.ColumnWriterFactory;
-import org.apache.druid.exec.shim.DelegatingBatchReader;
+import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.util.BatchCopier;
 import org.apache.druid.exec.util.BatchCopierFactory;
 import org.apache.druid.java.util.common.UOE;
@@ -63,10 +63,8 @@ public class Batches
     return false;
   }
 
-  public BatchReader unwrap(BatchReader reader)
+  public static RowSchema emptySchema()
   {
-    if (reader instanceof DelegatingBatchReader) {
-      return ()
-    }
+    return RowSchemaImpl.EMPTY_SCHEMA;
   }
 }

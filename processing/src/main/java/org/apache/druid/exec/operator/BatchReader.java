@@ -73,7 +73,7 @@ public interface BatchReader
     boolean isEOF();
   }
 
-  BatchCapabilities capabilities();
   ColumnReaderFactory columns();
   BatchCursor cursor();
+  <T> T unwrap(Class<T> readerClass);
 }

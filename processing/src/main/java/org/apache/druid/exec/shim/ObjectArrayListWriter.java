@@ -88,16 +88,17 @@ public class ObjectArrayListWriter extends ListWriter<Object[]>
   @Override
   public boolean canDirectCopyFrom(BatchReader reader)
   {
-    return reader instanceof ObjectArrayListReader;
+    return reader.unwrap(ObjectArrayListReader.class) != null;
   }
 
   @Override
   public int directCopy(BatchReader from, int n)
   {
-    if (from instanceof ObjectArrayListReader) {
-      return appendFromList((ObjectArrayListReader) from, n);
-    } else {
+    ObjectArrayListReader source = from.unwrap(ObjectArrayListReader.class);
+    if (source == null) {
       return super.directCopy(from, n);
+    } else {
+      return appendFromList(source, n);
     }
   }
 }

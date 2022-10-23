@@ -8,7 +8,7 @@ package org.apache.druid.exec.operator;
  */
 public interface BatchCapabilities
 {
-  enum BatchFormat
+  public enum BatchFormat
   {
     OBJECT_ARRAY,
     MAP,
@@ -19,5 +19,4 @@ public interface BatchCapabilities
   boolean canSeek();
   boolean canSort();
   BatchFormat format();
-  boolean canDirectCopyFrom(BatchFormat format);
 }

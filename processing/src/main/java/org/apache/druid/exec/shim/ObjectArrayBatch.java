@@ -5,11 +5,19 @@ import org.apache.druid.exec.operator.BatchCapabilities;
 import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.BatchWriter;
 import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
+import org.apache.druid.exec.operator.impl.BatchCapabilitiesImpl;
 
 import java.util.List;
 
 public class ObjectArrayBatch implements Batch
 {
+  public static final BatchCapabilities CAPABILITIES = new BatchCapabilitiesImpl(
+      BatchFormat.OBJECT_ARRAY,
+      true, // Can seek
+      false // Can't sort
+  );
+
   private final RowSchema schema;
   private final List<Object[]> batch;
 
@@ -22,7 +30,7 @@ public class ObjectArrayBatch implements Batch
   @Override
   public BatchCapabilities capabilities()
   {
-    return BatchCapabilities.IN_MEMORY_BATCH;
+    return CAPABILITIES;
   }
 
   @Override

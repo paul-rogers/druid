@@ -5,6 +5,8 @@ import org.apache.druid.exec.operator.BatchCapabilities;
 import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.BatchWriter;
 import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
+import org.apache.druid.exec.operator.impl.BatchCapabilitiesImpl;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -15,6 +17,17 @@ import java.util.Map;
 
 public class ScanResultValueBatch implements Batch
 {
+  public static final BatchCapabilities LIST_CAPABILITIES = new BatchCapabilitiesImpl(
+      BatchFormat.SCAN_MAP,
+      true, // Can seek
+      false // Can't sort
+  );
+  public static final BatchCapabilities COMPACT_LIST_CAPABILITIES = new BatchCapabilitiesImpl(
+      BatchFormat.SCAN_OBJECT_ARRAY,
+      true, // Can seek
+      false // Can't sort
+  );
+
   private final RowSchema schema;
   private final ScanQuery.ResultFormat format;
   private final ScanResultValue batch;
@@ -33,7 +46,14 @@ public class ScanResultValueBatch implements Batch
   @Override
   public BatchCapabilities capabilities()
   {
-    return BatchCapabilities.IN_MEMORY_BATCH;
+    switch (format) {
+      case RESULT_FORMAT_LIST:
+        return LIST_CAPABILITIES;
+      case RESULT_FORMAT_COMPACTED_LIST:
+        return COMPACT_LIST_CAPABILITIES;
+      default:
+        throw new UOE("Unsupported format [%s]", format);
+    }
   }
 
   @Override

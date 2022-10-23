@@ -19,7 +19,7 @@ public class IndirectBatch implements Batch
   @Override
   public BatchCapabilities capabilities()
   {
-    return BatchCapabilities.IN_MEMORY_BATCH;
+    return base.capabilities();
   }
 
   @Override

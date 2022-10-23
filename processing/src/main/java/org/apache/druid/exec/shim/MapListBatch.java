@@ -2,15 +2,23 @@ package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.BatchCapabilities;
+import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
 import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.BatchWriter;
 import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.operator.impl.BatchCapabilitiesImpl;
 
 import java.util.List;
 import java.util.Map;
 
 public class MapListBatch implements Batch
 {
+  public static final BatchCapabilities CAPABILITIES = new BatchCapabilitiesImpl(
+      BatchFormat.MAP,
+      true, // Can seek
+      false // Can't sort
+  );
+
   private final RowSchema schema;
   private final List<Map<String, Object>> batch;
 
@@ -23,7 +31,7 @@ public class MapListBatch implements Batch
   @Override
   public BatchCapabilities capabilities()
   {
-    return BatchCapabilities.IN_MEMORY_BATCH;
+    return CAPABILITIES;
   }
 
   @Override

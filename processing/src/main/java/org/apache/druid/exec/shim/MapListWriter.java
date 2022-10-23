@@ -89,16 +89,17 @@ public class MapListWriter extends ListWriter<Map<String, Object>>
   @Override
   public boolean canDirectCopyFrom(BatchReader reader)
   {
-    return reader instanceof MapListReader;
+    return reader.unwrap(MapListReader.class) != null;
   }
 
   @Override
   public int directCopy(BatchReader from, int n)
   {
-    if (from instanceof MapListReader) {
-      return appendFromList((MapListReader) from, n);
-    } else {
+    MapListReader source = from.unwrap(MapListReader.class);
+    if (source == null) {
       return super.directCopy(from, n);
+    } else {
+      return appendFromList(source, n);
     }
   }
 }

@@ -21,6 +21,7 @@ package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.ColumnReaderFactory;
+import org.apache.druid.exec.util.ExecUtils;
 
 public abstract class DelegatingBatchReader implements BatchReader
 {
@@ -36,5 +37,12 @@ public abstract class DelegatingBatchReader implements BatchReader
   public BatchCursor cursor()
   {
     return delegate().cursor();
+  }
+
+  @Override
+  public <T> T unwrap(Class<T> readerClass)
+  {
+    T reader = ExecUtils.unwrap(this, readerClass);
+    return reader != null ? reader : delegate().unwrap(readerClass);
   }
 }
