@@ -19,9 +19,9 @@
 
 package org.apache.druid.exec.shim;
 
+import org.apache.druid.exec.batch.impl.AbstractBatchWriter;
 import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.BatchReader.BatchCursor;
-import org.apache.druid.exec.operator.impl.AbstractBatchWriter;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -21,7 +21,7 @@ package org.apache.druid.queryng.fragment;
 
 import com.google.common.base.Preconditions;
 import org.apache.druid.exec.fragment.QueryManager;
-import org.apache.druid.exec.util.NullOperator;
+import org.apache.druid.exec.operator.impl.NullOperator;
 import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.Sequence;

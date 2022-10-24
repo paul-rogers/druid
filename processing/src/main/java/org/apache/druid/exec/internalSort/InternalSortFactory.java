@@ -12,6 +12,12 @@ import java.util.List;
 public class InternalSortFactory implements OperatorFactory
 {
   @Override
+  public Class<? extends OperatorSpec> accepts()
+  {
+    return InternalSortOp.class;
+  }
+
+  @Override
   public Operator create(FragmentContext context, OperatorSpec plan, List<Operator> children)
   {
     InternalSortOp sortOp = (InternalSortOp) plan;

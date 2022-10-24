@@ -17,65 +17,64 @@
  * under the License.
  */
 
-package org.apache.druid.exec.operator.impl;
+package org.apache.druid.exec.batch.impl;
 
+import org.apache.druid.exec.operator.Batch;
+import org.apache.druid.exec.operator.BatchCapabilities;
 import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.BatchWriter;
-import org.apache.druid.exec.operator.ColumnWriterFactory;
-import org.apache.druid.java.util.common.UOE;
+import org.apache.druid.exec.operator.RowSchema;
 
-public abstract class AbstractBatchWriter implements BatchWriter
+public class IndirectBatch implements Batch
 {
-  protected ColumnWriterFactory columnWriters;
-  protected final int sizeLimit;
+  private final Batch base;
+  private final int[] index;
 
-  public AbstractBatchWriter()
+  public IndirectBatch(final Batch base, final int[] index)
   {
-    this(Integer.MAX_VALUE);
+    this.base = base;
+    this.index = index;
   }
 
   @Override
-  public ColumnWriterFactory columns()
+  public RowSchema schema()
   {
-    return columnWriters;
-  }
-
-  public AbstractBatchWriter(int sizeLimit)
-  {
-    this.sizeLimit = sizeLimit;
+    return base.schema();
   }
 
   @Override
-  public boolean isFull()
+  public int size()
   {
-    return size() >= sizeLimit;
+    return index.length;
   }
 
   @Override
-  public boolean newRow()
+  public BatchCapabilities capabilities()
   {
-    if (isFull()) {
-      return false;
+    return base.capabilities();
+  }
+
+  @Override
+  public BatchReader newReader()
+  {
+    IndirectBatchReader reader = new IndirectBatchReader();
+    reader.bind(base, index);
+    return reader;
+  }
+
+  @Override
+  public BatchReader bindReader(BatchReader reader)
+  {
+    if (reader == null || !(reader instanceof IndirectBatchReader)) {
+      return newReader();
     }
-    createRow();
-    return true;
-  }
-
-  protected abstract void createRow();
-
-  @Override
-  public boolean canDirectCopyFrom(BatchReader reader)
-  {
-    return false;
+    ((IndirectBatchReader) reader).bind(base, index);
+    return reader;
   }
 
   @Override
-  public int directCopy(BatchReader from, int n)
+  public BatchWriter newWriter()
   {
-    throw new UOE(
-        "Cannot perform a direct copy [%s] -> [%s]. See Batches.copier()",
-        from.getClass().getSimpleName(),
-        getClass().getSimpleName()
-    );
+    return base.newWriter();
   }
 }

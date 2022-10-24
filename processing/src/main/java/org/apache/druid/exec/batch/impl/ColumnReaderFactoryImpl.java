@@ -1,4 +1,4 @@
-package org.apache.druid.exec.operator.impl;
+package org.apache.druid.exec.batch.impl;
 
 import org.apache.druid.exec.operator.ColumnReaderFactory;
 import org.apache.druid.exec.operator.RowSchema;

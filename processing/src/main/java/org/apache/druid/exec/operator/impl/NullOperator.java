@@ -17,37 +17,40 @@
  * under the License.
  */
 
-package org.apache.druid.exec.plan;
+package org.apache.druid.exec.operator.impl;
 
-import org.apache.druid.exec.operator.OperatorSpec;
-import org.apache.druid.frame.key.SortColumn;
+import org.apache.druid.exec.fragment.FragmentContext;
+import org.apache.druid.exec.internalSort.Operators;
+import org.apache.druid.exec.operator.Batch;
+import org.apache.druid.exec.operator.Operator.IterableOperator;
+import org.apache.druid.exec.operator.ResultIterator;
 
-import java.util.List;
-
-public class InternalSortOp extends AbstractUnarySpec
+/**
+ * World's simplest operator: does absolutely nothing
+ * (other than check that the protocol is followed.) Used in
+ * tests when we want an empty input, and for a fragment that
+ * somehow ended up with no operators.
+ */
+public class NullOperator implements IterableOperator
 {
-  public enum SortType
+  public NullOperator(FragmentContext context)
   {
-    ROW
   }
 
-  private final SortType sortType;
-  private final List<SortColumn> keys;
-
-  public InternalSortOp(int id, OperatorSpec child, SortType sortType, List<SortColumn> keys)
+  @Override
+  public ResultIterator open()
   {
-    super(id, child);
-    this.sortType = sortType;
-    this.keys = keys;
+    return this;
   }
 
-  public SortType sortType()
+  @Override
+  public Batch next() throws EofException
   {
-    return sortType;
+    throw Operators.eof();
   }
 
-  public List<SortColumn> keys()
+  @Override
+  public void close(boolean cascade)
   {
-    return keys;
   }
 }

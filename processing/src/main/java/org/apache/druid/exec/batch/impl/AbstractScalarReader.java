@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.exec.operator.impl;
+package org.apache.druid.exec.batch.impl;
 
 import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
 import org.apache.druid.segment.column.ColumnType;

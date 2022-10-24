@@ -17,20 +17,31 @@
  * under the License.
  */
 
-package org.apache.druid.exec.operator;
+package org.apache.druid.exec.batch.impl;
 
-/**
- * Generic description of a batch of data. A batch is <i>either</i>
- * writable or readable, but not both at the same time. See the
- * {@link BatchReader} and {@link BatchWriter} interfaces for the concrete
- * actions on a batch.
- */
-public interface Batch
+import org.apache.druid.exec.operator.ColumnReaderFactory;
+
+public abstract class BaseBatchReader<T> extends AbstractBatchReader
 {
-  BatchCapabilities capabilities();
-  RowSchema schema();
-  int size();
-  BatchReader newReader();
-  BatchReader bindReader(BatchReader reader);
-  BatchWriter newWriter();
+  protected ColumnReaderFactory columnReaders;
+  protected T batch;
+
+  public void bind(T batch)
+  {
+    this.batch = batch;
+    reset();
+  }
+
+  protected abstract void reset();
+
+  @Override
+  public ColumnReaderFactory columns()
+  {
+    return columnReaders;
+  }
+
+  public T rows()
+  {
+    return batch;
+  }
 }

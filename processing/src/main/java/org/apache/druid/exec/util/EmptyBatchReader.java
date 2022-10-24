@@ -1,12 +1,12 @@
 package org.apache.druid.exec.util;
 
 import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.impl.AbstractScalarReader;
+import org.apache.druid.exec.batch.impl.BaseBatchReader;
+import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl;
+import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl.ColumnReaderMaker;
 import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
-import org.apache.druid.exec.operator.impl.AbstractScalarReader;
-import org.apache.druid.exec.operator.impl.BaseBatchReader;
-import org.apache.druid.exec.operator.impl.ColumnReaderFactoryImpl;
-import org.apache.druid.exec.operator.impl.ColumnReaderFactoryImpl.ColumnReaderMaker;
 
 /**
  * Trivial reader for an empty batch. Most useful when the format of the batch

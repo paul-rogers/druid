@@ -17,31 +17,32 @@
  * under the License.
  */
 
-package org.apache.druid.exec.operator.impl;
+package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.operator.ColumnReaderFactory;
+import org.apache.druid.exec.operator.BatchReader;
+import org.apache.druid.exec.util.ExecUtils;
 
-public abstract class BaseBatchReader<T> extends AbstractBatchReader
+public abstract class AbstractBatchReader implements BatchReader
 {
-  protected ColumnReaderFactory columnReaders;
-  protected T batch;
+  protected final SeekableCursor cursor;
 
-  public void bind(T batch)
+  public AbstractBatchReader()
   {
-    this.batch = batch;
-    reset();
+    this.cursor = new SeekableCursor();
+    cursor.bindListener(posn -> bindRow(posn));
   }
 
-  protected abstract void reset();
+  protected abstract void bindRow(int posn);
 
   @Override
-  public ColumnReaderFactory columns()
+  public BatchCursor cursor()
   {
-    return columnReaders;
+    return cursor;
   }
 
-  public T rows()
+  @Override
+  public <T> T unwrap(Class<T> readerClass)
   {
-    return batch;
+    return ExecUtils.unwrap(this, readerClass);
   }
 }

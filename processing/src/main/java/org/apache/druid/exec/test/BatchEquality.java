@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.exec.util;
+package org.apache.druid.exec.test;
 
 import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.BatchReader;

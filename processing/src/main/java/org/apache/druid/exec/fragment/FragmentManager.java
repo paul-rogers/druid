@@ -21,12 +21,12 @@ package org.apache.druid.exec.fragment;
 
 import com.google.common.base.Preconditions;
 import org.apache.druid.exec.operator.Batch;
+import org.apache.druid.exec.operator.Iterators;
 import org.apache.druid.exec.operator.Operator;
 import org.apache.druid.exec.operator.OperatorProfile;
 import org.apache.druid.exec.operator.OperatorSpec;
 import org.apache.druid.exec.operator.ResultIterator;
-import org.apache.druid.exec.operator.impl.Iterators;
-import org.apache.druid.exec.util.NullOperator;
+import org.apache.druid.exec.operator.impl.NullOperator;
 import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.QueryTimeoutException;

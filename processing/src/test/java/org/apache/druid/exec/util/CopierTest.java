@@ -23,13 +23,9 @@ import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
 import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.BatchWriter;
+import org.apache.druid.exec.operator.Batches;
 import org.apache.druid.exec.operator.RowSchema;
-import org.apache.druid.exec.operator.impl.Batches;
-import org.apache.druid.exec.shim.MapListWriter;
-import org.apache.druid.exec.shim.ObjectArrayListWriter;
-import org.apache.druid.exec.shim.ScanResultValueWriter;
-import org.apache.druid.java.util.common.UOE;
-import org.apache.druid.query.scan.ScanQuery;
+import org.apache.druid.exec.test.TestUtils;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;
 
@@ -57,27 +53,6 @@ public class CopierTest
     }
   }
 
-  private BatchBuilder builderFor(RowSchema schema, BatchFormat format)
-  {
-    return BatchBuilder.of(writerFor(schema, format, Integer.MAX_VALUE));
-  }
-
-  private BatchWriter writerFor(RowSchema schema, BatchFormat format, int limit)
-  {
-    switch (format) {
-      case OBJECT_ARRAY:
-        return new ObjectArrayListWriter(schema, limit);
-      case MAP:
-        return new MapListWriter(schema, limit);
-      case SCAN_OBJECT_ARRAY:
-        return new ScanResultValueWriter("dummy", schema, ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST, limit);
-      case SCAN_MAP:
-        return new ScanResultValueWriter("dummy", schema, ScanQuery.ResultFormat.RESULT_FORMAT_LIST, limit);
-      default:
-        throw new UOE("Invalid batch format");
-    }
-  }
-
   @Test
   public void testCopy()
   {
@@ -95,11 +70,11 @@ public class CopierTest
         .scalar("b", ColumnType.LONG)
         .build();
 
-    BatchWriter destWriter = writerFor(schema, destFormat, 6);
+    BatchWriter destWriter = TestUtils.writerFor(schema, destFormat, 6);
     destWriter.newBatch();
 
     // Create a batch and verify the correct copier kind is created.
-    Batch sourceBatch = builderFor(schema, sourceFormat)
+    Batch sourceBatch = TestUtils.builderFor(schema, sourceFormat)
         .row("first", 1)
         .row("second", 2)
         .build();
@@ -118,7 +93,7 @@ public class CopierTest
     assertFalse(copier.copyRow(sourceReader, destWriter));
 
     // Copy the second batch in bulk.
-    sourceBatch = builderFor(schema, sourceFormat)
+    sourceBatch = TestUtils.builderFor(schema, sourceFormat)
         .row("third", 3)
         .row("fourth", 4)
         .build();
@@ -126,7 +101,7 @@ public class CopierTest
     assertTrue(copier.copyAll(sourceReader, destWriter));
 
     // Copy the third batch in bulk, but only 2 of the 3 rows fit.
-    sourceBatch = builderFor(schema, sourceFormat)
+    sourceBatch = TestUtils.builderFor(schema, sourceFormat)
         .row("fifth", 5)
         .row("sixth", 6)
         .row("seventh", 7)
@@ -135,7 +110,7 @@ public class CopierTest
     assertFalse(copier.copyAll(sourceReader, destWriter));
 
     // Verify the combined result.
-    Batch expected = builderFor(schema, sourceFormat)
+    Batch expected = TestUtils.builderFor(schema, sourceFormat)
         .row("first", 1)
         .row("second", 2)
         .row("third", 3)

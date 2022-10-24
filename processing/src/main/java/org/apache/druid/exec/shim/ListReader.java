@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.operator.impl.BaseBatchReader;
+import org.apache.druid.exec.batch.impl.BaseBatchReader;
 
 import java.util.List;
 

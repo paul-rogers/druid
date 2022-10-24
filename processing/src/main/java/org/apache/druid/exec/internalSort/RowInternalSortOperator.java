@@ -8,15 +8,15 @@ import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.BatchReader.BatchCursor;
 import org.apache.druid.exec.operator.BatchWriter;
+import org.apache.druid.exec.operator.Batches;
 import org.apache.druid.exec.operator.ColumnReaderFactory;
+import org.apache.druid.exec.operator.Iterators;
 import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
 import org.apache.druid.exec.operator.Operator;
 import org.apache.druid.exec.operator.ResultIterator;
-import org.apache.druid.exec.operator.impl.Batches;
-import org.apache.druid.exec.operator.impl.Iterators;
 import org.apache.druid.exec.plan.InternalSortOp;
 import org.apache.druid.exec.util.BatchCopier;
-import org.apache.druid.exec.util.OrderingBuilder;
+import org.apache.druid.exec.util.TypeRegistry;
 import org.apache.druid.frame.key.SortColumn;
 import org.apache.druid.java.util.common.ISE;
 
@@ -51,7 +51,7 @@ public class RowInternalSortOperator extends InternalSortOperator
         if (leftCols[i] == null) {
           throw new ISE("Sort key [%s] not found in the input schema", key.columnName());
         }
-        comparators[i] = OrderingBuilder.sortOrdering(key, leftCols[i].schema().type());
+        comparators[i] = TypeRegistry.INSTANCE.sortOrdering(key, leftCols[i].schema().type());
       }
     }
 
@@ -85,16 +85,15 @@ public class RowInternalSortOperator extends InternalSortOperator
   @Override
   protected ResultIterator doSort() throws StallException
   {
-    Batch results = loadInput();
-    return sortRows(results);
+    return sortRows(loadInput());
   }
 
   private Batch loadInput() throws StallException
   {
-    openInput();
     Batch inputBatch = inputIter.next();
     BatchReader inputReader = inputBatch.newReader();
     BatchWriter runWriter = inputBatch.newWriter();
+    runWriter.newBatch();
     BatchCopier copier = Batches.copier(inputReader, runWriter);
     copier.copyAll(inputReader, runWriter);
     while (true)

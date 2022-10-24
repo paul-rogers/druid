@@ -17,11 +17,10 @@
  * under the License.
  */
 
-package org.apache.druid.exec.operator.impl;
+package org.apache.druid.exec.operator;
 
 import com.google.common.collect.Lists;
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.ResultIterator;
+import org.apache.druid.exec.internalSort.Operators;
 import org.apache.druid.exec.operator.ResultIterator.EofException;
 import org.apache.druid.exec.operator.ResultIterator.StallException;
 import org.apache.druid.java.util.common.UOE;

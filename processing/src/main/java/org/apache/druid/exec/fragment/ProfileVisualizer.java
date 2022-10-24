@@ -17,13 +17,13 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.fragment;
+package org.apache.druid.exec.fragment;
 
+import org.apache.druid.exec.fragment.QueryProfile.FragmentNode;
+import org.apache.druid.exec.fragment.QueryProfile.OperatorChildNode;
+import org.apache.druid.exec.fragment.QueryProfile.OperatorNode;
+import org.apache.druid.exec.fragment.QueryProfile.SliceNode;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.queryng.fragment.QueryProfile.FragmentNode;
-import org.apache.druid.queryng.fragment.QueryProfile.OperatorChildNode;
-import org.apache.druid.queryng.fragment.QueryProfile.OperatorNode;
-import org.apache.druid.queryng.fragment.QueryProfile.SliceNode;
 
 import java.util.Map.Entry;
 

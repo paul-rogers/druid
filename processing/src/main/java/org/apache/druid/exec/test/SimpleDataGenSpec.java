@@ -17,20 +17,26 @@
  * under the License.
  */
 
-package org.apache.druid.exec.operator;
+package org.apache.druid.exec.test;
 
-/**
- * Generic description of a batch of data. A batch is <i>either</i>
- * writable or readable, but not both at the same time. See the
- * {@link BatchReader} and {@link BatchWriter} interfaces for the concrete
- * actions on a batch.
- */
-public interface Batch
+import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
+import org.apache.druid.exec.plan.AbstractOperatorSpec;
+
+import java.util.List;
+
+public class SimpleDataGenSpec extends AbstractOperatorSpec
 {
-  BatchCapabilities capabilities();
-  RowSchema schema();
-  int size();
-  BatchReader newReader();
-  BatchReader bindReader(BatchReader reader);
-  BatchWriter newWriter();
+  public final List<String> columns;
+  public final BatchFormat format;
+  public final int batchSize;
+  public final int rowCount;
+
+  public SimpleDataGenSpec(int id, List<String> columns, BatchFormat format, int batchSize, int rowCount)
+  {
+    super(id);
+    this.columns = columns;
+    this.format = format;
+    this.batchSize = batchSize;
+    this.rowCount = rowCount;
+  }
 }

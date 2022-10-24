@@ -1,11 +1,7 @@
-package org.apache.druid.exec.operator.impl;
+package org.apache.druid.exec.operator;
 
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.BatchWriter;
-import org.apache.druid.exec.operator.ColumnReaderFactory;
-import org.apache.druid.exec.operator.ColumnWriterFactory;
-import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.batch.impl.IndirectBatch;
+import org.apache.druid.exec.operator.impl.RowSchemaImpl;
 import org.apache.druid.exec.util.BatchCopier;
 import org.apache.druid.exec.util.BatchCopierFactory;
 import org.apache.druid.java.util.common.UOE;
@@ -66,5 +62,18 @@ public class Batches
   public static RowSchema emptySchema()
   {
     return RowSchemaImpl.EMPTY_SCHEMA;
+  }
+
+  public static Batch reverseOf(Batch batch)
+  {
+    int n = batch.size();
+    if (n < 2) {
+      return batch;
+    }
+    final int[] index = new int[n];
+    for (int i = 0; i < n; i++) {
+      index[i] = n - i - 1;
+    }
+    return new IndirectBatch(batch, index);
   }
 }

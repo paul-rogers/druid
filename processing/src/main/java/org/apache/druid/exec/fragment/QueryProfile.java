@@ -17,17 +17,14 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.fragment;
+package org.apache.druid.exec.fragment;
 
-import org.apache.druid.exec.fragment.QueryManager;
+import org.apache.druid.exec.fragment.FragmentManager.OperatorTracker;
 import org.apache.druid.exec.fragment.QueryManager.FragmentTracker;
+import org.apache.druid.exec.operator.Operator;
+import org.apache.druid.exec.operator.OperatorProfile;
 import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.query.Query;
-import org.apache.druid.queryng.fragment.FragmentManager.OperatorChild;
-import org.apache.druid.queryng.fragment.FragmentManager.OperatorTracker;
-import org.apache.druid.queryng.operators.Operator;
-import org.apache.druid.queryng.operators.OperatorProfile;
-import org.apache.druid.queryng.operators.Operators;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -159,12 +156,12 @@ public class QueryProfile
 
     public FragmentNode profileFragment(int fragmentId, FragmentManager fragment)
     {
-      Map<Operator<?>, OperatorTracker> operators = fragment.operators();
-      Map<Operator<?>, Boolean> rootCandidates = new IdentityHashMap<>();
-      for (Operator<?> op : operators.keySet()) {
+      Map<Operator, OperatorTracker> operators = fragment.operators();
+      Map<Operator, Boolean> rootCandidates = new IdentityHashMap<>();
+      for (Operator op : operators.keySet()) {
         rootCandidates.put(op, true);
       }
-      for (Entry<Operator<?>, OperatorTracker> entry : operators.entrySet()) {
+      for (Entry<Operator, OperatorTracker> entry : operators.entrySet()) {
         for (OperatorChild child : entry.getValue().children) {
           if (child.operator != null) {
             rootCandidates.put(child.operator, false);
@@ -172,7 +169,7 @@ public class QueryProfile
         }
       }
       List<OperatorNode> rootProfiles = new ArrayList<>();
-      Operator<?> root;
+      Operator root;
       if (fragment.rootIsOperator()) {
         root = fragment.rootOperator();
       } else if (fragment.rootIsSequence()) {
@@ -184,7 +181,7 @@ public class QueryProfile
         rootCandidates.put(root, false);
         rootProfiles.add(profileOperator(operators, root));
       }
-      for (Entry<Operator<?>, Boolean> entry : rootCandidates.entrySet()) {
+      for (Entry<Operator, Boolean> entry : rootCandidates.entrySet()) {
         if (entry.getValue()) {
           rootProfiles.add(profileOperator(operators, entry.getKey()));
         }
@@ -193,8 +190,8 @@ public class QueryProfile
     }
 
     private OperatorNode profileOperator(
-        Map<Operator<?>, OperatorTracker> operators,
-        Operator<?> root
+        Map<Operator, OperatorTracker> operators,
+        Operator root
     )
     {
       List<OperatorChildNode> childProfiles;

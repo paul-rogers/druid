@@ -17,11 +17,13 @@
  * under the License.
  */
 
-package org.apache.druid.exec.operator.impl;
+package org.apache.druid.exec.internalSort;
 
 import com.google.common.collect.Lists;
 import org.apache.druid.exec.operator.Batch;
+import org.apache.druid.exec.operator.Iterators;
 import org.apache.druid.exec.operator.Operator;
+import org.apache.druid.exec.operator.Iterators.ShimIterator;
 import org.apache.druid.exec.operator.ResultIterator.EofException;
 
 import java.util.Iterator;

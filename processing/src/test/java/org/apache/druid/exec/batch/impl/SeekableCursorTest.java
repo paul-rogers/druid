@@ -1,5 +1,6 @@
-package org.apache.druid.exec.operator.impl;
+package org.apache.druid.exec.batch.impl;
 
+import org.apache.druid.exec.batch.impl.SeekableCursor;
 import org.apache.druid.exec.operator.BatchReader.BatchCursor;
 import org.junit.Test;
 

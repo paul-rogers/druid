@@ -1,12 +1,12 @@
 package org.apache.druid.exec.shim;
 
+import org.apache.druid.exec.batch.impl.BatchCapabilitiesImpl;
 import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.BatchCapabilities;
 import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
 import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.BatchWriter;
 import org.apache.druid.exec.operator.RowSchema;
-import org.apache.druid.exec.operator.impl.BatchCapabilitiesImpl;
 
 import java.util.List;
 import java.util.Map;
@@ -26,6 +26,18 @@ public class MapListBatch implements Batch
   {
     this.schema = schema;
     this.batch = batch;
+  }
+
+  @Override
+  public RowSchema schema()
+  {
+    return schema;
+  }
+
+  @Override
+  public int size()
+  {
+    return batch.size();
   }
 
   @Override

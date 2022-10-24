@@ -17,32 +17,28 @@
  * under the License.
  */
 
-package org.apache.druid.exec.operator.impl;
+package org.apache.druid.exec.test;
 
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.util.ExecUtils;
+import com.google.common.base.Preconditions;
+import org.apache.druid.exec.fragment.FragmentContext;
+import org.apache.druid.exec.operator.Operator;
+import org.apache.druid.exec.operator.OperatorFactory;
+import org.apache.druid.exec.operator.OperatorSpec;
 
-public abstract class AbstractBatchReader implements BatchReader
+import java.util.List;
+
+public class SimpleDataGenFactory implements OperatorFactory
 {
-  protected final SeekableCursor cursor;
-
-  public AbstractBatchReader()
-  {
-    this.cursor = new SeekableCursor();
-    cursor.bindListener(posn -> bindRow(posn));
-  }
-
-  protected abstract void bindRow(int posn);
-
   @Override
-  public BatchCursor cursor()
+  public Class<? extends OperatorSpec> accepts()
   {
-    return cursor;
+    return SimpleDataGenSpec.class;
   }
 
   @Override
-  public <T> T unwrap(Class<T> readerClass)
+  public Operator create(FragmentContext context, OperatorSpec plan, List<Operator> children)
   {
-    return ExecUtils.unwrap(this, readerClass);
+    Preconditions.checkArgument(children.isEmpty());
+    return new SimpleDataGenOperator(context, (SimpleDataGenSpec) plan);
   }
 }

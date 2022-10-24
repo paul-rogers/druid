@@ -19,13 +19,13 @@
 
 package org.apache.druid.exec.shim;
 
+import org.apache.druid.exec.batch.impl.AbstractScalarWriter;
+import org.apache.druid.exec.batch.impl.ColumnWriterFactoryImpl;
 import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.operator.ColumnWriterFactory.ScalarColumnWriter;
 import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
-import org.apache.druid.exec.operator.impl.AbstractScalarWriter;
-import org.apache.druid.exec.operator.impl.ColumnWriterFactoryImpl;
 
 import java.util.HashMap;
 import java.util.List;

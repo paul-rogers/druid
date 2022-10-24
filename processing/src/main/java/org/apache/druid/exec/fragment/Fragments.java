@@ -17,9 +17,8 @@
  * under the License.
  */
 
-package org.apache.druid.queryng.fragment;
+package org.apache.druid.exec.fragment;
 
-import org.apache.druid.exec.fragment.QueryManager;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.context.ResponseContext;

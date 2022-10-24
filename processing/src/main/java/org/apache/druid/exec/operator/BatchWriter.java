@@ -78,7 +78,7 @@ public interface BatchWriter
    * with the current reader position. The reader is left positioned after
    * the last row copied. Only applies when the reader is compatible, as
    * indicated by {@link #canDirectCopyFrom(BatchReader)}. Use
-   * {@link org.apache.druid.exec.operator.impl.Batches#copier(BatchReader, BatchWriter)}
+   * {@link org.apache.druid.exec.operator.Batches#copier(BatchReader, BatchWriter)}
    * for a generic solution.
    * <p>
    * Copies up to the given number of rows, the available reader rows, or the

@@ -17,40 +17,41 @@
  * under the License.
  */
 
-package org.apache.druid.exec.util;
+package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.fragment.FragmentContext;
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.Operator.IterableOperator;
-import org.apache.druid.exec.operator.ResultIterator;
-import org.apache.druid.exec.operator.impl.Operators;
+import org.apache.druid.exec.operator.ColumnWriterFactory;
+import org.apache.druid.exec.operator.RowSchema;
 
-/**
- * World's simplest operator: does absolutely nothing
- * (other than check that the protocol is followed.) Used in
- * tests when we want an empty input, and for a fragment that
- * somehow ended up with no operators.
- */
-public class NullOperator implements IterableOperator
+public class ColumnWriterFactoryImpl implements ColumnWriterFactory
 {
-  public NullOperator(FragmentContext context)
+  protected final RowSchema schema;
+  protected final ScalarColumnWriter[] columnWriters;
+
+  public ColumnWriterFactoryImpl(
+      final RowSchema schema,
+      final ScalarColumnWriter[] columnWriters
+  )
   {
+    this.schema = schema;
+    this.columnWriters = columnWriters;
   }
 
   @Override
-  public ResultIterator open()
+  public RowSchema schema()
   {
-    return this;
+    return schema;
   }
 
   @Override
-  public Batch next() throws EofException
+  public ScalarColumnWriter scalar(String name)
   {
-    throw Operators.eof();
+    int index = schema.ordinal(name);
+    return index < 0 ? null : scalar(index);
   }
 
   @Override
-  public void close(boolean cascade)
+  public ScalarColumnWriter scalar(int ordinal)
   {
+    return columnWriters[ordinal];
   }
 }

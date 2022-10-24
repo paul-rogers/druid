@@ -25,7 +25,7 @@ import org.apache.druid.exec.operator.ColumnReaderFactory;
 import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.operator.BatchReader.BatchCursor;
 import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.util.BatchBuilder;
+import org.apache.druid.exec.test.BatchBuilder;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.segment.column.ColumnType;
