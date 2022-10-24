@@ -20,9 +20,9 @@
 package org.apache.druid.exec.operator.impl;
 
 import org.apache.druid.exec.fragment.FragmentContext;
-import org.apache.druid.exec.internalSort.Operators;
 import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.Operator.IterableOperator;
+import org.apache.druid.exec.operator.Operators;
 import org.apache.druid.exec.operator.ResultIterator;
 
 /**

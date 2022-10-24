@@ -20,6 +20,7 @@
 package org.apache.druid.exec.operator;
 
 import org.apache.druid.exec.fragment.FragmentContext;
+import org.apache.druid.exec.plan.OperatorSpec;
 
 import java.util.List;
 

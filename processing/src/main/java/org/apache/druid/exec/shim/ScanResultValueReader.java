@@ -30,7 +30,9 @@ import org.apache.druid.query.scan.ScanResultValue;
 import java.util.List;
 
 /**
- * Batch facade over a {@code ScanQuery} {@code ScanResultValue}.
+ * Batch reader for a {@code ScanQuery} {@code ScanResultValue}.
+ * Delegates to the object array or map reader depending on the format
+ * of this particular value.
  */
 public class ScanResultValueReader extends DelegatingBatchReader
 {

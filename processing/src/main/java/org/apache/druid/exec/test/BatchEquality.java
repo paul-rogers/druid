@@ -29,7 +29,7 @@ import org.apache.druid.segment.column.ColumnType;
 import java.util.Objects;
 
 /**
- * Utility to compare two batches of data, primarily for testing and
+ * Compares two batches of data, primarily for testing and
  * debugging. There is no requirement that the batches share the same
  * underlying data representation: the test is at the level of the
  * schema and the column values.

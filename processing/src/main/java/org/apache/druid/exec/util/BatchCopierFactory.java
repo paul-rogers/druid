@@ -103,8 +103,8 @@ public class BatchCopierFactory
     @Override
     public boolean copyAll(BatchReader source, BatchWriter dest)
     {
-       dest.directCopy(source, Integer.MAX_VALUE);
-       return source.cursor().isEOF();
+      dest.directCopy(source, Integer.MAX_VALUE);
+      return source.cursor().isEOF();
     }
 
     @Override

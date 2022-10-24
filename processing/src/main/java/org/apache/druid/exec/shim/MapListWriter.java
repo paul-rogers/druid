@@ -23,16 +23,23 @@ import org.apache.druid.exec.batch.impl.AbstractScalarWriter;
 import org.apache.druid.exec.batch.impl.ColumnWriterFactoryImpl;
 import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.operator.ColumnWriterFactory.ScalarColumnWriter;
+import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Batch writer for a list of {@link Map}s where columns are represented
+ * as key/value pairs.
+ */
 public class MapListWriter extends ListWriter<Map<String, Object>>
 {
+  /**
+   * Since column values are all objects, use a generic column writer.
+   */
   private class ScalarWriterImpl extends AbstractScalarWriter
   {
     private final String colName;

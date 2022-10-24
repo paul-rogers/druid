@@ -23,6 +23,9 @@ import org.apache.druid.exec.batch.impl.BaseBatchReader;
 
 import java.util.List;
 
+/**
+ * Base class for readers of batches represented by {@link List}.
+ */
 public abstract class ListReader<T> extends BaseBatchReader<List<T>>
 {
   @Override

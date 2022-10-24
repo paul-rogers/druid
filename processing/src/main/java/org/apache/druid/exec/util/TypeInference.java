@@ -17,15 +17,20 @@
  * under the License.
  */
 
-package org.apache.druid.exec.shim;
+package org.apache.druid.exec.util;
 
 import org.apache.druid.exec.operator.RowSchema;
-import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.segment.column.ColumnType;
 
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Experimental tool to discover the schema of a list of objects or maps.
+ * Infers the types by sampling. Created because the scan query provides
+ * column names but not types: better to push the schema creation all the
+ * way back to the segment to properly capture types.
+ */
 public class TypeInference
 {
   public static RowSchema untypedSchema(List<String> columnNames)

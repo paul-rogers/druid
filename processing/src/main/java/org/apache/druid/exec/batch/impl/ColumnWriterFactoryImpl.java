@@ -22,6 +22,11 @@ package org.apache.druid.exec.batch.impl;
 import org.apache.druid.exec.operator.ColumnWriterFactory;
 import org.apache.druid.exec.operator.RowSchema;
 
+/**
+ * Provides column writers for a batch writer. Writers are created at
+ * the start: typically an operator that writes a batch must write all the
+ * columns of that batch.
+ */
 public class ColumnWriterFactoryImpl implements ColumnWriterFactory
 {
   protected final RowSchema schema;

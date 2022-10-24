@@ -88,12 +88,13 @@ public class TypeRegistry
 
     ImmutableMap.Builder<ColumnType, TypeAttributes> builder = ImmutableMap.builder();
     for (TypeAttribsImpl type : types) {
-        builder.put(type.type(), type);
+      builder.put(type.type(), type);
     }
     this.types = builder.build();
   }
 
-  public TypeAttributes resolve(ColumnType type) {
+  public TypeAttributes resolve(ColumnType type)
+  {
     return types.get(type);
   }
 

@@ -23,14 +23,21 @@ import org.apache.druid.exec.batch.impl.AbstractScalarReader;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl.ColumnReaderMaker;
 import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
 
 import java.util.List;
 
+/**
+ * Batch reader for a list of {@code Object} arrays where columns are represented
+ * as values at an array index given by the associated schema.
+ */
 public class ObjectArrayListReader extends ListReader<Object[]> implements ColumnReaderMaker
 {
+  /**
+   * Since column values are all objects, use a generic column reader.
+   */
   class ColumnReaderImpl extends AbstractScalarReader
   {
     private final int index;

@@ -21,10 +21,10 @@ package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.ColumnReaderFactory;
-import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.operator.BatchReader.BatchCursor;
+import org.apache.druid.exec.operator.ColumnReaderFactory;
 import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.test.BatchBuilder;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.query.scan.ScanQuery;

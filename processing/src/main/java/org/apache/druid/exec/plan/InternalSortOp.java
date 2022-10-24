@@ -19,7 +19,6 @@
 
 package org.apache.druid.exec.plan;
 
-import org.apache.druid.exec.operator.OperatorSpec;
 import org.apache.druid.frame.key.SortColumn;
 
 import java.util.List;

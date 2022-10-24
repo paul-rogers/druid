@@ -17,28 +17,15 @@
  * under the License.
  */
 
-package org.apache.druid.exec.test;
-
-import com.google.common.base.Preconditions;
-import org.apache.druid.exec.fragment.FragmentContext;
-import org.apache.druid.exec.operator.Operator;
-import org.apache.druid.exec.operator.OperatorFactory;
-import org.apache.druid.exec.plan.OperatorSpec;
+package org.apache.druid.exec.plan;
 
 import java.util.List;
 
-public class SimpleDataGenFactory implements OperatorFactory
+/**
+ * Physical-plan specification for an operator.
+ */
+public interface OperatorSpec
 {
-  @Override
-  public Class<? extends OperatorSpec> accepts()
-  {
-    return SimpleDataGenSpec.class;
-  }
-
-  @Override
-  public Operator create(FragmentContext context, OperatorSpec plan, List<Operator> children)
-  {
-    Preconditions.checkArgument(children.isEmpty());
-    return new SimpleDataGenOperator(context, (SimpleDataGenSpec) plan);
-  }
+  int id();
+  List<OperatorSpec> children();
 }

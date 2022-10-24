@@ -29,8 +29,15 @@ import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
 
 import java.util.List;
 
+/**
+ * Batch writer for a list of {@code Object} arrays where columns are represented
+ * as values at an array index given by the associated schema.
+ */
 public class ObjectArrayListWriter extends ListWriter<Object[]>
 {
+  /**
+   * Since column values are all objects, use a generic column writer.
+   */
   private class ScalarWriterImpl extends AbstractScalarWriter
   {
     private final int index;

@@ -25,6 +25,12 @@ import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.BatchWriter;
 import org.apache.druid.exec.operator.RowSchema;
 
+/**
+ * Wraps a "base" batch with an index vector. The index vector can include
+ * all rows, with a reordering (such as the result of a sort), or can include
+ * a subset of rows (such as the result of a filter). The set of columns remains
+ * unchanged: the indirect batch uses the column readers from the base batch.
+ */
 public class IndirectBatch implements Batch
 {
   private final Batch base;

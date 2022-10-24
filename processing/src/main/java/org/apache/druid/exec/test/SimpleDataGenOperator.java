@@ -20,13 +20,13 @@
 package org.apache.druid.exec.test;
 
 import org.apache.druid.exec.fragment.FragmentContext;
-import org.apache.druid.exec.internalSort.Operators;
 import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.BatchWriter;
 import org.apache.druid.exec.operator.ColumnWriterFactory;
 import org.apache.druid.exec.operator.ColumnWriterFactory.ScalarColumnWriter;
 import org.apache.druid.exec.operator.Operator.IterableOperator;
 import org.apache.druid.exec.operator.OperatorProfile;
+import org.apache.druid.exec.operator.Operators;
 import org.apache.druid.exec.operator.ResultIterator;
 import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.operator.impl.AbstractOperator;
@@ -63,17 +63,17 @@ public class SimpleDataGenOperator extends AbstractOperator implements IterableO
     SchemaBuilder schemaBuilder = new SchemaBuilder();
     for (String col : plan.columns) {
       switch (col) {
-      case ColumnHolder.TIME_COLUMN_NAME:
-      case "rid":
-      case "rand":
-        schemaBuilder.scalar(col, ColumnType.LONG);
-        break;
-      case "str":
-      case "str5":
-        schemaBuilder.scalar(col, ColumnType.STRING);
-        break;
-      default:
-        schemaBuilder.scalar(col, ColumnType.STRING);
+        case ColumnHolder.TIME_COLUMN_NAME:
+        case "rid":
+        case "rand":
+          schemaBuilder.scalar(col, ColumnType.LONG);
+          break;
+        case "str":
+        case "str5":
+          schemaBuilder.scalar(col, ColumnType.STRING);
+          break;
+        default:
+          schemaBuilder.scalar(col, ColumnType.STRING);
       }
     }
     this.schema = schemaBuilder.build();

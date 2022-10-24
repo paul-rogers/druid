@@ -22,6 +22,13 @@ package org.apache.druid.exec.shim;
 import org.apache.druid.exec.operator.BatchWriter;
 import org.apache.druid.exec.operator.ColumnWriterFactory;
 
+/**
+ * Defines a writer which wraps some other writer. The column writers for
+ * this writer are the same the the same as those for the
+ * delegate. Use this when some row format is a "wrapped" version of some
+ * simpler row format, such as the {@code ScanResultValue} wraps a list of
+ * maps or object arrays.
+ */
 public abstract class DelegatingBatchWriter implements BatchWriter
 {
   protected final BatchWriter delegate;

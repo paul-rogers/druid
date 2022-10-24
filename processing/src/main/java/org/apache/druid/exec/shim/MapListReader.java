@@ -23,15 +23,22 @@ import org.apache.druid.exec.batch.impl.AbstractScalarReader;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl.ColumnReaderMaker;
 import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
 
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Batch reader for a list of {@link Map}s where columns are represented
+ * as key/value pairs.
+ */
 public class MapListReader extends ListReader<Map<String, Object>> implements ColumnReaderMaker
 {
+  /**
+   * Since column values are all objects, use a generic column reader.
+   */
   class ColumnReaderImpl extends AbstractScalarReader
   {
     private final String name;

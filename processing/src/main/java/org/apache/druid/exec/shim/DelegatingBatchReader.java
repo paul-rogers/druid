@@ -23,6 +23,13 @@ import org.apache.druid.exec.operator.BatchReader;
 import org.apache.druid.exec.operator.ColumnReaderFactory;
 import org.apache.druid.exec.util.ExecUtils;
 
+/**
+ * Defines a reader which wraps some other reader. The column readers for
+ * and cursor for this reader are the same the the same as those for the
+ * delegate. Use this when some row format is a "wrapped" version of some
+ * simpler row format, such as the {@code ScanResultValue} wraps a list of
+ * maps or object arrays.
+ */
 public abstract class DelegatingBatchReader implements BatchReader
 {
   protected abstract BatchReader delegate();

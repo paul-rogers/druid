@@ -30,6 +30,11 @@ import org.apache.druid.query.scan.ScanResultValue;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Batch writer for a {@code ScanQuery} {@code ScanResultValue}.
+ * Delegates to the object array or map writer depending on the format
+ * of this particular value.
+ */
 public class ScanResultValueWriter extends DelegatingBatchWriter
 {
   private final String segmentId;

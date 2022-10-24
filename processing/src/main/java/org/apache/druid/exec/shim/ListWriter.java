@@ -26,6 +26,9 @@ import org.apache.druid.exec.operator.BatchReader.BatchCursor;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Base class for writers of batches represented by {@link List}.
+ */
 public abstract class ListWriter<T> extends AbstractBatchWriter
 {
   protected List<T> batch;
