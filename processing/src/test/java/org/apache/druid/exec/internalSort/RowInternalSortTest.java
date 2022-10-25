@@ -19,9 +19,14 @@
 
 package org.apache.druid.exec.internalSort;
 
-import org.apache.druid.exec.factory.OperatorConverter;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import org.apache.druid.exec.fragment.FragmentConverter;
 import org.apache.druid.exec.fragment.FragmentManager;
 import org.apache.druid.exec.fragment.Fragments;
+import org.apache.druid.exec.fragment.OperatorConverter;
+import org.apache.druid.exec.fragment.ProfileVisualizer;
 import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
 import org.apache.druid.exec.operator.BatchReader;
@@ -32,11 +37,14 @@ import org.apache.druid.exec.operator.ResultIterator;
 import org.apache.druid.exec.operator.ResultIterator.EofException;
 import org.apache.druid.exec.operator.ResultIterator.StallException;
 import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.plan.FragmentSpec;
 import org.apache.druid.exec.plan.InternalSortOp;
 import org.apache.druid.exec.plan.InternalSortOp.SortType;
+import org.apache.druid.exec.plan.OperatorSpec;
 import org.apache.druid.exec.test.BatchBuilder;
 import org.apache.druid.exec.test.SimpleDataGenFactory;
 import org.apache.druid.exec.test.SimpleDataGenSpec;
+import org.apache.druid.exec.test.TestUtils;
 import org.apache.druid.exec.util.BatchValidator;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.frame.key.SortColumn;
@@ -56,47 +64,50 @@ public class RowInternalSortTest
       Collections.singletonList(new SimpleDataGenFactory())
   );
 
+  public ResultIterator run(OperatorSpec...ops)
+  {
+    FragmentManager fragment = TestUtils.fragment(CONVERTER, Arrays.asList(ops));
+    Operator root = fragment.rootOperator();
+    return root.open();
+  }
+
   @Test
   public void testEmptyInput()
   {
-    SimpleDataGenSpec readerSpec = new SimpleDataGenSpec(
+    InternalSortOp sortSpec = new InternalSortOp(
         1,
+        2,
+        SortType.ROW,
+        Collections.singletonList(new SortColumn("rid", false))
+    );
+    SimpleDataGenSpec readerSpec = new SimpleDataGenSpec(
+        2,
         Collections.singletonList("rid"),
         BatchFormat.OBJECT_ARRAY,
         5,
         0
     );
-    InternalSortOp sortSpec = new InternalSortOp(
-        2,
-        readerSpec,
-        SortType.ROW,
-        Collections.singletonList(new SortColumn("rid", false))
-    );
-    FragmentManager context = Fragments.defaultFragment();
-    Operator root = CONVERTER.createTree(context, sortSpec);
-    ResultIterator iter = root.open();
+    ResultIterator iter = run(readerSpec, sortSpec);
     assertThrows(EofException.class, () -> iter.next());
   }
 
   @Test
   public void testSingleBatchSingleKey() throws StallException
   {
-    SimpleDataGenSpec readerSpec = new SimpleDataGenSpec(
+    InternalSortOp sortSpec = new InternalSortOp(
         1,
+        2,
+        SortType.ROW,
+        Collections.singletonList(new SortColumn("rand", false))
+    );
+    SimpleDataGenSpec readerSpec = new SimpleDataGenSpec(
+        2,
         Arrays.asList("rid", "rand"),
         BatchFormat.OBJECT_ARRAY,
         10,
         8
     );
-    InternalSortOp sortSpec = new InternalSortOp(
-        2,
-        readerSpec,
-        SortType.ROW,
-        Collections.singletonList(new SortColumn("rand", false))
-    );
-    FragmentManager context = Fragments.defaultFragment();
-    Operator root = CONVERTER.createTree(context, sortSpec);
-    ResultIterator iter = root.open();
+    ResultIterator iter = run(readerSpec, sortSpec);
 
     Batch actual = iter.next();
     RowSchema expectedSchema = new SchemaBuilder()
@@ -121,22 +132,20 @@ public class RowInternalSortTest
   @Test
   public void testSingleBatchSingleKeyDesc() throws StallException
   {
-    SimpleDataGenSpec readerSpec = new SimpleDataGenSpec(
+    InternalSortOp sortSpec = new InternalSortOp(
         1,
+        2,
+        SortType.ROW,
+        Collections.singletonList(new SortColumn("rand", true))
+    );
+    SimpleDataGenSpec readerSpec = new SimpleDataGenSpec(
+        2,
         Arrays.asList("rid", "rand"),
         BatchFormat.OBJECT_ARRAY,
         10,
         8
     );
-    InternalSortOp sortSpec = new InternalSortOp(
-        2,
-        readerSpec,
-        SortType.ROW,
-        Collections.singletonList(new SortColumn("rand", true))
-    );
-    FragmentManager context = Fragments.defaultFragment();
-    Operator root = CONVERTER.createTree(context, sortSpec);
-    ResultIterator iter = root.open();
+    ResultIterator iter = run(readerSpec, sortSpec);
 
     Batch actual = iter.next();
     RowSchema expectedSchema = new SchemaBuilder()
@@ -161,22 +170,20 @@ public class RowInternalSortTest
   @Test
   public void testMultipleBatchesSingleKey() throws StallException
   {
-    SimpleDataGenSpec readerSpec = new SimpleDataGenSpec(
+    InternalSortOp sortSpec = new InternalSortOp(
         1,
+        2,
+        SortType.ROW,
+        Collections.singletonList(new SortColumn("rand", false))
+    );
+    SimpleDataGenSpec readerSpec = new SimpleDataGenSpec(
+        2,
         Arrays.asList("rid", "rand"),
         BatchFormat.OBJECT_ARRAY,
         3,
         8
     );
-    InternalSortOp sortSpec = new InternalSortOp(
-        2,
-        readerSpec,
-        SortType.ROW,
-        Collections.singletonList(new SortColumn("rand", false))
-    );
-    FragmentManager context = Fragments.defaultFragment();
-    Operator root = CONVERTER.createTree(context, sortSpec);
-    ResultIterator iter = root.open();
+    ResultIterator iter = run(readerSpec, sortSpec);
 
     Batch actual = iter.next();
     RowSchema expectedSchema = new SchemaBuilder()
@@ -201,25 +208,23 @@ public class RowInternalSortTest
   @Test
   public void testMultipleKeysAndBatches() throws StallException
   {
-    SimpleDataGenSpec readerSpec = new SimpleDataGenSpec(
-        1,
-        Arrays.asList("rand", "str5"),
-        BatchFormat.OBJECT_ARRAY,
-        10,
-        100
-    );
     InternalSortOp sortSpec = new InternalSortOp(
+        1,
         2,
-        readerSpec,
         SortType.ROW,
         Arrays.asList(
             new SortColumn("rand", false),
             new SortColumn("str5", true)
         )
     );
-    FragmentManager context = Fragments.defaultFragment();
-    Operator root = CONVERTER.createTree(context, sortSpec);
-    ResultIterator iter = root.open();
+    SimpleDataGenSpec readerSpec = new SimpleDataGenSpec(
+        2,
+        Arrays.asList("rand", "str5"),
+        BatchFormat.OBJECT_ARRAY,
+        10,
+        100
+    );
+    ResultIterator iter = run(readerSpec, sortSpec);
 
     Batch actual = iter.next();
     assertEquals(100, actual.size());
@@ -241,30 +246,38 @@ public class RowInternalSortTest
   }
 
   @Test
-  public void testLargeResultSet() throws StallException
+  public void adHoc() throws StallException, JsonProcessingException
   {
-    SimpleDataGenSpec readerSpec = new SimpleDataGenSpec(
-        1,
-        Arrays.asList("rand", "str5"),
-        BatchFormat.OBJECT_ARRAY,
-        100,
-        10_000
-    );
+    for (int i = 0; i < 5; i++) {
+      testLargeResultSet();
+    }
+  }
+
+  @Test
+  public void testLargeResultSet() throws StallException, JsonProcessingException
+  {
     InternalSortOp sortSpec = new InternalSortOp(
+        1,
         2,
-        readerSpec,
         SortType.ROW,
         Arrays.asList(
             new SortColumn("rand", false),
             new SortColumn("str5", true)
         )
     );
-    FragmentManager context = Fragments.defaultFragment();
-    Operator root = CONVERTER.createTree(context, sortSpec);
-    ResultIterator iter = root.open();
+    SimpleDataGenSpec readerSpec = new SimpleDataGenSpec(
+        2,
+        Arrays.asList("rand", "str5"),
+        BatchFormat.OBJECT_ARRAY,
+        100,
+        100_000
+    );
+    FragmentSpec fragSpec = TestUtils.simpleSpec(Arrays.asList(readerSpec, sortSpec));
+    FragmentManager fragment = FragmentConverter.build(CONVERTER, "dummy", fragSpec);
+    ResultIterator iter = fragment.run();
 
     Batch actual = iter.next();
-    assertEquals(10_000, actual.size());
+    assertEquals(100_000, actual.size());
     BatchReader reader = actual.newReader();
     ScalarColumnReader randReader = reader.columns().scalar("rand");
     ScalarColumnReader str5Reader = reader.columns().scalar("str5");
@@ -280,5 +293,10 @@ public class RowInternalSortTest
       lastRand = rand;
       lastStr5 = str5;
     }
+
+    fragment.close();
+    Fragments.logProfile(fragment);
+    ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+    System.out.println(mapper.writeValueAsString(fragSpec));
   }
 }

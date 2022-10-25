@@ -27,5 +27,5 @@ import java.util.List;
 public interface OperatorSpec
 {
   int id();
-  List<OperatorSpec> children();
+  List<Integer> children();
 }

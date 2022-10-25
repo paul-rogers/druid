@@ -138,6 +138,7 @@ public class RowInternalSortOperator extends InternalSortOperator
     }
     IntArrays.quickSort(index, new RowComparator(results, keys));
     Batch sorted = Batches.indirectBatch(results, index);
+    batchCount++;
     return Iterators.singletonIterator(sorted);
   }
 }

@@ -19,10 +19,8 @@
 
 package org.apache.druid.exec.fragment;
 
-import org.apache.druid.exec.fragment.QueryProfile.FragmentNode;
-import org.apache.druid.exec.fragment.QueryProfile.OperatorChildNode;
-import org.apache.druid.exec.fragment.QueryProfile.OperatorNode;
-import org.apache.druid.exec.fragment.QueryProfile.SliceNode;
+import org.apache.druid.exec.fragment.FragmentProfile.OperatorChildNode;
+import org.apache.druid.exec.fragment.FragmentProfile.OperatorNode;
 import org.apache.druid.java.util.common.StringUtils;
 
 import java.util.Map.Entry;
@@ -35,10 +33,10 @@ public class ProfileVisualizer
   private static final String INDENT = "| ";
   private static final String METRIC_INDENT = "  ";
 
-  private final QueryProfile profile;
+  private final FragmentProfile profile;
   private final StringBuilder buf = new StringBuilder();
 
-  public ProfileVisualizer(QueryProfile profile)
+  public ProfileVisualizer(FragmentProfile profile)
   {
     this.profile = profile;
   }
@@ -47,17 +45,15 @@ public class ProfileVisualizer
   {
     buf.setLength(0);
     buf.append("----------\n")
-       .append("Query ID: ")
+       .append("Query ID:    ")
        .append(profile.queryId)
-       .append("\n")
-       .append("Runtime (ms): ")
+       .append("\nSlice ID:    ")
+       .append(profile.sliceId)
+       .append("\nFragment ID: ")
+       .append(profile.fragmentId)
+       .append("\nRuntime (ms): ")
        .append(profile.runTimeMs)
        .append("\n");
-    if (profile.nativeQuery != null) {
-      buf.append("Query Type: ")
-         .append(profile.nativeQuery.getClass().getSimpleName())
-         .append("\n");
-    }
     if (profile.error != null) {
       buf.append("Error: ")
          .append(profile.error.getClass().getSimpleName())
@@ -65,52 +61,13 @@ public class ProfileVisualizer
          .append(profile.error.getMessage())
          .append("\n");
     }
-    buf.append("\n");
-    if (profile.slices.isEmpty()) {
-      buf.append("No slices available in query.\n");
+    if (profile.root == null) {
+      buf.append("Fragment has no operators!\n");
     } else {
-      buf.append("-- Root Slice  --\n\n");
-      renderFragment(profile.slices.get(0).fragments.get(0));
-      for (int i = 1; i < profile.slices.size(); i++) {
-        renderSlice(profile.slices.get(i));
-      }
+      renderNode(0, profile.root);
     }
+
     return buf.toString();
-  }
-
-  private void renderSlice(SliceNode slice)
-  {
-    buf.append("\n-- Slice ")
-       .append(slice.sliceId)
-       .append("  --\n");
-    for (FragmentNode fragment : slice.fragments) {
-      buf.append("\nFragment ")
-         .append(fragment.fragmentId)
-         .append("\n  Runtime (ms): ")
-         .append(profile.runTimeMs)
-         .append("\n");
-      if (fragment.error != null) {
-        buf.append("  Error: ")
-           .append(fragment.error.getClass().getSimpleName())
-           .append(" - ")
-           .append(fragment.error.getMessage())
-           .append("\n");
-      }
-      buf.append("\n");
-      renderFragment(fragment);
-    }
-  }
-
-  private void renderFragment(FragmentNode fragment)
-  {
-    int i = 0;
-    for (OperatorNode root : fragment.roots) {
-      if (i > 0) {
-        buf.append("\n");
-      }
-      renderNode(0, root);
-      i++;
-    }
   }
 
   private void renderNode(int level, OperatorNode node)
@@ -123,6 +80,8 @@ public class ProfileVisualizer
     }
     String indent = StringUtils.repeat(INDENT, level);
     buf.append(indent)
+       .append(node.id)
+       .append(": ")
        .append(node.profile.operatorName)
        .append("\n");
     int childCount = node.children == null ? 0 : node.children.size();

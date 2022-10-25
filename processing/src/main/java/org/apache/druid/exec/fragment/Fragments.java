@@ -21,7 +21,6 @@ package org.apache.druid.exec.fragment;
 
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
-import org.apache.druid.query.context.ResponseContext;
 
 public class Fragments
 {
@@ -29,7 +28,7 @@ public class Fragments
 
   public static void logProfile(FragmentManager fragment)
   {
-    QueryProfile profile = QueryProfile.build(fragment.query());
+    FragmentProfile profile = FragmentProfile.profile(fragment);
     ProfileVisualizer vis = new ProfileVisualizer(profile);
     log.info(
         StringUtils.format(
@@ -38,14 +37,5 @@ public class Fragments
             vis.render()
         )
     );
-  }
-
-  /**
-   * A simple fragment context for testing.
-   */
-  public static FragmentManager defaultFragment()
-  {
-    QueryManager query = QueryManager.createWithRoot("unknown", ResponseContext.createEmpty());
-    return query.rootFragment();
   }
 }

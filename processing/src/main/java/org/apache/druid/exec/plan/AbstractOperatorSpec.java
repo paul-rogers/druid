@@ -19,6 +19,9 @@
 
 package org.apache.druid.exec.plan;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -31,14 +34,16 @@ public abstract class AbstractOperatorSpec implements OperatorSpec
     this.id = id;
   }
 
+  @JsonProperty("id")
   @Override
   public int id()
   {
     return id;
   }
 
+  @JsonIgnore
   @Override
-  public List<OperatorSpec> children()
+  public List<Integer> children()
   {
     return Collections.emptyList();
   }

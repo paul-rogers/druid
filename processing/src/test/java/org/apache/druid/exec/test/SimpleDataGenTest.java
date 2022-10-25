@@ -20,7 +20,6 @@
 package org.apache.druid.exec.test;
 
 import org.apache.druid.exec.fragment.FragmentContext;
-import org.apache.druid.exec.fragment.Fragments;
 import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
 import org.apache.druid.exec.operator.ResultIterator;
@@ -49,7 +48,7 @@ public class SimpleDataGenTest
         5,
         0
     );
-    FragmentContext context = Fragments.defaultFragment();
+    FragmentContext context = TestUtils.emptyFragment();
     SimpleDataGenOperator op = new SimpleDataGenOperator(context, spec);
 
     ResultIterator iter = op.open();
@@ -66,7 +65,7 @@ public class SimpleDataGenTest
         5,
         0
     );
-    FragmentContext context = Fragments.defaultFragment();
+    FragmentContext context = TestUtils.emptyFragment();
     SimpleDataGenOperator op = new SimpleDataGenOperator(context, spec);
 
     ResultIterator iter = op.open();
@@ -83,7 +82,7 @@ public class SimpleDataGenTest
         10,
         8
     );
-    FragmentContext context = Fragments.defaultFragment();
+    FragmentContext context = TestUtils.emptyFragment();
     SimpleDataGenOperator op = new SimpleDataGenOperator(context, spec);
 
     ResultIterator iter = op.open();
@@ -121,7 +120,7 @@ public class SimpleDataGenTest
         3,
         8
     );
-    FragmentContext context = Fragments.defaultFragment();
+    FragmentContext context = TestUtils.emptyFragment();
     SimpleDataGenOperator op = new SimpleDataGenOperator(context, spec);
 
     RowSchema expectedSchema = new SchemaBuilder()

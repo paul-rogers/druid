@@ -26,6 +26,7 @@ import org.apache.druid.exec.operator.Operator;
 import org.apache.druid.exec.operator.OperatorProfile;
 import org.apache.druid.exec.operator.ResultIterator;
 import org.apache.druid.exec.operator.impl.NullOperator;
+import org.apache.druid.exec.plan.FragmentSpec;
 import org.apache.druid.exec.plan.OperatorSpec;
 import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
@@ -34,6 +35,7 @@ import org.apache.druid.query.QueryTimeoutException;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,21 +43,9 @@ import java.util.function.Consumer;
 
 public class FragmentManager implements FragmentContext, Closeable
 {
-  public static class OperatorTracker
-  {
-    public final OperatorSpec plan;
-    public final Operator operator;
-    public OperatorProfile profile;
-
-    private OperatorTracker(OperatorSpec plan, Operator op)
-    {
-      this.plan = plan;
-      this.operator = op;
-    }
-  }
-
-  private final QueryManager query;
-  private final Map<Operator, OperatorTracker> operators = new IdentityHashMap<>();
+  private final FragmentPlan plan;
+  private final Map<Integer, Operator> operators = new HashMap<>();
+  private final Map<Operator, OperatorProfile> profiles = new IdentityHashMap<>();
   private final String queryId;
   private long startTimeMillis;
   private long closeTimeMillis;
@@ -67,18 +57,18 @@ public class FragmentManager implements FragmentContext, Closeable
   private Operator rootOperator;
 
   public FragmentManager(
-      final QueryManager query,
-      final String queryId
+      final String queryId,
+      final FragmentSpec spec
   )
   {
-    this.query = query;
     this.queryId = queryId;
+    this.plan = new FragmentPlan(spec);
     this.startTimeMillis = System.currentTimeMillis();
   }
 
-  public QueryManager query()
+  public FragmentPlan plan()
   {
-    return query;
+    return plan;
   }
 
   @Override
@@ -124,8 +114,7 @@ public class FragmentManager implements FragmentContext, Closeable
   public synchronized void register(OperatorSpec spec, Operator op)
   {
     Preconditions.checkState(state == State.START || state == State.RUN);
-    OperatorTracker tracker = new OperatorTracker(spec, op);
-    operators.put(op, tracker);
+    operators.put(spec.id(), op);
   }
 
   /**
@@ -226,7 +215,7 @@ public class FragmentManager implements FragmentContext, Closeable
     if (state == State.CLOSED) {
       return;
     }
-    for (Operator op : operators.keySet()) {
+    for (Operator op : operators.values()) {
       try {
         op.close(false);
       }
@@ -244,9 +233,7 @@ public class FragmentManager implements FragmentContext, Closeable
   @Override
   public synchronized void updateProfile(Operator op, OperatorProfile profile)
   {
-    OperatorTracker tracker = operators.get(op);
-    Preconditions.checkNotNull(tracker);
-    tracker.profile = profile;
+    profiles.put(op, profile);
   }
 
   public void onClose(Consumer<FragmentManager> listener)
@@ -259,8 +246,13 @@ public class FragmentManager implements FragmentContext, Closeable
     return closeTimeMillis - startTimeMillis;
   }
 
-  protected Map<Operator, OperatorTracker> operators()
+  protected OperatorProfile profile(Operator op)
   {
-    return operators;
+    return profiles.get(op);
+  }
+
+  public Operator operator(int rootId)
+  {
+    return operators.get(rootId);
   }
 }

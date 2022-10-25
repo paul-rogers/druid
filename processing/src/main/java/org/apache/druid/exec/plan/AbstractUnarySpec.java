@@ -19,21 +19,24 @@
 
 package org.apache.druid.exec.plan;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.util.Collections;
 import java.util.List;
 
 public class AbstractUnarySpec extends AbstractOperatorSpec
 {
-  private final OperatorSpec child;
+  private final int child;
 
-  public AbstractUnarySpec(int id, OperatorSpec child)
+  public AbstractUnarySpec(int id, int child)
   {
     super(id);
     this.child = child;
   }
 
+  @JsonIgnore
   @Override
-  public List<OperatorSpec> children()
+  public List<Integer> children()
   {
     return Collections.singletonList(child);
   }

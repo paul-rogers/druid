@@ -19,6 +19,7 @@
 
 package org.apache.druid.exec.plan;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.druid.frame.key.SortColumn;
 
 import java.util.List;
@@ -33,18 +34,25 @@ public class InternalSortOp extends AbstractUnarySpec
   private final SortType sortType;
   private final List<SortColumn> keys;
 
-  public InternalSortOp(int id, OperatorSpec child, SortType sortType, List<SortColumn> keys)
+  public InternalSortOp(
+      @JsonProperty("id") final int id,
+      @JsonProperty("child") final int child,
+      @JsonProperty("sortType") final SortType sortType,
+      @JsonProperty("keys") final List<SortColumn> keys
+  )
   {
     super(id, child);
     this.sortType = sortType;
     this.keys = keys;
   }
 
+  @JsonProperty("sortType")
   public SortType sortType()
   {
     return sortType;
   }
 
+  @JsonProperty("keys")
   public List<SortColumn> keys()
   {
     return keys;

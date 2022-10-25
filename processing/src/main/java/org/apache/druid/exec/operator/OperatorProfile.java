@@ -19,8 +19,6 @@
 
 package org.apache.druid.exec.operator;
 
-import org.apache.druid.queryng.operators.Operator;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -61,7 +59,7 @@ public class OperatorProfile
     return new OperatorProfile(name, true);
   }
 
-  public static OperatorProfile silentOperator(Operator<?> op)
+  public static OperatorProfile silentOperator(Operator op)
   {
     return silentOperator(op.getClass().getSimpleName());
   }
