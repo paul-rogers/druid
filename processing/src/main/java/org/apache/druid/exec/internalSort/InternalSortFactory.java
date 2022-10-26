@@ -19,6 +19,7 @@
 
 package org.apache.druid.exec.internalSort;
 
+import com.google.common.base.Preconditions;
 import org.apache.druid.exec.fragment.FragmentContext;
 import org.apache.druid.exec.operator.Operator;
 import org.apache.druid.exec.operator.OperatorFactory;
@@ -28,7 +29,7 @@ import org.apache.druid.java.util.common.UOE;
 
 import java.util.List;
 
-public class InternalSortFactory implements OperatorFactory
+public class InternalSortFactory implements OperatorFactory<Object>
 {
   @Override
   public Class<? extends OperatorSpec> accepts()
@@ -37,12 +38,15 @@ public class InternalSortFactory implements OperatorFactory
   }
 
   @Override
-  public Operator create(FragmentContext context, OperatorSpec plan, List<Operator> children)
+  public Operator<Object> create(FragmentContext context, OperatorSpec plan, List<Operator<?>> children)
   {
+    Preconditions.checkArgument(children.size() == 1);
+    @SuppressWarnings("unchecked")
+    Operator<Object> input = (Operator<Object>) children.get(0);
     InternalSortOp sortOp = (InternalSortOp) plan;
     switch (sortOp.sortType()) {
       case ROW:
-        return new RowInternalSortOperator(context, sortOp, children);
+        return new RowInternalSortOperator(context, sortOp, input);
       default:
         throw new UOE(sortOp.sortType().name());
     }

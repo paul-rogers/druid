@@ -22,14 +22,15 @@ package org.apache.druid.exec.internalSort;
 import com.google.common.base.Preconditions;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.batch.Batches;
+import org.apache.druid.exec.batch.ColumnReaderFactory;
+import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.RowReader.RowCursor;
 import org.apache.druid.exec.fragment.FragmentContext;
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.BatchReader.BatchCursor;
-import org.apache.druid.exec.operator.BatchWriter;
-import org.apache.druid.exec.operator.Batches;
-import org.apache.druid.exec.operator.ColumnReaderFactory;
-import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.operator.Iterators;
 import org.apache.druid.exec.operator.Operator;
 import org.apache.druid.exec.operator.ResultIterator;
@@ -56,13 +57,13 @@ public class RowInternalSortOperator extends InternalSortOperator
     {
       final BatchReader reader1 = results.newReader();
       final BatchReader reader2 = results.newReader();
-      this.leftCursor = reader1.cursor();
-      this.rightCursor = reader2.cursor();
+      this.leftCursor = reader1.batchCursor();
+      this.rightCursor = reader2.batchCursor();
       final ColumnReaderFactory leftColumns = reader1.columns();
       final ColumnReaderFactory rightColumns = reader2.columns();
       this.leftCols = new ScalarColumnReader[keys.size()];
       this.rightCols = new ScalarColumnReader[keys.size()];
-      this.comparators = makeComparators(keys.size());
+      comparators = TypeRegistry.INSTANCE.sortOrdering(keys, leftColumns.schema());
       for (int i = 0; i < keys.size(); i++) {
         SortColumn key = keys.get(i);
         leftCols[i] = leftColumns.scalar(key.columnName());
@@ -70,15 +71,7 @@ public class RowInternalSortOperator extends InternalSortOperator
         if (leftCols[i] == null) {
           throw new ISE("Sort key [%s] not found in the input schema", key.columnName());
         }
-        comparators[i] = TypeRegistry.INSTANCE.sortOrdering(key, leftCols[i].schema().type());
       }
-    }
-
-    // Just to suppress the warning.
-    @SuppressWarnings("unchecked")
-    private static Comparator<Object>[] makeComparators(int n)
-    {
-      return new Comparator[n];
     }
 
     @Override
@@ -96,18 +89,18 @@ public class RowInternalSortOperator extends InternalSortOperator
     }
   }
 
-  public RowInternalSortOperator(FragmentContext context, InternalSortOp plan, List<Operator> children)
+  public RowInternalSortOperator(FragmentContext context, InternalSortOp plan, Operator<Object> input)
   {
-    super(context, plan, children);
+    super(context, plan, input);
   }
 
   @Override
-  protected ResultIterator doSort() throws StallException
+  protected ResultIterator<Object> doSort() throws EofException
   {
     return sortRows(loadInput());
   }
 
-  private Batch loadInput() throws StallException
+  private Object loadInput() throws EofException
   {
     Batch inputBatch = inputIter.next();
     BatchReader inputReader = inputBatch.newReader();
@@ -130,7 +123,7 @@ public class RowInternalSortOperator extends InternalSortOperator
     return runWriter.harvest();
   }
 
-  private ResultIterator sortRows(Batch results)
+  private ResultIterator<Object> sortRows(Batch results)
   {
     int[] index = new int[rowCount];
     for (int i = 0; i < rowCount; i++) {

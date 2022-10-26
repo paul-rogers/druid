@@ -19,8 +19,8 @@
 
 package org.apache.druid.exec.util;
 
-import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.operator.ColumnWriterFactory.ScalarColumnWriter;
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.ColumnWriterFactory.ScalarColumnWriter;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.segment.column.ColumnType;
 

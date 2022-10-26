@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.exec.operator;
+package org.apache.druid.exec.batch;
 
 import org.apache.druid.segment.column.ColumnType;
 

@@ -19,9 +19,9 @@
 
 package org.apache.druid.exec.shim;
 
+import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchReader.BatchCursor;
 import org.apache.druid.exec.batch.impl.AbstractBatchWriter;
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchReader.BatchCursor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,18 +29,18 @@ import java.util.List;
 /**
  * Base class for writers of batches represented by {@link List}.
  */
-public abstract class ListWriter<T> extends AbstractBatchWriter
+public abstract class ListWriter<T> extends AbstractBatchWriter<List<T>>
 {
   protected List<T> batch;
 
-  public ListWriter()
+  public ListWriter(final BatchFactory batchFactory)
   {
-    super();
+    super(batchFactory);
   }
 
-  public ListWriter(int sizeLimit)
+  public ListWriter(final BatchFactory batchFactory, int sizeLimit)
   {
-    super(sizeLimit);
+    super(batchFactory, sizeLimit);
   }
 
   @Override
@@ -49,20 +49,13 @@ public abstract class ListWriter<T> extends AbstractBatchWriter
     batch = new ArrayList<>();
   }
 
-  public List<T> harvestList()
+  @Override
+  public List<T> harvest()
   {
     List<T> result = batch;
     batch = null;
     return result;
   }
-
-  @Override
-  public Batch harvest()
-  {
-    return wrapBatch(harvestList());
-  }
-
-  protected abstract Batch wrapBatch(List<T> batch);
 
   @Override
   public int size()
@@ -80,7 +73,7 @@ public abstract class ListWriter<T> extends AbstractBatchWriter
 
   protected int appendFromList(ListReader<T> source, int n)
   {
-    final BatchCursor sourceCursor = source.cursor();
+    final BatchCursor sourceCursor = source.batchCursor();
 
     // The equivalent of advancing to the next row before reading.
     final int start = sourceCursor.index() + 1;

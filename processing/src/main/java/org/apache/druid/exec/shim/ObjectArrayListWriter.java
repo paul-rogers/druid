@@ -19,15 +19,12 @@
 
 package org.apache.druid.exec.shim;
 
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.ColumnWriterFactory.ScalarColumnWriter;
+import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.impl.AbstractScalarWriter;
 import org.apache.druid.exec.batch.impl.ColumnWriterFactoryImpl;
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.ColumnWriterFactory.ScalarColumnWriter;
-import org.apache.druid.exec.operator.RowSchema;
-import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
-
-import java.util.List;
 
 /**
  * Batch writer for a list of {@code Object} arrays where columns are represented
@@ -63,14 +60,9 @@ public class ObjectArrayListWriter extends ListWriter<Object[]>
   private final int rowWidth;
   private Object[] row;
 
-  public ObjectArrayListWriter(RowSchema schema)
-  {
-    this(schema, Integer.MAX_VALUE);
-  }
-
   public ObjectArrayListWriter(RowSchema schema, int sizeLimit)
   {
-    super(sizeLimit);
+    super(ObjectArrayListBatchType.INSTANCE.factory(schema), sizeLimit);
     this.rowWidth = schema.size();
     final ScalarColumnWriter[] columnWriters = new ScalarColumnWriter[rowWidth];
     for (int i = 0; i < rowWidth; i++) {
@@ -84,18 +76,6 @@ public class ObjectArrayListWriter extends ListWriter<Object[]>
   {
     row = new Object[rowWidth];
     return row;
-  }
-
-  @Override
-  protected Batch wrapBatch(List<Object[]> batch)
-  {
-    return new ObjectArrayBatch(columns().schema(), batch);
-  }
-
-  @Override
-  public boolean canDirectCopyFrom(BatchReader reader)
-  {
-    return reader.unwrap(ObjectArrayListReader.class) != null;
   }
 
   @Override

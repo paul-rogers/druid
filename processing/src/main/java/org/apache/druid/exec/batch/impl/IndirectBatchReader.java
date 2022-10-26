@@ -19,26 +19,37 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.ColumnReaderFactory;
+import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchType;
+import org.apache.druid.exec.batch.ColumnReaderFactory;
+import org.apache.druid.exec.batch.impl.IndirectBatchType.IndirectData;
 
 public class IndirectBatchReader extends AbstractBatchReader
 {
-  private BatchReader baseReader;
+  private final BatchType baseType;
+  private final BatchReader baseReader;
   private int[] index;
 
-  public void bind(final Batch base, final int[] index)
+  public IndirectBatchReader(BatchFactory factory)
   {
-    this.baseReader = base.bindReader(baseReader);
-    this.index = index;
+    super(factory);
+    IndirectBatchType batchType = (IndirectBatchType) factory.type();
+    this.baseType = batchType.baseType();
+    this.baseReader = baseType.newReader(factory.schema());
+  }
+
+  public void bind(IndirectData data)
+  {
+    baseType.bindReader(baseReader, data.data);
+    this.index = data.index;
     cursor.bind(index.length);
   }
 
   @Override
   protected void bindRow(int posn)
   {
-    baseReader.cursor().seek(index[posn]);
+    baseReader.batchCursor().seek(index[posn]);
   }
 
   @Override

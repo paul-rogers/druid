@@ -27,7 +27,7 @@ package org.apache.druid.exec.operator;
  * {@link static <T> Iterator<T> Operators#toIterator(Operator<T>)},
  * but that approach adds overhead.
  */
-public interface ResultIterator
+public interface ResultIterator<T>
 {
   public class StallException extends Exception
   {
@@ -62,5 +62,5 @@ public interface ResultIterator
    * at EOF. This structure avoids the need for a "has next" check,
    * streamlining tight inner loops.
    */
-  Batch next() throws StallException;
+  T next() throws EofException;
 }

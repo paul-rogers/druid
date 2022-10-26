@@ -19,19 +19,15 @@
 
 package org.apache.druid.exec.test;
 
+import org.apache.druid.exec.batch.BatchType.BatchFormat;
+import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.batch.Batches;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.fragment.FragmentConverter;
 import org.apache.druid.exec.fragment.FragmentManager;
 import org.apache.druid.exec.fragment.OperatorConverter;
-import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
-import org.apache.druid.exec.operator.BatchWriter;
-import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.plan.FragmentSpec;
 import org.apache.druid.exec.plan.OperatorSpec;
-import org.apache.druid.exec.shim.MapListWriter;
-import org.apache.druid.exec.shim.ObjectArrayListWriter;
-import org.apache.druid.exec.shim.ScanResultValueWriter;
-import org.apache.druid.java.util.common.UOE;
-import org.apache.druid.query.scan.ScanQuery;
 
 import java.util.Collections;
 import java.util.List;
@@ -43,20 +39,9 @@ public class TestUtils
     return BatchBuilder.of(writerFor(schema, format, Integer.MAX_VALUE));
   }
 
-  public static BatchWriter writerFor(RowSchema schema, BatchFormat format, int limit)
+  public static BatchWriter<?> writerFor(RowSchema schema, BatchFormat format, int limit)
   {
-    switch (format) {
-      case OBJECT_ARRAY:
-        return new ObjectArrayListWriter(schema, limit);
-      case MAP:
-        return new MapListWriter(schema, limit);
-      case SCAN_OBJECT_ARRAY:
-        return new ScanResultValueWriter("dummy", schema, ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST, limit);
-      case SCAN_MAP:
-        return new ScanResultValueWriter("dummy", schema, ScanQuery.ResultFormat.RESULT_FORMAT_LIST, limit);
-      default:
-        throw new UOE("Invalid batch format");
-    }
+    return Batches.typeFor(format).newWriter(schema, limit);
   }
 
   /**

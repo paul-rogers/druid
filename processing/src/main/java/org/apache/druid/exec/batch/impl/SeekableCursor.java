@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.operator.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.BatchReader.BatchCursor;
 
 /**
  * Cursor for a typical batch of data which allows both sequential and

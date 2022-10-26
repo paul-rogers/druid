@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.test;
 
-import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
+import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.plan.AbstractOperatorSpec;
 
 import java.util.List;
@@ -27,11 +27,17 @@ import java.util.List;
 public class SimpleDataGenSpec extends AbstractOperatorSpec
 {
   public final List<String> columns;
-  public final BatchFormat format;
+  public final BatchType.BatchFormat format;
   public final int batchSize;
   public final int rowCount;
 
-  public SimpleDataGenSpec(int id, List<String> columns, BatchFormat format, int batchSize, int rowCount)
+  public SimpleDataGenSpec(
+      final int id,
+      final List<String> columns,
+      final BatchType.BatchFormat format,
+      final int batchSize,
+      final int rowCount
+  )
   {
     super(id);
     this.columns = columns;

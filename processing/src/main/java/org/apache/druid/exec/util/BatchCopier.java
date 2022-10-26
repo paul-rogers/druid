@@ -19,8 +19,8 @@
 
 package org.apache.druid.exec.util;
 
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.BatchWriter;
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchWriter;
 
 /**
  * Optimized copy of rows from one batch to another. Use this when the source
@@ -36,7 +36,7 @@ public interface BatchCopier
    * {@code false} if the destination filled and not all source rows were
    * copied
    */
-  boolean copyAll(BatchReader source, BatchWriter dest);
+  boolean copyAll(BatchReader source, BatchWriter<?> dest);
 
   /**
    * Copy a single row. Advances the source reader to the next row, which
@@ -47,5 +47,5 @@ public interface BatchCopier
    * @return {@code true} if the next source row was copied, {@code false}
    * if not (which leaves the source cursor unchanged)
    */
-  boolean copyRow(BatchReader source, BatchWriter dest);
+  boolean copyRow(BatchReader source, BatchWriter<?> dest);
 }

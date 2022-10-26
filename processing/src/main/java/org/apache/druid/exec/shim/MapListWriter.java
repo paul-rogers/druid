@@ -19,16 +19,14 @@
 
 package org.apache.druid.exec.shim;
 
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.ColumnWriterFactory.ScalarColumnWriter;
+import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.impl.AbstractScalarWriter;
 import org.apache.druid.exec.batch.impl.ColumnWriterFactoryImpl;
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.ColumnWriterFactory.ScalarColumnWriter;
-import org.apache.druid.exec.operator.RowSchema;
-import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -64,14 +62,9 @@ public class MapListWriter extends ListWriter<Map<String, Object>>
 
   private Map<String, Object> row;
 
-  public MapListWriter(RowSchema schema)
-  {
-    this(schema, Integer.MAX_VALUE);
-  }
-
   public MapListWriter(RowSchema schema, int sizeLimit)
   {
-    super(sizeLimit);
+    super(MapListBatchType.INSTANCE.factory(schema), sizeLimit);
     int rowWidth = schema.size();
     final ScalarColumnWriter[] columnWriters = new ScalarColumnWriter[rowWidth];
     for (int i = 0; i < rowWidth; i++) {
@@ -85,18 +78,6 @@ public class MapListWriter extends ListWriter<Map<String, Object>>
   {
     row = new HashMap<>();
     return row;
-  }
-
-  @Override
-  protected Batch wrapBatch(List<Map<String, Object>> batch)
-  {
-    return new MapListBatch(columns().schema(), batch);
-  }
-
-  @Override
-  public boolean canDirectCopyFrom(BatchReader reader)
-  {
-    return reader.unwrap(MapListReader.class) != null;
   }
 
   @Override

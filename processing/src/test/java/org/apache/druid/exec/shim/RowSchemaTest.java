@@ -19,9 +19,9 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.operator.RowSchema;
-import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
-import org.apache.druid.exec.operator.impl.RowSchemaImpl;
+import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.RowSchemaImpl;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.segment.column.ColumnType;

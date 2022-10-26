@@ -19,8 +19,8 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.operator.ColumnWriterFactory;
-import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.batch.ColumnWriterFactory;
+import org.apache.druid.exec.batch.RowSchema;
 
 /**
  * Provides column writers for a batch writer. Writers are created at

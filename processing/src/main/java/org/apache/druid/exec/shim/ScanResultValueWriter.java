@@ -19,11 +19,10 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.BatchWriter;
-import org.apache.druid.exec.operator.RowSchema;
-import org.apache.druid.java.util.common.UOE;
+import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
 
@@ -35,65 +34,43 @@ import java.util.List;
  * Delegates to the object array or map writer depending on the format
  * of this particular value.
  */
-public class ScanResultValueWriter extends DelegatingBatchWriter
+public class ScanResultValueWriter extends DelegatingBatchWriter<ScanResultValue>
 {
   private final String segmentId;
   private final ScanQuery.ResultFormat format;
   private final List<String> columnNames;
 
   public ScanResultValueWriter(
+      final BatchFactory factory,
       final String segmentId,
-      final RowSchema schema,
       final ScanQuery.ResultFormat format,
       final int sizeLimit
   )
   {
-    super(createDelegate(schema, format, sizeLimit));
+    super(factory, createDelegate(factory.schema(), format, sizeLimit));
     this.segmentId = segmentId;
     this.format = format;
-    this.columnNames = schema.columnNames();
+    this.columnNames = factory.schema().columnNames();
   }
 
-  private static BatchWriter createDelegate(final RowSchema schema, final ScanQuery.ResultFormat format, final int sizeLimit)
+  private static BatchWriter<?> createDelegate(RowSchema schema, final ScanQuery.ResultFormat format, final int sizeLimit)
   {
-    switch (format) {
-      case RESULT_FORMAT_LIST:
-        return new MapListWriter(schema, sizeLimit);
-      case RESULT_FORMAT_COMPACTED_LIST:
-        return new ObjectArrayListWriter(schema, sizeLimit);
-      default:
-        throw new UOE(format.name());
-    }
+    return ScanResultValueBatchType.baseType(format).newWriter(schema, sizeLimit);
   }
 
   @Override
-  public Batch harvest()
+  public ScanResultValue harvest()
   {
     final List<?> result;
     switch (format) {
       case RESULT_FORMAT_LIST:
       case RESULT_FORMAT_COMPACTED_LIST:
-        result = ((ListWriter<?>) delegate).harvestList();
+        result = ((ListWriter<?>) delegate).harvest();
         break;
       default:
         result = Collections.emptyList();
     }
-    return new ScanResultValueBatch(
-        columns().schema(),
-        format,
-        new ScanResultValue(segmentId, columnNames, result)
-    );
-  }
-
-  @Override
-  public boolean canDirectCopyFrom(BatchReader reader)
-  {
-    if (reader instanceof ScanResultValueReader) {
-      ScanResultValueReader source = (ScanResultValueReader) reader;
-      return source.format() == format;
-    } else {
-      return delegate.canDirectCopyFrom(reader);
-    }
+    return new ScanResultValue(segmentId, columnNames, result);
   }
 
   @Override

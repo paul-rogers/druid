@@ -19,22 +19,19 @@
 
 package org.apache.druid.exec.shim;
 
+import org.apache.druid.exec.batch.Batch;
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.BatchType;
+import org.apache.druid.exec.batch.BatchType.BatchFormat;
+import org.apache.druid.exec.batch.ColumnReaderFactory;
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.batch.impl.SeekableCursorTest;
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchCapabilities;
-import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.BatchReader.BatchCursor;
-import org.apache.druid.exec.operator.Batches;
-import org.apache.druid.exec.operator.ColumnReaderFactory;
-import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.test.BatchBuilder;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;
-
-import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -54,11 +51,10 @@ public class MapListTest
   @Test
   public void testCapabilities()
   {
-    MapListBatch batch = new MapListBatch(Batches.emptySchema(), Collections.emptyList());
-    BatchCapabilities cap = batch.capabilities();
-    assertEquals(BatchFormat.MAP, cap.format());
-    assertTrue(cap.canSeek());
-    assertFalse(cap.canSort());
+    BatchType batchType = MapListBatchType.INSTANCE;
+    assertEquals(BatchFormat.MAP, batchType.format());
+    assertTrue(batchType.canSeek());
+    assertFalse(batchType.canSort());
   }
 
   @Test
@@ -72,7 +68,7 @@ public class MapListTest
     ColumnReaderFactory rowReader = reader.columns();
     assertSame(schema, rowReader.schema());
 
-    BatchCursor cursor = reader.cursor();
+    BatchCursor cursor = reader.batchCursor();
     assertEquals(0, cursor.size());
   }
 
@@ -92,7 +88,7 @@ public class MapListTest
     assertSame(schema.column(0), rowReader.scalar(0).schema());
     assertSame(schema.column("b"), rowReader.scalar("b").schema());
 
-    BatchCursor cursor = reader.cursor();
+    BatchCursor cursor = reader.batchCursor();
     assertEquals(0, cursor.size());
   }
 
@@ -115,7 +111,7 @@ public class MapListTest
     ColumnReaderFactory rowReader = reader.columns();
     assertSame(schema, rowReader.schema());
 
-    BatchCursor cursor = reader.cursor();
+    BatchCursor cursor = reader.batchCursor();
     assertEquals(2, cursor.size());
     assertEquals(-1, cursor.index());
     assertTrue(cursor.next());
@@ -162,7 +158,7 @@ public class MapListTest
     BatchReader reader = batch.newReader();
     ColumnReaderFactory rowReader = reader.columns();
 
-    BatchCursor cursor = reader.cursor();
+    BatchCursor cursor = reader.batchCursor();
     assertTrue(cursor.next());
     assertEquals("first", rowReader.scalar(0).getString());
     assertEquals(1L, rowReader.scalar(1).getLong());
@@ -189,7 +185,7 @@ public class MapListTest
     BatchReader reader = batch.newReader();
     ColumnReaderFactory rowReader = reader.columns();
 
-    BatchCursor cursor = reader.cursor();
+    BatchCursor cursor = reader.batchCursor();
     assertTrue(cursor.next());
     assertEquals("first", rowReader.scalar(0).getString());
     assertEquals(1L, rowReader.scalar(1).getLong());
@@ -204,8 +200,7 @@ public class MapListTest
         .row("third", 3)
         .row("fourth", 4)
         .build();
-    BatchReader reader2 = batch.bindReader(reader);
-    assertSame(reader2, reader);
+    batch.bindReader(reader);
 
     assertTrue(cursor.next());
     assertEquals("third", rowReader.scalar(0).getString());
@@ -242,7 +237,7 @@ public class MapListTest
     ScalarColumnReader oReader = rowReader.scalar(4);
     ScalarColumnReader nReader = rowReader.scalar("n");
 
-    BatchCursor cursor = reader.cursor();
+    BatchCursor cursor = reader.batchCursor();
     assertTrue(cursor.next());
     assertFalse(lReader.isNull());
     assertEquals(1L, lReader.getLong());

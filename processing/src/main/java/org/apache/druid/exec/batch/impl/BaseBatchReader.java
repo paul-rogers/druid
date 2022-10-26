@@ -19,12 +19,18 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.operator.ColumnReaderFactory;
+import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.ColumnReaderFactory;
 
 public abstract class BaseBatchReader<T> extends AbstractBatchReader
 {
   protected ColumnReaderFactory columnReaders;
   protected T batch;
+
+  public BaseBatchReader(BatchFactory factory)
+  {
+    super(factory);
+  }
 
   public void bind(T batch)
   {

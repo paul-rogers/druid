@@ -19,30 +19,34 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.BatchWriter;
-import org.apache.druid.exec.operator.ColumnWriterFactory;
+import org.apache.druid.exec.batch.Batch;
+import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.batch.ColumnWriterFactory;
 import org.apache.druid.java.util.common.UOE;
 
-public abstract class AbstractBatchWriter implements BatchWriter
+public abstract class AbstractBatchWriter<T> implements BatchWriter<T>
 {
-  protected ColumnWriterFactory columnWriters;
+  protected final BatchFactory batchFactory;
   protected final int sizeLimit;
+  protected ColumnWriterFactory columnWriters;
 
-  public AbstractBatchWriter()
+  public AbstractBatchWriter(final BatchFactory batchFactory)
   {
-    this(Integer.MAX_VALUE);
+    this(batchFactory, Integer.MAX_VALUE);
+  }
+
+  public AbstractBatchWriter(final BatchFactory batchFactory, final int sizeLimit)
+  {
+    this.batchFactory = batchFactory;
+    this.sizeLimit = sizeLimit;
   }
 
   @Override
   public ColumnWriterFactory columns()
   {
     return columnWriters;
-  }
-
-  public AbstractBatchWriter(int sizeLimit)
-  {
-    this.sizeLimit = sizeLimit;
   }
 
   @Override
@@ -64,12 +68,6 @@ public abstract class AbstractBatchWriter implements BatchWriter
   protected abstract void createRow();
 
   @Override
-  public boolean canDirectCopyFrom(BatchReader reader)
-  {
-    return false;
-  }
-
-  @Override
   public int directCopy(BatchReader from, int n)
   {
     throw new UOE(
@@ -77,5 +75,19 @@ public abstract class AbstractBatchWriter implements BatchWriter
         from.getClass().getSimpleName(),
         getClass().getSimpleName()
     );
+  }
+
+  @Override
+  public Batch harvestAsBatch()
+  {
+    Batch batch = batchFactory.newBatch();
+    batch.bind(harvest());
+    return batch;
+  }
+
+  @Override
+  public BatchFactory factory()
+  {
+    return batchFactory;
   }
 }

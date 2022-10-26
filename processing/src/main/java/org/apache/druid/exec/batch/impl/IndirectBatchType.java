@@ -19,11 +19,11 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchCapabilities;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.BatchWriter;
-import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.batch.AbstractBatchType;
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchType;
+import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.batch.RowSchema;
 
 /**
  * Wraps a "base" batch with an index vector. The index vector can include
@@ -31,56 +31,64 @@ import org.apache.druid.exec.operator.RowSchema;
  * a subset of rows (such as the result of a filter). The set of columns remains
  * unchanged: the indirect batch uses the column readers from the base batch.
  */
-public class IndirectBatch implements Batch
+public class IndirectBatchType extends AbstractBatchType
 {
-  private final Batch base;
-  private final int[] index;
-
-  public IndirectBatch(final Batch base, final int[] index)
+  public static class IndirectData
   {
-    this.base = base;
-    this.index = index;
-  }
+    public final Object data;
+    public final int[] index;
 
-  @Override
-  public RowSchema schema()
-  {
-    return base.schema();
-  }
-
-  @Override
-  public int size()
-  {
-    return index.length;
-  }
-
-  @Override
-  public BatchCapabilities capabilities()
-  {
-    return base.capabilities();
-  }
-
-  @Override
-  public BatchReader newReader()
-  {
-    IndirectBatchReader reader = new IndirectBatchReader();
-    reader.bind(base, index);
-    return reader;
-  }
-
-  @Override
-  public BatchReader bindReader(BatchReader reader)
-  {
-    if (reader == null || !(reader instanceof IndirectBatchReader)) {
-      return newReader();
+    public IndirectData(Object data, int[] index)
+    {
+       this.data = data;
+      this.index = index;
     }
-    ((IndirectBatchReader) reader).bind(base, index);
-    return reader;
+  }
+
+  private final BatchType baseType;
+
+  public IndirectBatchType(BatchType baseType)
+  {
+    super(
+        baseType.format(),
+        true, // Can seek
+        false // Can't sort
+    );
+    this.baseType = baseType;
+  }
+
+  public BatchType baseType()
+  {
+    return baseType;
   }
 
   @Override
-  public BatchWriter newWriter()
+  public BatchReader newReader(RowSchema schema)
   {
-    return base.newWriter();
+    return new IndirectBatchReader(factory(schema));
+  }
+
+  @Override
+  public BatchWriter<?> newWriter(RowSchema schema, int sizeLimit)
+  {
+    return baseType.newWriter(schema, sizeLimit);
+  }
+
+  @Override
+  public void bindReader(BatchReader reader, Object data)
+  {
+    ((IndirectBatchReader) reader).bind((IndirectData) data);
+  }
+
+  @Override
+  public int sizeOf(Object data)
+  {
+    return ((IndirectData) data).index.length;
+  }
+
+  @Override
+  public boolean canDirectCopyFrom(BatchType otherType)
+  {
+    return false;
   }
 }

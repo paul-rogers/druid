@@ -19,11 +19,11 @@
 
 package org.apache.druid.exec.test;
 
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.BatchReader.BatchCursor;
-import org.apache.druid.exec.operator.ColumnReaderFactory;
-import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.Batch;
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.ColumnReaderFactory;
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
 import org.apache.druid.segment.column.ColumnType;
 
 import java.util.Objects;
@@ -107,8 +107,8 @@ public class BatchEquality
       reporter.error("Schemas are different");
       return false;
     }
-    BatchCursor cursor1 = batch1.cursor();
-    BatchCursor cursor2 = batch2.cursor();
+    BatchCursor cursor1 = batch1.batchCursor();
+    BatchCursor cursor2 = batch2.batchCursor();
     while (true) {
       boolean ok1 = cursor1.next();
       boolean ok2 = cursor2.next();

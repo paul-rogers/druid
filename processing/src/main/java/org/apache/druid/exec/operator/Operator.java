@@ -145,12 +145,12 @@ package org.apache.druid.exec.operator;
  * @param <T> the type of the object (row, batch) returned by the iterator
  * returned from {@link #open()}.
  */
-public interface Operator
+public interface Operator<T>
 {
   /**
    * Convenience interface for an operator which is its own iterator.
    */
-  public interface IterableOperator extends Operator, ResultIterator
+  public interface IterableOperator<T> extends Operator<T>, ResultIterator<T>
   {
   }
 
@@ -170,7 +170,7 @@ public interface Operator
    * in the {@code open()} call for simple operators,or later, on demand, for more
    * complex operators such as in a merge or union.
    */
-  ResultIterator open();
+  ResultIterator<T> open();
 
   /**
    * Called at two distinct times. An operator may choose to close a child

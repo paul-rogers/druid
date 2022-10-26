@@ -19,13 +19,15 @@
 
 package org.apache.druid.exec.test;
 
+import org.apache.druid.exec.batch.Batch;
+import org.apache.druid.exec.batch.BatchType.BatchFormat;
+import org.apache.druid.exec.batch.Batches;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.fragment.FragmentContext;
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
 import org.apache.druid.exec.operator.ResultIterator;
 import org.apache.druid.exec.operator.ResultIterator.EofException;
 import org.apache.druid.exec.operator.ResultIterator.StallException;
-import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.shim.ObjectArrayListBatchType;
 import org.apache.druid.exec.util.BatchValidator;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.segment.column.ColumnType;
@@ -51,7 +53,7 @@ public class SimpleDataGenTest
     FragmentContext context = TestUtils.emptyFragment();
     SimpleDataGenOperator op = new SimpleDataGenOperator(context, spec);
 
-    ResultIterator iter = op.open();
+    ResultIterator<?> iter = op.open();
     assertThrows(EofException.class, () -> iter.next());
   }
 
@@ -68,7 +70,7 @@ public class SimpleDataGenTest
     FragmentContext context = TestUtils.emptyFragment();
     SimpleDataGenOperator op = new SimpleDataGenOperator(context, spec);
 
-    ResultIterator iter = op.open();
+    ResultIterator<?> iter = op.open();
     assertThrows(EofException.class, () -> iter.next());
   }
 
@@ -85,8 +87,7 @@ public class SimpleDataGenTest
     FragmentContext context = TestUtils.emptyFragment();
     SimpleDataGenOperator op = new SimpleDataGenOperator(context, spec);
 
-    ResultIterator iter = op.open();
-    Batch actual = iter.next();
+    ResultIterator<?> iter = op.open();
 
     RowSchema expectedSchema = new SchemaBuilder()
         .scalar("str", ColumnType.STRING)
@@ -95,6 +96,7 @@ public class SimpleDataGenTest
         .scalar("rand", ColumnType.LONG)
         .scalar("bob", ColumnType.STRING)
         .build();
+    Batch actual = Batches.of(ObjectArrayListBatchType.INSTANCE, expectedSchema, iter.next());
     Batch expected = BatchBuilder.arrayList(expectedSchema)
         .row("Row 1", 1, "Rot 1", 1, null)
         .row("Row 2", 2, "Rot 2", 2, null)
@@ -127,10 +129,11 @@ public class SimpleDataGenTest
         .scalar("rid", ColumnType.LONG)
         .scalar("str", ColumnType.STRING)
         .build();
+    Batch actual = ObjectArrayListBatchType.INSTANCE.newBatch(expectedSchema);
 
-    ResultIterator iter = op.open();
+    ResultIterator<?> iter = op.open();
 
-    Batch actual = op.next();
+    actual.bind(op.next());
     Batch expected = BatchBuilder.arrayList(expectedSchema)
         .row(1, "Row 1")
         .row(2, "Row 2")
@@ -138,7 +141,7 @@ public class SimpleDataGenTest
         .build();
     BatchValidator.assertEquals(expected, actual);
 
-    actual = iter.next();
+    actual.bind(op.next());
     expected = BatchBuilder.arrayList(expectedSchema)
         .row(4, "Row 4")
         .row(5, "Row 5")
@@ -146,7 +149,7 @@ public class SimpleDataGenTest
         .build();
     BatchValidator.assertEquals(expected, actual);
 
-    actual = iter.next();
+    actual.bind(op.next());
     expected = BatchBuilder.arrayList(expectedSchema)
         .row(7, "Row 7")
         .row(8, "Row 8")

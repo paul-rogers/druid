@@ -19,9 +19,9 @@
 
 package org.apache.druid.exec.batch.impl;
 
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.test.BatchBuilder;
 import org.apache.druid.exec.util.BatchValidator;
 import org.apache.druid.exec.util.SchemaBuilder;

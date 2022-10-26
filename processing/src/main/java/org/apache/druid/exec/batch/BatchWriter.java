@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.exec.operator;
+package org.apache.druid.exec.batch;
 
 /**
  * Creates and writes to a batch. Call {@link #newBatch()} to create a new
@@ -33,8 +33,10 @@ package org.apache.druid.exec.operator;
  * {@link #row()}. The same row writer is used for all batches. The client can
  * cache the row writer, or ask for it each time it is needed.
  */
-public interface BatchWriter
+public interface BatchWriter<T>
 {
+  BatchFactory factory();
+
   ColumnWriterFactory columns();
 
   /**
@@ -69,16 +71,22 @@ public interface BatchWriter
    * no writing operations are allowed until {@link #newBatch()} is called again.
    * @return the newly created batch
    */
-  Batch harvest();
+  T harvest();
 
-  boolean canDirectCopyFrom(BatchReader reader);
+  /**
+   * Wrap the newly created batch in the {@link Batch} interface for generic
+   * processing.
+   *
+   * @return the newly created batch as a {@link Batch}
+   */
+  Batch harvestAsBatch();
 
   /**
    * Copies rows from the source into this batch up to the size limit, starting
    * with the current reader position. The reader is left positioned after
    * the last row copied. Only applies when the reader is compatible, as
    * indicated by {@link #canDirectCopyFrom(BatchReader)}. Use
-   * {@link org.apache.druid.exec.operator.Batches#copier(BatchReader, BatchWriter)}
+   * {@link org.apache.druid.exec.batch.Batches#copier(BatchReader, BatchWriter)}
    * for a generic solution.
    * <p>
    * Copies up to the given number of rows, the available reader rows, or the

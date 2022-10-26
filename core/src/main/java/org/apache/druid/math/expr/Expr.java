@@ -43,7 +43,6 @@ import java.util.Set;
 @SubclassesMustOverrideEqualsAndHashCode
 public interface Expr extends Cacheable
 {
-
   String NULL_LITERAL = "null";
   Joiner ARG_JOINER = Joiner.on(", ");
 
@@ -136,7 +135,6 @@ public interface Expr extends Cacheable
    * macro must be visited, including arguments that may have been "baked in" to this Expr.
    */
   Expr visit(Shuttle shuttle);
-
 
   /**
    * Examine the usage of {@link IdentifierExpr} children of an {@link Expr}, constructing a {@link BindingAnalysis}

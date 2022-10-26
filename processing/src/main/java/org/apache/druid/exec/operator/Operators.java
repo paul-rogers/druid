@@ -34,29 +34,29 @@ public class Operators
    * Convenience function to open the operator and return its
    * iterator as an {@code Iterable}.
    */
-  public static Iterable<Batch> toIterable(Operator op)
+  public static <T> Iterable<T> toIterable(Operator<T> op)
   {
-    return new Iterable<Batch>() {
+    return new Iterable<T>() {
       @Override
-      public Iterator<Batch> iterator()
+      public Iterator<T> iterator()
       {
-        return new Iterators.ShimIterator(op.open());
+        return new Iterators.ShimIterator<T>(op.open());
       }
     };
   }
 
-  public static Iterator<Batch> toIterator(Operator op)
+  public static <T> Iterator<T> toIterator(Operator<T> op)
   {
-    return new Iterators.ShimIterator(op.open());
+    return new Iterators.ShimIterator<T>(op.open());
   }
 
   /**
    * This will materialize the entire sequence from the wrapped
    * operator.  Use at your own risk.
    */
-  public static List<Batch> toList(Operator op)
+  public static <T> List<T> toList(Operator<T> op)
   {
-    List<Batch> results = Lists.newArrayList(toIterator(op));
+    List<T> results = Lists.newArrayList(toIterator(op));
     op.close(true);
     return results;
   }

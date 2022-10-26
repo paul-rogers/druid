@@ -19,16 +19,14 @@
 
 package org.apache.druid.exec.test;
 
+import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.batch.ColumnWriterFactory;
+import org.apache.druid.exec.batch.ColumnWriterFactory.ScalarColumnWriter;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.fragment.FragmentContext;
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchWriter;
-import org.apache.druid.exec.operator.ColumnWriterFactory;
-import org.apache.druid.exec.operator.ColumnWriterFactory.ScalarColumnWriter;
-import org.apache.druid.exec.operator.Operator.IterableOperator;
 import org.apache.druid.exec.operator.OperatorProfile;
 import org.apache.druid.exec.operator.Operators;
 import org.apache.druid.exec.operator.ResultIterator;
-import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.exec.operator.impl.AbstractOperator;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.segment.column.ColumnHolder;
@@ -46,13 +44,13 @@ import org.joda.time.Instant;
  * <li>{@code rot}: String, "Rot x" where x is rid mod 5.</li>
  * </li>
  */
-public class SimpleDataGenOperator extends AbstractOperator implements IterableOperator
+public class SimpleDataGenOperator extends AbstractOperator<Object> implements ResultIterator<Object>
 {
   private final long START_TIME = Instant.parse("2022-11-22T10:00:00Z").getMillis();
 
   private final SimpleDataGenSpec plan;
   private final RowSchema schema;
-  private BatchWriter writer;
+  private BatchWriter<?> writer;
   private int rowCount;
   private int batchCount;
 
@@ -80,14 +78,14 @@ public class SimpleDataGenOperator extends AbstractOperator implements IterableO
   }
 
   @Override
-  public ResultIterator open()
+  public ResultIterator<Object> open()
   {
     writer = TestUtils.writerFor(schema, plan.format, plan.batchSize);
     return this;
   }
 
   @Override
-  public Batch next() throws StallException
+  public Object next() throws EofException
   {
     if (rowCount == plan.rowCount) {
       throw Operators.eof();

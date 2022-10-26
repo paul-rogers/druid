@@ -17,9 +17,9 @@
  * under the License.
  */
 
-package org.apache.druid.exec.operator;
+package org.apache.druid.exec.batch;
 
-import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 
 public interface ColumnReaderFactory
 {

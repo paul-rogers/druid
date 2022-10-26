@@ -17,42 +17,30 @@
  * under the License.
  */
 
-package org.apache.druid.exec.batch.impl;
+package org.apache.druid.exec.batch;
 
-import org.apache.druid.exec.operator.BatchCapabilities;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 
-public class BatchCapabilitiesImpl implements BatchCapabilities
+public interface ColumnWriterFactory
 {
-  private final BatchFormat batchFormat;
-  private final boolean canSeek;
-  private final boolean canSort;
-
-  public BatchCapabilitiesImpl(
-      final BatchFormat format,
-      final boolean canSeek,
-      final boolean canSort
-  )
+  interface ScalarColumnWriter
   {
-    this.batchFormat = format;
-    this.canSeek = canSeek;
-    this.canSort = canSort;
+    ColumnSchema schema();
+    void setNull();
+    void setString(String value);
+    void setLong(long value);
+    void setDouble(double value);
+    void setObject(Object value);
+
+    /**
+     * Set the value of any column type from an Object of that type.
+     * This operation does conversions and is expensive. Use the other
+     * methods when types are known.
+     */
+    void setValue(Object value);
   }
 
-  @Override
-  public boolean canSeek()
-  {
-    return canSeek;
-  }
-
-  @Override
-  public boolean canSort()
-  {
-    return canSort;
-  }
-
-  @Override
-  public BatchFormat format()
-  {
-    return batchFormat;
-  }
+  RowSchema schema();
+  ScalarColumnWriter scalar(String name);
+  ScalarColumnWriter scalar(int ordinal);
 }

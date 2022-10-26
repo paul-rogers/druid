@@ -17,15 +17,13 @@
  * under the License.
  */
 
-package org.apache.druid.exec.operator;
+package org.apache.druid.exec.batch;
+
+import org.apache.druid.exec.util.ExecUtils;
+import org.apache.druid.java.util.common.UOE;
 
 /**
- * Reader for a batch of rows. There are two ways to work with a batch: sequentially
- * or randomly. To read sequentially, call {@link #reset()}, then call {@link #next()}
- * to move to the first row. {@code reset()} moves the position before the first row.
- * <p>
- * To read randomly, call {@link #size()} to determine the row count, then call
- * {@link #seek(int)} to move to a specific row.
+ * Reader for a batch of rows.
  * <p>
  * Call {@link #bind(Object)} to attach the reader to the actual data batch. Calling
  * {@code bind()} does an implicit {@code reset()}.
@@ -34,18 +32,32 @@ package org.apache.druid.exec.operator;
  * for all rows: the batch reader positions the row reader automatically. Client code
  * can cache the row reader, or fetch it each time it is needed.
  */
-public interface BatchReader
+public interface BatchReader extends RowReader
 {
-  public interface BatchCursor
+  /**
+   * Cursor for a batch of rows. There are two ways to work with a batch: sequentially
+   * (via the base interface {@link RowCursor} methods), or or randomly as defined
+   * here. This class adds the ability to make multiple sequential passes over a
+   * batch: call {@link #reset()} to start another pass.
+   * <p>
+   * To read randomly, call {@link #size()} to determine the row count, then call
+   * {@link #seek(int)} to move to a specific row.
+   */
+  public interface BatchCursor extends RowCursor
   {
-    int size();
-
     /**
      * Position the reader before the first row of the batch, so that
      * the next call to {@link #next()} moves to the first row.
+     *
+     * @throws UOE if this is a one-pass cursor and cannot be reset.
+     * Usually known from context. See the batch capabilities for a
+     * dynamic indication.
      */
     void reset();
+
     int index();
+
+    int size();
 
     /**
      * Seek to the given position. If the position is -1, the behavior is the
@@ -56,24 +68,13 @@ public interface BatchReader
      * if the position is before the start or after the end.
      */
     boolean seek(int posn);
-
-    /**
-     * Move to the next row, if any. At EOF, the position points past the
-     * last row.
-     *
-     * @return {@code true} if there is a row to read, {@code false} if EOF.
-     */
-    boolean next();
-
-    /**
-     * Report if the reader is positioned past the end of the last row (i.e. EOF).
-     * This call is not normally needed: the call to {@ink #next()} reports the
-     * same information.
-     */
-    boolean isEOF();
   }
 
-  ColumnReaderFactory columns();
-  BatchCursor cursor();
-  <T> T unwrap(Class<T> readerClass);
+  BatchFactory factory();
+  BatchCursor batchCursor();
+
+  default <T> T unwrap(Class<T> readerClass)
+  {
+    return ExecUtils.unwrap(this, readerClass);
+  }
 }

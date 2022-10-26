@@ -21,9 +21,7 @@ package org.apache.druid.exec.internalSort;
 
 import com.google.common.base.Stopwatch;
 import org.apache.druid.exec.fragment.FragmentContext;
-import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.Operator;
-import org.apache.druid.exec.operator.Operator.IterableOperator;
 import org.apache.druid.exec.operator.OperatorProfile;
 import org.apache.druid.exec.operator.ResultIterator;
 import org.apache.druid.exec.operator.impl.AbstractUnaryOperator;
@@ -33,29 +31,31 @@ import org.apache.druid.frame.key.SortColumn;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-public abstract class InternalSortOperator extends AbstractUnaryOperator implements IterableOperator
+public abstract class InternalSortOperator
+    extends AbstractUnaryOperator<Object, Object>
+    implements ResultIterator<Object>
 {
   protected final List<SortColumn> keys;
-  private ResultIterator resultIter;
+  private ResultIterator<Object> resultIter;
   protected int rowCount;
   protected int batchCount;
   protected long sortTimeMs;
 
-  public InternalSortOperator(FragmentContext context, InternalSortOp plan, List<Operator> children)
+  public InternalSortOperator(FragmentContext context, InternalSortOp plan, Operator<Object> input)
   {
-    super(context, children);
+    super(context, input);
     this.keys = plan.keys();
   }
 
   @Override
-  public ResultIterator open()
+  public ResultIterator<Object> open()
   {
     openInput();
     resultIter = () -> sort();
     return this;
   }
 
-  private Batch sort() throws StallException
+  private Object sort() throws EofException
   {
     Stopwatch stopwatch = Stopwatch.createStarted();
     resultIter = doSort();
@@ -63,10 +63,10 @@ public abstract class InternalSortOperator extends AbstractUnaryOperator impleme
     return resultIter.next();
   }
 
-  protected abstract ResultIterator doSort() throws StallException;
+  protected abstract ResultIterator<Object> doSort() throws EofException;
 
   @Override
-  public Batch next() throws StallException
+  public Object next() throws EofException
   {
     return resultIter.next();
   }

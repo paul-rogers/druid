@@ -19,15 +19,12 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.RowSchema;
-import org.apache.druid.exec.util.EmptyBatchReader;
+import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
 import org.apache.druid.query.scan.ScanResultValue;
-
-import java.util.List;
 
 /**
  * Batch reader for a {@code ScanQuery} {@code ScanResultValue}.
@@ -39,27 +36,13 @@ public class ScanResultValueReader extends DelegatingBatchReader
   private final ResultFormat format;
   private BatchReader delegate;
 
-  public ScanResultValueReader(final RowSchema schema, ScanQuery.ResultFormat format)
+  public ScanResultValueReader(final BatchFactory factory, ScanQuery.ResultFormat format)
   {
+    super(factory);
     this.format = format;
-    this.delegate = createDelegate(schema, format);
+    this.delegate = ScanResultValueBatchType.baseType(format).newReader(factory.schema());
   }
 
-  private static BatchReader createDelegate(RowSchema schema, ResultFormat format)
-  {
-    if (format == null) {
-      // We don't know what this is, but we also have no rows. Special case.
-      return new EmptyBatchReader<List<?>>(schema);
-    }
-    switch (format) {
-      case RESULT_FORMAT_LIST:
-        return new MapListReader(schema);
-      case RESULT_FORMAT_COMPACTED_LIST:
-        return new ObjectArrayListReader(schema);
-      default:
-        throw new UOE(format.name());
-    }
-  }
   @Override
   protected BatchReader delegate()
   {

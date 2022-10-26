@@ -19,14 +19,14 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchCapabilities;
-import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.BatchReader.BatchCursor;
-import org.apache.druid.exec.operator.Batches;
-import org.apache.druid.exec.operator.ColumnReaderFactory;
-import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.batch.Batch;
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.BatchType.BatchFormat;
+import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.batch.Batches;
+import org.apache.druid.exec.batch.ColumnReaderFactory;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.test.BatchBuilder;
 import org.apache.druid.exec.util.BatchValidator;
 import org.apache.druid.exec.util.SchemaBuilder;
@@ -56,28 +56,41 @@ public class ScanResultValueBatchTest
   @Test
   public void testCapabilities()
   {
-    ScanResultValueBatch batch = new ScanResultValueBatch(Batches.emptySchema(), ScanQuery.ResultFormat.RESULT_FORMAT_LIST, null);
-    BatchCapabilities cap = batch.capabilities();
-    assertEquals(BatchFormat.SCAN_MAP, cap.format());
-    assertTrue(cap.canSeek());
-    assertFalse(cap.canSort());
+    ScanResultValueBatchType batchType = ScanResultValueBatchType.MAP_INSTANCE;
+    assertEquals(BatchFormat.SCAN_MAP, batchType.format());
+    assertTrue(batchType.canSeek());
+    assertFalse(batchType.canSort());
+    assertEquals(BatchFormat.MAP, ScanResultValueBatchType.baseType(batchType.resultFormat()).format());
 
-    batch = new ScanResultValueBatch(Batches.emptySchema(), ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST, null);
-    cap = batch.capabilities();
-    assertEquals(BatchFormat.SCAN_OBJECT_ARRAY, cap.format());
-    assertTrue(cap.canSeek());
-    assertFalse(cap.canSort());
+    batchType = ScanResultValueBatchType.ARRAY_INSTANCE;
+    assertEquals(BatchFormat.SCAN_OBJECT_ARRAY, batchType.format());
+    assertTrue(batchType.canSeek());
+    assertFalse(batchType.canSort());
+    assertEquals(BatchFormat.OBJECT_ARRAY, ScanResultValueBatchType.baseType(batchType.resultFormat()).format());
+  }
+
+  private Batch makeBatch(ScanQuery.ResultFormat format, List<String> columns, List<?> values)
+  {
+    ScanResultValue scanValue = new ScanResultValue("foo", columns, values);
+    ScanResultValueBatchType batchType = ScanResultValueBatchType.typeFor(format);
+    RowSchema schema = batchType.inferSchema(scanValue);
+    Batch batch = batchType.newBatch(schema);
+    batch.bind(scanValue);
+    return batch;
   }
 
   @Test
   public void testEmptySchema()
   {
-    ScanResultValue scanValue = new ScanResultValue("foo", Collections.emptyList(), Collections.emptyList());
-    Batch batch = ScanResultValueBatch.of(scanValue);
+    Batch batch = makeBatch(
+        ScanQuery.ResultFormat.RESULT_FORMAT_LIST,
+        Collections.emptyList(),
+        Collections.emptyList()
+    );
 
     // Batch is empty
     BatchReader reader = batch.newReader();
-    BatchCursor cursor = reader.cursor();
+    BatchCursor cursor = reader.batchCursor();
     assertEquals(0, cursor.size());
     assertEquals(0, reader.columns().schema().size());
     assertFalse(cursor.next());
@@ -86,13 +99,16 @@ public class ScanResultValueBatchTest
   @Test
   public void testEmptyBatch()
   {
-    ScanResultValue scanValue = new ScanResultValue("foo", Arrays.asList("a", "b"), Collections.emptyList());
-    Batch batch = ScanResultValueBatch.of(scanValue);
+    Batch batch = makeBatch(
+        ScanQuery.ResultFormat.RESULT_FORMAT_LIST,
+        Arrays.asList("a", "b"),
+        Collections.emptyList()
+    );
     BatchReader reader = batch.newReader();
     ColumnReaderFactory columns = reader.columns();
 
     // Batch is empty
-    BatchCursor cursor = reader.cursor();
+    BatchCursor cursor = reader.batchCursor();
     assertEquals(0, cursor.size());
 
     // Schema was inferred, but only names.
@@ -116,19 +132,18 @@ public class ScanResultValueBatchTest
         new Object[] {1L, null, null, null, null, null},
         new Object[] {2L, "second", 10f, 20D, new Object(), null}
     );
-    ScanResultValue scanValue = new ScanResultValue(
-        "foo",
+    Batch batch = makeBatch(
+        ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST,
         Arrays.asList("l", "s", "f", "d", "o", "n"),
         rows
     );
-    Batch batch = ScanResultValueBatch.of(scanValue);
     validateBatch(batch);
   }
 
   private void validateBatch(Batch batch)
   {
     BatchReader reader = batch.newReader();
-    assertEquals(2, reader.cursor().size());
+    assertEquals(2, reader.batchCursor().size());
 
     // Check inferred schema
     RowSchema expected = new SchemaBuilder()
@@ -161,12 +176,11 @@ public class ScanResultValueBatchTest
     row2.put("o", new Object());
     row2.put("n", null);
     List<Map<String, Object>> rows = Arrays.asList(row1, row2);
-    ScanResultValue scanValue = new ScanResultValue(
-        "foo",
+    Batch batch = makeBatch(
+        ScanQuery.ResultFormat.RESULT_FORMAT_LIST,
         Arrays.asList("l", "s", "f", "d", "o", "n"),
         rows
     );
-    Batch batch = ScanResultValueBatch.of(scanValue);
     validateBatch(batch);
   }
 
@@ -178,12 +192,7 @@ public class ScanResultValueBatchTest
         .scalar("b", ColumnType.LONG)
         .build();
 
-    ScanResultValueWriter writer = new ScanResultValueWriter(
-        "foo",
-        schema,
-        ScanQuery.ResultFormat.RESULT_FORMAT_LIST,
-        Integer.MAX_VALUE
-    );
+    BatchWriter<?> writer = ScanResultValueBatchType.MAP_INSTANCE.newWriter(schema, 1000);
     writer.newBatch();
 
     BatchBuilder batchBuilder = BatchBuilder.scanResultValue(
@@ -197,7 +206,7 @@ public class ScanResultValueBatchTest
         .build();
     BatchReader reader = batch.newReader();
 
-    assertTrue(writer.canDirectCopyFrom(reader));
+    assertTrue(Batches.canDirectCopy(reader, writer));
     writer.directCopy(reader, 10);
     assertTrue(reader.cursor().isEOF());
 
@@ -207,11 +216,10 @@ public class ScanResultValueBatchTest
         .row("fourth", 4)
         .row("fifth", 5)
         .build();
-    BatchReader reader2 = batch.bindReader(reader);
-    assertSame(reader2, reader);
+    batch.bindReader(reader);
 
     writer.directCopy(reader, 1);
-    assertEquals(1, reader.cursor().index());
+    assertEquals(0, reader.batchCursor().index());
     writer.directCopy(reader, 10);
     assertTrue(reader.cursor().isEOF());
 
@@ -224,15 +232,10 @@ public class ScanResultValueBatchTest
           .row("fifth", 5)
           .build();
 
-    BatchValidator.assertEquals(expected, writer.harvest());
+    BatchValidator.assertEquals(expected, writer.harvestAsBatch());
 
     // Cannot direct copy across formats.
-    ScanResultValueWriter incompat = new ScanResultValueWriter(
-        "foo",
-        schema,
-        ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST,
-        Integer.MAX_VALUE
-    );
-    assertFalse(incompat.canDirectCopyFrom(reader));
+    BatchWriter<?> incompat = ScanResultValueBatchType.ARRAY_INSTANCE.newWriter(schema, 1000);
+    assertFalse(Batches.canDirectCopy(reader, incompat));
   }
 }

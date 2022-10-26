@@ -20,7 +20,6 @@
 package org.apache.druid.exec.fragment;
 
 import com.google.common.base.Preconditions;
-import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.Iterators;
 import org.apache.druid.exec.operator.Operator;
 import org.apache.druid.exec.operator.OperatorProfile;
@@ -44,8 +43,8 @@ import java.util.function.Consumer;
 public class FragmentManager implements FragmentContext, Closeable
 {
   private final FragmentPlan plan;
-  private final Map<Integer, Operator> operators = new HashMap<>();
-  private final Map<Operator, OperatorProfile> profiles = new IdentityHashMap<>();
+  private final Map<Integer, Operator<?>> operators = new HashMap<>();
+  private final Map<Operator<?>, OperatorProfile> profiles = new IdentityHashMap<>();
   private final String queryId;
   private long startTimeMillis;
   private long closeTimeMillis;
@@ -54,7 +53,7 @@ public class FragmentManager implements FragmentContext, Closeable
   private final List<Exception> exceptions = new ArrayList<>();
   private final List<Consumer<FragmentManager>> closeListeners = new ArrayList<>();
   private State state = State.START;
-  private Operator rootOperator;
+  private Operator<?> rootOperator;
 
   public FragmentManager(
       final String queryId,
@@ -94,7 +93,7 @@ public class FragmentManager implements FragmentContext, Closeable
     }
   }
 
-  public void registerRoot(Operator op)
+  public void registerRoot(Operator<?> op)
   {
     rootOperator = op;
   }
@@ -111,7 +110,7 @@ public class FragmentManager implements FragmentContext, Closeable
    * conversion from query runners as sometimes the query runner decides
    * late what child to create.
    */
-  public synchronized void register(OperatorSpec spec, Operator op)
+  public synchronized void register(OperatorSpec spec, Operator<?> op)
   {
     Preconditions.checkState(state == State.START || state == State.RUN);
     operators.put(spec.id(), op);
@@ -142,7 +141,7 @@ public class FragmentManager implements FragmentContext, Closeable
    * operator, or wrap it to get an operator. Returns {@code null} if there
    * is no root at all.
    */
-  public <T> Operator rootOperator()
+  public <T> Operator<?> rootOperator()
   {
     return rootOperator;
   }
@@ -152,11 +151,11 @@ public class FragmentManager implements FragmentContext, Closeable
    * the operator's {@link ResultIterator}. If there is no root (pathological case),
    * create one as a null operator.
    */
-  public ResultIterator run()
+  public ResultIterator<?> run()
   {
     Preconditions.checkState(state == State.START);
     if (rootOperator == null) {
-      registerRoot(new NullOperator(this));
+      registerRoot(new NullOperator<Void>(this));
     }
     state = State.RUN;
     return rootOperator.open();
@@ -166,11 +165,12 @@ public class FragmentManager implements FragmentContext, Closeable
    * Materializes the entire result set as a list. Primarily for testing.
    * Opens the fragment, reads results, and closes the fragment.
    */
-  public List<Batch> toList()
+  @SuppressWarnings("unchecked")
+  public <T> List<T> toList()
   {
     try {
       if (rootOperator != null) {
-        return Iterators.toList(run());
+        return (List<T>) Iterators.toList(run());
       } else {
         return Collections.emptyList();
       }
@@ -215,7 +215,7 @@ public class FragmentManager implements FragmentContext, Closeable
     if (state == State.CLOSED) {
       return;
     }
-    for (Operator op : operators.values()) {
+    for (Operator<?> op : operators.values()) {
       try {
         op.close(false);
       }
@@ -231,7 +231,7 @@ public class FragmentManager implements FragmentContext, Closeable
   }
 
   @Override
-  public synchronized void updateProfile(Operator op, OperatorProfile profile)
+  public synchronized void updateProfile(Operator<?> op, OperatorProfile profile)
   {
     profiles.put(op, profile);
   }
@@ -246,12 +246,12 @@ public class FragmentManager implements FragmentContext, Closeable
     return closeTimeMillis - startTimeMillis;
   }
 
-  protected OperatorProfile profile(Operator op)
+  protected OperatorProfile profile(Operator<?> op)
   {
     return profiles.get(op);
   }
 
-  public Operator operator(int rootId)
+  public Operator<?> operator(int rootId)
   {
     return operators.get(rootId);
   }

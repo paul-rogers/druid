@@ -19,6 +19,7 @@
 
 package org.apache.druid.exec.shim;
 
+import org.apache.druid.exec.batch.BatchFactory;
 import org.apache.druid.exec.batch.impl.BaseBatchReader;
 
 import java.util.List;
@@ -28,6 +29,11 @@ import java.util.List;
  */
 public abstract class ListReader<T> extends BaseBatchReader<List<T>>
 {
+  public ListReader(BatchFactory factory)
+  {
+    super(factory);
+  }
+
   @Override
   public void reset()
   {

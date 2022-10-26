@@ -19,8 +19,8 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.operator.ColumnReaderFactory;
-import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.batch.ColumnReaderFactory;
+import org.apache.druid.exec.batch.RowSchema;
 
 /**
  * Provides column readers for a batch reader. Readers are created lazily, then

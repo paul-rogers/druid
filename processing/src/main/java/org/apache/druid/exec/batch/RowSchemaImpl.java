@@ -17,9 +17,8 @@
  * under the License.
  */
 
-package org.apache.druid.exec.operator.impl;
+package org.apache.druid.exec.batch;
 
-import org.apache.druid.exec.operator.RowSchema;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.segment.column.ColumnType;

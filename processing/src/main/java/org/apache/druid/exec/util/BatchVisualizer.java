@@ -20,11 +20,11 @@
 package org.apache.druid.exec.util;
 
 import io.netty.util.SuppressForbidden;
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.operator.RowSchema;
-import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
+import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.segment.column.ColumnType;
@@ -39,7 +39,7 @@ public class BatchVisualizer
   public static String visualize(Batch batch)
   {
     StringBuilder buf = new StringBuilder();
-    visualizeSchema(batch.schema(), buf);
+    visualizeSchema(batch.factory().schema(), buf);
     visualizeRows(batch.newReader(), buf);
     return buf.toString();
   }

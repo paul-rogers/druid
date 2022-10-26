@@ -19,23 +19,19 @@
 
 package org.apache.druid.exec.operator.impl;
 
-import com.google.common.base.Preconditions;
 import org.apache.druid.exec.fragment.FragmentContext;
 import org.apache.druid.exec.operator.Operator;
 import org.apache.druid.exec.operator.ResultIterator;
 
-import java.util.List;
-
-public abstract class AbstractUnaryOperator extends AbstractOperator
+public abstract class AbstractUnaryOperator<IN, OUT> extends AbstractOperator<OUT>
 {
-  protected final Operator input;
-  protected ResultIterator inputIter;
+  protected final Operator<IN> input;
+  protected ResultIterator<IN> inputIter;
 
-  public AbstractUnaryOperator(FragmentContext context, List<Operator> children)
+  public AbstractUnaryOperator(FragmentContext context, Operator<IN> input)
   {
     super(context);
-    Preconditions.checkArgument(children.size() == 1);
-    this.input = children.get(0);
+    this.input = input;
   }
 
   public void openInput()

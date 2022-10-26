@@ -21,6 +21,8 @@ package org.apache.druid.exec.util;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
+import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.frame.key.SortColumn;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.segment.column.ColumnType;
@@ -100,14 +102,58 @@ public class TypeRegistry
 
   public Comparator<Object> sortOrdering(SortColumn key, ColumnType type)
   {
+    Ordering<Object> ordering = ordering(key.columnName(), type);
+    if (key.descending()) {
+      ordering = ordering.reverse();
+    }
+    return ordering;
+  }
+
+  public Comparator<Object>[] sortOrdering(List<SortColumn> keys, RowSchema schema)
+  {
+    Comparator<Object>[] comparators = makeComparators(keys.size());
+    for (int i = 0; i < keys.size(); i++) {
+      SortColumn key = keys.get(i);
+      ColumnSchema col = schema.column(key.columnName());
+      if (col == null) {
+        throw new ISE("Sort key [%s] not found in the input schema", key.columnName());
+      }
+      comparators[i] = sortOrdering(key, col.type());
+    }
+    return comparators;
+  }
+
+  // Just to suppress the warning.
+  @SuppressWarnings("unchecked")
+  private static Comparator<Object>[] makeComparators(int n)
+  {
+    return new Comparator[n];
+  }
+
+  public Comparator<Object>[] ordering(List<String> keys, RowSchema schema)
+  {
+    Comparator<Object>[] comparators = makeComparators(keys.size());
+    for (int i = 0; i < keys.size(); i++) {
+      String key = keys.get(i);
+      ColumnSchema col = schema.column(key);
+      if (col == null) {
+        throw new ISE("Key [%s] not found in the input schema", key);
+      }
+      comparators[i] = ordering(key, col.type());
+    }
+    return comparators;
+  }
+
+  public Ordering<Object> ordering(String key, ColumnType type)
+  {
     if (type == null) {
-      throw new ISE("Sort key [%s]: input schema has no type", key.columnName());
+      throw new ISE("Sort key [%s]: input schema has no type", key);
     }
     TypeAttributes attribs = resolve(type);
     if (attribs == null) {
       throw new ISE(
           "Sort key [%s]: type [%s] not found in the type registry",
-          key.columnName(),
+          key,
           type.asTypeString()
       );
     }
@@ -115,12 +161,9 @@ public class TypeRegistry
     if (ordering == null) {
       throw new ISE(
           "Sort key [%s]: type [%s] is not orderable",
-          key.columnName(),
+          key,
           type.asTypeString()
       );
-    }
-    if (key.descending()) {
-      ordering = ordering.reverse();
     }
     return ordering;
   }

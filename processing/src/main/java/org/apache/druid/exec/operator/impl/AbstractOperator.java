@@ -22,7 +22,7 @@ package org.apache.druid.exec.operator.impl;
 import org.apache.druid.exec.fragment.FragmentContext;
 import org.apache.druid.exec.operator.Operator;
 
-public abstract class AbstractOperator implements Operator
+public abstract class AbstractOperator<T> implements Operator<T>
 {
   protected final FragmentContext context;
 

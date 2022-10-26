@@ -21,8 +21,6 @@ package org.apache.druid.exec.operator;
 
 import com.google.common.collect.Lists;
 import org.apache.druid.exec.operator.ResultIterator.EofException;
-import org.apache.druid.exec.operator.ResultIterator.StallException;
-import org.apache.druid.java.util.common.UOE;
 
 import java.util.Iterator;
 import java.util.List;
@@ -34,13 +32,13 @@ import java.util.NoSuchElementException;
  */
 public class Iterators
 {
-  public static class ShimIterator implements Iterator<Batch>
+  public static class ShimIterator<T> implements Iterator<T>
   {
-    private final ResultIterator operIter;
+    private final ResultIterator<T> operIter;
     private boolean eof;
-    private Batch lookAhead;
+    private T lookAhead;
 
-    public ShimIterator(ResultIterator operIter)
+    public ShimIterator(ResultIterator<T> operIter)
     {
       this.operIter = operIter;
     }
@@ -59,13 +57,13 @@ public class Iterators
         eof = true;
         return false;
       }
-      catch (StallException e) {
-        throw new UOE("Async mode not supported for a wrapped iterator.");
-      }
+//      catch (StallException e) {
+//        throw new UOE("Async mode not supported for a wrapped iterator.");
+//      }
     }
 
     @Override
-    public Batch next()
+    public T next()
     {
       if (eof || lookAhead == null) {
         throw new NoSuchElementException();
@@ -74,7 +72,7 @@ public class Iterators
     }
   }
 
-  public static Iterable<Batch> toIterable(ResultIterator iter)
+  public static <T> Iterable<T> toIterable(ResultIterator<T> iter)
   {
     return Iterators.toIterable(Iterators.toIterator(iter));
   }
@@ -90,36 +88,36 @@ public class Iterators
     };
   }
 
-  public static Iterator<Batch> toIterator(ResultIterator opIter)
+  public static <T> Iterator<T> toIterator(ResultIterator<T> opIter)
   {
-    return new ShimIterator(opIter);
+    return new ShimIterator<T>(opIter);
   }
 
-  public static List<Batch> toList(ResultIterator operIter)
+  public static <T> List<T> toList(ResultIterator<T> operIter)
   {
-    return Lists.newArrayList(new ShimIterator(operIter));
+    return Lists.newArrayList(new ShimIterator<T>(operIter));
   }
 
-  public static ResultIterator emptyIterator()
+  public static <T> ResultIterator<T> emptyIterator()
   {
-    return new ResultIterator()
+    return new ResultIterator<T>()
     {
       @Override
-      public Batch next() throws EofException
+      public T next() throws EofException
       {
         throw Operators.eof();
       }
     };
   }
 
-  public static ResultIterator singletonIterator(Batch item)
+  public static <T> ResultIterator<T> singletonIterator(T item)
   {
-    return new ResultIterator()
+    return new ResultIterator<T>()
     {
       private boolean eof;
 
       @Override
-      public Batch next() throws EofException
+      public T next() throws EofException
       {
         if (eof) {
           throw Operators.eof();

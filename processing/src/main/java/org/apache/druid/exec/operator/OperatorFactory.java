@@ -24,8 +24,8 @@ import org.apache.druid.exec.plan.OperatorSpec;
 
 import java.util.List;
 
-public interface OperatorFactory
+public interface OperatorFactory<T>
 {
   Class<? extends OperatorSpec> accepts();
-  Operator create(FragmentContext context, OperatorSpec plan, List<Operator> children);
+  Operator<T> create(FragmentContext context, OperatorSpec plan, List<Operator<?>> children);
 }

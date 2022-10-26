@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.util;
 
-import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.segment.column.ColumnType;
 
 import java.util.List;

@@ -72,7 +72,7 @@ public class FragmentProfile
       int rootId
   )
   {
-    Operator root = fragment.operator(rootId);
+    Operator<?> root = fragment.operator(rootId);
     List<OperatorChildNode> childProfiles = new ArrayList<>();
     OperatorProfile rootProfile = fragment.profile(root);
     OperatorSpec opSpec = fragment.plan().operator(rootId);

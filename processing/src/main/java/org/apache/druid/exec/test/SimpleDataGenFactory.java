@@ -27,7 +27,7 @@ import org.apache.druid.exec.plan.OperatorSpec;
 
 import java.util.List;
 
-public class SimpleDataGenFactory implements OperatorFactory
+public class SimpleDataGenFactory implements OperatorFactory<Object>
 {
   @Override
   public Class<? extends OperatorSpec> accepts()
@@ -36,7 +36,7 @@ public class SimpleDataGenFactory implements OperatorFactory
   }
 
   @Override
-  public Operator create(FragmentContext context, OperatorSpec plan, List<Operator> children)
+  public Operator<Object> create(FragmentContext context, OperatorSpec plan, List<Operator<?>> children)
   {
     Preconditions.checkArgument(children.isEmpty());
     return new SimpleDataGenOperator(context, (SimpleDataGenSpec) plan);

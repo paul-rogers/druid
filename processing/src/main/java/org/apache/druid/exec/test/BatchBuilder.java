@@ -19,13 +19,13 @@
 
 package org.apache.druid.exec.test;
 
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchWriter;
-import org.apache.druid.exec.operator.ColumnWriterFactory;
-import org.apache.druid.exec.operator.RowSchema;
-import org.apache.druid.exec.shim.MapListWriter;
-import org.apache.druid.exec.shim.ObjectArrayListWriter;
-import org.apache.druid.exec.shim.ScanResultValueWriter;
+import org.apache.druid.exec.batch.Batch;
+import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.batch.ColumnWriterFactory;
+import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.shim.MapListBatchType;
+import org.apache.druid.exec.shim.ObjectArrayListBatchType;
+import org.apache.druid.exec.shim.ScanResultValueBatchType;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.scan.ScanQuery;
 
@@ -37,27 +37,27 @@ import org.apache.druid.query.scan.ScanQuery;
  */
 public class BatchBuilder
 {
-  private final BatchWriter batch;
+  private final BatchWriter<?> batch;
 
-  public BatchBuilder(final BatchWriter batch)
+  public BatchBuilder(final BatchWriter<?> batch)
   {
     this.batch = batch;
     newBatch();
   }
 
-  public static BatchBuilder of(final BatchWriter batch)
+  public static BatchBuilder of(final BatchWriter<?> batch)
   {
     return new BatchBuilder(batch);
   }
 
   public static BatchBuilder arrayList(RowSchema schema)
   {
-    return of(new ObjectArrayListWriter(schema));
+    return of(ObjectArrayListBatchType.INSTANCE.newWriter(schema, Integer.MAX_VALUE));
   }
 
   public static BatchBuilder mapList(RowSchema schema)
   {
-    return of(new MapListWriter(schema));
+    return of(MapListBatchType.INSTANCE.newWriter(schema, Integer.MAX_VALUE));
   }
 
   public static BatchBuilder scanResultValue(
@@ -66,7 +66,8 @@ public class BatchBuilder
       final ScanQuery.ResultFormat format
   )
   {
-    return of(new ScanResultValueWriter(datasourceName, schema, format, ScanQuery.DEFAULT_BATCH_SIZE));
+    return of(
+        ScanResultValueBatchType.typeFor(format).newWriter(schema, ScanQuery.DEFAULT_BATCH_SIZE));
   }
 
   public RowSchema schema()
@@ -119,6 +120,6 @@ public class BatchBuilder
 
   public Batch build()
   {
-    return batch.harvest();
+    return batch.harvestAsBatch();
   }
 }

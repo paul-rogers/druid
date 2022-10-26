@@ -19,12 +19,12 @@
 
 package org.apache.druid.exec.util;
 
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.BatchWriter;
-import org.apache.druid.exec.operator.Batches;
-import org.apache.druid.exec.operator.RowSchema;
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.batch.Batches;
+import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.Batch;
+import org.apache.druid.exec.batch.BatchType.BatchFormat;
 import org.apache.druid.exec.test.TestUtils;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;
@@ -70,7 +70,7 @@ public class CopierTest
         .scalar("b", ColumnType.LONG)
         .build();
 
-    BatchWriter destWriter = TestUtils.writerFor(schema, destFormat, 6);
+    BatchWriter<?> destWriter = TestUtils.writerFor(schema, destFormat, 6);
     destWriter.newBatch();
 
     // Create a batch and verify the correct copier kind is created.
@@ -118,6 +118,6 @@ public class CopierTest
         .row("fifth", 5)
         .row("sixth", 6)
         .build();
-    BatchValidator.assertEquals(expected, destWriter.harvest());
+    BatchValidator.assertEquals(expected, destWriter.harvestAsBatch());
   }
 }

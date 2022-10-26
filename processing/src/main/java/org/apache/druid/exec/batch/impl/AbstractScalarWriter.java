@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.operator.ColumnWriterFactory.ScalarColumnWriter;
+import org.apache.druid.exec.batch.ColumnWriterFactory.ScalarColumnWriter;
 
 public abstract class AbstractScalarWriter implements ScalarColumnWriter
 {

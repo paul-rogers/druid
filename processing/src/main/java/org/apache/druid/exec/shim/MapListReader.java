@@ -19,13 +19,13 @@
 
 package org.apache.druid.exec.shim;
 
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.impl.AbstractScalarReader;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl.ColumnReaderMaker;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.operator.RowSchema;
-import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
 
 import java.util.List;
 import java.util.Map;
@@ -66,6 +66,7 @@ public class MapListReader extends ListReader<Map<String, Object>> implements Co
 
   public MapListReader(RowSchema schema)
   {
+    super(MapListBatchType.INSTANCE.factory(schema));
     this.schema = schema;
     this.columnReaders = new ColumnReaderFactoryImpl(schema, this);
   }

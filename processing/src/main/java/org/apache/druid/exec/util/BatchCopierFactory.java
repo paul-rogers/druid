@@ -20,11 +20,11 @@
 package org.apache.druid.exec.util;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.BatchReader.BatchCursor;
-import org.apache.druid.exec.operator.BatchWriter;
-import org.apache.druid.exec.operator.ColumnReaderFactory;
-import org.apache.druid.exec.operator.ColumnWriterFactory;
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.batch.ColumnReaderFactory;
+import org.apache.druid.exec.batch.ColumnWriterFactory;
 import org.apache.druid.java.util.common.UOE;
 
 public class BatchCopierFactory
@@ -55,20 +55,20 @@ public class BatchCopierFactory
     }
 
     @Override
-    public boolean copyAll(BatchReader source, BatchWriter dest)
+    public boolean copyAll(BatchReader source, BatchWriter<?> dest)
     {
       return copyRows(source, dest, Integer.MAX_VALUE);
     }
 
     @Override
-    public boolean copyRow(BatchReader source, BatchWriter dest)
+    public boolean copyRow(BatchReader source, BatchWriter<?> dest)
     {
       return copyRows(source, dest, 1);
     }
 
-    public boolean copyRows(BatchReader source, BatchWriter dest, int n)
+    public boolean copyRows(BatchReader source, BatchWriter<?> dest, int n)
     {
-      BatchCursor sourceCursor = source.cursor();
+      BatchCursor sourceCursor = source.batchCursor();
       for (int i = 0; i < n; i++) {
         if (!sourceCursor.next()) {
 
@@ -101,14 +101,14 @@ public class BatchCopierFactory
   protected static class DirectCopier implements BatchCopier
   {
     @Override
-    public boolean copyAll(BatchReader source, BatchWriter dest)
+    public boolean copyAll(BatchReader source, BatchWriter<?> dest)
     {
       dest.directCopy(source, Integer.MAX_VALUE);
       return source.cursor().isEOF();
     }
 
     @Override
-    public boolean copyRow(BatchReader source, BatchWriter dest)
+    public boolean copyRow(BatchReader source, BatchWriter<?> dest)
     {
       int start = dest.size();
       dest.directCopy(source, 1);
@@ -118,9 +118,9 @@ public class BatchCopierFactory
 
   private static final BatchCopier DIRECT_COPY = new DirectCopier();
 
-  public static BatchCopier build(BatchReader source, BatchWriter dest)
+  public static BatchCopier build(BatchReader source, BatchWriter<?> dest)
   {
-    if (dest.canDirectCopyFrom(source)) {
+    if (dest.factory().type().canDirectCopyFrom(source.factory().type())) {
       return DIRECT_COPY;
     } else {
       return new GenericCopier(source.columns(), dest.columns());

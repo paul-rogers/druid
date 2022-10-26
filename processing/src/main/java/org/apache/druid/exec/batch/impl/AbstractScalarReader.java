@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
 import org.apache.druid.segment.column.ColumnType;
 
 public abstract class AbstractScalarReader implements ScalarColumnReader

@@ -20,7 +20,6 @@
 package org.apache.druid.exec.operator.impl;
 
 import org.apache.druid.exec.fragment.FragmentContext;
-import org.apache.druid.exec.operator.Batch;
 import org.apache.druid.exec.operator.Operator.IterableOperator;
 import org.apache.druid.exec.operator.Operators;
 import org.apache.druid.exec.operator.ResultIterator;
@@ -31,20 +30,20 @@ import org.apache.druid.exec.operator.ResultIterator;
  * tests when we want an empty input, and for a fragment that
  * somehow ended up with no operators.
  */
-public class NullOperator implements IterableOperator
+public class NullOperator<T> implements IterableOperator<T>
 {
   public NullOperator(FragmentContext context)
   {
   }
 
   @Override
-  public ResultIterator open()
+  public ResultIterator<T> open()
   {
     return this;
   }
 
   @Override
-  public Batch next() throws EofException
+  public T next() throws EofException
   {
     throw Operators.eof();
   }

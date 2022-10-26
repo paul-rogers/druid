@@ -19,8 +19,11 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.operator.BatchWriter;
-import org.apache.druid.exec.operator.ColumnWriterFactory;
+import org.apache.druid.exec.batch.Batch;
+import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.batch.ColumnWriterFactory;
+import org.apache.druid.exec.batch.impl.BatchImpl;
 
 /**
  * Defines a writer which wraps some other writer. The column writers for
@@ -29,13 +32,21 @@ import org.apache.druid.exec.operator.ColumnWriterFactory;
  * simpler row format, such as the {@code ScanResultValue} wraps a list of
  * maps or object arrays.
  */
-public abstract class DelegatingBatchWriter implements BatchWriter
+public abstract class DelegatingBatchWriter<T> implements BatchWriter<T>
 {
-  protected final BatchWriter delegate;
+  protected final BatchFactory factory;
+  protected final BatchWriter<?> delegate;
 
-  public DelegatingBatchWriter(BatchWriter delegate)
+  public DelegatingBatchWriter(final BatchFactory factory, final BatchWriter<?> delegate)
   {
+    this.factory = factory;
     this.delegate = delegate;
+  }
+
+  @Override
+  public BatchFactory factory()
+  {
+    return factory;
   }
 
   @Override
@@ -66,5 +77,11 @@ public abstract class DelegatingBatchWriter implements BatchWriter
   public ColumnWriterFactory columns()
   {
     return delegate.columns();
+  }
+
+  @Override
+  public Batch harvestAsBatch()
+  {
+    return new BatchImpl(factory, harvest());
   }
 }

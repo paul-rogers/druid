@@ -76,5 +76,5 @@ public interface FragmentContext
    * operator. Can be done while the fragment runs, or at close time.
    * The last update wins, so metrics must be cummulative.
    */
-  void updateProfile(Operator op, OperatorProfile profile);
+  void updateProfile(Operator<?> op, OperatorProfile profile);
 }

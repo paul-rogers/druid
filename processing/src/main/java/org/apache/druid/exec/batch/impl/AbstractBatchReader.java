@@ -19,15 +19,18 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.operator.BatchReader;
+import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.util.ExecUtils;
 
 public abstract class AbstractBatchReader implements BatchReader
 {
+  protected final BatchFactory factory;
   protected final SeekableCursor cursor;
 
-  public AbstractBatchReader()
+  public AbstractBatchReader(BatchFactory factory)
   {
+    this.factory = factory;
     this.cursor = new SeekableCursor();
     cursor.bindListener(posn -> bindRow(posn));
   }
@@ -35,9 +38,21 @@ public abstract class AbstractBatchReader implements BatchReader
   protected abstract void bindRow(int posn);
 
   @Override
-  public BatchCursor cursor()
+  public RowCursor cursor()
   {
     return cursor;
+  }
+
+  @Override
+  public BatchCursor batchCursor()
+  {
+    return cursor;
+  }
+
+  @Override
+  public BatchFactory factory()
+  {
+    return factory;
   }
 
   @Override

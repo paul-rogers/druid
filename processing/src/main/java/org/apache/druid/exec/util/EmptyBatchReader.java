@@ -19,13 +19,13 @@
 
 package org.apache.druid.exec.util;
 
+import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.impl.AbstractScalarReader;
 import org.apache.druid.exec.batch.impl.BaseBatchReader;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl.ColumnReaderMaker;
-import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.operator.RowSchema;
-import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
 
 /**
  * Trivial reader for an empty batch. Most useful when the format of the batch
@@ -55,9 +55,10 @@ public class EmptyBatchReader<T> extends BaseBatchReader<T> implements ColumnRea
     }
   }
 
-  public EmptyBatchReader(RowSchema schema)
+  public EmptyBatchReader(BatchFactory factory)
   {
-    this.columnReaders = new ColumnReaderFactoryImpl(schema, this);
+    super(factory);
+    this.columnReaders = new ColumnReaderFactoryImpl(factory.schema(), this);
   }
 
   @Override

@@ -19,13 +19,13 @@
 
 package org.apache.druid.exec.shim;
 
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.impl.AbstractScalarReader;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl.ColumnReaderMaker;
-import org.apache.druid.exec.operator.BatchReader;
-import org.apache.druid.exec.operator.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.operator.RowSchema;
-import org.apache.druid.exec.operator.RowSchema.ColumnSchema;
 
 import java.util.List;
 
@@ -64,6 +64,7 @@ public class ObjectArrayListReader extends ListReader<Object[]> implements Colum
 
   public ObjectArrayListReader(RowSchema schema)
   {
+    super(ObjectArrayListBatchType.INSTANCE.factory(schema));
     this.columnReaders = new ColumnReaderFactoryImpl(schema, this);
   }
 

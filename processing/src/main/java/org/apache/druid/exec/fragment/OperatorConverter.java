@@ -14,26 +14,26 @@ import java.util.Map;
 
 public class OperatorConverter
 {
-  private final Map<Class<? extends OperatorSpec>, OperatorFactory> factories;
+  private final Map<Class<? extends OperatorSpec>, OperatorFactory<?>> factories;
 
   public OperatorConverter()
   {
     this(Collections.emptyList());
   }
 
-  public OperatorConverter(List<OperatorFactory> extns)
+  public OperatorConverter(List<OperatorFactory<?>> extns)
   {
-    List<OperatorFactory> stdOps = Collections.singletonList(new InternalSortFactory());
-    ImmutableMap.Builder<Class<? extends OperatorSpec>, OperatorFactory> builder = ImmutableMap.builder();
-    for (OperatorFactory factory : Iterables.concat(stdOps, extns)) {
+    List<OperatorFactory<?>> stdOps = Collections.<OperatorFactory<?>> singletonList(new InternalSortFactory());
+    ImmutableMap.Builder<Class<? extends OperatorSpec>, OperatorFactory<?>> builder = ImmutableMap.builder();
+    for (OperatorFactory<?> factory : Iterables.concat(stdOps, extns)) {
       builder.put(factory.accepts(), factory);
     }
     factories = builder.build();
   }
 
-  public Operator create(FragmentManager fragment, OperatorSpec plan, List<Operator> children)
+  public Operator<?> create(FragmentManager fragment, OperatorSpec plan, List<Operator<?>> children)
   {
-    OperatorFactory factory = factories.get(plan.getClass());
+    OperatorFactory<?> factory = factories.get(plan.getClass());
     if (factory == null) {
       throw new ISE("Operator spec %s has no registered factory", plan.getClass().getSimpleName());
     }

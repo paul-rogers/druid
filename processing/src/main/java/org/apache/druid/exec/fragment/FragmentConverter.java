@@ -55,20 +55,20 @@ public class FragmentConverter
     builder.createTree();
   }
 
-  public Operator createTree()
+  public Operator<?> createTree()
   {
-    Operator root = createSubtree(plan.operator(plan.spec().rootId()));
+    Operator<?> root = createSubtree(plan.operator(plan.spec().rootId()));
     fragment.registerRoot(root);
     return root;
   }
 
-  private Operator createSubtree(OperatorSpec opSpec)
+  private Operator<?> createSubtree(OperatorSpec opSpec)
   {
-    List<Operator> children = opSpec.children().stream()
+    List<Operator<?>> children = opSpec.children().stream()
         .map(childId -> plan.operator(childId))
         .map(child -> createSubtree(child))
         .collect(Collectors.toList());
-    Operator op = opConverter.create(fragment, opSpec, children);
+    Operator<?> op = opConverter.create(fragment, opSpec, children);
     fragment.register(opSpec, op);
     return op;
   }
