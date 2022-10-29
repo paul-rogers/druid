@@ -31,6 +31,48 @@ import java.util.List;
  */
 public abstract class ListWriter<T> extends AbstractBatchWriter<List<T>>
 {
+  protected class CopierImpl implements Copier
+  {
+    private final ListReader<T> source;
+
+    public CopierImpl(ListReader<T> source)
+    {
+      this.source = source;
+    }
+
+    @Override
+    public int copy(int n)
+    {
+      final BatchCursor sourceCursor = source.batchCursor();
+
+      // The equivalent of advancing to the next row before reading.
+      final int start = sourceCursor.index() + 1;
+      final int availableCount = sourceCursor.size() - start;
+      final int targetCount = Math.min(n, availableCount);
+      final ArrayList<T> data = (ArrayList<T>) batch;
+      final int capacity = sizeLimit - data.size();
+      final int copyCount = Math.min(targetCount, capacity);
+      if (copyCount <= 0) {
+        return 0;
+      }
+      data.ensureCapacity(data.size() + copyCount);
+      final List<T> sourceRows = source.rows();
+      final int end = start + copyCount;
+      for (int i = start; i < end; i++) {
+        data.add(sourceRows.get(i));
+      }
+
+      // Position at EOF the copy stopped because of source availability.
+      // This mimics next() returning false at EOF.
+      int finalPosn = end - 1;
+      if (copyCount == availableCount && copyCount < n && copyCount <= capacity) {
+        finalPosn++;
+      }
+      sourceCursor.seek(finalPosn);
+      return copyCount;
+    }
+  }
+
   protected List<T> batch;
 
   public ListWriter(final BatchFactory batchFactory)
@@ -61,44 +103,5 @@ public abstract class ListWriter<T> extends AbstractBatchWriter<List<T>>
   public int size()
   {
     return batch == null ? 0 : batch.size();
-  }
-
-  @Override
-  protected void createRow()
-  {
-    batch.add(newInstance());
-  }
-
-  protected abstract T newInstance();
-
-  protected int appendFromList(ListReader<T> source, int n)
-  {
-    final BatchCursor sourceCursor = source.batchCursor();
-
-    // The equivalent of advancing to the next row before reading.
-    final int start = sourceCursor.index() + 1;
-    final int availableCount = sourceCursor.size() - start;
-    final int targetCount = Math.min(n, availableCount);
-    final ArrayList<T> data = (ArrayList<T>) batch;
-    final int capacity = sizeLimit - data.size();
-    final int copyCount = Math.min(targetCount, capacity);
-    if (copyCount <= 0) {
-      return 0;
-    }
-    data.ensureCapacity(data.size() + copyCount);
-    final List<T> sourceRows = source.rows();
-    final int end = start + copyCount;
-    for (int i = start; i < end; i++) {
-      data.add(sourceRows.get(i));
-    }
-
-    // Position at EOF the copy stopped because of source availability.
-    // This mimics next() returning false at EOF.
-    int finalPosn = end - 1;
-    if (copyCount == availableCount && copyCount < n && copyCount <= capacity) {
-      finalPosn++;
-    }
-    sourceCursor.seek(finalPosn);
-    return copyCount;
   }
 }

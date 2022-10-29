@@ -22,6 +22,9 @@ package org.apache.druid.exec.batch.impl;
 import org.apache.druid.exec.batch.ColumnReaderFactory;
 import org.apache.druid.exec.batch.RowSchema;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Provides column readers for a batch reader. Readers are created lazily, then
  * cached. Lazy creation is used because may operators use a subset of columns:
@@ -65,5 +68,17 @@ public class ColumnReaderFactoryImpl implements ColumnReaderFactory
       columnReaders[ordinal] = readerMaker.buildReader(ordinal);
     }
     return columnReaders[ordinal];
+  }
+
+  @Override
+  public List<ScalarColumnReader> columns()
+  {
+    // Done this way, rather than Arrays.asList(), because we may have
+    // to materialize the reader if it has not yet been materialized.
+    List<ScalarColumnReader> readers = new ArrayList<>();
+    for (int i = 0; i < columnReaders.length; i++) {
+      readers.add(scalar(i));
+    }
+    return readers;
   }
 }

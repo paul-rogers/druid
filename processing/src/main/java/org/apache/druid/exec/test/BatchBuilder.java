@@ -21,11 +21,11 @@ package org.apache.druid.exec.test;
 
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchWriter;
-import org.apache.druid.exec.batch.ColumnWriterFactory;
 import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.shim.MapListBatchType;
 import org.apache.druid.exec.shim.ObjectArrayListBatchType;
 import org.apache.druid.exec.shim.ScanResultValueBatchType;
+import org.apache.druid.exec.shim.SingletonObjectArrayReader;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.scan.ScanQuery;
 
@@ -38,10 +38,12 @@ import org.apache.druid.query.scan.ScanQuery;
 public class BatchBuilder
 {
   private final BatchWriter<?> batch;
+  private final SingletonObjectArrayReader reader;
 
   public BatchBuilder(final BatchWriter<?> batch)
   {
     this.batch = batch;
+    reader = new SingletonObjectArrayReader(batch.factory().schema());
     newBatch();
   }
 
@@ -72,7 +74,7 @@ public class BatchBuilder
 
   public RowSchema schema()
   {
-    return batch.columns().schema();
+    return batch.factory().schema();
   }
 
   public BatchBuilder newBatch()
@@ -88,20 +90,17 @@ public class BatchBuilder
 
   /**
    * Add a row based on the tuple of values provided as arguments.
-    */
+   */
   public BatchBuilder row(Object...cols)
   {
-    newRow();
-    ColumnWriterFactory writer = batch.columns();
-    for (int i = 0; i < cols.length; i++) {
-      writer.scalar(i).setValue(cols[i]);
-    }
+    writeRow(cols);
     return this;
   }
 
-  private void newRow()
+  private void writeRow(Object[] row)
   {
-    if (!batch.newRow()) {
+    reader.bind(row);
+    if (batch.copier(reader).copy(1) == 0) {
       throw new ISE("Batch is full: check isFull() before writing");
     }
   }
@@ -113,8 +112,7 @@ public class BatchBuilder
    */
   public BatchBuilder singletonRow(Object col)
   {
-    newRow();
-    batch.columns().scalar(0).setValue(col);
+    writeRow(new Object[] {col});
     return this;
   }
 

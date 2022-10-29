@@ -1,10 +1,10 @@
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.AbstractBatchType;
 import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.impl.AbstractBatchType;
 import org.apache.druid.exec.util.TypeInference;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.query.scan.ScanQuery;
@@ -31,8 +31,9 @@ public class ScanResultValueBatchType extends AbstractBatchType
   {
     super(
         format,
-        true, // Can seek
-        false // Can't sort
+        true,  // Can seek
+        false, // Can't sort
+        true   // Can write
     );
     this.resultFormat = resultFormat;
   }

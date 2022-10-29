@@ -22,7 +22,6 @@ package org.apache.druid.exec.shim;
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchFactory;
 import org.apache.druid.exec.batch.BatchWriter;
-import org.apache.druid.exec.batch.ColumnWriterFactory;
 import org.apache.druid.exec.batch.impl.BatchImpl;
 
 /**
@@ -65,18 +64,6 @@ public abstract class DelegatingBatchWriter<T> implements BatchWriter<T>
   public boolean isFull()
   {
     return delegate.isFull();
-  }
-
-  @Override
-  public boolean newRow()
-  {
-    return delegate.newRow();
-  }
-
-  @Override
-  public ColumnWriterFactory columns()
-  {
-    return delegate.columns();
   }
 
   @Override

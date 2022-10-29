@@ -20,11 +20,9 @@
 package org.apache.druid.exec.batch.impl;
 
 import org.apache.druid.exec.batch.BatchFactory;
-import org.apache.druid.exec.batch.ColumnReaderFactory;
 
-public abstract class BaseBatchReader<T> extends AbstractBatchReader
+public abstract class BaseBatchReader<T> extends BaseDirectReader
 {
-  protected ColumnReaderFactory columnReaders;
   protected T batch;
 
   public BaseBatchReader(BatchFactory factory)
@@ -39,12 +37,6 @@ public abstract class BaseBatchReader<T> extends AbstractBatchReader
   }
 
   protected abstract void reset();
-
-  @Override
-  public ColumnReaderFactory columns()
-  {
-    return columnReaders;
-  }
 
   public T rows()
   {

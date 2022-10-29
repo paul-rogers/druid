@@ -19,25 +19,68 @@
 
 package org.apache.druid.exec.batch;
 
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+
+import java.util.List;
+
 /**
  * Creates and writes to a batch. Call {@link #newBatch()} to create a new
  * batch for writing. Call {@link #harvest()} to "harvest" the completed
  * batch.
  * <p>
- * Batches are written sequentially. Call {@link #newRow()} to create each
- * new row. Batches can have a size limit. {@code newRow()} will return
- * {@code false} if the batch is full. {@link #isFull()} returns the same
- * information.
+ * Batches are written sequentially using a "pull" model. To write, the
+ * application creates either a {@link RowWriter} or a {@link Copier}.
+ * The {@code RowWriter} allows an arbitrary set of column readers to populate
+ * the row: the only restriction is that there must be one column reader for
+ * each target column. The {@code Copier} is for the special case of copying
+ * between identical rows, and may be optimized internally.
  * <p>
- * Each row of the batch is written using a {@link RowWriter} provided by
- * {@link #row()}. The same row writer is used for all batches. The client can
- * cache the row writer, or ask for it each time it is needed.
+ * Batches have a size limit. {@link #isFull()} returns whether the
+ * batch is full. The {@link RowWriter} and {@link Copier} interfaces also
+ * observe the limit.
  */
 public interface BatchWriter<T>
 {
+  /**
+   * Writer for an individual row. Data comes from a set of projections
+   * provided at creation time. Advances the position of the writer,
+   * but not the reader: the caller is responsible for the reader's cursor.
+   */
+  public interface RowWriter
+  {
+    /**
+     * Write a row by projecting columns from the projector provided at
+     * creation time.
+     *
+     * @return {@code true} if a new row was created, {@code false} if the batch is
+     * full and no new rows can be added. If full, harvest the current batch,
+     * create a new batch, and again write a row with the same projections.
+     */
+    boolean write();
+  }
+
+  /**
+   * Copies any number of rows from a reader provided at creation time
+   * to this batch. The reader and writer schemas must be the same. Writers
+   * will optimize this path if the reader and writer are compatible and allow
+   * efficient row copies. Advances both the reader and writer positions.
+   *
+   * @return the number of rows copied which is the lesser of the number of
+   * rows available from the input, space available in the target batch, or
+   * the number of rows requested. If the batch fills, the reader cursor is
+   * left positioned at the last row copied so that a second copy into the
+   * new batch resumes where this one left off.
+   */
+  public interface Copier
+  {
+    int copy(int n);
+  }
+
+  RowSchema schema();
   BatchFactory factory();
 
-  ColumnWriterFactory columns();
+  RowWriter rowWriter(List<ScalarColumnReader> readers);
+  Copier copier(BatchReader source);
 
   /**
    * Create a new batch. Must be called before writing to the batch, and
@@ -59,14 +102,6 @@ public interface BatchWriter<T>
   boolean isFull();
 
   /**
-   * Create a new row. Call this before writing to a row.
-   *
-   * @return {@code true} if a new row was created, {@code false} if the batch is
-   * full and no new rows can be added.
-   */
-  boolean newRow();
-
-  /**
    * Retrieve the completed batch. Moves the batch writer into an idle state:
    * no writing operations are allowed until {@link #newBatch()} is called again.
    * @return the newly created batch
@@ -80,19 +115,4 @@ public interface BatchWriter<T>
    * @return the newly created batch as a {@link Batch}
    */
   Batch harvestAsBatch();
-
-  /**
-   * Copies rows from the source into this batch up to the size limit, starting
-   * with the current reader position. The reader is left positioned after
-   * the last row copied. Only applies when the reader is compatible, as
-   * indicated by {@link #canDirectCopyFrom(BatchReader)}. Use
-   * {@link org.apache.druid.exec.batch.Batches#copier(BatchReader, BatchWriter)}
-   * for a generic solution.
-   * <p>
-   * Copies up to the given number of rows, the available reader rows, or the
-   * capacity of the writer, whichever is lower.
-   *
-   * @return the number of rows copied
-   */
-  int directCopy(BatchReader from, int n);
 }

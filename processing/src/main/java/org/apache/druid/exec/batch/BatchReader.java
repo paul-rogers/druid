@@ -70,6 +70,7 @@ public interface BatchReader extends RowReader
     boolean seek(int posn);
   }
 
+  RowSchema schema();
   BatchFactory factory();
   BatchCursor batchCursor();
 

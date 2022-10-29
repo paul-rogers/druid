@@ -20,11 +20,8 @@
 package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.batch.BatchReader;
-import org.apache.druid.exec.batch.ColumnWriterFactory.ScalarColumnWriter;
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema;
-import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
-import org.apache.druid.exec.batch.impl.AbstractScalarWriter;
-import org.apache.druid.exec.batch.impl.ColumnWriterFactoryImpl;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -35,59 +32,58 @@ import java.util.Map;
  */
 public class MapListWriter extends ListWriter<Map<String, Object>>
 {
-  /**
-   * Since column values are all objects, use a generic column writer.
-   */
-  private class ScalarWriterImpl extends AbstractScalarWriter
+  private class RowWriterImpl implements RowWriter
   {
-    private final String colName;
+    private final ScalarColumnReader projections[];
 
-    public ScalarWriterImpl(String colName)
+    private RowWriterImpl(ScalarColumnReader[] projections)
     {
-      this.colName = colName;
+      this.projections = projections;
     }
 
     @Override
-    public ColumnSchema schema()
+    public boolean write()
     {
-      return columns().schema().column(colName);
-    }
-
-    @Override
-    public void setObject(Object value)
-    {
-      row.put(colName, value);
+      if (isFull()) {
+        return false;
+      }
+      Map<String, Object> row = newRow();
+      RowSchema schema = schema();
+      for (int i = 0; i < projections.length; i++) {
+        if (!projections[i].isNull()) {
+          row.put(schema.column(i).name(), projections[i].getValue());
+        }
+      }
+      return true;
     }
   }
-
-  private Map<String, Object> row;
 
   public MapListWriter(RowSchema schema, int sizeLimit)
   {
     super(MapListBatchType.INSTANCE.factory(schema), sizeLimit);
-    int rowWidth = schema.size();
-    final ScalarColumnWriter[] columnWriters = new ScalarColumnWriter[rowWidth];
-    for (int i = 0; i < rowWidth; i++) {
-      columnWriters[i] = new ScalarWriterImpl(schema.column(i).name());
-    }
-    this.columnWriters = new ColumnWriterFactoryImpl(schema, columnWriters);
   }
 
-  @Override
-  protected Map<String, Object> newInstance()
+  protected Map<String, Object> newRow()
   {
-    row = new HashMap<>();
+    Map<String, Object> row = new HashMap<>();
+    batch.add(row);
     return row;
   }
 
   @Override
-  public int directCopy(BatchReader from, int n)
+  protected RowWriter newRowWriter(ScalarColumnReader[] projections)
+  {
+    return new RowWriterImpl(projections);
+  }
+
+  @Override
+  public Copier copier(BatchReader from)
   {
     MapListReader source = from.unwrap(MapListReader.class);
     if (source == null) {
-      return super.directCopy(from, n);
+      return super.copier(from);
     } else {
-      return appendFromList(source, n);
+      return new CopierImpl(source);
     }
   }
 }

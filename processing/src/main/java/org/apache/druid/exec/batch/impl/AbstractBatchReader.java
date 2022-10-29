@@ -21,6 +21,7 @@ package org.apache.druid.exec.batch.impl;
 
 import org.apache.druid.exec.batch.BatchFactory;
 import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.util.ExecUtils;
 
 public abstract class AbstractBatchReader implements BatchReader
@@ -36,6 +37,12 @@ public abstract class AbstractBatchReader implements BatchReader
   }
 
   protected abstract void bindRow(int posn);
+
+  @Override
+  public RowSchema schema()
+  {
+    return factory.schema();
+  }
 
   @Override
   public RowCursor cursor()

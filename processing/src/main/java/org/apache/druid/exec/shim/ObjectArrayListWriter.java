@@ -20,11 +20,8 @@
 package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.batch.BatchReader;
-import org.apache.druid.exec.batch.ColumnWriterFactory.ScalarColumnWriter;
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema;
-import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
-import org.apache.druid.exec.batch.impl.AbstractScalarWriter;
-import org.apache.druid.exec.batch.impl.ColumnWriterFactoryImpl;
 
 /**
  * Batch writer for a list of {@code Object} arrays where columns are represented
@@ -32,60 +29,62 @@ import org.apache.druid.exec.batch.impl.ColumnWriterFactoryImpl;
  */
 public class ObjectArrayListWriter extends ListWriter<Object[]>
 {
-  /**
-   * Since column values are all objects, use a generic column writer.
-   */
-  private class ScalarWriterImpl extends AbstractScalarWriter
+  private class RowWriterImpl implements RowWriter
   {
-    private final int index;
+    private final ScalarColumnReader projections[];
 
-    public ScalarWriterImpl(int index)
+    private RowWriterImpl(ScalarColumnReader[] projections)
     {
-      this.index = index;
+      this.projections = projections;
     }
 
     @Override
-    public ColumnSchema schema()
+    public boolean write()
     {
-      return columns().schema().column(index);
-    }
-
-    @Override
-    public void setObject(Object value)
-    {
-      row[index] = value;
+      if (isFull()) {
+        return false;
+      }
+      Object[] row = newRow();
+      for (int i = 0; i < projections.length; i++) {
+        if (projections[i].isNull()) {
+          row[i] = null;
+        } else {
+          row[i] = projections[i].getValue();
+        }
+      }
+      return true;
     }
   }
 
   private final int rowWidth;
-  private Object[] row;
 
   public ObjectArrayListWriter(RowSchema schema, int sizeLimit)
   {
     super(ObjectArrayListBatchType.INSTANCE.factory(schema), sizeLimit);
     this.rowWidth = schema.size();
-    final ScalarColumnWriter[] columnWriters = new ScalarColumnWriter[rowWidth];
-    for (int i = 0; i < rowWidth; i++) {
-      columnWriters[i] = new ScalarWriterImpl(i);
-    }
-    this.columnWriters = new ColumnWriterFactoryImpl(schema, columnWriters);
   }
 
-  @Override
-  protected Object[] newInstance()
+  protected Object[] newRow()
   {
-    row = new Object[rowWidth];
+    Object[]row = new Object[rowWidth];
+    batch.add(row);
     return row;
   }
 
   @Override
-  public int directCopy(BatchReader from, int n)
+  protected RowWriter newRowWriter(ScalarColumnReader[] projections)
+  {
+    return new RowWriterImpl(projections);
+  }
+
+  @Override
+  public Copier copier(BatchReader from)
   {
     ObjectArrayListReader source = from.unwrap(ObjectArrayListReader.class);
     if (source == null) {
-      return super.directCopy(from, n);
+      return super.copier(from);
     } else {
-      return appendFromList(source, n);
+      return new CopierImpl(source);
     }
   }
 }

@@ -40,7 +40,12 @@ public abstract class AbstractScalarReader implements ScalarColumnReader
   @Override
   public long getLong()
   {
-    return (Long) getObject();
+    Object value = getObject();
+    if (value instanceof Integer) {
+      return (Integer) value;
+    } else {
+      return (Long) value;
+    }
   }
 
   @Override

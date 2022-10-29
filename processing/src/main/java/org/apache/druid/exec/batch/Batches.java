@@ -27,11 +27,9 @@ import org.apache.druid.exec.batch.impl.IndirectBatchType.IndirectData;
 import org.apache.druid.exec.shim.MapListBatchType;
 import org.apache.druid.exec.shim.ObjectArrayListBatchType;
 import org.apache.druid.exec.shim.ScanResultValueBatchType;
-import org.apache.druid.exec.shim.ScanResultValueWriter;
 import org.apache.druid.exec.util.BatchCopier;
 import org.apache.druid.exec.util.BatchCopierFactory;
 import org.apache.druid.java.util.common.UOE;
-import org.apache.druid.query.scan.ScanQuery;
 
 import java.util.List;
 
@@ -53,34 +51,8 @@ public class Batches
    */
   public static boolean copy(BatchReader source, BatchWriter<?> dest)
   {
-    while (source.cursor().next()) {
-      if (!copyRow(source, dest)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Convenience, non-optimized method to copy a row between batches
-   * with compatible schemas. Consider {@link org.apache.druid.exec.util.BatchCopier}
-   * for production use.
-   */
-  private static boolean copyRow(BatchReader source, BatchWriter<?> dest)
-  {
-    ColumnReaderFactory sourceColumns = source.columns();
-    ColumnWriterFactory destColumns = dest.columns();
-    int columnCount = sourceColumns.schema().size();
-
-    // Quick & dirty check on the number of columns. We trust that
-    // the caller has ensured the types match or are compatible.
-    if (destColumns.schema().size() != columnCount) {
-      throw new UOE("Cannot copy rows between differing schemas: use a projection");
-    }
-    for (int i = 0; i < columnCount; i++) {
-      destColumns.scalar(i).setValue(sourceColumns.scalar(i).getValue());
-    }
-    return false;
+    dest.copier(source).copy(Integer.MAX_VALUE);
+    return source.cursor().isEOF();
   }
 
   public static RowSchema emptySchema()

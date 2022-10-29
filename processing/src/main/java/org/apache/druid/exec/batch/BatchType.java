@@ -18,6 +18,7 @@ public interface BatchType
   }
 
   BatchFormat format();
+  boolean canWrite();
   boolean canSeek();
   boolean canSort();
   BatchFactory factory(RowSchema schema);

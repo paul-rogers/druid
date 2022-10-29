@@ -19,11 +19,13 @@
 
 package org.apache.druid.exec.shim;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchReader.BatchCursor;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchType.BatchFormat;
+import org.apache.druid.exec.batch.BatchWriter.Copier;
 import org.apache.druid.exec.batch.Batches;
 import org.apache.druid.exec.batch.ColumnReaderFactory;
 import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
@@ -34,6 +36,8 @@ import org.apache.druid.exec.util.BatchValidator;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;
+
+import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -58,6 +62,9 @@ public class ObjectArrayListTest
     assertTrue(batchType.canSeek());
     assertFalse(batchType.canSort());
     assertTrue(batchType.canDirectCopyFrom(batchType));
+    assertEquals(0, batchType.sizeOf(null));
+    assertEquals(0, batchType.sizeOf(Collections.emptyList()));
+    assertEquals(1, batchType.sizeOf(Collections.singletonList(new Object[] {})));
   }
 
   @Test
@@ -270,7 +277,8 @@ public class ObjectArrayListTest
     BatchReader reader = batch.newReader();
 
     assertTrue(Batches.canDirectCopy(reader, writer));
-    writer.directCopy(reader, 10);
+    Copier copier = writer.copier(reader);
+    assertEquals(2, copier.copy(10));
     assertTrue(reader.cursor().isEOF());
 
     batchBuilder.newBatch();
@@ -281,9 +289,9 @@ public class ObjectArrayListTest
         .build();
     batch.bindReader(reader);
 
-    writer.directCopy(reader, 1);
+    assertEquals(1, copier.copy(1));
     assertEquals(0, reader.batchCursor().index());
-    writer.directCopy(reader, 10);
+    assertEquals(2, copier.copy(10));
     assertTrue(reader.cursor().isEOF());
 
     batchBuilder.newBatch();
@@ -315,11 +323,12 @@ public class ObjectArrayListTest
         .row("second", 2)
         .build();
     BatchReader reader = batch.newReader();
-    writer.directCopy(reader, 10);
+    Copier copier = writer.copier(reader);
+    assertEquals(2, copier.copy(10));
     assertTrue(reader.cursor().isEOF());
 
     // Cursor is at EOF, try to copy again.
-    writer.directCopy(reader, 10);
+    assertEquals(0, copier.copy(10));
     assertTrue(reader.cursor().isEOF());
 
     // Copy more than fits into the batch
@@ -330,12 +339,12 @@ public class ObjectArrayListTest
         .row("fifth", 5)
         .build();
     batch.bindReader(reader);
-    writer.directCopy(reader, 10);
+    assertEquals(2, copier.copy(10));
     assertFalse(reader.cursor().isEOF());
     assertEquals(1, reader.batchCursor().index());
 
     // Stubbornly try again
-    writer.directCopy(reader, 10);
+    assertEquals(0, copier.copy(10));
     assertFalse(reader.cursor().isEOF());
     assertEquals(1, reader.batchCursor().index());
 

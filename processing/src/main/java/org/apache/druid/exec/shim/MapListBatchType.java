@@ -1,10 +1,10 @@
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.AbstractBatchType;
 import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.impl.AbstractBatchType;
 
 import java.util.List;
 import java.util.Map;
@@ -17,8 +17,9 @@ public class MapListBatchType extends AbstractBatchType
   {
     super(
         BatchType.BatchFormat.MAP,
-        true, // Can seek
-        false // Can't sort
+        true,  // Can seek
+        false, // Can't sort
+        true   // Can write
     );
   }
 
@@ -49,6 +50,6 @@ public class MapListBatchType extends AbstractBatchType
   @Override
   public int sizeOf(Object data)
   {
-    return cast(data).size();
+    return data == null ? 0 : cast(data).size();
   }
 }

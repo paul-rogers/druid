@@ -19,7 +19,6 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.batch.AbstractBatchType;
 import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchWriter;
@@ -51,8 +50,9 @@ public class IndirectBatchType extends AbstractBatchType
   {
     super(
         baseType.format(),
-        true, // Can seek
-        false // Can't sort
+        true,  // Can seek
+        false, // Can't sort
+        true   // Can write (using the base type)
     );
     this.baseType = baseType;
   }

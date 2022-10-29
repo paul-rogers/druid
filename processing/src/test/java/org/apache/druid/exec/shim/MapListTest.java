@@ -19,6 +19,7 @@
 
 package org.apache.druid.exec.shim;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchReader.BatchCursor;
@@ -32,6 +33,8 @@ import org.apache.druid.exec.test.BatchBuilder;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;
+
+import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -55,6 +58,10 @@ public class MapListTest
     assertEquals(BatchFormat.MAP, batchType.format());
     assertTrue(batchType.canSeek());
     assertFalse(batchType.canSort());
+    assertTrue(batchType.canWrite());
+    assertEquals(0, batchType.sizeOf(null));
+    assertEquals(0, batchType.sizeOf(Collections.emptyList()));
+    assertEquals(1, batchType.sizeOf(Collections.singletonList(ImmutableMap.of("foo", "bar"))));
   }
 
   @Test

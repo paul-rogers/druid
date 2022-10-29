@@ -33,6 +33,11 @@ public class BatchFactory
     return batch;
   }
 
+  public BatchWriter<?> newWriter(int sizeLimit)
+  {
+    return batchType.newWriter(schema, sizeLimit);
+  }
+
   public BatchReader newReader()
   {
     return batchType.newReader(schema);

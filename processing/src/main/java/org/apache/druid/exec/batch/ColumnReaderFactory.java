@@ -21,6 +21,8 @@ package org.apache.druid.exec.batch;
 
 import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 
+import java.util.List;
+
 public interface ColumnReaderFactory
 {
   public interface ScalarColumnReader
@@ -47,4 +49,5 @@ public interface ColumnReaderFactory
   RowSchema schema();
   ScalarColumnReader scalar(String name);
   ScalarColumnReader scalar(int ordinal);
+  List<ScalarColumnReader> columns();
 }
