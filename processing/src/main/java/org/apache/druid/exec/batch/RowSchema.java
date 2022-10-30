@@ -40,4 +40,5 @@ public interface RowSchema
   int ordinal(String name);
   ColumnSchema column(int ordinal);
   List<String> columnNames();
+  List<ColumnSchema> columns();
 }

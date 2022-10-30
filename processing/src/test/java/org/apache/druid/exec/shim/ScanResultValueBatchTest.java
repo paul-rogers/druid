@@ -23,6 +23,7 @@ import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchReader.BatchCursor;
 import org.apache.druid.exec.batch.BatchType.BatchFormat;
+import org.apache.druid.exec.batch.BatchWriter.Copier;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.Batches;
 import org.apache.druid.exec.batch.ColumnReaderFactory;
@@ -207,7 +208,8 @@ public class ScanResultValueBatchTest
     BatchReader reader = batch.newReader();
 
     assertTrue(Batches.canDirectCopy(reader, writer));
-    writer.directCopy(reader, 10);
+    Copier copier = writer.copier(reader);
+    assertEquals(2, copier.copy(10));
     assertTrue(reader.cursor().isEOF());
 
     batchBuilder.newBatch();
@@ -218,9 +220,9 @@ public class ScanResultValueBatchTest
         .build();
     batch.bindReader(reader);
 
-    writer.directCopy(reader, 1);
+    assertEquals(1, copier.copy(1));
     assertEquals(0, reader.batchCursor().index());
-    writer.directCopy(reader, 10);
+    assertEquals(2, copier.copy(10));
     assertTrue(reader.cursor().isEOF());
 
     batchBuilder.newBatch();

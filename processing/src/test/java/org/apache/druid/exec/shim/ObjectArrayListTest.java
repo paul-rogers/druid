@@ -19,7 +19,6 @@
 
 package org.apache.druid.exec.shim;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchReader.BatchCursor;

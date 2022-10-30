@@ -23,27 +23,14 @@ import org.apache.druid.exec.batch.BatchType.BatchFormat;
 import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
 import org.apache.druid.exec.batch.impl.BatchImpl;
 import org.apache.druid.exec.batch.impl.IndirectBatchType;
-import org.apache.druid.exec.batch.impl.IndirectBatchType.IndirectData;
 import org.apache.druid.exec.shim.MapListBatchType;
 import org.apache.druid.exec.shim.ObjectArrayListBatchType;
 import org.apache.druid.exec.shim.ScanResultValueBatchType;
-import org.apache.druid.exec.util.BatchCopier;
-import org.apache.druid.exec.util.BatchCopierFactory;
-import org.apache.druid.java.util.common.UOE;
 
 import java.util.List;
 
 public class Batches
 {
-  /**
-   * Optimized copy of rows from one batch to another. To fully optimize, ensure
-   * the same reader and writer are used across batches to avoid the need to
-   */
-  public static BatchCopier copier(BatchReader source, BatchWriter<?> dest)
-  {
-    return BatchCopierFactory.build(source, dest);
-  }
-
   /**
    * Convenience, non-optimized method to copy a all rows between batches
    * with compatible schemas. Consider {@link BatchCopier}, obtained from
@@ -76,9 +63,9 @@ public class Batches
   public static Batch indirectBatch(Batch batch, int[] index)
   {
     return of(
-        new IndirectBatchType(batch.factory().type()),
+        IndirectBatchType.of(batch.factory().type()),
         batch.factory().schema(),
-        new IndirectData(batch.data(), index)
+        IndirectBatchType.wrap(batch.data(), index)
     );
   }
 
@@ -113,7 +100,7 @@ public class Batches
        case SCAN_MAP:
          return ScanResultValueBatchType.MAP_INSTANCE;
       default:
-        throw new UOE("Invalid batch format");
+        return null;
     }
   }
 

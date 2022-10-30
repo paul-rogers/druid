@@ -19,8 +19,6 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.batch.RowReader;
-import org.apache.druid.exec.batch.RowReader.RowCursor;
 import org.junit.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,7 +32,7 @@ public class SeekableCursorTest
   @Test
   public void testEmpty()
   {
-    RowReader.RowCursor cursor = new SeekableCursor();
+    SeekableCursor cursor = new SeekableCursor();
 
     // Cursor has no rows.
     assertEquals(0, cursor.size());

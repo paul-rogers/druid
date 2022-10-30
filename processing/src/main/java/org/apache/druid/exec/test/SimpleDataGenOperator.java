@@ -20,9 +20,11 @@
 package org.apache.druid.exec.test;
 
 import org.apache.druid.exec.batch.BatchWriter;
-import org.apache.druid.exec.batch.ColumnWriterFactory;
-import org.apache.druid.exec.batch.ColumnWriterFactory.ScalarColumnWriter;
+import org.apache.druid.exec.batch.BatchWriter.RowWriter;
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
+import org.apache.druid.exec.batch.impl.AbstractScalarReader;
 import org.apache.druid.exec.fragment.FragmentContext;
 import org.apache.druid.exec.operator.OperatorProfile;
 import org.apache.druid.exec.operator.Operators;
@@ -32,6 +34,8 @@ import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnType;
 import org.joda.time.Instant;
+
+import java.util.stream.Collectors;
 
 /**
  * Simple operator to generate data. Recognizes a number of column names,
@@ -48,9 +52,26 @@ public class SimpleDataGenOperator extends AbstractOperator<Object> implements R
 {
   private final long START_TIME = Instant.parse("2022-11-22T10:00:00Z").getMillis();
 
+  public abstract class ColumnReaderImpl extends AbstractScalarReader
+  {
+    public final ColumnSchema schema;
+
+    public ColumnReaderImpl(ColumnSchema schema)
+    {
+      this.schema = schema;
+    }
+
+    @Override
+    public ColumnSchema schema()
+    {
+      return schema;
+    }
+  }
+
   private final SimpleDataGenSpec plan;
   private final RowSchema schema;
   private BatchWriter<?> writer;
+  private RowWriter rowWriter;
   private int rowCount;
   private int batchCount;
 
@@ -81,7 +102,72 @@ public class SimpleDataGenOperator extends AbstractOperator<Object> implements R
   public ResultIterator<Object> open()
   {
     writer = TestUtils.writerFor(schema, plan.format, plan.batchSize);
+    rowWriter = writer.rowWriter(
+        writer.schema().columns().stream()
+          .map(col -> makeReader(col))
+          .collect(Collectors.toList())
+    );
     return this;
+  }
+
+  private ScalarColumnReader makeReader(ColumnSchema col)
+  {
+    switch (col.name()) {
+      case ColumnHolder.TIME_COLUMN_NAME:
+        return new ColumnReaderImpl(col)
+        {
+          @Override
+          public Object getObject()
+          {
+            return START_TIME + rowCount * 1000;
+          }
+        };
+      case "rid":
+        return new ColumnReaderImpl(col)
+        {
+          @Override
+          public Object getObject()
+          {
+            return rowCount;
+          }
+        };
+      case "rand":
+        return new ColumnReaderImpl(col)
+        {
+          @Override
+          public Object getObject()
+          {
+            return rowCount % 7;
+          }
+        };
+      case "str":
+        return new ColumnReaderImpl(col)
+        {
+          @Override
+          public Object getObject()
+          {
+            return "Row " + rowCount;
+          }
+        };
+      case "str5":
+        return new ColumnReaderImpl(col)
+        {
+          @Override
+          public Object getObject()
+          {
+            return "Rot " + (rowCount % 5);
+          }
+        };
+      default:
+        return new ColumnReaderImpl(col)
+        {
+          @Override
+          public Object getObject()
+          {
+            return null;
+          }
+        };
+    }
   }
 
   @Override
@@ -92,33 +178,11 @@ public class SimpleDataGenOperator extends AbstractOperator<Object> implements R
     }
     batchCount++;
     writer.newBatch();
-    ColumnWriterFactory columns = writer.columns();
     for (; rowCount < plan.rowCount; rowCount++) {
-      if (!writer.newRow()) {
+      if (!rowWriter.write()) {
         break;
       }
-
-      // Slow: don't try this at home. Normally these would be cached.
-      ScalarColumnWriter colWriter = columns.scalar(ColumnHolder.TIME_COLUMN_NAME);
-      if (colWriter != null) {
-        colWriter.setLong(START_TIME + rowCount * 1000);
-      }
-      colWriter = columns.scalar("rid");
-      if (colWriter != null) {
-        colWriter.setLong(rowCount);
-      }
-      colWriter = columns.scalar("rand");
-      if (colWriter != null) {
-        colWriter.setLong(rowCount % 7);
-      }
-      colWriter = columns.scalar("str");
-      if (colWriter != null) {
-        colWriter.setString("Row " + rowCount);
-      }
-      colWriter = columns.scalar("str5");
-      if (colWriter != null) {
-        colWriter.setString("Rot " + (rowCount % 5));
-      }
+      rowCount++;
     }
     return writer.harvest();
   }

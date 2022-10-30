@@ -20,19 +20,44 @@
 package org.apache.druid.exec.batch.impl;
 
 import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.RowSchema;
-import org.apache.druid.exec.operator.Batch;
+import org.apache.druid.exec.batch.BatchType.BatchFormat;
+import org.apache.druid.exec.batch.Batches;
+import org.apache.druid.exec.batch.Batch;
+import org.apache.druid.exec.shim.ObjectArrayListBatchType;
 import org.apache.druid.exec.test.BatchBuilder;
 import org.apache.druid.exec.util.BatchValidator;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;
 
+import java.util.Collections;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class IndirectBatchTest
 {
+  @Test
+  public void testBatchType()
+  {
+    BatchType batchType = IndirectBatchType.of(ObjectArrayListBatchType.INSTANCE);
+    assertEquals(BatchFormat.OBJECT_ARRAY, batchType.format());
+    assertTrue(batchType.canSeek());
+    assertFalse(batchType.canSort());
+    assertFalse(batchType.canDirectCopyFrom(batchType));
+    assertEquals(0, batchType.sizeOf(null));
+    assertEquals(0, batchType.sizeOf(IndirectBatchType.wrap(null, new int[] {})));
+    assertEquals(1, batchType.sizeOf(
+        IndirectBatchType.wrap(
+            Collections.singletonList(new Object[] {}),
+            new int[] {0})
+        )
+    );
+  }
+
   @Test
   public void testEmpty()
   {
@@ -41,7 +66,7 @@ public class IndirectBatchTest
         .scalar("b", ColumnType.LONG)
         .build();
     Batch base = BatchBuilder.arrayList(schema).build();
-    Batch indirectBatch = new IndirectBatch(base, new int[] {});
+    Batch indirectBatch = Batches.indirectBatch(base, new int[] {});
     BatchReader reader = indirectBatch.newReader();
     assertEquals(schema, reader.columns().schema());
     assertFalse(reader.cursor().next());
@@ -61,7 +86,7 @@ public class IndirectBatchTest
         .row("fourth", 4)
         .row("fifth", 5)
         .build();
-    Batch indirectBatch = new IndirectBatch(base, new int[] {2, 4, 1, 3, 0});
+    Batch indirectBatch = Batches.indirectBatch(base, new int[] {2, 4, 1, 3, 0});
 
     Batch expected = BatchBuilder.arrayList(schema)
         .row("third", 3)
@@ -87,7 +112,7 @@ public class IndirectBatchTest
         .row("fourth", 4)
         .row("fifth", 5)
         .build();
-    Batch indirectBatch = new IndirectBatch(base, new int[] {1, 3});
+    Batch indirectBatch = Batches.indirectBatch(base, new int[] {1, 3});
 
     Batch expected = BatchBuilder.arrayList(schema)
         .row("second", 2)

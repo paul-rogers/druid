@@ -159,4 +159,10 @@ public class RowSchemaImpl implements RowSchema
   {
     return columns.hashCode();
   }
+
+  @Override
+  public List<ColumnSchema> columns()
+  {
+    return columns;
+  }
 }

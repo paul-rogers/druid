@@ -19,16 +19,19 @@
 
 package org.apache.druid.exec.util;
 
+import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchType.BatchFormat;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.Batches;
+import org.apache.druid.exec.batch.BatchWriter.Copier;
 import org.apache.druid.exec.batch.RowSchema;
-import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchType.BatchFormat;
+import org.apache.druid.exec.batch.impl.AbstractBatchWriter.NaiveCopier;
 import org.apache.druid.exec.test.TestUtils;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -57,7 +60,13 @@ public class CopierTest
   public void testCopy()
   {
     for (BatchFormat sourceFormat : BatchFormat.values()) {
+      if (Batches.typeFor(sourceFormat) == null) {
+        continue;
+      }
       for (BatchFormat destFormat : BatchFormat.values()) {
+        if (Batches.typeFor(destFormat) == null) {
+          continue;
+        }
         doCopyTest(sourceFormat, destFormat);
       }
     }
@@ -80,17 +89,17 @@ public class CopierTest
         .build();
     BatchReader sourceReader = sourceBatch.newReader();
 
-    BatchCopier copier = Batches.copier(sourceReader, destWriter);
+    Copier copier = destWriter.copier(sourceReader);
     if (directCopyable(sourceFormat, destFormat)) {
-      assertTrue(copier instanceof BatchCopierFactory.DirectCopier);
+      assertFalse(copier instanceof NaiveCopier);
     } else {
-      assertTrue(copier instanceof BatchCopierFactory.GenericCopier);
+      assertTrue(copier instanceof NaiveCopier);
     }
 
     // Copy the first batch row-by-row
-    assertTrue(copier.copyRow(sourceReader, destWriter));
-    assertTrue(copier.copyRow(sourceReader, destWriter));
-    assertFalse(copier.copyRow(sourceReader, destWriter));
+    assertEquals(1, copier.copy(1));
+    assertEquals(1, copier.copy(1));
+    assertEquals(0, copier.copy(1));
 
     // Copy the second batch in bulk.
     sourceBatch = TestUtils.builderFor(schema, sourceFormat)
@@ -98,7 +107,7 @@ public class CopierTest
         .row("fourth", 4)
         .build();
     sourceBatch.bindReader(sourceReader);
-    assertTrue(copier.copyAll(sourceReader, destWriter));
+    assertEquals(2, copier.copy(10));
 
     // Copy the third batch in bulk, but only 2 of the 3 rows fit.
     sourceBatch = TestUtils.builderFor(schema, sourceFormat)
@@ -107,7 +116,7 @@ public class CopierTest
         .row("seventh", 7)
         .build();
     sourceBatch.bindReader(sourceReader);
-    assertFalse(copier.copyAll(sourceReader, destWriter));
+    assertEquals(2, copier.copy(10));
 
     // Verify the combined result.
     Batch expected = TestUtils.builderFor(schema, sourceFormat)

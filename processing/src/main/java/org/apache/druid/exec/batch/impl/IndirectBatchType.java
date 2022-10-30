@@ -57,6 +57,16 @@ public class IndirectBatchType extends AbstractBatchType
     this.baseType = baseType;
   }
 
+  public static IndirectBatchType of(BatchType base)
+  {
+    return new IndirectBatchType(base);
+  }
+
+  public static IndirectData wrap(Object data, int[] index)
+  {
+    return new IndirectData(data, index);
+  }
+
   public BatchType baseType()
   {
     return baseType;
@@ -83,7 +93,7 @@ public class IndirectBatchType extends AbstractBatchType
   @Override
   public int sizeOf(Object data)
   {
-    return ((IndirectData) data).index.length;
+    return data == null ? 0 : ((IndirectData) data).index.length;
   }
 
   @Override

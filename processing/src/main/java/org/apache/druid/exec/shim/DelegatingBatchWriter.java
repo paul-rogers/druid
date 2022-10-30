@@ -21,8 +21,13 @@ package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.batch.impl.BatchImpl;
+
+import java.util.List;
 
 /**
  * Defines a writer which wraps some other writer. The column writers for
@@ -40,6 +45,12 @@ public abstract class DelegatingBatchWriter<T> implements BatchWriter<T>
   {
     this.factory = factory;
     this.delegate = delegate;
+  }
+
+  @Override
+  public RowSchema schema()
+  {
+    return factory.schema();
   }
 
   @Override
@@ -64,6 +75,18 @@ public abstract class DelegatingBatchWriter<T> implements BatchWriter<T>
   public boolean isFull()
   {
     return delegate.isFull();
+  }
+
+  @Override
+  public RowWriter rowWriter(List<ScalarColumnReader> readers)
+  {
+    return delegate.rowWriter(readers);
+  }
+
+  @Override
+  public Copier copier(BatchReader source)
+  {
+    return delegate.copier(source);
   }
 
   @Override
