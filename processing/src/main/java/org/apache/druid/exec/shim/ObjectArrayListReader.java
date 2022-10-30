@@ -64,7 +64,7 @@ public class ObjectArrayListReader extends ListReader<Object[]> implements Colum
 
   public ObjectArrayListReader(RowSchema schema)
   {
-    super(ObjectArrayListBatchType.INSTANCE.factory(schema));
+    super(ObjectArrayListBatchType.INSTANCE.batchSchema(schema));
     this.columnReaders = new ColumnReaderFactoryImpl(schema, this);
   }
 

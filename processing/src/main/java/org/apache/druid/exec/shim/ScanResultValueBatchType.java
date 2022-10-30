@@ -83,13 +83,13 @@ public class ScanResultValueBatchType extends AbstractBatchType
   @Override
   public BatchReader newReader(RowSchema schema)
   {
-    return new ScanResultValueReader(factory(schema), resultFormat);
+    return new ScanResultValueReader(batchSchema(schema), resultFormat);
   }
 
   @Override
   public BatchWriter<?> newWriter(RowSchema schema, int sizeLimit)
   {
-    return ScanResultValueWriter.newWriter(factory(schema), null, sizeLimit, resultFormat);
+    return ScanResultValueWriter.newWriter(batchSchema(schema), null, sizeLimit, resultFormat);
   }
 
   @Override

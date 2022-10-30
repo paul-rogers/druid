@@ -60,7 +60,7 @@ public class ObjectArrayListWriter extends ListWriter<Object[]>
 
   public ObjectArrayListWriter(RowSchema schema, int sizeLimit)
   {
-    super(ObjectArrayListBatchType.INSTANCE.factory(schema), sizeLimit);
+    super(ObjectArrayListBatchType.INSTANCE.batchSchema(schema), sizeLimit);
     this.rowWidth = schema.size();
   }
 

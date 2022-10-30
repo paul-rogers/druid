@@ -63,20 +63,20 @@ public class Batches
   public static Batch indirectBatch(Batch batch, int[] index)
   {
     return of(
-        IndirectBatchType.of(batch.factory().type()),
-        batch.factory().schema(),
+        IndirectBatchType.of(batch.schema().type()),
+        batch.schema().rowSchema(),
         IndirectBatchType.wrap(batch.data(), index)
     );
   }
 
   public static Batch of(BatchType type, RowSchema schema, Object data)
   {
-    return of(type.factory(schema), data);
+    return of(type.batchSchema(schema), data);
   }
 
-  public static Batch of(BatchFactory factory, Object data)
+  public static Batch of(BatchSchema schema, Object data)
   {
-    return new BatchImpl(factory, data);
+    return new BatchImpl(schema, data);
   }
 
   public static ScalarColumnReader[] readProjection(BatchReader reader, List<String> cols)
@@ -106,6 +106,6 @@ public class Batches
 
   public static boolean canDirectCopy(BatchReader reader, BatchWriter<?> writer)
   {
-    return writer.factory().type().canDirectCopyFrom(reader.factory().type());
+    return writer.schema().type().canDirectCopyFrom(reader.schema().type());
   }
 }

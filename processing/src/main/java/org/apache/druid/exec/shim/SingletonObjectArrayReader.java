@@ -56,7 +56,7 @@ public class SingletonObjectArrayReader extends BaseDirectReader implements Colu
     @Override
     public ColumnSchema schema()
     {
-      return SingletonObjectArrayReader.this.schema().column(index);
+      return SingletonObjectArrayReader.this.schema.rowSchema().column(index);
     }
   }
 
@@ -64,7 +64,7 @@ public class SingletonObjectArrayReader extends BaseDirectReader implements Colu
 
   public SingletonObjectArrayReader(RowSchema schema)
   {
-    super(SingletonObjectArrayBatchType.INSTANCE.factory(schema));
+    super(SingletonObjectArrayBatchType.INSTANCE.batchSchema(schema));
     this.columnReaders = new ColumnReaderFactoryImpl(schema, this);
     this.cursor.bind(0);
   }

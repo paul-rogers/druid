@@ -19,17 +19,17 @@
 
 package org.apache.druid.exec.test;
 
+import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.BatchWriter.RowWriter;
 import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.impl.AbstractScalarReader;
 import org.apache.druid.exec.fragment.FragmentContext;
 import org.apache.druid.exec.operator.OperatorProfile;
 import org.apache.druid.exec.operator.Operators;
 import org.apache.druid.exec.operator.ResultIterator;
-import org.apache.druid.exec.operator.impl.AbstractOperator;
+import org.apache.druid.exec.operator.impl.AbstractBatchOperator;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnType;
@@ -48,7 +48,7 @@ import java.util.stream.Collectors;
  * <li>{@code rot}: String, "Rot x" where x is rid mod 5.</li>
  * </li>
  */
-public class SimpleDataGenOperator extends AbstractOperator<Object> implements ResultIterator<Object>
+public class SimpleDataGenOperator extends AbstractBatchOperator implements ResultIterator<Object>
 {
   private final long START_TIME = Instant.parse("2022-11-22T10:00:00Z").getMillis();
 
@@ -69,7 +69,6 @@ public class SimpleDataGenOperator extends AbstractOperator<Object> implements R
   }
 
   private final SimpleDataGenSpec plan;
-  private final RowSchema schema;
   private BatchWriter<?> writer;
   private RowWriter rowWriter;
   private int rowCount;
@@ -77,8 +76,12 @@ public class SimpleDataGenOperator extends AbstractOperator<Object> implements R
 
   public SimpleDataGenOperator(FragmentContext context, SimpleDataGenSpec plan)
   {
-    super(context);
+    super(context, makeSchema(plan));
     this.plan = plan;
+  }
+
+  private static BatchSchema makeSchema(SimpleDataGenSpec plan)
+  {
     SchemaBuilder schemaBuilder = new SchemaBuilder();
     for (String col : plan.columns) {
       switch (col) {
@@ -95,15 +98,15 @@ public class SimpleDataGenOperator extends AbstractOperator<Object> implements R
           schemaBuilder.scalar(col, ColumnType.STRING);
       }
     }
-    this.schema = schemaBuilder.build();
+    return schemaBuilder.buildBatchSchema(plan.format);
   }
 
   @Override
   public ResultIterator<Object> open()
   {
-    writer = TestUtils.writerFor(schema, plan.format, plan.batchSize);
+    writer = schema.newWriter(plan.batchSize);
     rowWriter = writer.rowWriter(
-        writer.schema().columns().stream()
+        writer.schema().rowSchema().columns().stream()
           .map(col -> makeReader(col))
           .collect(Collectors.toList())
     );
@@ -182,7 +185,6 @@ public class SimpleDataGenOperator extends AbstractOperator<Object> implements R
       if (!rowWriter.write()) {
         break;
       }
-      rowCount++;
     }
     return writer.harvest();
   }

@@ -19,10 +19,9 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchFactory;
 import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.ColumnReaderFactory;
-import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.util.ExecUtils;
 
 /**
@@ -34,9 +33,9 @@ import org.apache.druid.exec.util.ExecUtils;
  */
 public abstract class DelegatingBatchReader implements BatchReader
 {
-  protected final BatchFactory factory;
+  protected final BatchSchema factory;
 
-  public DelegatingBatchReader(BatchFactory factory)
+  public DelegatingBatchReader(BatchSchema factory)
   {
     this.factory = factory;
   }
@@ -44,7 +43,7 @@ public abstract class DelegatingBatchReader implements BatchReader
   protected abstract BatchReader delegate();
 
   @Override
-  public BatchFactory factory()
+  public BatchSchema schema()
   {
     return factory;
   }
@@ -72,11 +71,5 @@ public abstract class DelegatingBatchReader implements BatchReader
   {
     T reader = ExecUtils.unwrap(this, readerClass);
     return reader != null ? reader : delegate().unwrap(readerClass);
-  }
-
-  @Override
-  public RowSchema schema()
-  {
-    return delegate().schema();
   }
 }

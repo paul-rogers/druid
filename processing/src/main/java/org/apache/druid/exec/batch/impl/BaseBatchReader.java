@@ -19,13 +19,13 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchSchema;
 
 public abstract class BaseBatchReader<T> extends BaseDirectReader
 {
   protected T batch;
 
-  public BaseBatchReader(BatchFactory factory)
+  public BaseBatchReader(BatchSchema factory)
   {
     super(factory);
   }

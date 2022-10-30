@@ -1,7 +1,7 @@
 package org.apache.druid.exec.window;
 
 import com.google.common.base.Preconditions;
-import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.ColumnReaderFactory;
 import org.apache.druid.exec.batch.RowReader;
@@ -258,7 +258,7 @@ public class BatchBuffer
   /**
    * Factory for the holders for input batches.
    */
-  private final BatchFactory batchFactory;
+  private final BatchSchema batchFactory;
 
   /**
    * Upstream source of batches
@@ -294,7 +294,7 @@ public class BatchBuffer
    */
   private boolean eof;
 
-  public BatchBuffer(final BatchFactory batchFactory, final ResultIterator<?> inputIter)
+  public BatchBuffer(final BatchSchema batchFactory, final ResultIterator<?> inputIter)
   {
     this.batchFactory = batchFactory;
     this.inputIter = inputIter;

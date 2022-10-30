@@ -66,7 +66,7 @@ public class MapListReader extends ListReader<Map<String, Object>> implements Co
 
   public MapListReader(RowSchema schema)
   {
-    super(MapListBatchType.INSTANCE.factory(schema));
+    super(MapListBatchType.INSTANCE.batchSchema(schema));
     this.schema = schema;
     this.columnReaders = new ColumnReaderFactoryImpl(schema, this);
   }

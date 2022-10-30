@@ -19,9 +19,12 @@
 
 package org.apache.druid.exec.util;
 
+import org.apache.druid.exec.batch.BatchSchema;
+import org.apache.druid.exec.batch.BatchType.BatchFormat;
+import org.apache.druid.exec.batch.Batches;
 import org.apache.druid.exec.batch.RowSchema;
-import org.apache.druid.exec.batch.RowSchemaImpl;
 import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
+import org.apache.druid.exec.batch.RowSchemaImpl;
 import org.apache.druid.exec.batch.RowSchemaImpl.ColumnSchemaImpl;
 import org.apache.druid.segment.column.ColumnType;
 
@@ -44,5 +47,13 @@ public class SchemaBuilder
   public RowSchema build()
   {
     return new RowSchemaImpl(columns);
+  }
+
+  public BatchSchema buildBatchSchema(BatchFormat format)
+  {
+    return Batches
+        .typeFor(format)
+        .batchSchema(build());
+
   }
 }

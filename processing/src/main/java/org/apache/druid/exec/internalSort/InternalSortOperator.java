@@ -20,11 +20,12 @@
 package org.apache.druid.exec.internalSort;
 
 import com.google.common.base.Stopwatch;
+import org.apache.druid.exec.batch.impl.IndirectBatchType;
 import org.apache.druid.exec.fragment.FragmentContext;
-import org.apache.druid.exec.operator.Operator;
+import org.apache.druid.exec.operator.BatchOperator;
 import org.apache.druid.exec.operator.OperatorProfile;
 import org.apache.druid.exec.operator.ResultIterator;
-import org.apache.druid.exec.operator.impl.AbstractUnaryOperator;
+import org.apache.druid.exec.operator.impl.AbstractUnaryBatchOperator;
 import org.apache.druid.exec.plan.InternalSortOp;
 import org.apache.druid.frame.key.SortColumn;
 
@@ -32,7 +33,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public abstract class InternalSortOperator
-    extends AbstractUnaryOperator<Object, Object>
+    extends AbstractUnaryBatchOperator
     implements ResultIterator<Object>
 {
   protected final List<SortColumn> keys;
@@ -41,9 +42,16 @@ public abstract class InternalSortOperator
   protected int batchCount;
   protected long sortTimeMs;
 
-  public InternalSortOperator(FragmentContext context, InternalSortOp plan, Operator<Object> input)
+  public InternalSortOperator(FragmentContext context, InternalSortOp plan, BatchOperator input)
   {
-    super(context, input);
+    super(
+        context,
+
+        // The return batch type is the same as the input, with
+        // an indirection vector added.
+        IndirectBatchType.schemaOf(input.batchSchema()),
+        input
+    );
     this.keys = plan.keys();
   }
 

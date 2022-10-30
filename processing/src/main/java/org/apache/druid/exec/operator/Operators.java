@@ -65,4 +65,9 @@ public class Operators
   {
     return new EofException();
   }
+
+  public static BatchOperator asBatch(Operator<?> op)
+  {
+    return (BatchOperator) op;
+  }
 }

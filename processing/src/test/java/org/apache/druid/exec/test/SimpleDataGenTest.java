@@ -21,7 +21,6 @@ package org.apache.druid.exec.test;
 
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchType.BatchFormat;
-import org.apache.druid.exec.batch.Batches;
 import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.fragment.FragmentContext;
 import org.apache.druid.exec.operator.ResultIterator;
@@ -36,6 +35,7 @@ import org.junit.Test;
 import java.util.Arrays;
 import java.util.Collections;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
 public class SimpleDataGenTest
@@ -52,6 +52,8 @@ public class SimpleDataGenTest
     );
     FragmentContext context = TestUtils.emptyFragment();
     SimpleDataGenOperator op = new SimpleDataGenOperator(context, spec);
+    assertEquals(spec.format, op.batchSchema().type().format());
+    assertEquals(0, op.batchSchema().rowSchema().size());
 
     ResultIterator<?> iter = op.open();
     assertThrows(EofException.class, () -> iter.next());
@@ -69,6 +71,8 @@ public class SimpleDataGenTest
     );
     FragmentContext context = TestUtils.emptyFragment();
     SimpleDataGenOperator op = new SimpleDataGenOperator(context, spec);
+    assertEquals(spec.format, op.batchSchema().type().format());
+    assertEquals(3, op.batchSchema().rowSchema().size());
 
     ResultIterator<?> iter = op.open();
     assertThrows(EofException.class, () -> iter.next());
@@ -96,7 +100,9 @@ public class SimpleDataGenTest
         .scalar("rand", ColumnType.LONG)
         .scalar("bob", ColumnType.STRING)
         .build();
-    Batch actual = Batches.of(ObjectArrayListBatchType.INSTANCE, expectedSchema, iter.next());
+    assertEquals(expectedSchema, op.batchSchema().rowSchema());
+
+    Batch actual = op.batchSchema().of(iter.next());
     Batch expected = BatchBuilder.arrayList(expectedSchema)
         .row("Row 1", 1, "Rot 1", 1, null)
         .row("Row 2", 2, "Rot 2", 2, null)

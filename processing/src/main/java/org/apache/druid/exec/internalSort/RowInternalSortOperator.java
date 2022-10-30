@@ -19,23 +19,25 @@
 
 package org.apache.druid.exec.internalSort;
 
-import com.google.common.base.Preconditions;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
+import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.BatchSchema;
+import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.batch.BatchWriter.Copier;
 import org.apache.druid.exec.batch.Batches;
 import org.apache.druid.exec.batch.ColumnReaderFactory;
-import org.apache.druid.exec.batch.BatchReader.BatchCursor;
 import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.batch.RowReader.RowCursor;
+import org.apache.druid.exec.batch.impl.IndirectBatchType;
 import org.apache.druid.exec.fragment.FragmentContext;
-import org.apache.druid.exec.batch.Batch;
+import org.apache.druid.exec.operator.BatchOperator;
 import org.apache.druid.exec.operator.Iterators;
-import org.apache.druid.exec.operator.Operator;
+import org.apache.druid.exec.operator.Operators;
 import org.apache.druid.exec.operator.ResultIterator;
 import org.apache.druid.exec.plan.InternalSortOp;
-import org.apache.druid.exec.util.BatchCopier;
 import org.apache.druid.exec.util.TypeRegistry;
 import org.apache.druid.frame.key.SortColumn;
 import org.apache.druid.java.util.common.ISE;
@@ -89,7 +91,7 @@ public class RowInternalSortOperator extends InternalSortOperator
     }
   }
 
-  public RowInternalSortOperator(FragmentContext context, InternalSortOp plan, Operator<Object> input)
+  public RowInternalSortOperator(FragmentContext context, InternalSortOp plan, BatchOperator input)
   {
     super(context, plan, input);
   }
@@ -100,38 +102,42 @@ public class RowInternalSortOperator extends InternalSortOperator
     return sortRows(loadInput());
   }
 
-  private Object loadInput() throws EofException
+  private Batch loadInput() throws EofException
   {
-    Batch inputBatch = inputIter.next();
-    BatchReader inputReader = inputBatch.newReader();
-    BatchWriter runWriter = inputBatch.newWriter();
+    BatchSchema batchSchema = input.batchSchema();
+    BatchType batchType = batchSchema.type();
+    BatchReader inputReader = batchSchema.newReader();
+    // TODO: All in one array. Consider creating multiple runs and merging.
+    BatchWriter<?> runWriter = batchSchema.newWriter(Integer.MAX_VALUE);
+    Copier copier = runWriter.copier(inputReader);
     runWriter.newBatch();
-    BatchCopier copier = Batches.copier(inputReader, runWriter);
-    copier.copyAll(inputReader, runWriter);
+    copier.copy(Integer.MAX_VALUE);
     while (true) {
       try {
-        inputBatch = inputIter.next();
-        BatchReader newReader = inputBatch.bindReader(inputReader);
-        Preconditions.checkState(newReader == inputReader);
-        copier.copyAll(inputReader, runWriter);
+        batchType.bindReader(inputReader, inputIter.next());
+        copier.copy(Integer.MAX_VALUE);
       }
       catch (EofException e) {
         break;
       }
     }
     rowCount = runWriter.size();
-    return runWriter.harvest();
+    return runWriter.harvestAsBatch();
   }
 
-  private ResultIterator<Object> sortRows(Batch results)
+  private ResultIterator<Object> sortRows(Batch results) throws EofException
   {
+    if (rowCount == 0) {
+      throw Operators.eof();
+    }
     int[] index = new int[rowCount];
     for (int i = 0; i < rowCount; i++) {
       index[i] = i;
     }
     IntArrays.quickSort(index, new RowComparator(results, keys));
-    Batch sorted = Batches.indirectBatch(results, index);
     batchCount++;
-    return Iterators.singletonIterator(sorted);
+
+    // Single result: the results and sorted indirection vector.
+    return Iterators.singletonIterator(IndirectBatchType.wrap(results.data(), index));
   }
 }

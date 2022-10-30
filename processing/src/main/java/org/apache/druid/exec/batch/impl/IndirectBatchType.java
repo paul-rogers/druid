@@ -20,6 +20,7 @@
 package org.apache.druid.exec.batch.impl;
 
 import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.RowSchema;
@@ -62,6 +63,11 @@ public class IndirectBatchType extends AbstractBatchType
     return new IndirectBatchType(base);
   }
 
+  public static BatchSchema schemaOf(BatchSchema baseSchema)
+  {
+    return new BatchSchema(of(baseSchema.type()), baseSchema.rowSchema());
+  }
+
   public static IndirectData wrap(Object data, int[] index)
   {
     return new IndirectData(data, index);
@@ -75,7 +81,7 @@ public class IndirectBatchType extends AbstractBatchType
   @Override
   public BatchReader newReader(RowSchema schema)
   {
-    return new IndirectBatchReader(factory(schema));
+    return new IndirectBatchReader(batchSchema(schema));
   }
 
   @Override

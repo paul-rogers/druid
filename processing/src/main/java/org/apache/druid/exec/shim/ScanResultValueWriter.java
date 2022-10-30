@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.query.scan.ScanQuery;
@@ -38,7 +38,7 @@ public class ScanResultValueWriter extends DelegatingBatchWriter<ScanResultValue
   private final List<String> columnNames;
 
   public ScanResultValueWriter(
-      final BatchFactory factory,
+      final BatchSchema factory,
       final String segmentId,
       final int sizeLimit,
       final BatchWriter<?> baseWriter
@@ -46,11 +46,11 @@ public class ScanResultValueWriter extends DelegatingBatchWriter<ScanResultValue
   {
     super(factory, baseWriter);
     this.segmentId = segmentId;
-    this.columnNames = factory.schema().columnNames();
+    this.columnNames = factory.rowSchema().columnNames();
   }
 
   public static ScanResultValueWriter newWriter(
-      final BatchFactory factory,
+      final BatchSchema factory,
       final String segmentId,
       final int sizeLimit,
       final ScanQuery.ResultFormat format
@@ -62,14 +62,14 @@ public class ScanResultValueWriter extends DelegatingBatchWriter<ScanResultValue
             factory,
             segmentId,
             sizeLimit,
-            MapListBatchType.INSTANCE.newWriter(factory.schema(), sizeLimit)
+            MapListBatchType.INSTANCE.newWriter(factory.rowSchema(), sizeLimit)
         );
       case RESULT_FORMAT_COMPACTED_LIST:
         return new ScanResultValueWriter(
             factory,
             segmentId,
             sizeLimit,
-            ObjectArrayListBatchType.INSTANCE.newWriter(factory.schema(), sizeLimit)
+            ObjectArrayListBatchType.INSTANCE.newWriter(factory.rowSchema(), sizeLimit)
         );
       default:
         throw new UOE("Result format not supported");

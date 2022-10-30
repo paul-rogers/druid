@@ -48,7 +48,7 @@ public class MapListWriter extends ListWriter<Map<String, Object>>
         return false;
       }
       Map<String, Object> row = newRow();
-      RowSchema schema = schema();
+      RowSchema schema = batchSchema.rowSchema();
       for (int i = 0; i < projections.length; i++) {
         if (!projections[i].isNull()) {
           row.put(schema.column(i).name(), projections[i].getValue());
@@ -60,7 +60,7 @@ public class MapListWriter extends ListWriter<Map<String, Object>>
 
   public MapListWriter(RowSchema schema, int sizeLimit)
   {
-    super(MapListBatchType.INSTANCE.factory(schema), sizeLimit);
+    super(MapListBatchType.INSTANCE.batchSchema(schema), sizeLimit);
   }
 
   protected Map<String, Object> newRow()

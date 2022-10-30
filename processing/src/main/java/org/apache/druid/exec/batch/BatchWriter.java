@@ -76,8 +76,7 @@ public interface BatchWriter<T>
     int copy(int n);
   }
 
-  RowSchema schema();
-  BatchFactory factory();
+  BatchSchema schema();
 
   RowWriter rowWriter(List<ScalarColumnReader> readers);
   Copier copier(BatchReader source);

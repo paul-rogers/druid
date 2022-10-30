@@ -22,18 +22,17 @@ package org.apache.druid.exec.internalSort;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchSchema;
+import org.apache.druid.exec.batch.BatchType.BatchFormat;
 import org.apache.druid.exec.batch.Batches;
-import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.fragment.FragmentConverter;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.fragment.FragmentManager;
 import org.apache.druid.exec.fragment.Fragments;
 import org.apache.druid.exec.fragment.OperatorConverter;
-import org.apache.druid.exec.fragment.ProfileVisualizer;
-import org.apache.druid.exec.operator.Batch;
-import org.apache.druid.exec.operator.BatchCapabilities.BatchFormat;
-import org.apache.druid.exec.operator.Operator;
+import org.apache.druid.exec.operator.Operators;
 import org.apache.druid.exec.operator.ResultIterator;
 import org.apache.druid.exec.operator.ResultIterator.EofException;
 import org.apache.druid.exec.operator.ResultIterator.StallException;
@@ -64,11 +63,9 @@ public class RowInternalSortTest
       Collections.singletonList(new SimpleDataGenFactory())
   );
 
-  public ResultIterator run(OperatorSpec...ops)
+  public FragmentManager build(OperatorSpec...ops)
   {
-    FragmentManager fragment = TestUtils.fragment(CONVERTER, Arrays.asList(ops));
-    Operator root = fragment.rootOperator();
-    return root.open();
+    return TestUtils.fragment(CONVERTER, Arrays.asList(ops));
   }
 
   @Test
@@ -87,7 +84,8 @@ public class RowInternalSortTest
         5,
         0
     );
-    ResultIterator iter = run(readerSpec, sortSpec);
+    FragmentManager fragment = build(readerSpec, sortSpec);
+    ResultIterator<?> iter = fragment.run();
     assertThrows(EofException.class, () -> iter.next());
   }
 
@@ -107,9 +105,11 @@ public class RowInternalSortTest
         10,
         8
     );
-    ResultIterator iter = run(readerSpec, sortSpec);
+    FragmentManager fragment = build(readerSpec, sortSpec);
+    ResultIterator<?> iter = fragment.run();
+    BatchSchema batchSchema = Operators.asBatch(fragment.rootOperator()).batchSchema();
 
-    Batch actual = iter.next();
+    Batch actual = batchSchema.of(iter.next());
     RowSchema expectedSchema = new SchemaBuilder()
         .scalar("rid", ColumnType.LONG)
         .scalar("rand", ColumnType.LONG)
@@ -145,9 +145,11 @@ public class RowInternalSortTest
         10,
         8
     );
-    ResultIterator iter = run(readerSpec, sortSpec);
+    FragmentManager fragment = build(readerSpec, sortSpec);
+    ResultIterator<?> iter = fragment.run();
+    BatchSchema batchSchema = Operators.asBatch(fragment.rootOperator()).batchSchema();
 
-    Batch actual = iter.next();
+    Batch actual = batchSchema.of(iter.next());
     RowSchema expectedSchema = new SchemaBuilder()
         .scalar("rid", ColumnType.LONG)
         .scalar("rand", ColumnType.LONG)
@@ -183,9 +185,11 @@ public class RowInternalSortTest
         3,
         8
     );
-    ResultIterator iter = run(readerSpec, sortSpec);
+    FragmentManager fragment = build(readerSpec, sortSpec);
+    ResultIterator<?> iter = fragment.run();
+    BatchSchema batchSchema = Operators.asBatch(fragment.rootOperator()).batchSchema();
 
-    Batch actual = iter.next();
+    Batch actual = batchSchema.of(iter.next());
     RowSchema expectedSchema = new SchemaBuilder()
         .scalar("rid", ColumnType.LONG)
         .scalar("rand", ColumnType.LONG)
@@ -224,9 +228,11 @@ public class RowInternalSortTest
         10,
         100
     );
-    ResultIterator iter = run(readerSpec, sortSpec);
+    FragmentManager fragment = build(readerSpec, sortSpec);
+    ResultIterator<?> iter = fragment.run();
+    BatchSchema batchSchema = Operators.asBatch(fragment.rootOperator()).batchSchema();
 
-    Batch actual = iter.next();
+    Batch actual = batchSchema.of(iter.next());
     assertEquals(100, actual.size());
     BatchReader reader = actual.newReader();
     ScalarColumnReader randReader = reader.columns().scalar("rand");
@@ -273,10 +279,11 @@ public class RowInternalSortTest
         100_000
     );
     FragmentSpec fragSpec = TestUtils.simpleSpec(Arrays.asList(readerSpec, sortSpec));
-    FragmentManager fragment = FragmentConverter.build(CONVERTER, "dummy", fragSpec);
-    ResultIterator iter = fragment.run();
+    FragmentManager fragment = build(readerSpec, sortSpec);
+    ResultIterator<?> iter = fragment.run();
+    BatchSchema batchSchema = Operators.asBatch(fragment.rootOperator()).batchSchema();
 
-    Batch actual = iter.next();
+    Batch actual = batchSchema.of(iter.next());
     assertEquals(100_000, actual.size());
     BatchReader reader = actual.newReader();
     ScalarColumnReader randReader = reader.columns().scalar("rand");

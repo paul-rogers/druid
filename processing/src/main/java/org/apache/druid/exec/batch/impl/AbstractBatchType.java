@@ -1,7 +1,7 @@
 package org.apache.druid.exec.batch.impl;
 
 import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.RowSchema;
 
@@ -60,12 +60,12 @@ public abstract class AbstractBatchType implements BatchType
   @Override
   public Batch newBatch(RowSchema schema)
   {
-    return new BatchImpl(factory(schema));
+    return new BatchImpl(batchSchema(schema));
   }
 
   @Override
-  public BatchFactory factory(RowSchema schema)
+  public BatchSchema batchSchema(RowSchema schema)
   {
-    return new BatchFactory(this, schema);
+    return new BatchSchema(this, schema);
   }
 }

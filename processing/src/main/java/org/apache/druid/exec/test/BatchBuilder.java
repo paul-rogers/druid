@@ -37,13 +37,13 @@ import org.apache.druid.query.scan.ScanQuery;
  */
 public class BatchBuilder
 {
-  private final BatchWriter<?> batch;
+  private final BatchWriter<?> writer;
   private final SingletonObjectArrayReader reader;
 
   public BatchBuilder(final BatchWriter<?> batch)
   {
-    this.batch = batch;
-    reader = new SingletonObjectArrayReader(batch.factory().schema());
+    this.writer = batch;
+    reader = new SingletonObjectArrayReader(batch.schema().rowSchema());
     newBatch();
   }
 
@@ -74,18 +74,18 @@ public class BatchBuilder
 
   public RowSchema schema()
   {
-    return batch.factory().schema();
+    return writer.schema().rowSchema();
   }
 
   public BatchBuilder newBatch()
   {
-    batch.newBatch();
+    writer.newBatch();
     return this;
   }
 
   public boolean isFull()
   {
-    return batch.isFull();
+    return writer.isFull();
   }
 
   /**
@@ -100,7 +100,7 @@ public class BatchBuilder
   private void writeRow(Object[] row)
   {
     reader.bind(row);
-    if (batch.copier(reader).copy(1) == 0) {
+    if (writer.copier(reader).copy(1) == 0) {
       throw new ISE("Batch is full: check isFull() before writing");
     }
   }
@@ -118,6 +118,6 @@ public class BatchBuilder
 
   public Batch build()
   {
-    return batch.harvestAsBatch();
+    return writer.harvestAsBatch();
   }
 }

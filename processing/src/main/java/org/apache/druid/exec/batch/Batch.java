@@ -20,26 +20,19 @@
 package org.apache.druid.exec.batch;
 
 /**
- * Enriched holder of a batch of data for use within each operator.
- * A batch is a generic holder of data, with a factory to work with that
- * data in a type-independent way.
+ * A pair of a batch schema and a batch of data having that schema.
+ * Allows working with with the data in a type-independent way.
  * <p>
- * Operators may pass the underlying data between themselves. A batch
+ * Operators pass the underlying data between themselves. A batch
  * is persistent: it typically binds to a series of batches as execution
  * proceeds. This "holder" implementation allows readers to be reused,
  * which allows column readers to be reused, which ensures that setup
  * for projections, filtering, sorting, merging, etc. is done once and
  * cached on the batch.
- * <p>
- * This pattern works with the incoming data is the same between return
- * values from upstream. If this is not the case, then the batch must
- * be discarded, a new one created with a new schema, and all the setup
- * redone. Fortunately, Druid does not seem to (at present) implement such
- * a "schema change" event.
  */
 public interface Batch
 {
-  BatchFactory factory();
+  BatchSchema schema();
   void bind(Object data);
   BatchReader newReader();
   void bindReader(BatchReader reader);

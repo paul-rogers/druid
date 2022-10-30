@@ -70,8 +70,7 @@ public interface BatchReader extends RowReader
     boolean seek(int posn);
   }
 
-  RowSchema schema();
-  BatchFactory factory();
+  BatchSchema schema();
   BatchCursor batchCursor();
 
   default <T> T unwrap(Class<T> readerClass)

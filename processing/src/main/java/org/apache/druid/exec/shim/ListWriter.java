@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchReader.BatchCursor;
 import org.apache.druid.exec.batch.impl.AbstractBatchWriter;
 
@@ -75,12 +75,12 @@ public abstract class ListWriter<T> extends AbstractBatchWriter<List<T>>
 
   protected List<T> batch;
 
-  public ListWriter(final BatchFactory batchFactory)
+  public ListWriter(final BatchSchema batchFactory)
   {
     super(batchFactory);
   }
 
-  public ListWriter(final BatchFactory batchFactory, int sizeLimit)
+  public ListWriter(final BatchSchema batchFactory, int sizeLimit)
   {
     super(batchFactory, sizeLimit);
   }

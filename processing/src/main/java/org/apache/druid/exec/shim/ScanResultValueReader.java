@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.query.scan.ScanQuery;
@@ -36,11 +36,11 @@ public class ScanResultValueReader extends DelegatingBatchReader
   private final ResultFormat format;
   private BatchReader delegate;
 
-  public ScanResultValueReader(final BatchFactory factory, ScanQuery.ResultFormat format)
+  public ScanResultValueReader(final BatchSchema factory, ScanQuery.ResultFormat format)
   {
     super(factory);
     this.format = format;
-    this.delegate = ScanResultValueBatchType.baseType(format).newReader(factory.schema());
+    this.delegate = ScanResultValueBatchType.baseType(format).newReader(factory.rowSchema());
   }
 
   @Override

@@ -20,13 +20,13 @@
 package org.apache.druid.exec.batch.impl;
 
 import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchFactory;
 import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.UOE;
 
 import java.util.List;
 
@@ -44,6 +44,12 @@ public abstract class AbstractBatchWriter<T> implements BatchWriter<T>
 
     public NaiveCopier(BatchReader reader)
     {
+      // Quick & dirty check on the number of columns. We trust that
+      // the caller has ensured the types match or are compatible.
+      if (schema().rowSchema().size() != reader.schema().rowSchema().size()) {
+        throw new UOE("Cannot copy rows between differing schemas: use a projection");
+      }
+
       this.cursor = reader.batchCursor();
       this.rowWriter = rowWriter(reader.columns().columns());
     }
@@ -67,17 +73,17 @@ public abstract class AbstractBatchWriter<T> implements BatchWriter<T>
     }
   }
 
-  protected final BatchFactory batchFactory;
+  protected final BatchSchema batchSchema;
   protected final int sizeLimit;
 
-  public AbstractBatchWriter(final BatchFactory batchFactory)
+  public AbstractBatchWriter(final BatchSchema batchFactory)
   {
     this(batchFactory, Integer.MAX_VALUE);
   }
 
-  public AbstractBatchWriter(final BatchFactory batchFactory, final int sizeLimit)
+  public AbstractBatchWriter(final BatchSchema batchFactory, final int sizeLimit)
   {
-    this.batchFactory = batchFactory;
+    this.batchSchema = batchFactory;
     this.sizeLimit = sizeLimit;
   }
 
@@ -96,7 +102,7 @@ public abstract class AbstractBatchWriter<T> implements BatchWriter<T>
   @Override
   public RowWriter rowWriter(List<ScalarColumnReader> readers)
   {
-    if (readers == null || readers.size() != batchFactory.schema().size()) {
+    if (readers == null || readers.size() != batchSchema.rowSchema().size()) {
       throw new ISE("Reader list count does not match the schema size");
     }
     ScalarColumnReader projections[] = new ScalarColumnReader[readers.size()];
@@ -109,20 +115,14 @@ public abstract class AbstractBatchWriter<T> implements BatchWriter<T>
   @Override
   public Batch harvestAsBatch()
   {
-    Batch batch = batchFactory.newBatch();
+    Batch batch = batchSchema.newBatch();
     batch.bind(harvest());
     return batch;
   }
 
   @Override
-  public RowSchema schema()
+  public BatchSchema schema()
   {
-    return batchFactory.schema();
-  }
-
-  @Override
-  public BatchFactory factory()
-  {
-    return batchFactory;
+    return batchSchema;
   }
 }

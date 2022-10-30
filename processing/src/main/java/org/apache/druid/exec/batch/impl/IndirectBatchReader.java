@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.batch.BatchFactory;
+import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.ColumnReaderFactory;
@@ -31,12 +31,12 @@ public class IndirectBatchReader extends AbstractBatchReader
   private final BatchReader baseReader;
   private int[] index;
 
-  public IndirectBatchReader(BatchFactory factory)
+  public IndirectBatchReader(BatchSchema factory)
   {
     super(factory);
     IndirectBatchType batchType = (IndirectBatchType) factory.type();
     this.baseType = batchType.baseType();
-    this.baseReader = baseType.newReader(factory.schema());
+    this.baseReader = baseType.newReader(factory.rowSchema());
   }
 
   public void bind(IndirectData data)

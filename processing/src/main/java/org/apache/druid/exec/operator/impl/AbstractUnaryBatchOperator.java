@@ -17,26 +17,38 @@
  * under the License.
  */
 
-package org.apache.druid.exec.shim;
+package org.apache.druid.exec.operator.impl;
 
 import org.apache.druid.exec.batch.BatchSchema;
-import org.apache.druid.exec.batch.impl.BaseBatchReader;
+import org.apache.druid.exec.fragment.FragmentContext;
+import org.apache.druid.exec.operator.BatchOperator;
+import org.apache.druid.exec.operator.ResultIterator;
 
-import java.util.List;
-
-/**
- * Base class for readers of batches represented by {@link List}.
- */
-public abstract class ListReader<T> extends BaseBatchReader<List<T>>
+public abstract class AbstractUnaryBatchOperator extends AbstractBatchOperator
 {
-  public ListReader(BatchSchema factory)
+  protected final BatchOperator input;
+  protected ResultIterator<Object> inputIter;
+
+  public AbstractUnaryBatchOperator(
+      final FragmentContext context,
+      final BatchSchema schema,
+      final BatchOperator input
+  )
   {
-    super(factory);
+    super(context, schema);
+    this.input = input;
   }
 
-  @Override
-  public void reset()
+  public void openInput()
   {
-    cursor.bind(batch.size());
+    inputIter = input.open();
+  }
+
+  public void closeInput()
+  {
+    if (inputIter != null) {
+      input.close(true);
+    }
+    inputIter = null;
   }
 }

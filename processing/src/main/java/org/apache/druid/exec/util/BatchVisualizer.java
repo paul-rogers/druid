@@ -39,7 +39,7 @@ public class BatchVisualizer
   public static String visualize(Batch batch)
   {
     StringBuilder buf = new StringBuilder();
-    visualizeSchema(batch.factory().schema(), buf);
+    visualizeSchema(batch.schema().rowSchema(), buf);
     visualizeRows(batch.newReader(), buf);
     return buf.toString();
   }
