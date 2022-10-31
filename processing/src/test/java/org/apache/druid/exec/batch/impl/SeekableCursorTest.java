@@ -40,6 +40,7 @@ public class SeekableCursorTest
     // Empty cursors start at EOF.
     assertEquals(0, cursor.index());
     assertTrue(cursor.isEOF());
+    assertFalse(cursor.isValid());
 
     // Next does nothing.
     assertFalse(cursor.next());
@@ -94,14 +95,17 @@ public class SeekableCursorTest
 
     assertEquals(1, cursor.size());
     assertEquals(-1, cursor.index());
+    assertFalse(cursor.isValid());
 
     assertFalse(cursor.isEOF());
     assertTrue(cursor.next());
     assertEquals(0, cursor.index());
+    assertTrue(cursor.isValid());
 
     assertFalse(cursor.next());
     assertEquals(1, cursor.index());
     assertTrue(cursor.isEOF());
+    assertFalse(cursor.isValid());
 
     assertFalse(cursor.next());
     assertEquals(1, cursor.index());

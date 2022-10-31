@@ -51,6 +51,15 @@ public interface RowReader
      * same information.
      */
     boolean isEOF();
+
+    /**
+     * Report if the reader is positioned on a valid data row.
+     *
+     * @return {true} if a data row is available, {@false} if the cursor is
+     * positioned before the first or after the last row, and so no row is
+     * available.
+     */
+    boolean isValid();
   }
 
   ColumnReaderFactory columns();

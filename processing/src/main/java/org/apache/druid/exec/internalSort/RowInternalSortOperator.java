@@ -28,7 +28,6 @@ import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.BatchWriter.Copier;
-import org.apache.druid.exec.batch.Batches;
 import org.apache.druid.exec.batch.ColumnReaderFactory;
 import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
 import org.apache.druid.exec.batch.impl.IndirectBatchType;

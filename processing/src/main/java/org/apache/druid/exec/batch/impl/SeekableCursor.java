@@ -104,6 +104,12 @@ public class SeekableCursor implements BatchCursor
   @Override
   public boolean isEOF()
   {
-    return posn == size;
+    return posn >= size;
+  }
+
+  @Override
+  public boolean isValid()
+  {
+    return posn >= 0 && posn < size;
   }
 }

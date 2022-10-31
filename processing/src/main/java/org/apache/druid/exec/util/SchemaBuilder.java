@@ -20,6 +20,7 @@
 package org.apache.druid.exec.util;
 
 import org.apache.druid.exec.batch.BatchSchema;
+import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchType.BatchFormat;
 import org.apache.druid.exec.batch.Batches;
 import org.apache.druid.exec.batch.RowSchema;
@@ -40,7 +41,7 @@ public class SchemaBuilder
 
   public SchemaBuilder scalar(String name, ColumnType type)
   {
-    columns.add(new ColumnSchemaImpl(name, type));
+    addScalar(name, type);
     return this;
   }
 
@@ -51,9 +52,18 @@ public class SchemaBuilder
 
   public BatchSchema buildBatchSchema(BatchFormat format)
   {
-    return Batches
-        .typeFor(format)
-        .batchSchema(build());
+    return buildBatchSchema(Batches.typeFor(format));
+  }
 
+  public BatchSchema buildBatchSchema(BatchType inputType)
+  {
+    return inputType.batchSchema(build());
+  }
+
+  public ColumnSchema addScalar(String name, ColumnType type)
+  {
+    ColumnSchemaImpl col = new ColumnSchemaImpl(name, type);
+    columns.add(col);
+    return col;
   }
 }

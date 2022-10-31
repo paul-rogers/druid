@@ -97,7 +97,7 @@ public class BatchBuffer
           eof = true;
           return false;
         }
-        batchFactory.type().bindReader(reader, batch.data);
+        inputSchema.type().bindReader(reader, batch.data);
       }
     }
 
@@ -149,7 +149,7 @@ public class BatchBuffer
 
     public PartitionReader()
     {
-      this.batchReader = batchFactory.newReader();
+      this.batchReader = inputSchema.newReader();
     }
 
     public void bind(PartitionRange range)
@@ -157,7 +157,7 @@ public class BatchBuffer
       this.range = range;
       Preconditions.checkArgument(range.start.batchIndex == queueHeadBatchIndex());
       bufferIter = buffer.iterator();
-      batchFactory.type().bindReader(batchReader, bufferIter.next());
+      inputSchema.type().bindReader(batchReader, bufferIter.next());
       batchReader.batchCursor().seek(range.start.rowIndex - 1);
     }
 
@@ -174,7 +174,7 @@ public class BatchBuffer
       }
       batchIndex++;
       Preconditions.checkState(bufferIter.hasNext());
-      batchFactory.type().bindReader(batchReader, bufferIter.next());
+      inputSchema.type().bindReader(batchReader, bufferIter.next());
       return cursor.next();
     }
 
@@ -258,7 +258,7 @@ public class BatchBuffer
   /**
    * Factory for the holders for input batches.
    */
-  private final BatchSchema batchFactory;
+  private final BatchSchema inputSchema;
 
   /**
    * Upstream source of batches
@@ -294,9 +294,9 @@ public class BatchBuffer
    */
   private boolean eof;
 
-  public BatchBuffer(final BatchSchema batchFactory, final ResultIterator<?> inputIter)
+  public BatchBuffer(final BatchSchema inputSchema, final ResultIterator<?> inputIter)
   {
-    this.batchFactory = batchFactory;
+    this.inputSchema = inputSchema;
     this.inputIter = inputIter;
   }
 
@@ -332,7 +332,7 @@ public class BatchBuffer
       } catch (EofException e) {
         return null;
       }
-      int size = batchFactory.type().sizeOf(data);
+      int size = inputSchema.type().sizeOf(data);
       if (size > 0) {
         batchCount++;
         InputBatch batch = new InputBatch(data, size);

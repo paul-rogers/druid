@@ -3,18 +3,16 @@ package org.apache.druid.exec.window;
 import com.google.common.base.Preconditions;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.batch.ColumnWriterFactory.ScalarColumnWriter;
 import org.apache.druid.exec.batch.RowReader.RowCursor;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
+import org.apache.druid.exec.batch.impl.ConstantScalarReader;
 import org.apache.druid.exec.plan.WindowSpec;
 import org.apache.druid.exec.plan.WindowSpec.OffsetExpression;
 import org.apache.druid.exec.plan.WindowSpec.OutputColumn;
 import org.apache.druid.exec.plan.WindowSpec.SimpleExpression;
+import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.exec.window.BatchBuffer.PartitionCursor;
 import org.apache.druid.exec.window.BatchBuffer.PartitionReader;
-import org.apache.druid.exec.window.Projector.ColumnProjector;
-import org.apache.druid.exec.window.Projector.LiteralProjector;
-import org.apache.druid.exec.window.Projector.NullProjector;
-import org.apache.druid.exec.window.Projector.OffsetProjector;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprMacroTable;
@@ -31,24 +29,24 @@ public class ProjectionBuilder
   private final BatchBuffer buffer;
   private final WindowSpec spec;
   private final ExprMacroTable macroTable;
-  private final BatchWriter output;
   private final Map<Integer, PartitionReader> offsetReaders = new HashMap<>();
+  private final SchemaBuilder schemaBuilder = new SchemaBuilder();
   private PartitionReader primaryReader;
 
-  public ProjectionBuilder(BatchBuffer buffer, final ExprMacroTable macroTable, WindowSpec spec, BatchWriter output)
+  public ProjectionBuilder(BatchBuffer buffer, final ExprMacroTable macroTable, WindowSpec spec)
   {
     this.buffer = buffer;
     this.spec = spec;
     this.macroTable = macroTable;
-    this.output = output;
   }
 
-  public Projector build(BatchWriter output)
+  public Projector build(BatchWriter<?> output)
   {
     buildOffsetReaders();
-    ColumnProjector[] projections = new ColumnProjector[spec.columns.size()];
-    for (int i = 0; i < projections.length; i++) {
-      projections[i] = buildProjection(spec.columns.get(i));
+    int rowWidth = spec.columns.size();
+    List<ScalarColumnReader> colReaders = new ArrayList<>(rowWidth);
+    for (int i = 0; i < rowWidth; i++) {
+      colReaders.add(buildProjection(spec.columns.get(i)));
     }
     List<PartitionReader> readers = new ArrayList<>();
     primaryReader = buffer.primaryReader();
@@ -62,7 +60,7 @@ public class ProjectionBuilder
       inputCursor = new PartitionCursor(inputCursor, followers);
       readers.addAll(offsetReaders.values());
     }
-    return new Projector(inputCursor, readers, output, projections);
+    return new Projector(inputCursor, readers, output, colReaders);
   }
 
   private void buildOffsetReaders()
@@ -76,51 +74,48 @@ public class ProjectionBuilder
     }
   }
 
-  private ColumnProjector buildProjection(OutputColumn outputColumn)
+  private ScalarColumnReader buildProjection(OutputColumn outputColumn)
   {
+    ColumnSchema colSchema = schemaBuilder.addScalar(outputColumn.name, outputColumn.dataType);
     if (outputColumn instanceof SimpleExpression) {
-      return buildSimpleExpression((SimpleExpression) outputColumn);
+      return buildSimpleExpression((SimpleExpression) outputColumn, colSchema);
     }
     if (outputColumn instanceof OffsetExpression) {
-      return buildOffsetExpression((OffsetExpression) outputColumn);
+      return buildOffsetExpression((OffsetExpression) outputColumn, colSchema);
     }
     throw new UOE("Invalid output column type: [%s]", outputColumn.getClass().getSimpleName());
   }
 
-  private ColumnProjector buildSimpleExpression(SimpleExpression exprCol)
+  private ScalarColumnReader buildSimpleExpression(SimpleExpression exprCol, ColumnSchema colSchema)
   {
-    ScalarColumnWriter outCol = output.columns().scalar(exprCol.name);
-    Preconditions.checkNotNull(outCol);
     Expr expr = Parser.parse(exprCol.expression, macroTable);
     if (expr.isNullLiteral()) {
-      return new NullProjector(outCol);
+      return new ConstantScalarReader(colSchema, null);
     } else if (expr.isLiteral()) {
-      return new LiteralProjector(outCol, expr.getLiteralValue());
+      return new ConstantScalarReader(colSchema, expr.getLiteralValue());
     } else if (expr.isIdentifier()) {
       // Not really legal: no point in copying with lead/lag 0.
       ScalarColumnReader sourceCol = primaryReader.columns().scalar(expr.getIdentifierIfIdentifier());
       Preconditions.checkNotNull(sourceCol);
-      return new OffsetProjector(outCol, sourceCol);
+      return sourceCol;
     }
     throw new UOE("Invalid expression: [%s]", exprCol.expression);
   }
 
-  private ColumnProjector buildOffsetExpression(OffsetExpression exprCol)
+  private ScalarColumnReader buildOffsetExpression(OffsetExpression exprCol, ColumnSchema colSchema)
   {
-    ScalarColumnWriter outCol = output.columns().scalar(exprCol.name);
-    Preconditions.checkNotNull(outCol);
     Expr expr = Parser.parse(exprCol.expression, macroTable);
     if (expr.isNullLiteral()) {
       // Should not happen if the planner is doing the right thing.
-      return new NullProjector(outCol);
+      return new ConstantScalarReader(colSchema, null);
     } else if (expr.isLiteral()) {
       // Should not happen if the planner is doing the right thing.
-      return new LiteralProjector(outCol, expr.getLiteralValue());
+      return new ConstantScalarReader(colSchema, expr.getLiteralValue());
     } else if (expr.isIdentifier()) {
       PartitionReader sourceReader = offsetReaders.get(exprCol.offset);
       ScalarColumnReader sourceCol = sourceReader.columns().scalar(expr.getIdentifierIfIdentifier());
       Preconditions.checkNotNull(sourceCol);
-      return new OffsetProjector(outCol, sourceCol);
+      return sourceCol;
     }
     throw new UOE("Invalid expression: [%s]", exprCol.expression);
   }

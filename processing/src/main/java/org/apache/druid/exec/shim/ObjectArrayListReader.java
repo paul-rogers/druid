@@ -48,6 +48,12 @@ public class ObjectArrayListReader extends ListReader<Object[]> implements Colum
     }
 
     @Override
+    public boolean isNull()
+    {
+      return !cursor.isValid() || super.isNull();
+    }
+
+    @Override
     public Object getObject()
     {
       return row[index];

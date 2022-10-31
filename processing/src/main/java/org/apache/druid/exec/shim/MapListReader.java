@@ -49,6 +49,12 @@ public class MapListReader extends ListReader<Map<String, Object>> implements Co
     }
 
     @Override
+    public boolean isNull()
+    {
+      return !cursor.isValid() || super.isNull();
+    }
+
+    @Override
     public Object getObject()
     {
       return row.get(name);

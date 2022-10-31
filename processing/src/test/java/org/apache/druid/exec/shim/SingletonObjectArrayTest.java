@@ -52,7 +52,7 @@ public class SingletonObjectArrayTest
   {
     RowSchema schema = new SchemaBuilder().build();
     SingletonObjectArrayReader reader = new SingletonObjectArrayReader(schema);
-    assertSame(SingletonObjectArrayBatchType.INSTANCE, reader.factory().type());
+    assertSame(SingletonObjectArrayBatchType.INSTANCE, reader.schema().type());
     assertSame(schema, reader.columns().schema());
     ColumnReaderFactory rowReader = reader.columns();
     assertSame(schema, rowReader.schema());
