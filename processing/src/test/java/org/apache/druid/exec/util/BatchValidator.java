@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.util;
 
-import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.test.BatchEquality;
 import org.apache.druid.java.util.common.StringUtils;
@@ -39,9 +39,9 @@ public class BatchValidator
     forTests().isEqual(batch1, batch2);
   }
 
-  public static void assertEquals(BatchReader batch1, BatchReader batch2)
+  public static void assertEquals(BatchCursor cursor1, BatchCursor cursor2)
   {
-    forTests().isEqual(batch1, batch2);
+    forTests().isEqual(cursor1, cursor2);
   }
 
   public static void assertNotEquals(Batch batch1, Batch batch2)
@@ -49,8 +49,8 @@ public class BatchValidator
     Assert.assertFalse(BatchEquality.simple().isEqual(batch1, batch2));
   }
 
-  public static void assertNotEquals(BatchReader batch1, BatchReader batch2)
+  public static void assertNotEquals(BatchCursor cursor1, BatchCursor cursor2)
   {
-    Assert.assertFalse(BatchEquality.simple().isEqual(batch1, batch2));
+    Assert.assertFalse(BatchEquality.simple().isEqual(cursor1, cursor2));
   }
 }

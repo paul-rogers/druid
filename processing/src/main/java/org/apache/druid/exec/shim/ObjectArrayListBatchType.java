@@ -1,6 +1,7 @@
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor.BindableRowPositioner;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.RowSchema;
@@ -27,9 +28,9 @@ public class ObjectArrayListBatchType extends AbstractBatchType
   }
 
   @Override
-  public BatchReader newReader(RowSchema schema)
+  public BatchCursor newCursor(RowSchema schema, BindableRowPositioner positioner)
   {
-    return new ObjectArrayListReader(schema);
+    return new ObjectArrayListCursor(schema, positioner);
   }
 
   @Override
@@ -39,9 +40,9 @@ public class ObjectArrayListBatchType extends AbstractBatchType
   }
 
   @Override
-  public void bindReader(BatchReader reader, Object data)
+  public void bindCursor(BatchCursor cursor, Object data)
   {
-    ((ObjectArrayListReader) reader).bind(cast(data));
+    ((ObjectArrayListCursor) cursor).bind(cast(data));
   }
 
   @SuppressWarnings("unchecked")

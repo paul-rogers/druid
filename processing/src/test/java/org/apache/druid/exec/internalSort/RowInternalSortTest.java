@@ -23,11 +23,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchType.BatchFormat;
 import org.apache.druid.exec.batch.Batches;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.fragment.FragmentManager;
 import org.apache.druid.exec.fragment.Fragments;
@@ -234,12 +234,12 @@ public class RowInternalSortTest
 
     Batch actual = batchSchema.of(iter.next());
     assertEquals(100, actual.size());
-    BatchReader reader = actual.newReader();
-    ScalarColumnReader randReader = reader.columns().scalar("rand");
-    ScalarColumnReader str5Reader = reader.columns().scalar("str5");
+    BatchCursor cursor = actual.newCursor();
+    ScalarColumnReader randReader = cursor.columns().scalar("rand");
+    ScalarColumnReader str5Reader = cursor.columns().scalar("str5");
     long lastRand = -1;
     String lastStr5 = "z";
-    while (reader.cursor().next()) {
+    while (cursor.sequencer().next()) {
       long rand = randReader.getLong();
       assertTrue(rand >= lastRand);
       String str5 = str5Reader.getString();
@@ -285,12 +285,12 @@ public class RowInternalSortTest
 
     Batch actual = batchSchema.of(iter.next());
     assertEquals(100_000, actual.size());
-    BatchReader reader = actual.newReader();
+    BatchCursor reader = actual.newCursor();
     ScalarColumnReader randReader = reader.columns().scalar("rand");
     ScalarColumnReader str5Reader = reader.columns().scalar("str5");
     long lastRand = -1;
     String lastStr5 = "z";
-    while (reader.cursor().next()) {
+    while (reader.sequencer().next()) {
       long rand = randReader.getLong();
       assertTrue(rand >= lastRand);
       String str5 = str5Reader.getString();

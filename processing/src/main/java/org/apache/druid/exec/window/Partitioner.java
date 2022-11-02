@@ -1,9 +1,9 @@
 package org.apache.druid.exec.window;
 
 import com.google.common.base.Preconditions;
-import org.apache.druid.exec.batch.ColumnReaderFactory;
-import org.apache.druid.exec.batch.RowReader;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.ColumnReaderProvider;
+import org.apache.druid.exec.batch.RowCursor;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.util.TypeRegistry;
 import org.apache.druid.exec.window.BatchBuffer.BufferPosition;
 import org.apache.druid.exec.window.BatchBuffer.InputReader;
@@ -12,7 +12,7 @@ import org.apache.druid.exec.window.BatchBuffer.PartitionRange;
 import java.util.Comparator;
 import java.util.List;
 
-public class Partitioner implements RowReader
+public class Partitioner implements RowCursor
 {
   private final InputReader reader;
   private final ScalarColumnReader[] keyColumns;
@@ -31,12 +31,12 @@ public class Partitioner implements RowReader
 
   public PartitionRange nextPartition()
   {
-    if (reader.cursor().isEOF()) {
+    if (reader.sequencer().isEOF()) {
       return null;
     }
     BufferPosition start = reader.currentRow();
     Object[] key = defineKey();
-    while (reader.cursor().next() && sameKey(key)) {
+    while (reader.sequencer().next() && sameKey(key)) {
        // Do nothing
     }
     return new PartitionRange(start, reader.previousRow());
@@ -62,14 +62,14 @@ public class Partitioner implements RowReader
   }
 
   @Override
-  public ColumnReaderFactory columns()
+  public ColumnReaderProvider columns()
   {
     return reader.columns();
   }
 
   @Override
-  public RowCursor cursor()
+  public RowSequencer sequencer()
   {
-    return reader.cursor();
+    return reader.sequencer();
   }
 }

@@ -19,37 +19,36 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor.BindableRowPositioner;
+import org.apache.druid.exec.batch.BatchCursor.PositionListener;
 
 /**
- * Cursor for a typical batch of data which allows both sequential and
+ * Positioner for a typical batch of data which allows both sequential and
  * random access to a fixed-sized batch.
  */
-public class SeekableCursor implements BatchCursor
+public class SimpleRowPositioner implements BindableRowPositioner
 {
-  public interface PositionListener
-  {
-    void updatePosition(int posn);
-  }
-
   protected int size;
   protected PositionListener listener;
   protected int posn;
 
-  public SeekableCursor()
+  public SimpleRowPositioner()
   {
     this.listener = p -> { };
   }
 
+  @Override
   public void bind(int size)
   {
     this.size = size;
     reset();
   }
 
+  @Override
   public void bindListener(final PositionListener listener)
   {
     this.listener = listener;
+    listener.updatePosition(isValid() ? posn : -1);
   }
 
   @Override
@@ -58,6 +57,7 @@ public class SeekableCursor implements BatchCursor
     // If the batch is empty, start at EOF. Else, start
     // before the first row.
     this.posn = size == 0 ? 0 : -1;
+    listener.updatePosition(-1);
   }
 
   @Override
@@ -65,6 +65,7 @@ public class SeekableCursor implements BatchCursor
   {
     if (++posn >= size) {
       posn = size();
+      listener.updatePosition(-1);
       return false;
     }
     listener.updatePosition(posn);
@@ -81,6 +82,7 @@ public class SeekableCursor implements BatchCursor
       reset();
       return false;
     } else if (newPosn >= size()) {
+      listener.updatePosition(-1);
       posn = size();
       return false;
     }

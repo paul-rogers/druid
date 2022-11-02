@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.util;
 
-import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.test.BatchBuilder;
@@ -36,8 +36,8 @@ public class BatchValidatorTest
     RowSchema schema = new SchemaBuilder().build();
     Batch batch1 = BatchBuilder.arrayList(schema).build();
     Batch batch2 = BatchBuilder.arrayList(schema).build();
-    BatchReader reader1 = batch1.newReader();
-    BatchReader reader2 = batch2.newReader();
+    BatchCursor cursor1 = batch1.newCursor();
+    BatchCursor cursor2 = batch2.newCursor();
 
     // Test the null/not null variations. A check in one case is sufficient.
     BatchValidator.assertEquals((Batch) null, null);
@@ -46,10 +46,10 @@ public class BatchValidatorTest
     BatchValidator.assertEquals(batch1, batch2);
 
     // Test the null/not null variations. A check in one case is sufficient.
-    BatchValidator.assertEquals((BatchReader) null, null);
-    BatchValidator.assertNotEquals(reader1, null);
-    BatchValidator.assertNotEquals(null, reader2);
-    BatchValidator.assertEquals(reader1, reader2);
+    BatchValidator.assertEquals((BatchCursor) null, null);
+    BatchValidator.assertNotEquals(cursor1, null);
+    BatchValidator.assertNotEquals(null, cursor2);
+    BatchValidator.assertEquals(cursor1, cursor2);
   }
 
   @Test
@@ -66,7 +66,7 @@ public class BatchValidatorTest
 
     // Test the row reader variation one more time. This test is sufficient
     // as the later batch reader tests call the row reader validation.
-    BatchValidator.assertEquals(batch1.newReader(), batch2.newReader());
+    BatchValidator.assertEquals(batch1.newCursor(), batch2.newCursor());
 
     // Vs. an empty schema
     RowSchema schema2 = new SchemaBuilder().build();

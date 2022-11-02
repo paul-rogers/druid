@@ -22,14 +22,14 @@ package org.apache.druid.exec.internalSort;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchReader;
-import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
 import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.BatchWriter.Copier;
-import org.apache.druid.exec.batch.ColumnReaderFactory;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.ColumnReaderProvider;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.impl.IndirectBatchType;
 import org.apache.druid.exec.fragment.FragmentContext;
 import org.apache.druid.exec.operator.BatchOperator;
@@ -48,20 +48,20 @@ public class RowInternalSortOperator extends InternalSortOperator
 {
   private static class RowComparator implements IntComparator
   {
-    private final BatchCursor leftCursor;
-    private final BatchCursor rightCursor;
+    private final RowPositioner leftPositioner;
+    private final RowPositioner rightPositioner;
     private final ScalarColumnReader[] leftCols;
     private final ScalarColumnReader[] rightCols;
     private final Comparator<Object>[] comparators;
 
     private RowComparator(Batch results, List<SortColumn> keys)
     {
-      final BatchReader reader1 = results.newReader();
-      final BatchReader reader2 = results.newReader();
-      this.leftCursor = reader1.batchCursor();
-      this.rightCursor = reader2.batchCursor();
-      final ColumnReaderFactory leftColumns = reader1.columns();
-      final ColumnReaderFactory rightColumns = reader2.columns();
+      final BatchCursor cursor1 = results.newCursor();
+      final BatchCursor cursor2 = results.newCursor();
+      this.leftPositioner = cursor1.positioner();
+      this.rightPositioner = cursor2.positioner();
+      final ColumnReaderProvider leftColumns = cursor1.columns();
+      final ColumnReaderProvider rightColumns = cursor2.columns();
       this.leftCols = new ScalarColumnReader[keys.size()];
       this.rightCols = new ScalarColumnReader[keys.size()];
       comparators = TypeRegistry.INSTANCE.sortOrdering(keys, leftColumns.schema());
@@ -78,8 +78,8 @@ public class RowInternalSortOperator extends InternalSortOperator
     @Override
     public int compare(int k1, int k2)
     {
-      leftCursor.seek(k1);
-      rightCursor.seek(k2);
+      leftPositioner.seek(k1);
+      rightPositioner.seek(k2);
       for (int i = 0; i < leftCols.length; i++) {
         int result = comparators[i].compare(leftCols[i].getValue(), rightCols[i].getValue());
         if (result != 0) {
@@ -105,15 +105,15 @@ public class RowInternalSortOperator extends InternalSortOperator
   {
     BatchSchema batchSchema = input.batchSchema();
     BatchType batchType = batchSchema.type();
-    BatchReader inputReader = batchSchema.newReader();
+    BatchCursor inputCursor = batchSchema.newCursor();
     // TODO: All in one array. Consider creating multiple runs and merging.
     BatchWriter<?> runWriter = batchSchema.newWriter(Integer.MAX_VALUE);
-    Copier copier = runWriter.copier(inputReader);
+    Copier copier = runWriter.copier(inputCursor);
     runWriter.newBatch();
     copier.copy(Integer.MAX_VALUE);
     while (true) {
       try {
-        batchType.bindReader(inputReader, inputIter.next());
+        batchType.bindCursor(inputCursor, inputIter.next());
         copier.copy(Integer.MAX_VALUE);
       }
       catch (EofException e) {

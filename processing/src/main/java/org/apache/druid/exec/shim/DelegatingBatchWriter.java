@@ -20,10 +20,10 @@
 package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchWriter;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.impl.BatchImpl;
 
 import java.util.List;
@@ -40,9 +40,9 @@ public abstract class DelegatingBatchWriter<T> implements BatchWriter<T>
   protected final BatchSchema factory;
   protected final BatchWriter<?> delegate;
 
-  public DelegatingBatchWriter(final BatchSchema factory, final BatchWriter<?> delegate)
+  public DelegatingBatchWriter(final BatchSchema schema, final BatchWriter<?> delegate)
   {
-    this.factory = factory;
+    this.factory = schema;
     this.delegate = delegate;
   }
 
@@ -77,7 +77,7 @@ public abstract class DelegatingBatchWriter<T> implements BatchWriter<T>
   }
 
   @Override
-  public Copier copier(BatchReader source)
+  public Copier copier(BatchCursor source)
   {
     return delegate.copier(source);
   }

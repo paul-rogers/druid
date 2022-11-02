@@ -20,10 +20,10 @@
 package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchReader;
-import org.apache.druid.exec.batch.BatchReader.BatchCursor;
-import org.apache.druid.exec.batch.ColumnReaderFactory;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
+import org.apache.druid.exec.batch.ColumnReaderProvider;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.test.BatchBuilder;
 import org.apache.druid.exec.util.SchemaBuilder;
@@ -59,14 +59,14 @@ public class ListBatchTest
   {
     RowSchema schema = batchBuilder.schema();
     Batch batch = batchBuilder.build();
-    BatchReader reader = batch.newReader();
+    BatchCursor cursor = batch.newCursor();
 
-    assertSame(schema, reader.columns().schema());
-    ColumnReaderFactory rowReader = reader.columns();
+    assertSame(schema, cursor.columns().schema());
+    ColumnReaderProvider rowReader = cursor.columns();
     assertSame(schema, rowReader.schema());
 
-    BatchCursor cursor = reader.batchCursor();
-    assertEquals(0, cursor.size());
+    RowPositioner positioner = cursor.positioner();
+    assertEquals(0, positioner.size());
   }
 
   @Test
@@ -83,16 +83,16 @@ public class ListBatchTest
   {
     RowSchema schema = batchBuilder.schema();
     Batch batch = batchBuilder.build();
-    BatchReader reader = batch.newReader();
+    BatchCursor cursor = batch.newCursor();
 
     // Can obtain column readers but nothing to read
-    ColumnReaderFactory rowReader = reader.columns();
+    ColumnReaderProvider rowReader = cursor.columns();
     assertSame(schema, rowReader.schema());
     assertSame(schema.column(0), rowReader.scalar(0).schema());
     assertSame(schema.column("b"), rowReader.scalar("b").schema());
 
-    BatchCursor cursor = reader.batchCursor();
-    assertEquals(0, cursor.size());
+    RowPositioner positioner = cursor.positioner();
+    assertEquals(0, positioner.size());
   }
 
   @Test
@@ -114,24 +114,24 @@ public class ListBatchTest
         .singletonRow("first")
         .singletonRow("second")
         .build();
-    BatchReader reader = batch.newReader();
-    ColumnReaderFactory rowReader = reader.columns();
+    BatchCursor cursor = batch.newCursor();
+    ColumnReaderProvider rowReader = cursor.columns();
 
-    BatchCursor cursor = reader.batchCursor();
-    assertEquals(2, cursor.size());
+    RowPositioner positioner = cursor.positioner();
+    assertEquals(2, positioner.size());
     assertSame(schema, rowReader.schema());
 
-    assertEquals(-1, cursor.index());
-    assertTrue(cursor.next());
+    assertEquals(-1, positioner.index());
+    assertTrue(positioner.next());
     assertEquals("first", rowReader.scalar(0).getString());
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertEquals("second", rowReader.scalar(0).getString());
-    assertFalse(cursor.next());
+    assertFalse(positioner.next());
 
-    cursor.reset();
-    assertTrue(cursor.seek(1));
+    positioner.reset();
+    assertTrue(positioner.seek(1));
     assertEquals("second", rowReader.scalar(0).getString());
-    assertTrue(cursor.seek(0));
+    assertTrue(positioner.seek(0));
     assertEquals("first", rowReader.scalar(0).getString());
   }
 
@@ -154,17 +154,17 @@ public class ListBatchTest
         .row("first", 1)
         .row("second", 2)
         .build();
-    BatchReader reader = batch.newReader();
-    ColumnReaderFactory rowReader = reader.columns();
+    BatchCursor cursor = batch.newCursor();
+    ColumnReaderProvider rowReader = cursor.columns();
 
-    BatchCursor cursor = reader.batchCursor();
-    assertTrue(cursor.next());
+    RowPositioner positioner = cursor.positioner();
+    assertTrue(positioner.next());
     assertEquals("first", rowReader.scalar(0).getString());
     assertEquals(1L, rowReader.scalar(1).getLong());
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertEquals("second", rowReader.scalar(0).getString());
     assertEquals(2L, rowReader.scalar(1).getLong());
-    assertFalse(cursor.next());
+    assertFalse(positioner.next());
   }
 
   @Test
@@ -183,17 +183,17 @@ public class ListBatchTest
         .row("first", 1)
         .row("second", 2)
         .build();
-    BatchReader reader = batch.newReader();
-    ColumnReaderFactory rowReader = reader.columns();
+    BatchCursor cursor = batch.newCursor();
+    ColumnReaderProvider rowReader = cursor.columns();
 
-    BatchCursor cursor = reader.batchCursor();
-    assertTrue(cursor.next());
+    RowPositioner positioner = cursor.positioner();
+    assertTrue(positioner.next());
     assertEquals("first", rowReader.scalar(0).getString());
     assertEquals(1L, rowReader.scalar(1).getLong());
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertEquals("second", rowReader.scalar(0).getString());
     assertEquals(2L, rowReader.scalar(1).getLong());
-    assertFalse(cursor.next());
+    assertFalse(positioner.next());
 
     // Second batch
     batch = batchBuilder
@@ -201,17 +201,16 @@ public class ListBatchTest
         .row("third", 3)
         .row("fourth", 4)
         .build();
-    batch.bindReader(reader);
+    batch.bindCursor(cursor);
 
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertEquals("third", rowReader.scalar(0).getString());
     assertEquals(3L, rowReader.scalar(1).getLong());
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertEquals("fourth", rowReader.scalar(0).getString());
     assertEquals(4L, rowReader.scalar(1).getLong());
-    assertFalse(cursor.next());
+    assertFalse(positioner.next());
   }
-
 
   @Test
   public void testAllScalarTypes()
@@ -233,8 +232,8 @@ public class ListBatchTest
         .row(1L, null, null, null, null, null)
         .row(2L, "second", 10f, 20D, new Object(), null)
         .build();
-    BatchReader reader = batch.newReader();
-    ColumnReaderFactory rowReader = reader.columns();
+    BatchCursor cursor = batch.newCursor();
+    ColumnReaderProvider rowReader = cursor.columns();
 
     // Reader does actual reading.
     ScalarColumnReader lReader = rowReader.scalar(0);
@@ -244,14 +243,14 @@ public class ListBatchTest
     ScalarColumnReader oReader = rowReader.scalar(4);
     ScalarColumnReader nReader = rowReader.scalar("n");
 
-    BatchCursor cursor = reader.batchCursor();
-    assertTrue(cursor.next());
+    RowPositioner positioner = cursor.positioner();
+    assertTrue(positioner.next());
     assertFalse(lReader.isNull());
     assertEquals(1L, lReader.getLong());
     assertTrue(sReader.isNull());
     assertTrue(nReader.isNull());
 
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertFalse(lReader.isNull());
     assertEquals(2L, lReader.getLong());
     assertFalse(sReader.isNull());
@@ -261,6 +260,6 @@ public class ListBatchTest
     assertTrue(oReader.getObject() instanceof Object);
     assertTrue(nReader.isNull());
 
-    assertFalse(cursor.next());
+    assertFalse(positioner.next());
   }
 }

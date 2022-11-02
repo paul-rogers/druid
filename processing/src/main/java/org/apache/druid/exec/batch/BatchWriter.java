@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.batch;
 
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 
 import java.util.List;
 
@@ -44,7 +44,7 @@ public interface BatchWriter<T>
   /**
    * Writer for an individual row. Data comes from a set of projections
    * provided at creation time. Advances the position of the writer,
-   * but not the reader: the caller is responsible for the reader's cursor.
+   * but not the reader: the caller is responsible for the cursor's positioner.
    */
   public interface RowWriter
   {
@@ -67,7 +67,7 @@ public interface BatchWriter<T>
    *
    * @return the number of rows copied which is the lesser of the number of
    * rows available from the input, space available in the target batch, or
-   * the number of rows requested. If the batch fills, the reader cursor is
+   * the number of rows requested. If the batch fills, the cursor positioner is
    * left positioned at the last row copied so that a second copy into the
    * new batch resumes where this one left off.
    */
@@ -79,7 +79,7 @@ public interface BatchWriter<T>
   BatchSchema schema();
 
   RowWriter rowWriter(List<ScalarColumnReader> readers);
-  Copier copier(BatchReader source);
+  Copier copier(BatchCursor source);
 
   /**
    * Create a new batch. Must be called before writing to the batch, and

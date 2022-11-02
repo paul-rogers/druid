@@ -2,8 +2,8 @@ package org.apache.druid.exec.window;
 
 import com.google.common.base.Preconditions;
 import org.apache.druid.exec.batch.BatchWriter;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.batch.RowReader.RowCursor;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
+import org.apache.druid.exec.batch.RowCursor.RowSequencer;
 import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.impl.ConstantScalarReader;
 import org.apache.druid.exec.plan.WindowSpec;
@@ -51,11 +51,11 @@ public class ProjectionBuilder
     List<PartitionReader> readers = new ArrayList<>();
     primaryReader = buffer.primaryReader();
     readers.add(primaryReader);
-    RowCursor inputCursor = primaryReader.cursor();
+    RowSequencer inputCursor = primaryReader.sequencer();
     if (!offsetReaders.isEmpty()) {
-      List<RowCursor> followers =
+      List<RowSequencer> followers =
           offsetReaders.values().stream()
-            .map(reader -> reader.cursor())
+            .map(reader -> reader.sequencer())
             .collect(Collectors.toList());
       inputCursor = new PartitionCursor(inputCursor, followers);
       readers.addAll(offsetReaders.values());

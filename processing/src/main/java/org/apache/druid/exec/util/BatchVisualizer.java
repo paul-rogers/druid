@@ -20,9 +20,9 @@
 package org.apache.druid.exec.util;
 
 import io.netty.util.SuppressForbidden;
-import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.RowSchema;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.java.util.common.StringUtils;
@@ -40,7 +40,7 @@ public class BatchVisualizer
   {
     StringBuilder buf = new StringBuilder();
     visualizeSchema(batch.schema().rowSchema(), buf);
-    visualizeRows(batch.newReader(), buf);
+    visualizeRows(batch.newCursor(), buf);
     return buf.toString();
   }
 
@@ -77,23 +77,23 @@ public class BatchVisualizer
     buf.append("\n");
   }
 
-  private static void visualizeRows(BatchReader reader, StringBuilder buf)
+  private static void visualizeRows(BatchCursor cursor, StringBuilder buf)
   {
     int row = 0;
-    while (reader.cursor().next()) {
+    while (cursor.sequencer().next()) {
       row++;
       buf.append(StringUtils.format("%4d: ", row));
-      visualizeRow(reader, buf);
+      visualizeRow(cursor, buf);
     }
   }
 
-  private static void visualizeRow(BatchReader reader, StringBuilder buf)
+  private static void visualizeRow(BatchCursor cursor, StringBuilder buf)
   {
-    for (int i = 0; i < reader.columns().schema().size(); i++) {
+    for (int i = 0; i < cursor.columns().schema().size(); i++) {
       if (i > 0) {
         buf.append(", ");
       }
-      ScalarColumnReader col = reader.columns().scalar(i);
+      ScalarColumnReader col = cursor.columns().scalar(i);
       if (col.isNull()) {
         buf.append("null");
         continue;

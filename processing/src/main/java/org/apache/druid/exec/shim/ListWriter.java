@@ -20,7 +20,7 @@
 package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.batch.BatchSchema;
-import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
 import org.apache.druid.exec.batch.impl.AbstractBatchWriter;
 
 import java.util.ArrayList;
@@ -33,9 +33,9 @@ public abstract class ListWriter<T> extends AbstractBatchWriter<List<T>>
 {
   protected class CopierImpl implements Copier
   {
-    private final ListReader<T> source;
+    private final ListCursor<T> source;
 
-    public CopierImpl(ListReader<T> source)
+    public CopierImpl(ListCursor<T> source)
     {
       this.source = source;
     }
@@ -43,11 +43,11 @@ public abstract class ListWriter<T> extends AbstractBatchWriter<List<T>>
     @Override
     public int copy(int n)
     {
-      final BatchCursor sourceCursor = source.batchCursor();
+      final RowPositioner sourcePositioner = source.positioner();
 
       // The equivalent of advancing to the next row before reading.
-      final int start = sourceCursor.index() + 1;
-      final int availableCount = sourceCursor.size() - start;
+      final int start = sourcePositioner.index() + 1;
+      final int availableCount = sourcePositioner.size() - start;
       final int targetCount = Math.min(n, availableCount);
       final ArrayList<T> data = (ArrayList<T>) batch;
       final int capacity = sizeLimit - data.size();
@@ -68,21 +68,21 @@ public abstract class ListWriter<T> extends AbstractBatchWriter<List<T>>
       if (copyCount == availableCount && copyCount < n && copyCount <= capacity) {
         finalPosn++;
       }
-      sourceCursor.seek(finalPosn);
+      sourcePositioner.seek(finalPosn);
       return copyCount;
     }
   }
 
   protected List<T> batch;
 
-  public ListWriter(final BatchSchema batchFactory)
+  public ListWriter(final BatchSchema schema)
   {
-    super(batchFactory);
+    super(schema);
   }
 
-  public ListWriter(final BatchSchema batchFactory, int sizeLimit)
+  public ListWriter(final BatchSchema schema, int sizeLimit)
   {
-    super(batchFactory, sizeLimit);
+    super(schema, sizeLimit);
   }
 
   @Override

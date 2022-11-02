@@ -20,11 +20,11 @@
 package org.apache.druid.exec.batch.impl;
 
 import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchReader;
-import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
 import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchWriter;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.UOE;
 
@@ -39,19 +39,19 @@ public abstract class AbstractBatchWriter<T> implements BatchWriter<T>
    */
   public class NaiveCopier implements Copier
   {
-    private final BatchCursor cursor;
+    private final RowPositioner positioner;
     private final RowWriter rowWriter;
 
-    public NaiveCopier(BatchReader reader)
+    public NaiveCopier(BatchCursor cursor)
     {
       // Quick & dirty check on the number of columns. We trust that
       // the caller has ensured the types match or are compatible.
-      if (schema().rowSchema().size() != reader.schema().rowSchema().size()) {
+      if (schema().rowSchema().size() != cursor.schema().rowSchema().size()) {
         throw new UOE("Cannot copy rows between differing schemas: use a projection");
       }
 
-      this.cursor = reader.batchCursor();
-      this.rowWriter = rowWriter(reader.columns().columns());
+      this.positioner = cursor.positioner();
+      this.rowWriter = rowWriter(cursor.columns().columns());
     }
 
     @Override
@@ -59,13 +59,13 @@ public abstract class AbstractBatchWriter<T> implements BatchWriter<T>
     {
       int i;
       for (i = 0; i < n; i++) {
-        if (!cursor.next()) {
+        if (!positioner.next()) {
           break;
         }
         if (!rowWriter.write()) {
           // Move back to the prior row since the current one
           // wasn't written.
-          cursor.seek(cursor.index() - 1);
+          positioner.seek(positioner.index() - 1);
           break;
         }
       }
@@ -94,7 +94,7 @@ public abstract class AbstractBatchWriter<T> implements BatchWriter<T>
   }
 
   @Override
-  public Copier copier(BatchReader source)
+  public Copier copier(BatchCursor source)
   {
     return new NaiveCopier(source);
   }

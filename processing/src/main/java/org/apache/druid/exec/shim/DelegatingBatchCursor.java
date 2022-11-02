@@ -19,9 +19,9 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.BatchSchema;
-import org.apache.druid.exec.batch.ColumnReaderFactory;
+import org.apache.druid.exec.batch.ColumnReaderProvider;
 import org.apache.druid.exec.util.ExecUtils;
 
 /**
@@ -31,16 +31,16 @@ import org.apache.druid.exec.util.ExecUtils;
  * simpler row format, such as the {@code ScanResultValue} wraps a list of
  * maps or object arrays.
  */
-public abstract class DelegatingBatchReader implements BatchReader
+public abstract class DelegatingBatchCursor implements BatchCursor
 {
   protected final BatchSchema factory;
 
-  public DelegatingBatchReader(BatchSchema factory)
+  public DelegatingBatchCursor(BatchSchema schema)
   {
-    this.factory = factory;
+    this.factory = schema;
   }
 
-  protected abstract BatchReader delegate();
+  protected abstract BatchCursor delegate();
 
   @Override
   public BatchSchema schema()
@@ -49,27 +49,27 @@ public abstract class DelegatingBatchReader implements BatchReader
   }
 
   @Override
-  public ColumnReaderFactory columns()
+  public ColumnReaderProvider columns()
   {
     return delegate().columns();
   }
 
   @Override
-  public RowCursor cursor()
+  public RowSequencer sequencer()
   {
-    return delegate().cursor();
+    return delegate().sequencer();
   }
 
   @Override
-  public BatchCursor batchCursor()
+  public RowPositioner positioner()
   {
-    return delegate().batchCursor();
+    return delegate().positioner();
   }
 
   @Override
-  public <T> T unwrap(Class<T> readerClass)
+  public <T> T unwrap(Class<T> cursorClass)
   {
-    T reader = ExecUtils.unwrap(this, readerClass);
-    return reader != null ? reader : delegate().unwrap(readerClass);
+    T reader = ExecUtils.unwrap(this, cursorClass);
+    return reader != null ? reader : delegate().unwrap(cursorClass);
   }
 }

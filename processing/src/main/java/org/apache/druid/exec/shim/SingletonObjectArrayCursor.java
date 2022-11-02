@@ -20,20 +20,21 @@
 package org.apache.druid.exec.shim;
 
 import com.google.common.base.Preconditions;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.impl.AbstractScalarReader;
-import org.apache.druid.exec.batch.impl.BaseDirectReader;
+import org.apache.druid.exec.batch.impl.BaseDirectCursor;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl.ColumnReaderMaker;
+import org.apache.druid.exec.batch.impl.SimpleRowPositioner;
 
 /**
  * Specialized batch reader for a single object array. Used when
  * the data for a row is created programmatically rather than via
  * a transform from another batch. Primarily for testing.
  */
-public class SingletonObjectArrayReader extends BaseDirectReader implements ColumnReaderMaker
+public class SingletonObjectArrayCursor extends BaseDirectCursor implements ColumnReaderMaker
 {
   /**
    * Since column values are all objects, use a generic column reader.
@@ -48,6 +49,12 @@ public class SingletonObjectArrayReader extends BaseDirectReader implements Colu
     }
 
     @Override
+    public boolean isNull()
+    {
+      return row == null || super.isNull();
+    }
+
+    @Override
     public Object getObject()
     {
       return row[index];
@@ -56,29 +63,29 @@ public class SingletonObjectArrayReader extends BaseDirectReader implements Colu
     @Override
     public ColumnSchema schema()
     {
-      return SingletonObjectArrayReader.this.schema.rowSchema().column(index);
+      return SingletonObjectArrayCursor.this.schema.rowSchema().column(index);
     }
   }
 
   protected Object[] row;
 
-  public SingletonObjectArrayReader(RowSchema schema)
+  public SingletonObjectArrayCursor(RowSchema schema)
   {
-    super(SingletonObjectArrayBatchType.INSTANCE.batchSchema(schema));
+    super(SingletonObjectArrayBatchType.INSTANCE.batchSchema(schema), new SimpleRowPositioner());
     this.columnReaders = new ColumnReaderFactoryImpl(schema, this);
-    this.cursor.bind(0);
+    this.positioner.bind(0);
   }
 
   public void bind(Object[] row)
   {
     this.row = row;
-    cursor.bind(1);
+    positioner.bind(row == null ? 0 : 1);
   }
 
   @Override
-  protected void bindRow(int posn)
+  public void updatePosition(int posn)
   {
-    Preconditions.checkArgument(posn == 0);
+    Preconditions.checkArgument(posn == -1 || posn == 0);
   }
 
   @Override

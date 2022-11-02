@@ -19,12 +19,13 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.RowSchema;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.impl.AbstractScalarReader;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl;
+import org.apache.druid.exec.batch.impl.SimpleRowPositioner;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl.ColumnReaderMaker;
 
 import java.util.List;
@@ -34,7 +35,7 @@ import java.util.Map;
  * Batch reader for a list of {@link Map}s where columns are represented
  * as key/value pairs.
  */
-public class MapListReader extends ListReader<Map<String, Object>> implements ColumnReaderMaker
+public class MapListCursor extends ListCursor<Map<String, Object>> implements ColumnReaderMaker
 {
   /**
    * Since column values are all objects, use a generic column reader.
@@ -51,7 +52,7 @@ public class MapListReader extends ListReader<Map<String, Object>> implements Co
     @Override
     public boolean isNull()
     {
-      return !cursor.isValid() || super.isNull();
+      return row == null || super.isNull();
     }
 
     @Override
@@ -70,24 +71,24 @@ public class MapListReader extends ListReader<Map<String, Object>> implements Co
   private final RowSchema schema;
   protected Map<String, Object> row;
 
-  public MapListReader(RowSchema schema)
+  public MapListCursor(RowSchema schema, BindableRowPositioner positioner)
   {
-    super(MapListBatchType.INSTANCE.batchSchema(schema));
+    super(MapListBatchType.INSTANCE.batchSchema(schema), positioner);
     this.schema = schema;
     this.columnReaders = new ColumnReaderFactoryImpl(schema, this);
   }
 
-  public static BatchReader of(RowSchema schema, List<Map<String, Object>> batch)
+  public static BatchCursor of(RowSchema schema, List<Map<String, Object>> batch)
   {
-    MapListReader reader = new MapListReader(schema);
+    MapListCursor reader = new MapListCursor(schema, new SimpleRowPositioner());
     reader.bind(batch);
     return reader;
   }
 
   @Override
-  protected void bindRow(int posn)
+  public void updatePosition(int posn)
   {
-    row = batch.get(posn);
+    row = posn == -1 ? null : batch.get(posn);
   }
 
   @Override

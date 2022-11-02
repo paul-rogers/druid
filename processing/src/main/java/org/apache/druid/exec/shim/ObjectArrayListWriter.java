@@ -19,8 +19,8 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchReader;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema;
 
 /**
@@ -78,9 +78,9 @@ public class ObjectArrayListWriter extends ListWriter<Object[]>
   }
 
   @Override
-  public Copier copier(BatchReader from)
+  public Copier copier(BatchCursor from)
   {
-    ObjectArrayListReader source = from.unwrap(ObjectArrayListReader.class);
+    ObjectArrayListCursor source = from.unwrap(ObjectArrayListCursor.class);
     if (source == null) {
       return super.copier(from);
     } else {

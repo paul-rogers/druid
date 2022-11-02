@@ -20,7 +20,7 @@
 package org.apache.druid.exec.util;
 
 import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.BatchType.BatchFormat;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.Batches;
@@ -87,9 +87,9 @@ public class CopierTest
         .row("first", 1)
         .row("second", 2)
         .build();
-    BatchReader sourceReader = sourceBatch.newReader();
+    BatchCursor sourceCursor = sourceBatch.newCursor();
 
-    Copier copier = destWriter.copier(sourceReader);
+    Copier copier = destWriter.copier(sourceCursor);
     if (directCopyable(sourceFormat, destFormat)) {
       assertFalse(copier instanceof NaiveCopier);
     } else {
@@ -106,7 +106,7 @@ public class CopierTest
         .row("third", 3)
         .row("fourth", 4)
         .build();
-    sourceBatch.bindReader(sourceReader);
+    sourceBatch.bindCursor(sourceCursor);
     assertEquals(2, copier.copy(10));
 
     // Copy the third batch in bulk, but only 2 of the 3 rows fit.
@@ -115,7 +115,7 @@ public class CopierTest
         .row("sixth", 6)
         .row("seventh", 7)
         .build();
-    sourceBatch.bindReader(sourceReader);
+    sourceBatch.bindCursor(sourceCursor);
     assertEquals(2, copier.copy(10));
 
     // Verify the combined result.

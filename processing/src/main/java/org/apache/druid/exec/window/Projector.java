@@ -2,8 +2,8 @@ package org.apache.druid.exec.window;
 
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.BatchWriter.RowWriter;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
-import org.apache.druid.exec.batch.RowReader.RowCursor;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
+import org.apache.druid.exec.batch.RowCursor.RowSequencer;
 import org.apache.druid.exec.window.BatchBuffer.PartitionRange;
 import org.apache.druid.exec.window.BatchBuffer.PartitionReader;
 
@@ -11,13 +11,13 @@ import java.util.List;
 
 public class Projector
 {
-  private final RowCursor inputCursor;
+  private final RowSequencer inputCursor;
   private final List<PartitionReader> readers;
   private final BatchWriter<?> output;
   private final RowWriter rowWriter;
 
   public Projector(
-      final RowCursor inputCursor,
+      final RowSequencer inputCursor,
       final List<PartitionReader> readers,
       final BatchWriter<?> output,
       final List<ScalarColumnReader> colReaders

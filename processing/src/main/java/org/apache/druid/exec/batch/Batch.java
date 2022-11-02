@@ -34,8 +34,8 @@ public interface Batch
 {
   BatchSchema schema();
   void bind(Object data);
-  BatchReader newReader();
-  void bindReader(BatchReader reader);
+  BatchCursor newCursor();
+  void bindCursor(BatchCursor cursor);
   int size();
   Object data();
 }

@@ -19,10 +19,10 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchType.BatchFormat;
-import org.apache.druid.exec.batch.ColumnReaderFactory;
+import org.apache.druid.exec.batch.ColumnReaderProvider;
 import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.util.SchemaBuilder;
 import org.apache.druid.segment.column.ColumnType;
@@ -51,21 +51,21 @@ public class SingletonObjectArrayTest
   public void testEmptySchema()
   {
     RowSchema schema = new SchemaBuilder().build();
-    SingletonObjectArrayReader reader = new SingletonObjectArrayReader(schema);
+    SingletonObjectArrayCursor reader = new SingletonObjectArrayCursor(schema);
     assertSame(SingletonObjectArrayBatchType.INSTANCE, reader.schema().type());
     assertSame(schema, reader.columns().schema());
-    ColumnReaderFactory rowReader = reader.columns();
+    ColumnReaderProvider rowReader = reader.columns();
     assertSame(schema, rowReader.schema());
 
-    assertTrue(reader.cursor().isEOF());
-    assertEquals(0, reader.batchCursor().size());
+    assertTrue(reader.sequencer().isEOF());
+    assertEquals(0, reader.positioner().size());
 
     reader.bind(new Object[] {});
-    assertFalse(reader.cursor().isEOF());
-    assertEquals(1, reader.batchCursor().size());
-    assertTrue(reader.cursor().next());
-    assertFalse(reader.cursor().next());
-    assertTrue(reader.cursor().isEOF());
+    assertFalse(reader.sequencer().isEOF());
+    assertEquals(1, reader.positioner().size());
+    assertTrue(reader.sequencer().next());
+    assertFalse(reader.sequencer().next());
+    assertTrue(reader.sequencer().isEOF());
   }
 
   @Test
@@ -75,16 +75,16 @@ public class SingletonObjectArrayTest
         .scalar("a", ColumnType.STRING)
         .scalar("b", ColumnType.LONG)
         .build();
-    SingletonObjectArrayReader reader = new SingletonObjectArrayReader(schema);
+    SingletonObjectArrayCursor reader = new SingletonObjectArrayCursor(schema);
 
     // Can obtain column readers but nothing to read
-    ColumnReaderFactory rowReader = reader.columns();
+    ColumnReaderProvider rowReader = reader.columns();
     assertSame(schema, rowReader.schema());
     assertSame(schema.column(0), rowReader.scalar(0).schema());
     assertSame(schema.column("b"), rowReader.scalar("b").schema());
 
-    BatchCursor cursor = reader.batchCursor();
-    assertEquals(0, cursor.size());
+    RowPositioner positioner = reader.positioner();
+    assertEquals(0, positioner.size());
   }
 
   @Test
@@ -94,18 +94,18 @@ public class SingletonObjectArrayTest
         .scalar("a", ColumnType.STRING)
         .build();
 
-    SingletonObjectArrayReader reader = new SingletonObjectArrayReader(schema);
-    reader.bind(new Object[] { "first" } );
+    SingletonObjectArrayCursor cursor = new SingletonObjectArrayCursor(schema);
+    cursor.bind(new Object[] { "first" } );
 
-    assertSame(schema, reader.columns().schema());
-    ColumnReaderFactory rowReader = reader.columns();
+    assertSame(schema, cursor.columns().schema());
+    ColumnReaderProvider rowReader = cursor.columns();
     assertSame(schema, rowReader.schema());
 
-    BatchCursor cursor = reader.batchCursor();
-    assertEquals(1, cursor.size());
-    assertTrue(cursor.next());
+    RowPositioner positioner = cursor.positioner();
+    assertEquals(1, positioner.size());
+    assertTrue(positioner.next());
     assertEquals("first", rowReader.scalar(0).getString());
-    assertFalse(cursor.next());
+    assertFalse(positioner.next());
   }
 
   /**
@@ -118,25 +118,25 @@ public class SingletonObjectArrayTest
         .scalar("a", ColumnType.STRING)
         .scalar("b", ColumnType.LONG)
         .build();
-    SingletonObjectArrayReader reader = new SingletonObjectArrayReader(schema);
-    ColumnReaderFactory columns = reader.columns();
-    BatchCursor cursor = reader.batchCursor();
+    SingletonObjectArrayCursor cursor = new SingletonObjectArrayCursor(schema);
+    ColumnReaderProvider columns = cursor.columns();
+    RowPositioner positioner = cursor.positioner();
 
     // Pass an int value for "b". Should map to the defined
     // type.
-    reader.bind(new Object[] { "first", 1 } );
+    cursor.bind(new Object[] { "first", 1 } );
 
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertEquals("first", columns.scalar(0).getString());
     assertEquals(1L, columns.scalar(1).getLong());
-    assertFalse(cursor.next());
+    assertFalse(positioner.next());
 
     // Second batch
-    reader.bind(new Object[] { "second", 2L } );
+    cursor.bind(new Object[] { "second", 2L } );
 
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertEquals("second", columns.scalar(0).getString());
     assertEquals(2L, columns.scalar(1).getLong());
-    assertFalse(cursor.next());
+    assertFalse(positioner.next());
   }
 }

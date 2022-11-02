@@ -1,9 +1,10 @@
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.BatchCursor.BindableRowPositioner;
 import org.apache.druid.exec.batch.impl.AbstractBatchType;
 import org.apache.druid.exec.util.TypeInference;
 import org.apache.druid.java.util.common.UOE;
@@ -81,9 +82,9 @@ public class ScanResultValueBatchType extends AbstractBatchType
   }
 
   @Override
-  public BatchReader newReader(RowSchema schema)
+  public BatchCursor newCursor(RowSchema schema, BindableRowPositioner positioner)
   {
-    return new ScanResultValueReader(batchSchema(schema), resultFormat);
+    return new ScanResultValueCursor(batchSchema(schema), resultFormat, positioner);
   }
 
   @Override
@@ -93,9 +94,9 @@ public class ScanResultValueBatchType extends AbstractBatchType
   }
 
   @Override
-  public void bindReader(BatchReader reader, Object data)
+  public void bindCursor(BatchCursor cursor, Object data)
   {
-    ((ScanResultValueReader) reader).bind(cast(data));
+    ((ScanResultValueCursor) cursor).bind(cast(data));
   }
 
   private ScanResultValue cast(Object data)

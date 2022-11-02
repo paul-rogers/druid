@@ -19,12 +19,13 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.RowSchema;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.impl.AbstractScalarReader;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl;
+import org.apache.druid.exec.batch.impl.SimpleRowPositioner;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl.ColumnReaderMaker;
 
 import java.util.List;
@@ -33,7 +34,7 @@ import java.util.List;
  * Batch reader for a list of {@code Object} arrays where columns are represented
  * as values at an array index given by the associated schema.
  */
-public class ObjectArrayListReader extends ListReader<Object[]> implements ColumnReaderMaker
+public class ObjectArrayListCursor extends ListCursor<Object[]> implements ColumnReaderMaker
 {
   /**
    * Since column values are all objects, use a generic column reader.
@@ -50,7 +51,7 @@ public class ObjectArrayListReader extends ListReader<Object[]> implements Colum
     @Override
     public boolean isNull()
     {
-      return !cursor.isValid() || super.isNull();
+      return row == null || super.isNull();
     }
 
     @Override
@@ -68,23 +69,23 @@ public class ObjectArrayListReader extends ListReader<Object[]> implements Colum
 
   protected Object[] row;
 
-  public ObjectArrayListReader(RowSchema schema)
+  public ObjectArrayListCursor(RowSchema schema, BindableRowPositioner cursor)
   {
-    super(ObjectArrayListBatchType.INSTANCE.batchSchema(schema));
+    super(ObjectArrayListBatchType.INSTANCE.batchSchema(schema), cursor);
     this.columnReaders = new ColumnReaderFactoryImpl(schema, this);
   }
 
-  public static BatchReader of(RowSchema schema, List<Object[]> batch)
+  public static BatchCursor of(RowSchema schema, List<Object[]> batch)
   {
-    ObjectArrayListReader reader = new ObjectArrayListReader(schema);
+    ObjectArrayListCursor reader = new ObjectArrayListCursor(schema, new SimpleRowPositioner());
     reader.bind(batch);
     return reader;
   }
 
   @Override
-  protected void bindRow(int posn)
+  public void updatePosition(int posn)
   {
-    row = batch.get(posn);
+    row = posn == -1 ? null : batch.get(posn);
   }
 
   @Override

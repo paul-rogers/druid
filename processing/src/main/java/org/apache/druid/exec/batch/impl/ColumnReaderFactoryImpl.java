@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.batch.ColumnReaderFactory;
+import org.apache.druid.exec.batch.ColumnReaderProvider;
 import org.apache.druid.exec.batch.RowSchema;
 
 import java.util.ArrayList;
@@ -30,7 +30,7 @@ import java.util.List;
  * cached. Lazy creation is used because may operators use a subset of columns:
  * no need to create all the column readers in that case.
  */
-public class ColumnReaderFactoryImpl implements ColumnReaderFactory
+public class ColumnReaderFactoryImpl implements ColumnReaderProvider
 {
   public interface ColumnReaderMaker
   {

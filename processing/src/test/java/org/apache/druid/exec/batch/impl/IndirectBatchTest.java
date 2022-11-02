@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.batch.BatchType.BatchFormat;
@@ -67,9 +67,9 @@ public class IndirectBatchTest
         .build();
     Batch base = BatchBuilder.arrayList(schema).build();
     Batch indirectBatch = Batches.indirectBatch(base, new int[] {});
-    BatchReader reader = indirectBatch.newReader();
-    assertEquals(schema, reader.columns().schema());
-    assertFalse(reader.cursor().next());
+    BatchCursor cursor = indirectBatch.newCursor();
+    assertEquals(schema, cursor.columns().schema());
+    assertFalse(cursor.sequencer().next());
   }
 
   @Test

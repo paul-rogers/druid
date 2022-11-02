@@ -19,27 +19,44 @@
 
 package org.apache.druid.exec.batch.impl;
 
+import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor.PositionListener;
 import org.apache.druid.exec.batch.BatchSchema;
+import org.apache.druid.exec.util.ExecUtils;
 
-public abstract class BaseBatchReader<T> extends BaseDirectReader
+public abstract class AbstractBatchCursor implements BatchCursor, PositionListener
 {
-  protected T batch;
+  protected final BatchSchema schema;
+  protected final BindableRowPositioner positioner;
 
-  public BaseBatchReader(BatchSchema factory)
+  public AbstractBatchCursor(BatchSchema schema, BindableRowPositioner positioner)
   {
-    super(factory);
+    this.schema = schema;
+    this.positioner = positioner;
+    positioner.bindListener(this);
   }
 
-  public void bind(T batch)
+  @Override
+  public RowSequencer sequencer()
   {
-    this.batch = batch;
-    reset();
+    return positioner;
   }
 
-  protected abstract void reset();
-
-  public T rows()
+  @Override
+  public RowPositioner positioner()
   {
-    return batch;
+    return positioner;
+  }
+
+  @Override
+  public BatchSchema schema()
+  {
+    return schema;
+  }
+
+  @Override
+  public <T> T unwrap(Class<T> readerClass)
+  {
+    return ExecUtils.unwrap(this, readerClass);
   }
 }

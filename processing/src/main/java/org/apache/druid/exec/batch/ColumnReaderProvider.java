@@ -17,26 +17,37 @@
  * under the License.
  */
 
-package org.apache.druid.exec.shim;
+package org.apache.druid.exec.batch;
 
-import org.apache.druid.exec.batch.BatchSchema;
-import org.apache.druid.exec.batch.impl.BaseBatchReader;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 
 import java.util.List;
 
-/**
- * Base class for readers of batches represented by {@link List}.
- */
-public abstract class ListReader<T> extends BaseBatchReader<List<T>>
+public interface ColumnReaderProvider
 {
-  public ListReader(BatchSchema factory)
+  public interface ScalarColumnReader
   {
-    super(factory);
+    ColumnSchema schema();
+    boolean isNull();
+    String getString();
+    long getLong();
+    double getDouble();
+
+    /**
+     * Return the value of a complex object. This is not a generic
+     * getter, for that use {@link #getValue()}.
+     */
+    Object getObject();
+
+    /**
+     * Return the value of any type, as a Java object. If the
+     * column is null, returns {@code null}.
+     */
+    Object getValue();
   }
 
-  @Override
-  public void reset()
-  {
-    cursor.bind(batch == null ? 0 : batch.size());
-  }
+  RowSchema schema();
+  ScalarColumnReader scalar(String name);
+  ScalarColumnReader scalar(int ordinal);
+  List<ScalarColumnReader> columns();
 }

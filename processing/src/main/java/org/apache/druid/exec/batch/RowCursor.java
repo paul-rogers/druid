@@ -28,14 +28,14 @@ package org.apache.druid.exec.batch;
  * isolates the client from the implementation details of the underlying data
  * set which may be materialized, streaming, or some combination.
  */
-public interface RowReader
+public interface RowCursor
 {
   /**
    * Read a set of rows sequentially. Call {@link #next()}
    * to move to the first row. The cursor starts before the position before the first row,
    * and ends beyond the position of the last row.
    */
-  interface RowCursor
+  interface RowSequencer
   {
     /**
      * Move to the next row, if any. At EOF, the position points past the
@@ -62,6 +62,6 @@ public interface RowReader
     boolean isValid();
   }
 
-  ColumnReaderFactory columns();
-  RowCursor cursor();
+  ColumnReaderProvider columns();
+  RowSequencer sequencer();
 }

@@ -19,6 +19,8 @@
 
 package org.apache.druid.exec.batch;
 
+import org.apache.druid.exec.batch.BatchCursor.BindableRowPositioner;
+
 /**
  * Describes the layout and capabilities of an operator branch.
  * Creates readers and writers for the batch type, allowing operators to
@@ -41,9 +43,10 @@ public interface BatchType
   boolean canSort();
   BatchSchema batchSchema(RowSchema schema);
   Batch newBatch(RowSchema schema);
-  BatchReader newReader(RowSchema schema);
+  BatchCursor newCursor(RowSchema schema);
+  BatchCursor newCursor(RowSchema schema, BindableRowPositioner positioner);
   BatchWriter<?> newWriter(RowSchema schema, int sizeLimit);
-  void bindReader(BatchReader reader, Object data);
+  void bindCursor(BatchCursor cursor, Object data);
   int sizeOf(Object data);
   boolean canDirectCopyFrom(BatchType otherType);
 }

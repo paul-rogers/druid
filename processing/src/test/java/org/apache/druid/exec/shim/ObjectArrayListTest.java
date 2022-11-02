@@ -20,16 +20,16 @@
 package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchReader;
-import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchType.BatchFormat;
 import org.apache.druid.exec.batch.BatchWriter.Copier;
 import org.apache.druid.exec.batch.Batches;
-import org.apache.druid.exec.batch.ColumnReaderFactory;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.ColumnReaderProvider;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema;
-import org.apache.druid.exec.batch.impl.SeekableCursorTest;
+import org.apache.druid.exec.batch.impl.SimpleRowPositionerTest;
 import org.apache.druid.exec.test.BatchBuilder;
 import org.apache.druid.exec.util.BatchValidator;
 import org.apache.druid.exec.util.SchemaBuilder;
@@ -48,8 +48,8 @@ import static org.junit.Assert.assertTrue;
  * pieces. Note: we do not use the batch validator here because
  * the batch validator requires this code to work.
  * <p>
- * No need to test the cursor in detail: that is already done in
- * {@link SeekableCursorTest}.
+ * No need to test the positioner in detail: that is already done in
+ * {@link SimpleRowPositionerTest}.
  */
 public class ObjectArrayListTest
 {
@@ -71,14 +71,14 @@ public class ObjectArrayListTest
   {
     RowSchema schema = new SchemaBuilder().build();
     Batch batch = BatchBuilder.arrayList(schema).build();
-    BatchReader reader = batch.newReader();
+    BatchCursor cursor = batch.newCursor();
 
-    assertSame(schema, reader.columns().schema());
-    ColumnReaderFactory rowReader = reader.columns();
+    assertSame(schema, cursor.columns().schema());
+    ColumnReaderProvider rowReader = cursor.columns();
     assertSame(schema, rowReader.schema());
 
-    BatchCursor cursor = reader.batchCursor();
-    assertEquals(0, cursor.size());
+    RowPositioner positioner = cursor.positioner();
+    assertEquals(0, positioner.size());
   }
 
   @Test
@@ -89,16 +89,18 @@ public class ObjectArrayListTest
         .scalar("b", ColumnType.LONG)
         .build();
     Batch batch = BatchBuilder.arrayList(schema).build();
-    BatchReader reader = batch.newReader();
+    BatchCursor cursor = batch.newCursor();
 
     // Can obtain column readers but nothing to read
-    ColumnReaderFactory rowReader = reader.columns();
+    ColumnReaderProvider rowReader = cursor.columns();
     assertSame(schema, rowReader.schema());
     assertSame(schema.column(0), rowReader.scalar(0).schema());
     assertSame(schema.column("b"), rowReader.scalar("b").schema());
+    assertTrue(rowReader.scalar(0).isNull());
+    assertTrue(rowReader.scalar(1).isNull());
 
-    BatchCursor cursor = reader.batchCursor();
-    assertEquals(0, cursor.size());
+    RowPositioner positioner = cursor.positioner();
+    assertEquals(0, positioner.size());
   }
 
   @Test
@@ -114,19 +116,20 @@ public class ObjectArrayListTest
         .singletonRow("first")
         .singletonRow("second")
         .build();
-    BatchReader reader = batch.newReader();
+    BatchCursor cursor = batch.newCursor();
 
-    assertSame(schema, reader.columns().schema());
-    ColumnReaderFactory rowReader = reader.columns();
+    assertSame(schema, cursor.columns().schema());
+    ColumnReaderProvider rowReader = cursor.columns();
     assertSame(schema, rowReader.schema());
 
-    BatchCursor cursor = reader.batchCursor();
-    assertEquals(2, cursor.size());
-    assertTrue(cursor.next());
+    RowPositioner positioner = cursor.positioner();
+    assertEquals(2, positioner.size());
+    assertTrue(positioner.next());
     assertEquals("first", rowReader.scalar(0).getString());
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertEquals("second", rowReader.scalar(0).getString());
-    assertFalse(cursor.next());
+    assertFalse(positioner.next());
+    assertTrue(rowReader.scalar(0).isNull());
   }
 
   /**
@@ -146,17 +149,17 @@ public class ObjectArrayListTest
         .row("first", 1)
         .row("second", 2)
         .build();
-    BatchReader reader = batch.newReader();
-    ColumnReaderFactory rowReader = reader.columns();
+    BatchCursor cursor = batch.newCursor();
+    ColumnReaderProvider rowReader = cursor.columns();
 
-    BatchCursor cursor = reader.batchCursor();
-    assertTrue(cursor.next());
+    RowPositioner positioner = cursor.positioner();
+    assertTrue(positioner.next());
     assertEquals("first", rowReader.scalar(0).getString());
     assertEquals(1L, rowReader.scalar(1).getLong());
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertEquals("second", rowReader.scalar(0).getString());
     assertEquals(2L, rowReader.scalar(1).getLong());
-    assertFalse(cursor.next());
+    assertFalse(positioner.next());
   }
 
   @Test
@@ -173,17 +176,17 @@ public class ObjectArrayListTest
         .row("first", 1)
         .row("second", 2)
         .build();
-    BatchReader reader = batch.newReader();
-    ColumnReaderFactory rowReader = reader.columns();
+    BatchCursor cursor = batch.newCursor();
+    ColumnReaderProvider rowReader = cursor.columns();
 
-    BatchCursor cursor = reader.batchCursor();
-    assertTrue(cursor.next());
+    RowPositioner positioner = cursor.positioner();
+    assertTrue(positioner.next());
     assertEquals("first", rowReader.scalar(0).getString());
     assertEquals(1L, rowReader.scalar(1).getLong());
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertEquals("second", rowReader.scalar(0).getString());
     assertEquals(2L, rowReader.scalar(1).getLong());
-    assertFalse(cursor.next());
+    assertFalse(positioner.next());
 
     // Second batch
     batchBuilder.newBatch();
@@ -192,19 +195,19 @@ public class ObjectArrayListTest
         .row("fourth", 4)
         .row("fifth", 5)
         .build();
-    batch.bindReader(reader);
+    batch.bindCursor(cursor);
 
-    assertEquals(3, cursor.size());
-    assertTrue(cursor.next());
+    assertEquals(3, positioner.size());
+    assertTrue(positioner.next());
     assertEquals("third", rowReader.scalar(0).getString());
     assertEquals(3L, rowReader.scalar(1).getLong());
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertEquals("fourth", rowReader.scalar(0).getString());
     assertEquals(4L, rowReader.scalar(1).getLong());
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertEquals("fifth", rowReader.scalar(0).getString());
     assertEquals(5L, rowReader.scalar(1).getLong());
-    assertFalse(cursor.next());
+    assertFalse(positioner.next());
   }
 
   @Test
@@ -222,10 +225,10 @@ public class ObjectArrayListTest
         .row(1L, null, null, null, null, null)
         .row(2L, "second", 10f, 20D, new Object(), null)
         .build();
-    BatchReader reader = batch.newReader();
+    BatchCursor cursor = batch.newCursor();
 
     // Reader does actual reading.
-    ColumnReaderFactory rowReader = reader.columns();
+    ColumnReaderProvider rowReader = cursor.columns();
     ScalarColumnReader lReader = rowReader.scalar(0);
     ScalarColumnReader sReader = rowReader.scalar("s");
     ScalarColumnReader fReader = rowReader.scalar(2);
@@ -233,14 +236,14 @@ public class ObjectArrayListTest
     ScalarColumnReader oReader = rowReader.scalar(4);
     ScalarColumnReader nReader = rowReader.scalar("n");
 
-    BatchCursor cursor = reader.batchCursor();
-    assertTrue(cursor.next());
+    RowPositioner positioner = cursor.positioner();
+    assertTrue(positioner.next());
     assertFalse(lReader.isNull());
     assertEquals(1L, lReader.getLong());
     assertTrue(sReader.isNull());
     assertTrue(nReader.isNull());
 
-    assertTrue(cursor.next());
+    assertTrue(positioner.next());
     assertFalse(lReader.isNull());
     assertEquals(2L, lReader.getLong());
     assertFalse(sReader.isNull());
@@ -250,7 +253,7 @@ public class ObjectArrayListTest
     assertTrue(oReader.getObject() instanceof Object);
     assertTrue(nReader.isNull());
 
-    assertFalse(cursor.next());
+    assertFalse(positioner.next());
   }
 
   /**
@@ -273,12 +276,12 @@ public class ObjectArrayListTest
         .row("first", 1)
         .row("second", 2)
         .build();
-    BatchReader reader = batch.newReader();
+    BatchCursor cursor = batch.newCursor();
 
-    assertTrue(Batches.canDirectCopy(reader, writer));
-    Copier copier = writer.copier(reader);
+    assertTrue(Batches.canDirectCopy(cursor, writer));
+    Copier copier = writer.copier(cursor);
     assertEquals(2, copier.copy(10));
-    assertTrue(reader.cursor().isEOF());
+    assertTrue(cursor.sequencer().isEOF());
 
     batchBuilder.newBatch();
     batch = batchBuilder
@@ -286,12 +289,12 @@ public class ObjectArrayListTest
         .row("fourth", 4)
         .row("fifth", 5)
         .build();
-    batch.bindReader(reader);
+    batch.bindCursor(cursor);
 
     assertEquals(1, copier.copy(1));
-    assertEquals(0, reader.batchCursor().index());
+    assertEquals(0, cursor.positioner().index());
     assertEquals(2, copier.copy(10));
-    assertTrue(reader.cursor().isEOF());
+    assertTrue(cursor.sequencer().isEOF());
 
     batchBuilder.newBatch();
     Batch expected = batchBuilder
@@ -321,14 +324,14 @@ public class ObjectArrayListTest
         .row("first", 1)
         .row("second", 2)
         .build();
-    BatchReader reader = batch.newReader();
-    Copier copier = writer.copier(reader);
+    BatchCursor cursor = batch.newCursor();
+    Copier copier = writer.copier(cursor);
     assertEquals(2, copier.copy(10));
-    assertTrue(reader.cursor().isEOF());
+    assertTrue(cursor.sequencer().isEOF());
 
-    // Cursor is at EOF, try to copy again.
+    // Positioner is at EOF, try to copy again.
     assertEquals(0, copier.copy(10));
-    assertTrue(reader.cursor().isEOF());
+    assertTrue(cursor.sequencer().isEOF());
 
     // Copy more than fits into the batch
     batchBuilder.newBatch();
@@ -337,15 +340,15 @@ public class ObjectArrayListTest
         .row("fourth", 4)
         .row("fifth", 5)
         .build();
-    batch.bindReader(reader);
+    batch.bindCursor(cursor);
     assertEquals(2, copier.copy(10));
-    assertFalse(reader.cursor().isEOF());
-    assertEquals(1, reader.batchCursor().index());
+    assertFalse(cursor.sequencer().isEOF());
+    assertEquals(1, cursor.positioner().index());
 
     // Stubbornly try again
     assertEquals(0, copier.copy(10));
-    assertFalse(reader.cursor().isEOF());
-    assertEquals(1, reader.batchCursor().index());
+    assertFalse(cursor.sequencer().isEOF());
+    assertEquals(1, cursor.positioner().index());
 
     batchBuilder.newBatch();
     Batch expected = batchBuilder

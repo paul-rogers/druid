@@ -32,18 +32,18 @@ import org.apache.druid.java.util.common.UOE;
  * for all rows: the batch reader positions the row reader automatically. Client code
  * can cache the row reader, or fetch it each time it is needed.
  */
-public interface BatchReader extends RowReader
+public interface BatchCursor extends RowCursor
 {
   /**
-   * Cursor for a batch of rows. There are two ways to work with a batch: sequentially
-   * (via the base interface {@link RowCursor} methods), or or randomly as defined
+   * Positioner for a batch of rows. There are two ways to work with a batch: sequentially
+   * (via the base interface {@link RowSequencer} methods), or or randomly as defined
    * here. This class adds the ability to make multiple sequential passes over a
    * batch: call {@link #reset()} to start another pass.
    * <p>
    * To read randomly, call {@link #size()} to determine the row count, then call
    * {@link #seek(int)} to move to a specific row.
    */
-  public interface BatchCursor extends RowCursor
+  public interface RowPositioner extends RowSequencer
   {
     /**
      * Position the reader before the first row of the batch, so that
@@ -70,8 +70,19 @@ public interface BatchReader extends RowReader
     boolean seek(int posn);
   }
 
+  public interface PositionListener
+  {
+    void updatePosition(int posn);
+  }
+
+  public interface BindableRowPositioner extends RowPositioner
+  {
+    void bind(int size);
+    void bindListener(PositionListener listener);
+  }
+
   BatchSchema schema();
-  BatchCursor batchCursor();
+  RowPositioner positioner();
 
   default <T> T unwrap(Class<T> readerClass)
   {

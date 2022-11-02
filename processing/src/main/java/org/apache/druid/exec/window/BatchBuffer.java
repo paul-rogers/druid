@@ -2,11 +2,11 @@ package org.apache.druid.exec.window;
 
 import com.google.common.base.Preconditions;
 import org.apache.druid.exec.batch.BatchSchema;
-import org.apache.druid.exec.batch.BatchReader;
-import org.apache.druid.exec.batch.ColumnReaderFactory;
-import org.apache.druid.exec.batch.RowReader;
-import org.apache.druid.exec.batch.BatchReader.BatchCursor;
-import org.apache.druid.exec.batch.RowReader.RowCursor;
+import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.ColumnReaderProvider;
+import org.apache.druid.exec.batch.RowCursor;
+import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
+import org.apache.druid.exec.batch.RowCursor.RowSequencer;
 import org.apache.druid.exec.operator.ResultIterator;
 import org.apache.druid.exec.operator.ResultIterator.EofException;
 
@@ -50,43 +50,43 @@ public class BatchBuffer
     }
   }
 
-  public class InputReader implements RowReader, RowCursor
+  public class InputReader implements RowCursor, RowSequencer
   {
     public BufferPosition currentRow()
     {
-      return new BufferPosition(batchCount, reader.batchCursor().index());
+      return new BufferPosition(batchCount, reader.positioner().index());
     }
 
     public BufferPosition previousRow()
     {
-      if (reader.batchCursor().index() == 0) {
+      if (reader.positioner().index() == 0) {
         return new BufferPosition(batchCount - 1, buffer.peekLast().size - 1);
       } else {
-        return new BufferPosition(batchCount, reader.batchCursor().index() - 1);
+        return new BufferPosition(batchCount, reader.positioner().index() - 1);
       }
     }
 
     // BatchReader methods
 
     @Override
-    public ColumnReaderFactory columns()
+    public ColumnReaderProvider columns()
     {
       return reader.columns();
     }
 
     @Override
-    public RowCursor cursor()
+    public RowSequencer sequencer()
     {
       return this;
     }
 
-    // RowCursor methods
+    // RowPositioner methods
 
     @Override
     public boolean next()
     {
       while (true) {
-        if (reader.cursor().next()) {
+        if (reader.sequencer().next()) {
           return true;
         }
         if (eof) {
@@ -97,7 +97,7 @@ public class BatchBuffer
           eof = true;
           return false;
         }
-        inputSchema.type().bindReader(reader, batch.data);
+        inputSchema.type().bindCursor(reader, batch.data);
       }
     }
 
@@ -108,12 +108,12 @@ public class BatchBuffer
     }
   }
 
-  public static class PartitionCursor implements RowCursor
+  public static class PartitionCursor implements RowSequencer
   {
-    private final RowCursor primary;
-    private final List<RowCursor> followers;
+    private final RowSequencer primary;
+    private final List<RowSequencer> followers;
 
-    public PartitionCursor(final RowCursor primary, final List<RowCursor> followers)
+    public PartitionCursor(final RowSequencer primary, final List<RowSequencer> followers)
     {
       this.primary = primary;
       this.followers = followers;
@@ -125,7 +125,7 @@ public class BatchBuffer
       if (!primary.next()) {
         return false;
       }
-      for (RowCursor reader : followers) {
+      for (RowSequencer reader : followers) {
         reader.next();
       }
       return true;
@@ -138,9 +138,9 @@ public class BatchBuffer
     }
   }
 
-  public class PartitionReader implements RowReader, RowCursor
+  public class PartitionReader implements RowCursor, RowSequencer
   {
-    private final BatchReader batchReader;
+    private final BatchCursor cursor;
     private PartitionRange range;
     private int batchIndex;
     private Iterator<InputBatch> bufferIter;
@@ -149,7 +149,7 @@ public class BatchBuffer
 
     public PartitionReader()
     {
-      this.batchReader = inputSchema.newReader();
+      this.cursor = inputSchema.newCursor();
     }
 
     public void bind(PartitionRange range)
@@ -157,16 +157,16 @@ public class BatchBuffer
       this.range = range;
       Preconditions.checkArgument(range.start.batchIndex == queueHeadBatchIndex());
       bufferIter = buffer.iterator();
-      inputSchema.type().bindReader(batchReader, bufferIter.next());
-      batchReader.batchCursor().seek(range.start.rowIndex - 1);
+      inputSchema.type().bindCursor(cursor, bufferIter.next());
+      cursor.positioner().seek(range.start.rowIndex - 1);
     }
 
     @Override
     public boolean next()
     {
-      BatchCursor cursor = batchReader.batchCursor();
-      if (cursor.index() < batchEnd) {
-        return cursor.next();
+      RowPositioner positioner = cursor.positioner();
+      if (positioner.index() < batchEnd) {
+        return positioner.next();
       }
       if (batchIndex == range.end.batchIndex) {
         eof = true;
@@ -174,8 +174,8 @@ public class BatchBuffer
       }
       batchIndex++;
       Preconditions.checkState(bufferIter.hasNext());
-      inputSchema.type().bindReader(batchReader, bufferIter.next());
-      return cursor.next();
+      inputSchema.type().bindCursor(cursor, bufferIter.next());
+      return positioner.next();
     }
 
     @Override
@@ -185,13 +185,13 @@ public class BatchBuffer
     }
 
     @Override
-    public ColumnReaderFactory columns()
+    public ColumnReaderProvider columns()
     {
-      return batchReader.columns();
+      return cursor.columns();
     }
 
     @Override
-    public RowCursor cursor()
+    public RowSequencer sequencer()
     {
        return this;
     }
@@ -280,7 +280,7 @@ public class BatchBuffer
    * Reader for the upstream iterator.
    */
 
-  private BatchReader reader;
+  private BatchCursor reader;
 
   /**
    * Reader used when the input is partitioned, and we must find

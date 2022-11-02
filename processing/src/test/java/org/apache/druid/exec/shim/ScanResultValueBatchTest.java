@@ -20,13 +20,13 @@
 package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchReader;
-import org.apache.druid.exec.batch.BatchReader.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
 import org.apache.druid.exec.batch.BatchType.BatchFormat;
 import org.apache.druid.exec.batch.BatchWriter.Copier;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.Batches;
-import org.apache.druid.exec.batch.ColumnReaderFactory;
+import org.apache.druid.exec.batch.ColumnReaderProvider;
 import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.test.BatchBuilder;
 import org.apache.druid.exec.util.BatchValidator;
@@ -90,11 +90,11 @@ public class ScanResultValueBatchTest
     );
 
     // Batch is empty
-    BatchReader reader = batch.newReader();
-    BatchCursor cursor = reader.batchCursor();
-    assertEquals(0, cursor.size());
-    assertEquals(0, reader.columns().schema().size());
-    assertFalse(cursor.next());
+    BatchCursor cursor = batch.newCursor();
+    RowPositioner positioner = cursor.positioner();
+    assertEquals(0, positioner.size());
+    assertEquals(0, cursor.columns().schema().size());
+    assertFalse(positioner.next());
   }
 
   @Test
@@ -105,12 +105,12 @@ public class ScanResultValueBatchTest
         Arrays.asList("a", "b"),
         Collections.emptyList()
     );
-    BatchReader reader = batch.newReader();
-    ColumnReaderFactory columns = reader.columns();
+    BatchCursor cursor = batch.newCursor();
+    ColumnReaderProvider columns = cursor.columns();
 
     // Batch is empty
-    BatchCursor cursor = reader.batchCursor();
-    assertEquals(0, cursor.size());
+    RowPositioner positioner = cursor.positioner();
+    assertEquals(0, positioner.size());
 
     // Schema was inferred, but only names.
     RowSchema expected = new SchemaBuilder()
@@ -143,8 +143,8 @@ public class ScanResultValueBatchTest
 
   private void validateBatch(Batch batch)
   {
-    BatchReader reader = batch.newReader();
-    assertEquals(2, reader.batchCursor().size());
+    BatchCursor cursor = batch.newCursor();
+    assertEquals(2, cursor.positioner().size());
 
     // Check inferred schema
     RowSchema expected = new SchemaBuilder()
@@ -155,7 +155,7 @@ public class ScanResultValueBatchTest
         .scalar("o", ColumnType.UNKNOWN_COMPLEX)
         .scalar("n", null)
         .build();
-    assertEquals(expected, reader.columns().schema());
+    assertEquals(expected, cursor.columns().schema());
   }
 
   @Test
@@ -205,12 +205,12 @@ public class ScanResultValueBatchTest
         .row("first", 1)
         .row("second", 2)
         .build();
-    BatchReader reader = batch.newReader();
+    BatchCursor cursor = batch.newCursor();
 
-    assertTrue(Batches.canDirectCopy(reader, writer));
-    Copier copier = writer.copier(reader);
+    assertTrue(Batches.canDirectCopy(cursor, writer));
+    Copier copier = writer.copier(cursor);
     assertEquals(2, copier.copy(10));
-    assertTrue(reader.cursor().isEOF());
+    assertTrue(cursor.sequencer().isEOF());
 
     batchBuilder.newBatch();
     batch = batchBuilder
@@ -218,12 +218,12 @@ public class ScanResultValueBatchTest
         .row("fourth", 4)
         .row("fifth", 5)
         .build();
-    batch.bindReader(reader);
+    batch.bindCursor(cursor);
 
     assertEquals(1, copier.copy(1));
-    assertEquals(0, reader.batchCursor().index());
+    assertEquals(0, cursor.positioner().index());
     assertEquals(2, copier.copy(10));
-    assertTrue(reader.cursor().isEOF());
+    assertTrue(cursor.sequencer().isEOF());
 
     batchBuilder.newBatch();
     Batch expected = batchBuilder
@@ -238,6 +238,6 @@ public class ScanResultValueBatchTest
 
     // Cannot direct copy across formats.
     BatchWriter<?> incompat = ScanResultValueBatchType.ARRAY_INSTANCE.newWriter(schema, 1000);
-    assertFalse(Batches.canDirectCopy(reader, incompat));
+    assertFalse(Batches.canDirectCopy(cursor, incompat));
   }
 }

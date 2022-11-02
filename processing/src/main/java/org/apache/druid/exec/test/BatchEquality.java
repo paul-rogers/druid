@@ -20,10 +20,10 @@
 package org.apache.druid.exec.test;
 
 import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchReader;
-import org.apache.druid.exec.batch.BatchReader.BatchCursor;
-import org.apache.druid.exec.batch.ColumnReaderFactory;
-import org.apache.druid.exec.batch.ColumnReaderFactory.ScalarColumnReader;
+import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
+import org.apache.druid.exec.batch.ColumnReaderProvider;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.segment.column.ColumnType;
 
 import java.util.Objects;
@@ -75,53 +75,53 @@ public class BatchEquality
       reporter.error("Batch 2 is null but Batch 1 is not");
       return false;
     }
-    return simple().isContentEqual(batch1.newReader(), batch2.newReader());
+    return simple().isContentEqual(batch1.newCursor(), batch2.newCursor());
   }
 
-  public static boolean equals(BatchReader batch1, BatchReader batch2)
+  public static boolean equals(BatchCursor cursor1, BatchCursor cursor2)
   {
-    return simple().isEqual(batch1, batch2);
+    return simple().isEqual(cursor1, cursor2);
   }
 
-  public boolean isEqual(BatchReader batch1, BatchReader batch2)
+  public boolean isEqual(BatchCursor cursor1, BatchCursor cursor2)
   {
-    if (batch1 == null && batch2 == null) {
+    if (cursor1 == null && cursor2 == null) {
       return true;
     }
-    if (batch1 == null) {
-      reporter.error("Batch 1 is null but Batch 2 is not");
+    if (cursor1 == null) {
+      reporter.error("Cursor 1 is null but cursor 2 is not");
       return false;
     }
-    if (batch2 == null) {
-      reporter.error("Batch 2 is null but Batch 1 is not");
+    if (cursor2 == null) {
+      reporter.error("Cursor 2 is null but cursor 1 is not");
       return false;
     }
-    return isContentEqual(batch1, batch2);
+    return isContentEqual(cursor1, cursor2);
   }
 
-  public boolean isContentEqual(BatchReader batch1, BatchReader batch2)
+  public boolean isContentEqual(BatchCursor cursor1, BatchCursor cursor2)
   {
-    ColumnReaderFactory reader1 = batch1.columns();
-    ColumnReaderFactory reader2 = batch2.columns();
+    ColumnReaderProvider reader1 = cursor1.columns();
+    ColumnReaderProvider reader2 = cursor2.columns();
     if (!reader1.schema().equals(reader2.schema())) {
       reporter.error("Schemas are different");
       return false;
     }
-    BatchCursor cursor1 = batch1.batchCursor();
-    BatchCursor cursor2 = batch2.batchCursor();
+    RowPositioner positioner1 = cursor1.positioner();
+    RowPositioner positioner2 = cursor2.positioner();
     while (true) {
-      boolean ok1 = cursor1.next();
-      boolean ok2 = cursor2.next();
+      boolean ok1 = positioner1.next();
+      boolean ok2 = positioner2.next();
       if (!ok1 && !ok2) {
         return true;
       }
-      int row = cursor1.index() + 1;
+      int row = positioner1.index() + 1;
       if (!ok1) {
-        reporter.error("EOF on batch 1 at row %d, batch 2 has more rows", row);
+        reporter.error("EOF on cursor 1 at row %d, cursor 2 has more rows", row);
         return false;
       }
       if (!ok2) {
-        reporter.error("EOF on batch 2 at row %d, batch 1 has more rows", row);
+        reporter.error("EOF on cursor 2 at row %d, cursor 1 has more rows", row);
         return false;
       }
       if (!isRowEqual(row, reader1, reader2)) {
@@ -130,12 +130,12 @@ public class BatchEquality
     }
   }
 
-  public static boolean equals(ColumnReaderFactory reader1, ColumnReaderFactory reader2)
+  public static boolean equals(ColumnReaderProvider reader1, ColumnReaderProvider reader2)
   {
     return simple().isEqual(reader1, reader2);
   }
 
-  public boolean isEqual(ColumnReaderFactory reader1, ColumnReaderFactory reader2)
+  public boolean isEqual(ColumnReaderProvider reader1, ColumnReaderProvider reader2)
   {
     if (reader1 == null && reader2 == null) {
       return true;
@@ -149,7 +149,7 @@ public class BatchEquality
     return isRowEqual(0, reader1, reader2);
   }
 
-  public boolean isRowEqual(int row, ColumnReaderFactory reader1, ColumnReaderFactory reader2)
+  public boolean isRowEqual(int row, ColumnReaderProvider reader1, ColumnReaderProvider reader2)
   {
     for (int col = 0; col < reader1.schema().size(); col++) {
       ScalarColumnReader colReader1 = reader1.scalar(col);
@@ -161,7 +161,7 @@ public class BatchEquality
       }
       if (null1) {
         reporter.error(
-            "Row %d, column %d [%s] batch 1 is null, but batch 2 is not",
+            "Row %d, column %d [%s] cursor 1 is null, but cursor 2 is not",
             row,
             col + 1,
             reader1.schema().column(col).name()
@@ -170,7 +170,7 @@ public class BatchEquality
       }
       if (null2) {
         reporter.error(
-            "Row %d, column %d [%s] batch 2 is null, but batch 1 is not",
+            "Row %d, column %d [%s] cursor 2 is null, but cursor 1 is not",
             row,
             col + 1,
             reader1.schema().column(col).name()

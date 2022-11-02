@@ -1,9 +1,9 @@
 package org.apache.druid.exec.window;
 
-import org.apache.druid.exec.batch.BatchReader;
-import org.apache.druid.exec.batch.RowReader.RowCursor;
+import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.RowCursor.RowSequencer;
 
-public class BufferCursor implements RowCursor
+public class BufferCursor implements RowSequencer
 {
   public interface Listener
   {
@@ -26,7 +26,7 @@ public class BufferCursor implements RowCursor
   };
 
   protected final BatchBuffer2 buffer;
-  protected final BatchReader reader;
+  protected final BatchCursor cursor;
   private Listener listener = NO_OP_LISTENER;
 
   // Start positioned before the first batch so that the first fetch
@@ -37,12 +37,12 @@ public class BufferCursor implements RowCursor
   public BufferCursor(BatchBuffer2 buffer)
   {
     this.buffer = buffer;
-    this.reader = buffer.inputSchema.newReader();
+    this.cursor = buffer.inputSchema.newCursor();
   }
 
-  public BatchReader reader()
+  public BatchCursor reader()
   {
-    return reader;
+    return cursor;
   }
 
   public int offset()
@@ -62,7 +62,7 @@ public class BufferCursor implements RowCursor
       return false;
     }
     while (true) {
-      if (reader.cursor().next()) {
+      if (cursor.sequencer().next()) {
         return true;
       }
       if (!nextBatch()) {
@@ -83,7 +83,7 @@ public class BufferCursor implements RowCursor
       eof = true;
       return false;
     }
-    buffer.inputSchema.type().bindReader(reader, buffer.batch(batchIndex));
+    buffer.inputSchema.type().bindCursor(cursor, buffer.batch(batchIndex));
     return true;
   }
 
@@ -96,7 +96,7 @@ public class BufferCursor implements RowCursor
   @Override
   public boolean isValid()
   {
-    return !eof && reader.cursor().isValid();
+    return !eof && cursor.sequencer().isValid();
   }
 
   public static class LeadBufferCursor extends BufferCursor
@@ -126,9 +126,9 @@ public class BufferCursor implements RowCursor
           if (!nextBatch()) {
             return false;
           }
-          int batchSize = reader.batchCursor().size();
+          int batchSize = cursor.positioner().size();
           if (skip < batchSize) {
-            reader.batchCursor().seek(skip - 1);
+            cursor.positioner().seek(skip - 1);
             break;
           }
           skip -= batchSize;
