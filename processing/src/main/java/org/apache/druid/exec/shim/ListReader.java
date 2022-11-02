@@ -37,6 +37,6 @@ public abstract class ListReader<T> extends BaseBatchReader<List<T>>
   @Override
   public void reset()
   {
-    cursor.bind(batch.size());
+    cursor.bind(batch == null ? 0 : batch.size());
   }
 }

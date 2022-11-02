@@ -1,11 +1,11 @@
 package org.apache.druid.exec.window;
 
 import org.apache.druid.exec.window.BufferCursor.Listener;
-import org.apache.druid.java.util.common.ISE;
 
+import java.util.ArrayList;
 import java.util.List;
 
-public class LeadCursor
+public class PartitionCursor
 {
   private class LagListener implements Listener
   {
@@ -18,7 +18,9 @@ public class LeadCursor
     @Override
     public boolean requestBatch(int batchIndex)
     {
-      throw new ISE("Method should not be called");
+      // Only called if the lag cursor advances beyond the
+      // last batch, which only occurs at EOF.
+      return false;
     }
   }
 
@@ -53,13 +55,12 @@ public class LeadCursor
 
   private final BatchBuffer2 buffer;
   private final BufferCursor primaryCursor;
-  private final List<BufferCursor> followerCursors;
+  private final List<BufferCursor> cursors;
 
-  public LeadCursor(BatchBuffer2 buffer, BufferCursor primaryCursor, List<BufferCursor> followerCursors)
+  public PartitionCursor(BatchBuffer2 buffer, BufferCursor primaryCursor, List<BufferCursor> followerCursors)
   {
     this.buffer = buffer;
     this.primaryCursor = primaryCursor;
-    this.followerCursors = followerCursors;
     BufferCursor lead = null;
     BufferCursor lag = null;
     for (BufferCursor cursor : followerCursors) {
@@ -74,31 +75,52 @@ public class LeadCursor
         }
       }
     }
+
+    // If a lead exists, then the largest lead will load batches.
     if (lead != null) {
       lead.bindListener(new LeadListener());
+
+      // If no lag exists, the primary cursor releases batches.
       if (lag == null) {
         primaryCursor.bindListener(new LagListener());
       }
     }
+
+    // If a lag exists, then the largest lag will release batches.
     if (lag != null) {
       lag.bindListener(new LagListener());
+
+      // If no lead exists, the primary cursor loads batches.
       if (lead == null) {
         primaryCursor.bindListener(new LeadListener());
       }
     }
+
+    // Rather boring: no lag or lead: the primary cursor does all the work.
     if (lead == null && lag == null) {
       primaryCursor.bindListener(new NoLeadOrLagListener());
+    }
+
+    this.cursors = new ArrayList<>();
+    if (lead == null) {
+      this.cursors.add(primaryCursor);
+      this.cursors.addAll(followerCursors);
+    } else {
+      this.cursors.add(lead);
+      this.cursors.add(primaryCursor);
+      for (BufferCursor cursor : followerCursors) {
+        if (cursor != lead) {
+          this.cursors.add(cursor);
+        }
+      }
     }
   }
 
   public boolean next()
   {
-    if (!primaryCursor.next()) {
-      return false;
-    }
-    for (BufferCursor cursor : followerCursors) {
+    for (BufferCursor cursor : cursors) {
       cursor.next();
     }
-    return true;
+    return !primaryCursor.isEOF();
   }
 }

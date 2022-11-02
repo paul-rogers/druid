@@ -19,9 +19,9 @@
 
 package org.apache.druid.exec.window;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.druid.exec.batch.BatchSchema;
-import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.operator.ResultIterator;
 import org.apache.druid.exec.operator.ResultIterator.EofException;
 
@@ -33,7 +33,7 @@ public class BatchBuffer2
   /**
    * Factory for the holders for input batches.
    */
-  protected final BatchType inputType;
+  protected final BatchSchema inputSchema;
 
   /**
    * Upstream source of batches
@@ -62,7 +62,7 @@ public class BatchBuffer2
 
   public BatchBuffer2(final BatchSchema inputSchema, final ResultIterator<Object> inputIter)
   {
-    this.inputType = inputSchema.type();
+    this.inputSchema = inputSchema;
     this.inputIter = inputIter;
   }
 
@@ -90,13 +90,19 @@ public class BatchBuffer2
         eof = true;
         return false;
       }
-      int size = inputType.sizeOf(data);
+      int size = inputSchema.type().sizeOf(data);
       if (size > 0) {
         batchCount++;
         buffer.add(data);
         return true;
       }
     }
+  }
+
+  @VisibleForTesting
+  protected int size()
+  {
+    return buffer.size();
   }
 
   private int firstCachedBatch()

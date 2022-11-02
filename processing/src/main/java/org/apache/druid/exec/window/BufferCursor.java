@@ -25,26 +25,29 @@ public class BufferCursor implements RowCursor
     }
   };
 
-  private final BatchBuffer2 buffer;
-  private final BatchReader reader;
+  protected final BatchBuffer2 buffer;
+  protected final BatchReader reader;
   private Listener listener = NO_OP_LISTENER;
-  private final int offset;
-  private int lag;
-  private int batchIndex;
+
+  // Start positioned before the first batch so that the first fetch
+  // moves to the first row of the first batch (or EOF in the limit case)
+  protected int batchIndex = -1;
   private boolean eof;
 
-  public BufferCursor(BatchBuffer2 buffer, int offset)
+  public BufferCursor(BatchBuffer2 buffer)
   {
     this.buffer = buffer;
     this.reader = buffer.inputSchema.newReader();
-    this.offset = offset;
-    this.lag = Math.max(0, -offset);
-    buffer.inputSchema.type().bindReader(reader, buffer.batch(batchIndex));
+  }
+
+  public BatchReader reader()
+  {
+    return reader;
   }
 
   public int offset()
   {
-    return offset;
+    return 0;
   }
 
   public void bindListener(Listener listener)
@@ -55,10 +58,6 @@ public class BufferCursor implements RowCursor
   @Override
   public boolean next()
   {
-    if (lag > 0) {
-      lag--;
-      return true;
-    }
     if (eof) {
       return false;
     }
@@ -66,15 +65,26 @@ public class BufferCursor implements RowCursor
       if (reader.cursor().next()) {
         return true;
       }
-      listener.exitBatch(batchIndex);
-      batchIndex++;
-      Object data = buffer.batch(batchIndex);
-      if (data == null && !listener.requestBatch(batchIndex)) {
-        eof = true;
+      if (!nextBatch()) {
         return false;
       }
-      buffer.inputSchema.type().bindReader(reader, buffer.batch(batchIndex));
     }
+  }
+
+  protected boolean nextBatch()
+  {
+    if (batchIndex >= 0) {
+      // Listeners are not interested in moving off of the -1 bath
+      listener.exitBatch(batchIndex);
+    }
+    batchIndex++;
+    Object data = buffer.batch(batchIndex);
+    if (data == null && !listener.requestBatch(batchIndex)) {
+      eof = true;
+      return false;
+    }
+    buffer.inputSchema.type().bindReader(reader, buffer.batch(batchIndex));
+    return true;
   }
 
   @Override
@@ -87,5 +97,73 @@ public class BufferCursor implements RowCursor
   public boolean isValid()
   {
     return !eof && reader.cursor().isValid();
+  }
+
+  public static class LeadBufferCursor extends BufferCursor
+  {
+    private final int lead;
+    private boolean primed = false;
+
+    public LeadBufferCursor(BatchBuffer2 buffer, int lead)
+    {
+      super(buffer);
+      this.lead = lead;
+    }
+
+    @Override
+    public int offset()
+    {
+      return lead;
+    }
+
+    @Override
+    public boolean next()
+    {
+      if (!primed) {
+        primed = true;
+        int skip = lead;
+        while (true) {
+          if (!nextBatch()) {
+            return false;
+          }
+          int batchSize = reader.batchCursor().size();
+          if (skip < batchSize) {
+            reader.batchCursor().seek(skip - 1);
+            break;
+          }
+          skip -= batchSize;
+        }
+      }
+      return super.next();
+    }
+  }
+
+  public static class LagBufferCursor extends BufferCursor
+  {
+    private final int lag;
+    private int skip;
+
+    public LagBufferCursor(BatchBuffer2 buffer, int lag)
+    {
+      super(buffer);
+      this.lag = lag;
+      this.skip = lag;
+    }
+
+    @Override
+    public int offset()
+    {
+      return -lag;
+    }
+
+    @Override
+    public boolean next()
+    {
+      if (skip > 0) {
+        skip--;
+        return true;
+      }
+      return super.next();
+    }
   }
 }

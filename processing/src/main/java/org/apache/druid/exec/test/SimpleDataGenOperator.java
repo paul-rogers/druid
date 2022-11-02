@@ -131,7 +131,7 @@ public class SimpleDataGenOperator extends AbstractBatchOperator implements Resu
           @Override
           public Object getObject()
           {
-            return rowCount;
+            return rid();
           }
         };
       case "rand":
@@ -140,7 +140,7 @@ public class SimpleDataGenOperator extends AbstractBatchOperator implements Resu
           @Override
           public Object getObject()
           {
-            return rowCount % 7;
+            return rid() % 7;
           }
         };
       case "str":
@@ -149,7 +149,7 @@ public class SimpleDataGenOperator extends AbstractBatchOperator implements Resu
           @Override
           public Object getObject()
           {
-            return "Row " + rowCount;
+            return "Row " + rid();
           }
         };
       case "str5":
@@ -158,7 +158,7 @@ public class SimpleDataGenOperator extends AbstractBatchOperator implements Resu
           @Override
           public Object getObject()
           {
-            return "Rot " + (rowCount % 5);
+            return "Rot " + (rid() % 5);
           }
         };
       default:
@@ -171,6 +171,11 @@ public class SimpleDataGenOperator extends AbstractBatchOperator implements Resu
           }
         };
     }
+  }
+
+  private int rid()
+  {
+    return rowCount + 1;
   }
 
   @Override
