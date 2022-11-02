@@ -1,274 +1,53 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.druid.exec.window;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.druid.exec.batch.BatchSchema;
-import org.apache.druid.exec.batch.BatchCursor;
-import org.apache.druid.exec.batch.ColumnReaderProvider;
-import org.apache.druid.exec.batch.RowCursor;
-import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
-import org.apache.druid.exec.batch.RowCursor.RowSequencer;
 import org.apache.druid.exec.operator.ResultIterator;
 import org.apache.druid.exec.operator.ResultIterator.EofException;
 
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 
 public class BatchBuffer
 {
-  public static final BufferPosition START = new BufferPosition(0, 0);
-  public static final BufferPosition UNBOUNDED_END = new BufferPosition(Integer.MAX_VALUE, 0);
-  public static final PartitionRange UNBOUNDED = new PartitionRange(START, UNBOUNDED_END);
-
-  protected static class BufferPosition
-  {
-    public final int batchIndex;
-    public final int rowIndex;
-
-    public BufferPosition(int batchIndex, int rowIndex)
-    {
-      this.batchIndex = batchIndex;
-      this.rowIndex = rowIndex;
-    }
-  }
-
-  public static class PartitionRange
-  {
-    public final BufferPosition start;
-    public final BufferPosition end;
-
-    public PartitionRange(BufferPosition start, BufferPosition end)
-    {
-      this.start = start;
-      this.end = end;
-    }
-
-    public boolean inRange(int batchIndex, int rowIndex)
-    {
-      return batchIndex < end.batchIndex || rowIndex < end.rowIndex;
-    }
-  }
-
-  public class InputReader implements RowCursor, RowSequencer
-  {
-    public BufferPosition currentRow()
-    {
-      return new BufferPosition(batchCount, reader.positioner().index());
-    }
-
-    public BufferPosition previousRow()
-    {
-      if (reader.positioner().index() == 0) {
-        return new BufferPosition(batchCount - 1, buffer.peekLast().size - 1);
-      } else {
-        return new BufferPosition(batchCount, reader.positioner().index() - 1);
-      }
-    }
-
-    // BatchReader methods
-
-    @Override
-    public ColumnReaderProvider columns()
-    {
-      return reader.columns();
-    }
-
-    @Override
-    public RowSequencer sequencer()
-    {
-      return this;
-    }
-
-    // RowPositioner methods
-
-    @Override
-    public boolean next()
-    {
-      while (true) {
-        if (reader.sequencer().next()) {
-          return true;
-        }
-        if (eof) {
-          return false;
-        }
-        InputBatch batch = loadNextBatch();
-        if (batch == null) {
-          eof = true;
-          return false;
-        }
-        inputSchema.type().bindCursor(reader, batch.data);
-      }
-    }
-
-    @Override
-    public boolean isEOF()
-    {
-      return eof;
-    }
-  }
-
-  public static class PartitionCursor implements RowSequencer
-  {
-    private final RowSequencer primary;
-    private final List<RowSequencer> followers;
-
-    public PartitionCursor(final RowSequencer primary, final List<RowSequencer> followers)
-    {
-      this.primary = primary;
-      this.followers = followers;
-    }
-
-    @Override
-    public boolean next()
-    {
-      if (!primary.next()) {
-        return false;
-      }
-      for (RowSequencer reader : followers) {
-        reader.next();
-      }
-      return true;
-    }
-
-    @Override
-    public boolean isEOF()
-    {
-      return primary.isEOF();
-    }
-  }
-
-  public class PartitionReader implements RowCursor, RowSequencer
-  {
-    private final BatchCursor cursor;
-    private PartitionRange range;
-    private int batchIndex;
-    private Iterator<InputBatch> bufferIter;
-    private int batchEnd;
-    protected boolean eof;
-
-    public PartitionReader()
-    {
-      this.cursor = inputSchema.newCursor();
-    }
-
-    public void bind(PartitionRange range)
-    {
-      this.range = range;
-      Preconditions.checkArgument(range.start.batchIndex == queueHeadBatchIndex());
-      bufferIter = buffer.iterator();
-      inputSchema.type().bindCursor(cursor, bufferIter.next());
-      cursor.positioner().seek(range.start.rowIndex - 1);
-    }
-
-    @Override
-    public boolean next()
-    {
-      RowPositioner positioner = cursor.positioner();
-      if (positioner.index() < batchEnd) {
-        return positioner.next();
-      }
-      if (batchIndex == range.end.batchIndex) {
-        eof = true;
-        return false;
-      }
-      batchIndex++;
-      Preconditions.checkState(bufferIter.hasNext());
-      inputSchema.type().bindCursor(cursor, bufferIter.next());
-      return positioner.next();
-    }
-
-    @Override
-    public boolean isEOF()
-    {
-      return eof;
-    }
-
-    @Override
-    public ColumnReaderProvider columns()
-    {
-      return cursor.columns();
-    }
-
-    @Override
-    public RowSequencer sequencer()
-    {
-       return this;
-    }
-
-    public boolean isNull()
-    {
-      return eof;
-    }
-  }
-
-  public class LeadReader extends PartitionReader
-  {
-    private int leadNulls;
-
-    public LeadReader(int lead)
-    {
-      leadNulls = lead;
-    }
-
-    @Override
-    public boolean next()
-    {
-      if (leadNulls > 0) {
-        leadNulls--;
-        return true;
-      }
-      return super.next();
-    }
-
-    @Override
-    public boolean isNull()
-    {
-      return leadNulls > 0 || eof;
-    }
-  }
-
-  public class LagReader extends PartitionReader
-  {
-    public LagReader(int lag)
-    {
-
-      // Not very efficient for large lags. Consider doing
-      // the math instead.
-      for (int i = 0; i < lag; i++) {
-        if (!next()) {
-          break;
-        }
-      }
-    }
-  }
-
-  public static class InputBatch
-  {
-    public final Object data;
-    public final int size;
-
-    public InputBatch(Object data, int size)
-    {
-      this.data = data;
-      this.size = size;
-    }
-  }
-
   /**
    * Factory for the holders for input batches.
    */
-  private final BatchSchema inputSchema;
+  protected final BatchSchema inputSchema;
 
   /**
    * Upstream source of batches
    */
-  private final ResultIterator<?> inputIter;
+  private final ResultIterator<Object> inputIter;
 
   /**
    * Sliding window of retained batches.
    */
-  private final Deque<InputBatch> buffer = new LinkedList<>();
+  // Array list is not ideal: we want an unbounded circular
+  // buffer with access to items in the buffer. Surprisingly,
+  // no candidates suggested themselves after a Google search.
+  // Building one can come later during optimization.
+  private final List<Object> buffer = new ArrayList<>();
 
   /**
    * Total number of batches read thus far from upstream. The
@@ -277,104 +56,72 @@ public class BatchBuffer
   private int batchCount;
 
   /**
-   * Reader for the upstream iterator.
-   */
-
-  private BatchCursor reader;
-
-  /**
-   * Reader used when the input is partitioned, and we must find
-   * partition boundaries (i.e., the frame) before computing the rows
-   * within a frame.
-   */
-  private InputReader inputReader;
-
-  /**
    * If EOF was seen from upstream.
    */
   private boolean eof;
 
-  public BatchBuffer(final BatchSchema inputSchema, final ResultIterator<?> inputIter)
+  public BatchBuffer(final BatchSchema inputSchema, final ResultIterator<Object> inputIter)
   {
     this.inputSchema = inputSchema;
     this.inputIter = inputIter;
   }
 
-  /**
-   * Initialize the buffer.
-   *
-   * @return {@code true} if there is at least one row available from
-   * upstream, {@code false} if the result set is empty.
-   */
-  public boolean open()
+  public boolean isEof()
   {
-    Preconditions.checkState(buffer.isEmpty());
-    return loadNextBatch() != null;
-  }
-
-  private int queueHeadBatchIndex()
-  {
-    return batchCount - buffer.size();
+    return eof;
   }
 
   /**
-   * Load the next non-empty batch from upstream and add it to the
+   * Load the next non-empty batch from upstream and adds it to the
    * queue.
    *
+   * @param batchToLoad the index of the batch to load. Not needed, but
+   * passed in and verified to ensure the cursors stay in sync.
    * @return the batch, else {@code null} at EOF.
    */
-  private InputBatch loadNextBatch()
+  public boolean loadBatch(int batchToLoad)
   {
+    Preconditions.checkState(batchToLoad == batchCount);
     while (true) {
       Object data;
       try {
         data = inputIter.next();
       } catch (EofException e) {
-        return null;
+        eof = true;
+        return false;
       }
       int size = inputSchema.type().sizeOf(data);
       if (size > 0) {
         batchCount++;
-        InputBatch batch = new InputBatch(data, size);
-        buffer.add(batch);
-        return batch;
+        buffer.add(data);
+        return true;
       }
     }
   }
 
-  /**
-   * Load all rows: needed for an aggregate over an unbounded frame.
-   */
-  public void loadUnboundedFrame()
+  @VisibleForTesting
+  protected int size()
   {
-    while (loadNextBatch() != null) {
-      // Empty
-    }
+    return buffer.size();
   }
 
-  /**
-   * Return a batch reader to be used to find partition boundaries
-   * in sorted input.
-   */
-  public InputReader inputReader()
+  private int firstCachedBatch()
   {
-    if (inputReader == null) {
-      inputReader = new InputReader();
-    }
-    return inputReader;
+    return batchCount - buffer.size();
   }
 
-  public PartitionReader primaryReader()
+  public void unloadBatch(int batchToUnload)
   {
-    return new PartitionReader();
+    Preconditions.checkState(batchToUnload == firstCachedBatch());
+    buffer.remove(0);
   }
 
-  public PartitionReader offsetReader(int offset)
+  public Object batch(int batchIndex)
   {
-    if (offset < 0) {
-      return new LeadReader(-offset);
-    } else {
-      return new LagReader(offset);
+    if (batchIndex >= batchCount) {
+      return null;
     }
+    int bufferIndex = batchIndex - (batchCount - buffer.size());
+    return buffer.get(bufferIndex);
   }
 }

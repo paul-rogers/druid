@@ -1,9 +1,11 @@
 package org.apache.druid.exec.window;
 
 import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.ColumnReaderProvider;
+import org.apache.druid.exec.batch.RowCursor;
 import org.apache.druid.exec.batch.RowCursor.RowSequencer;
 
-public class BufferCursor implements RowSequencer
+public class WindowFrameCursor implements RowCursor, RowSequencer
 {
   public interface Listener
   {
@@ -25,29 +27,19 @@ public class BufferCursor implements RowSequencer
     }
   };
 
-  protected final BatchBuffer2 buffer;
+  protected final BatchBuffer buffer;
   protected final BatchCursor cursor;
   private Listener listener = NO_OP_LISTENER;
 
   // Start positioned before the first batch so that the first fetch
   // moves to the first row of the first batch (or EOF in the limit case)
   protected int batchIndex = -1;
-  private boolean eof;
+  protected boolean eof;
 
-  public BufferCursor(BatchBuffer2 buffer)
+  public WindowFrameCursor(BatchBuffer buffer)
   {
     this.buffer = buffer;
     this.cursor = buffer.inputSchema.newCursor();
-  }
-
-  public BatchCursor reader()
-  {
-    return cursor;
-  }
-
-  public int offset()
-  {
-    return 0;
   }
 
   public void bindListener(Listener listener)
@@ -56,11 +48,45 @@ public class BufferCursor implements RowSequencer
   }
 
   @Override
+  public ColumnReaderProvider columns()
+  {
+    return cursor.columns();
+  }
+
+  @Override
+  public RowSequencer sequencer()
+  {
+    return this;
+  }
+
+  public int offset()
+  {
+    return 0;
+  }
+
+  @Override
+  public boolean isEOF()
+  {
+    return eof;
+  }
+
+  @Override
+  public boolean isValid()
+  {
+    return !eof && cursor.sequencer().isValid();
+  }
+
+  @Override
   public boolean next()
   {
     if (eof) {
       return false;
     }
+    return nextRow();
+  }
+
+  protected boolean nextRow()
+  {
     while (true) {
       if (cursor.sequencer().next()) {
         return true;
@@ -87,24 +113,20 @@ public class BufferCursor implements RowSequencer
     return true;
   }
 
-  @Override
-  public boolean isEOF()
+  public static class UnboundedCursor extends WindowFrameCursor
   {
-    return eof;
+    public UnboundedCursor(BatchBuffer buffer)
+    {
+      super(buffer);
+    }
   }
 
-  @Override
-  public boolean isValid()
-  {
-    return !eof && cursor.sequencer().isValid();
-  }
-
-  public static class LeadBufferCursor extends BufferCursor
+  public static class UnboundedLeadCursor extends WindowFrameCursor
   {
     private final int lead;
     private boolean primed = false;
 
-    public LeadBufferCursor(BatchBuffer2 buffer, int lead)
+    public UnboundedLeadCursor(BatchBuffer buffer, int lead)
     {
       super(buffer);
       this.lead = lead;
@@ -137,13 +159,12 @@ public class BufferCursor implements RowSequencer
       return super.next();
     }
   }
-
-  public static class LagBufferCursor extends BufferCursor
+  public static class UnboundedLagCursor extends WindowFrameCursor
   {
     private final int lag;
     private int skip;
 
-    public LagBufferCursor(BatchBuffer2 buffer, int lag)
+    public UnboundedLagCursor(BatchBuffer buffer, int lag)
     {
       super(buffer);
       this.lag = lag;

@@ -5,9 +5,9 @@ import org.apache.druid.exec.batch.ColumnReaderProvider;
 import org.apache.druid.exec.batch.RowCursor;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.util.TypeRegistry;
-import org.apache.druid.exec.window.BatchBuffer.BufferPosition;
-import org.apache.druid.exec.window.BatchBuffer.InputReader;
-import org.apache.druid.exec.window.BatchBuffer.PartitionRange;
+import org.apache.druid.exec.window.BatchBufferOld.BufferPosition;
+import org.apache.druid.exec.window.BatchBufferOld.InputReader;
+import org.apache.druid.exec.window.BatchBufferOld.PartitionRange;
 
 import java.util.Comparator;
 import java.util.List;

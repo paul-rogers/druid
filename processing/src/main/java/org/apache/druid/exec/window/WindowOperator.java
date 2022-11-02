@@ -14,7 +14,7 @@ import org.apache.druid.exec.util.SchemaBuilder;
 
 public class WindowOperator extends AbstractUnaryBatchOperator implements ResultIterator<Object>
 {
-  private BatchBuffer batchBuffer;
+  private BatchBufferOld batchBuffer;
   private BatchWriter<?> writer;
   private Partitioner partitioner;
   private int rowCount;
@@ -38,7 +38,7 @@ public class WindowOperator extends AbstractUnaryBatchOperator implements Result
   public ResultIterator<Object> open()
   {
     openInput();
-    batchBuffer = new BatchBuffer(input.batchSchema(), inputIter);
+    batchBuffer = new BatchBufferOld(input.batchSchema(), inputIter);
     partitioner = new Partitioner(batchBuffer);
     return this;
   }

@@ -4,8 +4,8 @@ import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.BatchWriter.RowWriter;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowCursor.RowSequencer;
-import org.apache.druid.exec.window.BatchBuffer.PartitionRange;
-import org.apache.druid.exec.window.BatchBuffer.PartitionReader;
+import org.apache.druid.exec.window.BatchBufferOld.PartitionRange;
+import org.apache.druid.exec.window.BatchBufferOld.PartitionReader;
 
 import java.util.List;
 

@@ -36,7 +36,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-public class BatchCursorTest
+public class BatchBufferTest
 {
   private SimpleDataGenSpec dataGenSpec(int batchSize, int rowCount)
   {
@@ -61,7 +61,7 @@ public class BatchCursorTest
   public void testEmptyInput()
   {
     BatchOperator op = dataGen(5, 0);
-    BatchBuffer2 buffer = new BatchBuffer2(op.batchSchema(), op.open());
+    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
     assertFalse(buffer.isEof());
     assertFalse(buffer.loadBatch(0));
     assertTrue(buffer.isEof());
@@ -72,7 +72,7 @@ public class BatchCursorTest
   {
     BatchOperator op = dataGen(5, 1);
     BatchType batchType = op.batchSchema().type();
-    BatchBuffer2 buffer = new BatchBuffer2(op.batchSchema(), op.open());
+    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
 
     assertFalse(buffer.isEof());
     assertTrue(buffer.loadBatch(0));
@@ -96,7 +96,7 @@ public class BatchCursorTest
   private void testThreeBatches(BatchOperator op)
   {
     BatchType batchType = op.batchSchema().type();
-    BatchBuffer2 buffer = new BatchBuffer2(op.batchSchema(), op.open());
+    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
 
     assertTrue(buffer.loadBatch(0));
     assertEquals(5, batchType.sizeOf(buffer.batch(0)));
@@ -131,7 +131,7 @@ public class BatchCursorTest
   {
     BatchOperator op = dataGen(5, 14);
     BatchType batchType = op.batchSchema().type();
-    BatchBuffer2 buffer = new BatchBuffer2(op.batchSchema(), op.open());
+    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
 
     assertTrue(buffer.loadBatch(0));
     assertEquals(5, batchType.sizeOf(buffer.batch(0)));

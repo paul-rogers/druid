@@ -12,5 +12,5 @@ public class Partition
 
   }
 
-  private final BatchBuffer batchBuffer;
+  private final BatchBufferOld batchBuffer;
 }

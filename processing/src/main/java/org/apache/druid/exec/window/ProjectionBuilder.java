@@ -11,8 +11,8 @@ import org.apache.druid.exec.plan.WindowSpec.OffsetExpression;
 import org.apache.druid.exec.plan.WindowSpec.OutputColumn;
 import org.apache.druid.exec.plan.WindowSpec.SimpleExpression;
 import org.apache.druid.exec.util.SchemaBuilder;
-import org.apache.druid.exec.window.BatchBuffer.PartitionCursor;
-import org.apache.druid.exec.window.BatchBuffer.PartitionReader;
+import org.apache.druid.exec.window.BatchBufferOld.PartitionCursor;
+import org.apache.druid.exec.window.BatchBufferOld.PartitionReader;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprMacroTable;
@@ -26,14 +26,14 @@ import java.util.stream.Collectors;
 
 public class ProjectionBuilder
 {
-  private final BatchBuffer buffer;
+  private final BatchBufferOld buffer;
   private final WindowSpec spec;
   private final ExprMacroTable macroTable;
   private final Map<Integer, PartitionReader> offsetReaders = new HashMap<>();
   private final SchemaBuilder schemaBuilder = new SchemaBuilder();
   private PartitionReader primaryReader;
 
-  public ProjectionBuilder(BatchBuffer buffer, final ExprMacroTable macroTable, WindowSpec spec)
+  public ProjectionBuilder(BatchBufferOld buffer, final ExprMacroTable macroTable, WindowSpec spec)
   {
     this.buffer = buffer;
     this.spec = spec;

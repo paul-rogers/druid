@@ -5,8 +5,9 @@ import org.apache.druid.exec.operator.BatchOperator;
 import org.apache.druid.exec.test.SimpleDataGenOperator;
 import org.apache.druid.exec.test.SimpleDataGenSpec;
 import org.apache.druid.exec.test.TestUtils;
-import org.apache.druid.exec.window.BufferCursor.LagBufferCursor;
-import org.apache.druid.exec.window.BufferCursor.LeadBufferCursor;
+import org.apache.druid.exec.window.WindowFrameCursor.UnboundedCursor;
+import org.apache.druid.exec.window.WindowFrameCursor.UnboundedLagCursor;
+import org.apache.druid.exec.window.WindowFrameCursor.UnboundedLeadCursor;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -16,7 +17,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class BufferCursorTest
+public class WindowFrameSequencerTest
 {
   private SimpleDataGenSpec dataGenSpec(int batchSize, int rowCount)
   {
@@ -47,14 +48,14 @@ public class BufferCursorTest
   {
     final int rowCount = 4;
     BatchOperator op = dataGen(5, rowCount);
-    BatchBuffer2 buffer = new BatchBuffer2(op.batchSchema(), op.open());
+    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
     assertTrue(buffer.loadBatch(0));
-    BufferCursor primary = new BufferCursor(buffer);
+    WindowFrameCursor primary = new UnboundedCursor(buffer);
     assertFalse(primary.isEOF());
     assertFalse(primary.isValid());
     for (int i = 0; i < rowCount; i++) {
       assertTrue(primary.next());
-      assertEquals(i + 1L, primary.reader().columns().scalar(0).getLong());
+      assertEquals(i + 1L, primary.columns().scalar(0).getLong());
     }
     assertFalse(primary.next());
     assertTrue(primary.isEOF());
@@ -70,16 +71,16 @@ public class BufferCursorTest
   {
     final int rowCount = 9;
     BatchOperator op = dataGen(5, rowCount);
-    BatchBuffer2 buffer = new BatchBuffer2(op.batchSchema(), op.open());
-    BufferCursor primary = new BufferCursor(buffer);
-    PartitionCursor partCursor = new PartitionCursor(buffer, primary, Collections.emptyList());
+    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
+    WindowFrameCursor primary = new UnboundedCursor(buffer);
+    WindowFrameSequencer seq = new WindowFrameSequencer(buffer, primary, Collections.emptyList());
     assertFalse(primary.isEOF());
     assertFalse(primary.isValid());
     for (int i = 0; i < rowCount; i++) {
-      assertTrue(partCursor.next());
-      assertEquals(i + 1L, primary.reader().columns().scalar(0).getLong());
+      assertTrue(seq.next());
+      assertEquals(i + 1L, primary.columns().scalar(0).getLong());
     }
-    assertFalse(partCursor.next());
+    assertFalse(seq.next());
     assertTrue(primary.isEOF());
 
     // All batches should be unloaded
@@ -91,10 +92,10 @@ public class BufferCursorTest
   {
     final int rowCount = 9;
     BatchOperator op = dataGen(5, rowCount);
-    BatchBuffer2 buffer = new BatchBuffer2(op.batchSchema(), op.open());
-    BufferCursor primary = new BufferCursor(buffer);
-    BufferCursor lag = new LagBufferCursor(buffer, 2);
-    PartitionCursor partCursor = new PartitionCursor(
+    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
+    WindowFrameCursor primary = new UnboundedCursor(buffer);
+    WindowFrameCursor lag = new UnboundedLagCursor(buffer, 2);
+    WindowFrameSequencer seq = new WindowFrameSequencer(
         buffer,
         primary,
         Collections.singletonList(lag)
@@ -102,15 +103,15 @@ public class BufferCursorTest
     assertFalse(primary.isEOF());
     assertFalse(primary.isValid());
     for (int i = 0; i < rowCount; i++) {
-      assertTrue(partCursor.next());
-      assertEquals(i + 1L, primary.reader().columns().scalar(0).getLong());
+      assertTrue(seq.next());
+      assertEquals(i + 1L, primary.columns().scalar(0).getLong());
       if (i < 2) {
-        assertTrue(lag.reader().columns().scalar(0).isNull());
+        assertTrue(lag.columns().scalar(0).isNull());
       } else {
-        assertEquals(i - 1L, lag.reader().columns().scalar(0).getLong());
+        assertEquals(i - 1L, lag.columns().scalar(0).getLong());
       }
     }
-    assertFalse(partCursor.next());
+    assertFalse(seq.next());
     assertTrue(primary.isEOF());
     assertFalse(lag.isEOF());
 
@@ -123,10 +124,10 @@ public class BufferCursorTest
   {
     final int rowCount = 9;
     BatchOperator op = dataGen(5, rowCount);
-    BatchBuffer2 buffer = new BatchBuffer2(op.batchSchema(), op.open());
-    BufferCursor primary = new BufferCursor(buffer);
-    BufferCursor lead = new LeadBufferCursor(buffer, 2);
-    PartitionCursor partCursor = new PartitionCursor(
+    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
+    WindowFrameCursor primary = new UnboundedCursor(buffer);
+    WindowFrameCursor lead = new UnboundedLeadCursor(buffer, 2);
+    WindowFrameSequencer seq = new WindowFrameSequencer(
         buffer,
         primary,
         Collections.singletonList(lead)
@@ -134,15 +135,15 @@ public class BufferCursorTest
     assertFalse(primary.isEOF());
     assertFalse(primary.isValid());
     for (int i = 0; i < rowCount; i++) {
-      assertTrue(partCursor.next());
-      assertEquals(i + 1L, primary.reader().columns().scalar(0).getLong());
+      assertTrue(seq.next());
+      assertEquals(i + 1L, primary.columns().scalar(0).getLong());
       if (i < rowCount - 2) {
-        assertEquals(i + 3L, lead.reader().columns().scalar(0).getLong());
+        assertEquals(i + 3L, lead.columns().scalar(0).getLong());
       } else {
-        assertTrue(lead.reader().columns().scalar(0).isNull());
+        assertTrue(lead.columns().scalar(0).isNull());
       }
     }
-    assertFalse(partCursor.next());
+    assertFalse(seq.next());
     assertTrue(primary.isEOF());
     assertTrue(lead.isEOF());
     assertEquals(0, buffer.size());
@@ -153,11 +154,11 @@ public class BufferCursorTest
   {
     final int rowCount = 9;
     BatchOperator op = dataGen(5, rowCount);
-    BatchBuffer2 buffer = new BatchBuffer2(op.batchSchema(), op.open());
-    BufferCursor primary = new BufferCursor(buffer);
-    BufferCursor lag = new LagBufferCursor(buffer, 2);
-    BufferCursor lead = new LeadBufferCursor(buffer, 2);
-    PartitionCursor partCursor = new PartitionCursor(
+    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
+    WindowFrameCursor primary = new UnboundedCursor(buffer);
+    WindowFrameCursor lag = new UnboundedLagCursor(buffer, 2);
+    WindowFrameCursor lead = new UnboundedLeadCursor(buffer, 2);
+    WindowFrameSequencer seq = new WindowFrameSequencer(
         buffer,
         primary,
         Arrays.asList(lag, lead)
@@ -165,20 +166,20 @@ public class BufferCursorTest
     assertFalse(primary.isEOF());
     assertFalse(primary.isValid());
     for (int i = 0; i < rowCount; i++) {
-      assertTrue(partCursor.next());
-      assertEquals(i + 1L, primary.reader().columns().scalar(0).getLong());
+      assertTrue(seq.next());
+      assertEquals(i + 1L, primary.columns().scalar(0).getLong());
       if (i < 2) {
-        assertTrue(lag.reader().columns().scalar(0).isNull());
+        assertTrue(lag.columns().scalar(0).isNull());
       } else {
-        assertEquals(i - 1L, lag.reader().columns().scalar(0).getLong());
+        assertEquals(i - 1L, lag.columns().scalar(0).getLong());
       }
       if (i < rowCount - 2) {
-        assertEquals(i + 3L, lead.reader().columns().scalar(0).getLong());
+        assertEquals(i + 3L, lead.columns().scalar(0).getLong());
       } else {
-        assertTrue(lead.reader().columns().scalar(0).isNull());
+        assertTrue(lead.columns().scalar(0).isNull());
       }
     }
-    assertFalse(partCursor.next());
+    assertFalse(seq.next());
     assertTrue(primary.isEOF());
     assertTrue(lead.isEOF());
     assertFalse(lag.isEOF());
@@ -192,11 +193,11 @@ public class BufferCursorTest
   {
     final int rowCount = 100;
     BatchOperator op = dataGen(5, rowCount);
-    BatchBuffer2 buffer = new BatchBuffer2(op.batchSchema(), op.open());
-    BufferCursor primary = new BufferCursor(buffer);
-    BufferCursor lag = new LagBufferCursor(buffer, 1);
-    BufferCursor lead = new LeadBufferCursor(buffer, 1);
-    PartitionCursor partCursor = new PartitionCursor(
+    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
+    WindowFrameCursor primary = new UnboundedCursor(buffer);
+    WindowFrameCursor lag = new UnboundedLagCursor(buffer, 1);
+    WindowFrameCursor lead = new UnboundedLeadCursor(buffer, 1);
+    WindowFrameSequencer seq = new WindowFrameSequencer(
         buffer,
         primary,
         Arrays.asList(lag, lead)
@@ -204,20 +205,20 @@ public class BufferCursorTest
     assertFalse(primary.isEOF());
     assertFalse(primary.isValid());
     for (int i = 0; i < rowCount; i++) {
-      assertTrue(partCursor.next());
-      assertEquals(i + 1L, primary.reader().columns().scalar(0).getLong());
+      assertTrue(seq.next());
+      assertEquals(i + 1L, primary.columns().scalar(0).getLong());
       if (i < 1) {
-        assertTrue(lag.reader().columns().scalar(0).isNull());
+        assertTrue(lag.columns().scalar(0).isNull());
       } else {
-        assertEquals(i - 0L, lag.reader().columns().scalar(0).getLong());
+        assertEquals(i - 0L, lag.columns().scalar(0).getLong());
       }
       if (i < rowCount - 1) {
-        assertEquals(i + 2L, lead.reader().columns().scalar(0).getLong());
+        assertEquals(i + 2L, lead.columns().scalar(0).getLong());
       } else {
-        assertTrue(lead.reader().columns().scalar(0).isNull());
+        assertTrue(lead.columns().scalar(0).isNull());
       }
     }
-    assertFalse(partCursor.next());
+    assertFalse(seq.next());
     assertTrue(primary.isEOF());
     assertTrue(lead.isEOF());
     assertFalse(lag.isEOF());
@@ -231,11 +232,11 @@ public class BufferCursorTest
   {
     final int rowCount = 100;
     BatchOperator op = dataGen(5, rowCount);
-    BatchBuffer2 buffer = new BatchBuffer2(op.batchSchema(), op.open());
-    BufferCursor primary = new BufferCursor(buffer);
-    BufferCursor lag = new LagBufferCursor(buffer, 15);
-    BufferCursor lead = new LeadBufferCursor(buffer, 15);
-    PartitionCursor partCursor = new PartitionCursor(
+    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
+    WindowFrameCursor primary = new UnboundedCursor(buffer);
+    WindowFrameCursor lag = new UnboundedLagCursor(buffer, 15);
+    WindowFrameCursor lead = new UnboundedLeadCursor(buffer, 15);
+    WindowFrameSequencer seq = new WindowFrameSequencer(
         buffer,
         primary,
         Arrays.asList(lag, lead)
@@ -243,20 +244,20 @@ public class BufferCursorTest
     assertFalse(primary.isEOF());
     assertFalse(primary.isValid());
     for (int i = 0; i < rowCount; i++) {
-      assertTrue(partCursor.next());
-      assertEquals(i + 1L, primary.reader().columns().scalar(0).getLong());
+      assertTrue(seq.next());
+      assertEquals(i + 1L, primary.columns().scalar(0).getLong());
       if (i < 15) {
-        assertTrue(lag.reader().columns().scalar(0).isNull());
+        assertTrue(lag.columns().scalar(0).isNull());
       } else {
-        assertEquals(i - 14L, lag.reader().columns().scalar(0).getLong());
+        assertEquals(i - 14L, lag.columns().scalar(0).getLong());
       }
       if (i < rowCount - 15) {
-        assertEquals(i + 16L, lead.reader().columns().scalar(0).getLong());
+        assertEquals(i + 16L, lead.columns().scalar(0).getLong());
       } else {
-        assertTrue(lead.reader().columns().scalar(0).isNull());
+        assertTrue(lead.columns().scalar(0).isNull());
       }
     }
-    assertFalse(partCursor.next());
+    assertFalse(seq.next());
     assertTrue(primary.isEOF());
     assertTrue(lead.isEOF());
     assertFalse(lag.isEOF());

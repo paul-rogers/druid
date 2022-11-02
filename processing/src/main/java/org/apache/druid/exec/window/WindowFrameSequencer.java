@@ -1,11 +1,12 @@
 package org.apache.druid.exec.window;
 
-import org.apache.druid.exec.window.BufferSequencer.Listener;
+import org.apache.druid.exec.batch.RowCursor.RowSequencer;
+import org.apache.druid.exec.window.WindowFrameCursor.Listener;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class PartitionCursor
+public class WindowFrameSequencer implements RowSequencer
 {
   private class LagListener implements Listener
   {
@@ -54,16 +55,16 @@ public class PartitionCursor
   }
 
   private final BatchBuffer buffer;
-  private final BufferSequencer primaryCursor;
-  private final List<BufferSequencer> cursors;
+  private final WindowFrameCursor primaryCursor;
+  private final List<WindowFrameCursor> cursors;
 
-  public PartitionCursor(BatchBuffer buffer, BufferSequencer primaryCursor, List<BufferSequencer> followerCursors)
+  public WindowFrameSequencer(BatchBuffer buffer, WindowFrameCursor primaryCursor, List<WindowFrameCursor> followerCursors)
   {
     this.buffer = buffer;
     this.primaryCursor = primaryCursor;
-    BufferSequencer lead = null;
-    BufferSequencer lag = null;
-    for (BufferSequencer cursor : followerCursors) {
+    WindowFrameCursor lead = null;
+    WindowFrameCursor lag = null;
+    for (WindowFrameCursor cursor : followerCursors) {
       int offset = cursor.offset();
       if (offset < 0) {
         if (lag == null || offset < lag.offset()) {
@@ -108,7 +109,7 @@ public class PartitionCursor
     } else {
       this.cursors.add(lead);
       this.cursors.add(primaryCursor);
-      for (BufferSequencer cursor : followerCursors) {
+      for (WindowFrameCursor cursor : followerCursors) {
         if (cursor != lead) {
           this.cursors.add(cursor);
         }
@@ -116,11 +117,24 @@ public class PartitionCursor
     }
   }
 
+  @Override
   public boolean next()
   {
-    for (BufferSequencer cursor : cursors) {
+    for (WindowFrameCursor cursor : cursors) {
       cursor.next();
     }
     return !primaryCursor.isEOF();
+  }
+
+  @Override
+  public boolean isEOF()
+  {
+    return primaryCursor.isEOF();
+  }
+
+  @Override
+  public boolean isValid()
+  {
+    return primaryCursor.isValid();
   }
 }
