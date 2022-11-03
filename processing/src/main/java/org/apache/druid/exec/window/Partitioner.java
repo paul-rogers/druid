@@ -3,6 +3,7 @@ package org.apache.druid.exec.window;
 import com.google.common.base.Preconditions;
 import org.apache.druid.exec.batch.ColumnReaderProvider;
 import org.apache.druid.exec.batch.RowCursor;
+import org.apache.druid.exec.batch.RowSequencer;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.util.TypeRegistry;
 import org.apache.druid.exec.window.BatchBufferOld.BufferPosition;

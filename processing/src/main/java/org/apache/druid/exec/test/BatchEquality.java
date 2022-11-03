@@ -21,7 +21,7 @@ package org.apache.druid.exec.test;
 
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchCursor;
-import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
+import org.apache.druid.exec.batch.BatchPositioner;
 import org.apache.druid.exec.batch.ColumnReaderProvider;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.segment.column.ColumnType;
@@ -107,8 +107,8 @@ public class BatchEquality
       reporter.error("Schemas are different");
       return false;
     }
-    RowPositioner positioner1 = cursor1.positioner();
-    RowPositioner positioner2 = cursor2.positioner();
+    BatchPositioner positioner1 = cursor1.positioner();
+    BatchPositioner positioner2 = cursor2.positioner();
     while (true) {
       boolean ok1 = positioner1.next();
       boolean ok2 = positioner2.next();

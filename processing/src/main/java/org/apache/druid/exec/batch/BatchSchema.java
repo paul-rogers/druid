@@ -62,8 +62,8 @@ public class BatchSchema
     return batchType.newWriter(schema, sizeLimit);
   }
 
-  public BatchCursor newCursor()
+  public BatchReader newReader()
   {
-    return batchType.newCursor(schema);
+    return batchType.newReader(schema);
   }
 }

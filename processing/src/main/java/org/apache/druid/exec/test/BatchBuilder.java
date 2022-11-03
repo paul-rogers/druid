@@ -25,7 +25,7 @@ import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.shim.MapListBatchType;
 import org.apache.druid.exec.shim.ObjectArrayListBatchType;
 import org.apache.druid.exec.shim.ScanResultValueBatchType;
-import org.apache.druid.exec.shim.SingletonObjectArrayCursor;
+import org.apache.druid.exec.shim.SingletonObjectArrayReader;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.scan.ScanQuery;
 
@@ -38,12 +38,12 @@ import org.apache.druid.query.scan.ScanQuery;
 public class BatchBuilder
 {
   private final BatchWriter<?> writer;
-  private final SingletonObjectArrayCursor reader;
+  private final SingletonObjectArrayReader reader;
 
   public BatchBuilder(final BatchWriter<?> batch)
   {
     this.writer = batch;
-    reader = new SingletonObjectArrayCursor(batch.schema().rowSchema());
+    reader = new SingletonObjectArrayReader(batch.schema().rowSchema());
     newBatch();
   }
 
@@ -100,7 +100,7 @@ public class BatchBuilder
   private void writeRow(Object[] row)
   {
     reader.bind(row);
-    if (writer.copier(reader).copy(1) == 0) {
+    if (!writer.copier(reader).copyRow()) {
       throw new ISE("Batch is full: check isFull() before writing");
     }
   }

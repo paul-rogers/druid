@@ -1,7 +1,6 @@
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchCursor;
-import org.apache.druid.exec.batch.BatchCursor.BindableRowPositioner;
+import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.RowSchema;
@@ -25,9 +24,9 @@ public class MapListBatchType extends AbstractBatchType
   }
 
   @Override
-  public BatchCursor newCursor(RowSchema schema, BindableRowPositioner positioner)
+  public BatchReader newReader(RowSchema schema)
   {
-    return new MapListCursor(schema, positioner);
+    return new MapListReader(schema);
   }
 
   @Override
@@ -37,9 +36,9 @@ public class MapListBatchType extends AbstractBatchType
   }
 
   @Override
-  public void bindCursor(BatchCursor cursor, Object data)
+  public void bindReader(BatchReader reader, Object data)
   {
-    ((MapListCursor) cursor).bind(cast(data));
+    ((MapListReader) reader).bind(cast(data));
   }
 
   @SuppressWarnings("unchecked")

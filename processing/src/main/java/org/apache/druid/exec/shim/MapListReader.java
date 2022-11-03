@@ -19,33 +19,33 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchCursor;
-import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.impl.AbstractScalarReader;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl;
-import org.apache.druid.exec.batch.impl.SimpleRowPositioner;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl.ColumnReaderMaker;
 
 import java.util.List;
+import java.util.Map;
 
 /**
- * Batch reader for a list of {@code Object} arrays where columns are represented
- * as values at an array index given by the associated schema.
+ * Batch reader for a list of {@link Map}s where columns are represented
+ * as key/value pairs.
  */
-public class ObjectArrayListCursor extends ListCursor<Object[]> implements ColumnReaderMaker
+public class MapListReader extends ListReader<Map<String, Object>> implements ColumnReaderMaker
 {
   /**
    * Since column values are all objects, use a generic column reader.
    */
   class ColumnReaderImpl extends AbstractScalarReader
   {
-    private final int index;
+    private final String name;
 
-    public ColumnReaderImpl(int index)
+    public ColumnReaderImpl(String name)
     {
-      this.index = index;
+      this.name = name;
     }
 
     @Override
@@ -57,40 +57,32 @@ public class ObjectArrayListCursor extends ListCursor<Object[]> implements Colum
     @Override
     public Object getObject()
     {
-      return row[index];
+      return row.get(name);
     }
 
     @Override
     public ColumnSchema schema()
     {
-      return columns().schema().column(index);
+      return columns().schema().column(name);
     }
   }
 
-  protected Object[] row;
-
-  public ObjectArrayListCursor(RowSchema schema, BindableRowPositioner cursor)
+  public MapListReader(RowSchema schema)
   {
-    super(ObjectArrayListBatchType.INSTANCE.batchSchema(schema), cursor);
+    super(MapListBatchType.INSTANCE.batchSchema(schema));
     this.columnReaders = new ColumnReaderFactoryImpl(schema, this);
   }
 
-  public static BatchCursor of(RowSchema schema, List<Object[]> batch)
+  public static BatchReader of(RowSchema schema, List<Map<String, Object>> batch)
   {
-    ObjectArrayListCursor reader = new ObjectArrayListCursor(schema, new SimpleRowPositioner());
+    MapListReader reader = new MapListReader(schema);
     reader.bind(batch);
     return reader;
   }
 
   @Override
-  public void updatePosition(int posn)
-  {
-    row = posn == -1 ? null : batch.get(posn);
-  }
-
-  @Override
   public ScalarColumnReader buildReader(int index)
   {
-    return new ColumnReaderImpl(index);
+    return new ColumnReaderImpl(schema.rowSchema().column(index).name());
   }
 }

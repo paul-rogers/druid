@@ -1,7 +1,6 @@
 package org.apache.druid.exec.batch.impl;
 
 import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.RowSchema;
@@ -68,11 +67,5 @@ public abstract class AbstractBatchType implements BatchType
   public BatchSchema batchSchema(RowSchema schema)
   {
     return new BatchSchema(this, schema);
-  }
-
-  @Override
-  public BatchCursor newCursor(RowSchema schema)
-  {
-    return newCursor(schema, new SimpleRowPositioner());
   }
 }

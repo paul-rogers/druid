@@ -22,6 +22,7 @@ package org.apache.druid.exec.batch.impl;
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.BatchSchema;
+import org.apache.druid.exec.batch.Batches;
 
 public class BatchImpl implements Batch
 {
@@ -54,15 +55,15 @@ public class BatchImpl implements Batch
   @Override
   public BatchCursor newCursor()
   {
-    BatchCursor reader = schema.newCursor();
-    bindCursor(reader);
-    return reader;
+    BatchCursor cursor = Batches.toCursor(schema.newReader());
+    bindCursor(cursor);
+    return cursor;
   }
 
   @Override
   public void bindCursor(BatchCursor cursor)
   {
-    schema.type().bindCursor(cursor, data);
+    schema.type().bindReader(cursor.reader(), data);
   }
 
   @Override

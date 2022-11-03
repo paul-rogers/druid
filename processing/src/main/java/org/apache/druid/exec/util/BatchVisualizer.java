@@ -80,7 +80,7 @@ public class BatchVisualizer
   private static void visualizeRows(BatchCursor cursor, StringBuilder buf)
   {
     int row = 0;
-    while (cursor.sequencer().next()) {
+    while (cursor.positioner().next()) {
       row++;
       buf.append(StringUtils.format("%4d: ", row));
       visualizeRow(cursor, buf);

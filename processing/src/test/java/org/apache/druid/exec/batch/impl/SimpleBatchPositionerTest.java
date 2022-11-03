@@ -27,12 +27,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class SimpleRowPositionerTest
+public class SimpleBatchPositionerTest
 {
   @Test
   public void testEmpty()
   {
-    SimpleRowPositioner positioner = new SimpleRowPositioner();
+    SimpleBatchPositioner positioner = new SimpleBatchPositioner();
 
     // Cursor has no rows.
     assertEquals(0, positioner.size());
@@ -67,7 +67,7 @@ public class SimpleRowPositionerTest
   @Test
   public void testEmptyWithListener()
   {
-    SimpleRowPositioner positioner = new SimpleRowPositioner();
+    SimpleBatchPositioner positioner = new SimpleBatchPositioner();
     AtomicInteger lastPosn = new AtomicInteger(-2);
     positioner.bindListener(posn -> lastPosn.set(posn));
 
@@ -93,8 +93,8 @@ public class SimpleRowPositionerTest
   @Test
   public void testSingleValue()
   {
-    SimpleRowPositioner positioner = new SimpleRowPositioner();
-    positioner.bind(1);
+    SimpleBatchPositioner positioner = new SimpleBatchPositioner();
+    positioner.batchBound(1);
 
     assertEquals(1, positioner.size());
     assertEquals(-1, positioner.index());
@@ -132,8 +132,8 @@ public class SimpleRowPositionerTest
   @Test
   public void testSingleValueListener()
   {
-    SimpleRowPositioner positioner = new SimpleRowPositioner();
-    positioner.bind(1);
+    SimpleBatchPositioner positioner = new SimpleBatchPositioner();
+    positioner.batchBound(1);
     AtomicInteger lastPosn = new AtomicInteger(-2);
     positioner.bindListener(posn -> lastPosn.set(posn));
 
@@ -169,8 +169,8 @@ public class SimpleRowPositionerTest
   @Test
   public void testMultipleValues()
   {
-    SimpleRowPositioner positioner = new SimpleRowPositioner();
-    positioner.bind(10);
+    SimpleBatchPositioner positioner = new SimpleBatchPositioner();
+    positioner.batchBound(10);
     AtomicInteger lastPosn = new AtomicInteger(-2);
     positioner.bindListener(posn -> lastPosn.set(posn));
 

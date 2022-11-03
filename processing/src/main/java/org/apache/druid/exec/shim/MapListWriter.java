@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema;
 
@@ -77,9 +77,9 @@ public class MapListWriter extends ListWriter<Map<String, Object>>
   }
 
   @Override
-  public Copier copier(BatchCursor from)
+  public Copier copier(BatchReader from)
   {
-    MapListCursor source = from.unwrap(MapListCursor.class);
+    MapListReader source = from.unwrap(MapListReader.class);
     if (source == null) {
       return super.copier(from);
     } else {

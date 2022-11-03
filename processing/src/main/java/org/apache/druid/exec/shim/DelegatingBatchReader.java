@@ -19,8 +19,9 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchSchema;
+import org.apache.druid.exec.batch.BindingListener;
 import org.apache.druid.exec.batch.ColumnReaderProvider;
 import org.apache.druid.exec.util.ExecUtils;
 
@@ -31,16 +32,16 @@ import org.apache.druid.exec.util.ExecUtils;
  * simpler row format, such as the {@code ScanResultValue} wraps a list of
  * maps or object arrays.
  */
-public abstract class DelegatingBatchCursor implements BatchCursor
+public abstract class DelegatingBatchReader implements BatchReader
 {
   protected final BatchSchema factory;
 
-  public DelegatingBatchCursor(BatchSchema schema)
+  public DelegatingBatchReader(BatchSchema schema)
   {
     this.factory = schema;
   }
 
-  protected abstract BatchCursor delegate();
+  protected abstract BatchReader delegate();
 
   @Override
   public BatchSchema schema()
@@ -55,15 +56,21 @@ public abstract class DelegatingBatchCursor implements BatchCursor
   }
 
   @Override
-  public RowSequencer sequencer()
+  public int size()
   {
-    return delegate().sequencer();
+    return delegate().size();
   }
 
   @Override
-  public RowPositioner positioner()
+  public void bindListener(BindingListener listener)
   {
-    return delegate().positioner();
+    delegate().bindListener(listener);
+  }
+
+  @Override
+  public void updatePosition(int posn)
+  {
+    delegate().updatePosition(posn);
   }
 
   @Override

@@ -69,7 +69,7 @@ public class IndirectBatchTest
     Batch indirectBatch = Batches.indirectBatch(base, new int[] {});
     BatchCursor cursor = indirectBatch.newCursor();
     assertEquals(schema, cursor.columns().schema());
-    assertFalse(cursor.sequencer().next());
+    assertFalse(cursor.positioner().next());
   }
 
   @Test

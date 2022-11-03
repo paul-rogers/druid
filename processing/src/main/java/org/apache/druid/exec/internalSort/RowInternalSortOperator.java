@@ -23,11 +23,12 @@ import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchCursor;
-import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
+import org.apache.druid.exec.batch.BatchPositioner;
 import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.BatchWriter.Copier;
+import org.apache.druid.exec.batch.Batches;
 import org.apache.druid.exec.batch.ColumnReaderProvider;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.impl.IndirectBatchType;
@@ -48,8 +49,8 @@ public class RowInternalSortOperator extends InternalSortOperator
 {
   private static class RowComparator implements IntComparator
   {
-    private final RowPositioner leftPositioner;
-    private final RowPositioner rightPositioner;
+    private final BatchPositioner leftPositioner;
+    private final BatchPositioner rightPositioner;
     private final ScalarColumnReader[] leftCols;
     private final ScalarColumnReader[] rightCols;
     private final Comparator<Object>[] comparators;
@@ -105,16 +106,16 @@ public class RowInternalSortOperator extends InternalSortOperator
   {
     BatchSchema batchSchema = input.batchSchema();
     BatchType batchType = batchSchema.type();
-    BatchCursor inputCursor = batchSchema.newCursor();
+    BatchCursor inputCursor = Batches.toCursor(batchSchema.newReader());
     // TODO: All in one array. Consider creating multiple runs and merging.
     BatchWriter<?> runWriter = batchSchema.newWriter(Integer.MAX_VALUE);
-    Copier copier = runWriter.copier(inputCursor);
+    Copier copier = runWriter.copier(inputCursor.reader());
     runWriter.newBatch();
-    copier.copy(Integer.MAX_VALUE);
+    copier.copy(inputCursor.positioner(), Integer.MAX_VALUE);
     while (true) {
       try {
-        batchType.bindCursor(inputCursor, inputIter.next());
-        copier.copy(Integer.MAX_VALUE);
+        batchType.bindReader(inputCursor.reader(), inputIter.next());
+        copier.copy(inputCursor.positioner(), Integer.MAX_VALUE);
       }
       catch (EofException e) {
         break;

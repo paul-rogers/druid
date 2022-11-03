@@ -19,12 +19,11 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.RowSchema;
-import org.apache.druid.exec.batch.BatchCursor.BindableRowPositioner;
 
 /**
  * Wraps a "base" batch with an index vector. The index vector can include
@@ -80,9 +79,9 @@ public class IndirectBatchType extends AbstractBatchType
   }
 
   @Override
-  public BatchCursor newCursor(RowSchema schema, BindableRowPositioner positioner)
+  public BatchReader newReader(RowSchema schema)
   {
-    return new IndirectBatchReader(batchSchema(schema), positioner);
+    return new IndirectBatchReader(batchSchema(schema));
   }
 
   @Override
@@ -92,9 +91,9 @@ public class IndirectBatchType extends AbstractBatchType
   }
 
   @Override
-  public void bindCursor(BatchCursor cursor, Object data)
+  public void bindReader(BatchReader reader, Object data)
   {
-    ((IndirectBatchReader) cursor).bind((IndirectData) data);
+    ((IndirectBatchReader) reader).bind((IndirectData) data);
   }
 
   @Override

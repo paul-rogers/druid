@@ -19,26 +19,28 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.batch.BatchCursor.BindableRowPositioner;
-import org.apache.druid.exec.batch.BatchCursor.PositionListener;
+import org.apache.druid.exec.batch.BatchPositioner;
+import org.apache.druid.exec.batch.PositionListener;
 
 /**
  * Positioner for a typical batch of data which allows both sequential and
  * random access to a fixed-sized batch.
  */
-public class SimpleRowPositioner implements BindableRowPositioner
+public class SimpleBatchPositioner implements BatchPositioner
 {
+  protected static final PositionListener NULL_LISTENER = p -> {};
+
   protected int size;
   protected PositionListener listener;
   protected int posn;
 
-  public SimpleRowPositioner()
+  public SimpleBatchPositioner()
   {
-    this.listener = p -> { };
+    this.listener = NULL_LISTENER;
   }
 
   @Override
-  public void bind(int size)
+  public void batchBound(int size)
   {
     this.size = size;
     reset();
@@ -49,6 +51,11 @@ public class SimpleRowPositioner implements BindableRowPositioner
   {
     this.listener = listener;
     listener.updatePosition(isValid() ? posn : -1);
+  }
+
+  public PositionListener listener()
+  {
+    return listener;
   }
 
   @Override

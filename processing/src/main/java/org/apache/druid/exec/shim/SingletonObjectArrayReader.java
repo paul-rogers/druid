@@ -24,17 +24,16 @@ import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.impl.AbstractScalarReader;
-import org.apache.druid.exec.batch.impl.BaseDirectCursor;
+import org.apache.druid.exec.batch.impl.BaseDirectReader;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl.ColumnReaderMaker;
-import org.apache.druid.exec.batch.impl.SimpleRowPositioner;
 
 /**
  * Specialized batch reader for a single object array. Used when
  * the data for a row is created programmatically rather than via
  * a transform from another batch. Primarily for testing.
  */
-public class SingletonObjectArrayCursor extends BaseDirectCursor implements ColumnReaderMaker
+public class SingletonObjectArrayReader extends BaseDirectReader implements ColumnReaderMaker
 {
   /**
    * Since column values are all objects, use a generic column reader.
@@ -51,7 +50,7 @@ public class SingletonObjectArrayCursor extends BaseDirectCursor implements Colu
     @Override
     public boolean isNull()
     {
-      return row == null || super.isNull();
+      return !isValidPosition || super.isNull();
     }
 
     @Override
@@ -63,34 +62,49 @@ public class SingletonObjectArrayCursor extends BaseDirectCursor implements Colu
     @Override
     public ColumnSchema schema()
     {
-      return SingletonObjectArrayCursor.this.schema.rowSchema().column(index);
+      return SingletonObjectArrayReader.this.schema.rowSchema().column(index);
     }
   }
 
   protected Object[] row;
+  private boolean isValidPosition;
 
-  public SingletonObjectArrayCursor(RowSchema schema)
+  public SingletonObjectArrayReader(RowSchema schema)
   {
-    super(SingletonObjectArrayBatchType.INSTANCE.batchSchema(schema), new SimpleRowPositioner());
+    super(SingletonObjectArrayBatchType.INSTANCE.batchSchema(schema));
     this.columnReaders = new ColumnReaderFactoryImpl(schema, this);
-    this.positioner.bind(0);
   }
 
   public void bind(Object[] row)
   {
     this.row = row;
-    positioner.bind(row == null ? 0 : 1);
+
+    // This reader is special: it "positions" itself on the only row
+    // if the data is non-null. No need to use a positioner to move
+    // to the only valid position.
+
+    isValidPosition = row != null;
+    resetPositioner();
   }
 
   @Override
   public void updatePosition(int posn)
   {
+    // Can move to an invalid position to simulate "iterating over" the
+    // one valid row.
     Preconditions.checkArgument(posn == -1 || posn == 0);
+    isValidPosition = posn == 0;
   }
 
   @Override
   public ScalarColumnReader buildReader(int index)
   {
     return new ColumnReaderImpl(index);
+  }
+
+  @Override
+  public int size()
+  {
+    return row == null ? 0 : 1;
   }
 }

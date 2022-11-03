@@ -89,7 +89,7 @@ public class CopierTest
         .build();
     BatchCursor sourceCursor = sourceBatch.newCursor();
 
-    Copier copier = destWriter.copier(sourceCursor);
+    Copier copier = destWriter.copier(sourceCursor.reader());
     if (directCopyable(sourceFormat, destFormat)) {
       assertFalse(copier instanceof NaiveCopier);
     } else {
@@ -97,9 +97,14 @@ public class CopierTest
     }
 
     // Copy the first batch row-by-row
-    assertEquals(1, copier.copy(1));
-    assertEquals(1, copier.copy(1));
-    assertEquals(0, copier.copy(1));
+    // First, single rows, using the current position.
+    assertTrue(sourceCursor.positioner().next());
+    assertTrue(copier.copyRow());
+    assertTrue(sourceCursor.positioner().next());
+    assertTrue(copier.copyRow());
+
+    // Then using a "bulk copy" of 1 row.
+    assertEquals(0, copier.copy(sourceCursor.positioner(), 1));
 
     // Copy the second batch in bulk.
     sourceBatch = TestUtils.builderFor(schema, sourceFormat)
@@ -107,7 +112,7 @@ public class CopierTest
         .row("fourth", 4)
         .build();
     sourceBatch.bindCursor(sourceCursor);
-    assertEquals(2, copier.copy(10));
+    assertEquals(2, copier.copy(sourceCursor.positioner(), 10));
 
     // Copy the third batch in bulk, but only 2 of the 3 rows fit.
     sourceBatch = TestUtils.builderFor(schema, sourceFormat)
@@ -116,7 +121,10 @@ public class CopierTest
         .row("seventh", 7)
         .build();
     sourceBatch.bindCursor(sourceCursor);
-    assertEquals(2, copier.copy(10));
+    assertEquals(2, copier.copy(sourceCursor.positioner(), 10));
+
+    // Try to force the last row.
+    assertFalse(copier.copyRow());
 
     // Verify the combined result.
     Batch expected = TestUtils.builderFor(schema, sourceFormat)

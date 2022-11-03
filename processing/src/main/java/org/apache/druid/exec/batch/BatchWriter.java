@@ -73,13 +73,14 @@ public interface BatchWriter<T>
    */
   public interface Copier
   {
-    int copy(int n);
+    boolean copyRow();
+    int copy(BatchPositioner positioner, int n);
   }
 
   BatchSchema schema();
 
   RowWriter rowWriter(List<ScalarColumnReader> readers);
-  Copier copier(BatchCursor source);
+  Copier copier(BatchReader source);
 
   /**
    * Create a new batch. Must be called before writing to the batch, and

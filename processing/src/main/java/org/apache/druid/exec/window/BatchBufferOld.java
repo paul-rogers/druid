@@ -3,10 +3,10 @@ package org.apache.druid.exec.window;
 import com.google.common.base.Preconditions;
 import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchPositioner;
 import org.apache.druid.exec.batch.ColumnReaderProvider;
 import org.apache.druid.exec.batch.RowCursor;
-import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
-import org.apache.druid.exec.batch.RowCursor.RowSequencer;
+import org.apache.druid.exec.batch.RowSequencer;
 import org.apache.druid.exec.operator.ResultIterator;
 import org.apache.druid.exec.operator.ResultIterator.EofException;
 
@@ -97,7 +97,7 @@ public class BatchBufferOld
           eof = true;
           return false;
         }
-        inputSchema.type().bindCursor(reader, batch.data);
+        inputSchema.type().bindReader(reader, batch.data);
       }
     }
 
@@ -149,7 +149,7 @@ public class BatchBufferOld
 
     public PartitionReader()
     {
-      this.cursor = inputSchema.newCursor();
+      this.cursor = inputSchema.newReader();
     }
 
     public void bind(PartitionRange range)
@@ -157,14 +157,14 @@ public class BatchBufferOld
       this.range = range;
       Preconditions.checkArgument(range.start.batchIndex == queueHeadBatchIndex());
       bufferIter = buffer.iterator();
-      inputSchema.type().bindCursor(cursor, bufferIter.next());
+      inputSchema.type().bindReader(cursor, bufferIter.next());
       cursor.positioner().seek(range.start.rowIndex - 1);
     }
 
     @Override
     public boolean next()
     {
-      RowPositioner positioner = cursor.positioner();
+      BatchPositioner positioner = cursor.positioner();
       if (positioner.index() < batchEnd) {
         return positioner.next();
       }
@@ -174,7 +174,7 @@ public class BatchBufferOld
       }
       batchIndex++;
       Preconditions.checkState(bufferIter.hasNext());
-      inputSchema.type().bindCursor(cursor, bufferIter.next());
+      inputSchema.type().bindReader(cursor, bufferIter.next());
       return positioner.next();
     }
 

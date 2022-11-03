@@ -23,6 +23,7 @@ import org.apache.druid.exec.batch.BatchType.BatchFormat;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.impl.BatchImpl;
 import org.apache.druid.exec.batch.impl.IndirectBatchType;
+import org.apache.druid.exec.batch.impl.SimpleBatchCursor;
 import org.apache.druid.exec.shim.MapListBatchType;
 import org.apache.druid.exec.shim.ObjectArrayListBatchType;
 import org.apache.druid.exec.shim.ScanResultValueBatchType;
@@ -39,7 +40,7 @@ public class Batches
   public static boolean copy(BatchCursor source, BatchWriter<?> dest)
   {
     dest.copier(source).copy(Integer.MAX_VALUE);
-    return source.sequencer().isEOF();
+    return source.positioner().isEOF();
   }
 
   public static RowSchema emptySchema()
@@ -79,13 +80,13 @@ public class Batches
     return new BatchImpl(schema, data);
   }
 
-  public static ScalarColumnReader[] readProjection(BatchCursor cursor, List<String> cols)
+  public static ScalarColumnReader[] readProjection(BatchReader reader, List<String> cols)
   {
-    ScalarColumnReader[] readers = new ScalarColumnReader[cols.size()];
-    for (int i = 0; i < readers.length; i++) {
-      readers[i] = cursor.columns().scalar(cols.get(i));
+    ScalarColumnReader[] colReaders = new ScalarColumnReader[cols.size()];
+    for (int i = 0; i < colReaders.length; i++) {
+      colReaders[i] = reader.columns().scalar(cols.get(i));
     }
-    return readers;
+    return colReaders;
   }
 
   public static BatchType typeFor(BatchFormat format)
@@ -104,8 +105,13 @@ public class Batches
     }
   }
 
-  public static boolean canDirectCopy(BatchCursor cursor, BatchWriter<?> writer)
+  public static boolean canDirectCopy(BatchReader reader, BatchWriter<?> writer)
   {
-    return writer.schema().type().canDirectCopyFrom(cursor.schema().type());
+    return writer.schema().type().canDirectCopyFrom(reader.schema().type());
+  }
+
+  public static BatchCursor toCursor(BatchReader reader)
+  {
+    return new SimpleBatchCursor(reader);
   }
 }

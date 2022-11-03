@@ -23,16 +23,15 @@ import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.impl.AbstractScalarReader;
-import org.apache.druid.exec.batch.impl.BaseBatchCursor;
+import org.apache.druid.exec.batch.impl.BaseBatchReader;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl;
 import org.apache.druid.exec.batch.impl.ColumnReaderFactoryImpl.ColumnReaderMaker;
-import org.apache.druid.exec.batch.impl.SimpleRowPositioner;
 
 /**
  * Trivial reader for an empty batch. Most useful when the format of the batch
  * is unknown because every format behaves the same when empty.
  */
-public class EmptyBatchReader<T> extends BaseBatchCursor<T> implements ColumnReaderMaker
+public class EmptyBatchReader<T> extends BaseBatchReader<T> implements ColumnReaderMaker
 {
   private class ColumnReaderImpl extends AbstractScalarReader
   {
@@ -58,7 +57,7 @@ public class EmptyBatchReader<T> extends BaseBatchCursor<T> implements ColumnRea
 
   public EmptyBatchReader(BatchSchema factory)
   {
-    super(factory, new SimpleRowPositioner());
+    super(factory);
     this.columnReaders = new ColumnReaderFactoryImpl(factory.rowSchema(), this);
   }
 
@@ -70,11 +69,6 @@ public class EmptyBatchReader<T> extends BaseBatchCursor<T> implements ColumnRea
 
   @Override
   public void updatePosition(int posn)
-  {
-  }
-
-  @Override
-  protected void reset()
   {
   }
 }

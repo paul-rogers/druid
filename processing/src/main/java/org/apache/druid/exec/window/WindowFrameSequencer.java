@@ -1,6 +1,6 @@
 package org.apache.druid.exec.window;
 
-import org.apache.druid.exec.batch.RowCursor.RowSequencer;
+import org.apache.druid.exec.batch.RowSequencer;
 import org.apache.druid.exec.window.WindowFrameCursor.Listener;
 
 import java.util.ArrayList;

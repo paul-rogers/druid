@@ -17,26 +17,33 @@
  * under the License.
  */
 
-package org.apache.druid.exec.shim;
+package org.apache.druid.exec.batch.impl;
 
 import org.apache.druid.exec.batch.BatchSchema;
-import org.apache.druid.exec.batch.impl.BaseBatchCursor;
 
-import java.util.List;
-
-/**
- * Base class for readers of batches represented by {@link List}.
- */
-public abstract class ListCursor<T> extends BaseBatchCursor<List<T>>
+public abstract class BaseBatchReader<T> extends BaseDirectReader
 {
-  public ListCursor(BatchSchema schema, BindableRowPositioner positioner)
+  protected T batch;
+
+  public BaseBatchReader(BatchSchema schema)
   {
-    super(schema, positioner);
+    super(schema);
   }
 
   @Override
-  public void reset()
+  public int size()
   {
-    positioner.bind(batch == null ? 0 : batch.size());
+    return schema.type().sizeOf(batch);
+  }
+
+  public void bind(T batch)
+  {
+    this.batch = batch;
+    resetPositioner();
+  }
+
+  public T rows()
+  {
+    return batch;
   }
 }

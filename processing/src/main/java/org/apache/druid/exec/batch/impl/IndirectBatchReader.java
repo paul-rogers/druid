@@ -19,42 +19,48 @@
 
 package org.apache.druid.exec.batch.impl;
 
-import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.ColumnReaderProvider;
 import org.apache.druid.exec.batch.impl.IndirectBatchType.IndirectData;
 
-public class IndirectBatchReader extends AbstractBatchCursor
+public class IndirectBatchReader extends AbstractBatchReader
 {
   private final BatchType baseType;
-  private final BatchCursor baseCursor;
+  private final BatchReader baseReader;
   private int[] index;
 
-  public IndirectBatchReader(BatchSchema factory, BindableRowPositioner positioner)
+  public IndirectBatchReader(BatchSchema factory)
   {
-    super(factory, positioner);
+    super(factory);
     IndirectBatchType batchType = (IndirectBatchType) factory.type();
     this.baseType = batchType.baseType();
-    this.baseCursor = baseType.newCursor(factory.rowSchema());
+    this.baseReader = baseType.newReader(factory.rowSchema());
   }
 
   public void bind(IndirectData data)
   {
-    baseType.bindCursor(baseCursor, data.data);
+    baseType.bindReader(baseReader, data.data);
     this.index = data.index;
-    positioner.bind(index.length);
+    resetPositioner();
   }
 
   @Override
   public void updatePosition(int posn)
   {
-    baseCursor.positioner().seek(posn == -1 ? posn : index[posn]);
+    baseReader.updatePosition(posn == -1 ? posn : index[posn]);
   }
 
   @Override
   public ColumnReaderProvider columns()
   {
-    return baseCursor.columns();
+    return baseReader.columns();
+  }
+
+  @Override
+  public int size()
+  {
+    return index == null ? 0 : index.length;
   }
 }

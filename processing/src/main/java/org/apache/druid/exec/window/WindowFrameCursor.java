@@ -1,9 +1,12 @@
 package org.apache.druid.exec.window;
 
 import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchPositioner.BindableRowPositioner;
 import org.apache.druid.exec.batch.ColumnReaderProvider;
+import org.apache.druid.exec.batch.PositionListener;
 import org.apache.druid.exec.batch.RowCursor;
-import org.apache.druid.exec.batch.RowCursor.RowSequencer;
+import org.apache.druid.exec.batch.RowSequencer;
+import org.apache.druid.exec.batch.impl.SimpleBatchPositioner;
 
 public class WindowFrameCursor implements RowCursor, RowSequencer
 {
@@ -39,12 +42,20 @@ public class WindowFrameCursor implements RowCursor, RowSequencer
   public WindowFrameCursor(BatchBuffer buffer)
   {
     this.buffer = buffer;
-    this.cursor = buffer.inputSchema.newCursor();
+    this.cursor = buffer.inputSchema.newReader();
   }
 
   public void bindListener(Listener listener)
   {
     this.listener = listener;
+  }
+
+  public PositionListener wrapListener(PositionListener wrapper)
+  {
+    SimpleBatchPositioner positioner = (SimpleBatchPositioner) cursor.sequencer();
+    PositionListener oldListener = positioner.listener();
+    positioner.bindListener(wrapper);
+    return oldListener;
   }
 
   @Override
@@ -109,7 +120,7 @@ public class WindowFrameCursor implements RowCursor, RowSequencer
       eof = true;
       return false;
     }
-    buffer.inputSchema.type().bindCursor(cursor, buffer.batch(batchIndex));
+    buffer.inputSchema.type().bindReader(cursor, buffer.batch(batchIndex));
     return true;
   }
 

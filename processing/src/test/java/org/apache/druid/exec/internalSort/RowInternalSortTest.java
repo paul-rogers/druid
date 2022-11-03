@@ -239,7 +239,7 @@ public class RowInternalSortTest
     ScalarColumnReader str5Reader = cursor.columns().scalar("str5");
     long lastRand = -1;
     String lastStr5 = "z";
-    while (cursor.sequencer().next()) {
+    while (cursor.positioner().next()) {
       long rand = randReader.getLong();
       assertTrue(rand >= lastRand);
       String str5 = str5Reader.getString();
@@ -290,7 +290,7 @@ public class RowInternalSortTest
     ScalarColumnReader str5Reader = reader.columns().scalar("str5");
     long lastRand = -1;
     String lastStr5 = "z";
-    while (reader.sequencer().next()) {
+    while (reader.positioner().next()) {
       long rand = randReader.getLong();
       assertTrue(rand >= lastRand);
       String str5 = str5Reader.getString();

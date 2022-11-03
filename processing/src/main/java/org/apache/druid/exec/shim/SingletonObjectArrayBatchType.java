@@ -1,12 +1,10 @@
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.RowSchema;
-import org.apache.druid.exec.batch.BatchCursor.BindableRowPositioner;
 import org.apache.druid.exec.batch.impl.AbstractBatchType;
-import org.apache.druid.java.util.common.UOE;
 
 /**
  * Batch that represents a list of {@code Object} arrays where columns are represented
@@ -27,15 +25,9 @@ public class SingletonObjectArrayBatchType extends AbstractBatchType
   }
 
   @Override
-  public BatchCursor newCursor(RowSchema schema, BindableRowPositioner positioner)
+  public BatchReader newReader(RowSchema schema)
   {
-    throw new UOE("Can't provide a positioner for the singleton reader");
-  }
-
-  @Override
-  public BatchCursor newCursor(RowSchema schema)
-  {
-    return new SingletonObjectArrayCursor(schema);
+    return new SingletonObjectArrayReader(schema);
   }
 
   @Override
@@ -45,9 +37,9 @@ public class SingletonObjectArrayBatchType extends AbstractBatchType
   }
 
   @Override
-  public void bindCursor(BatchCursor cursor, Object data)
+  public void bindReader(BatchReader reader, Object data)
   {
-    ((SingletonObjectArrayCursor) cursor).bind((Object[]) data);
+    ((SingletonObjectArrayReader) reader).bind((Object[]) data);
   }
 
   @Override

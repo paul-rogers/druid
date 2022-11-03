@@ -20,8 +20,8 @@
 package org.apache.druid.exec.batch.impl;
 
 import org.apache.druid.exec.batch.Batch;
-import org.apache.druid.exec.batch.BatchCursor;
-import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
+import org.apache.druid.exec.batch.BatchPositioner;
+import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
@@ -39,23 +39,27 @@ public abstract class AbstractBatchWriter<T> implements BatchWriter<T>
    */
   public class NaiveCopier implements Copier
   {
-    private final RowPositioner positioner;
     private final RowWriter rowWriter;
 
-    public NaiveCopier(BatchCursor cursor)
+    public NaiveCopier(BatchReader reader)
     {
       // Quick & dirty check on the number of columns. We trust that
       // the caller has ensured the types match or are compatible.
-      if (schema().rowSchema().size() != cursor.schema().rowSchema().size()) {
+      if (schema().rowSchema().size() != reader.schema().rowSchema().size()) {
         throw new UOE("Cannot copy rows between differing schemas: use a projection");
       }
 
-      this.positioner = cursor.positioner();
-      this.rowWriter = rowWriter(cursor.columns().columns());
+      this.rowWriter = rowWriter(reader.columns().columns());
     }
 
     @Override
-    public int copy(int n)
+    public boolean copyRow()
+    {
+      return rowWriter.write();
+    }
+
+    @Override
+    public int copy(BatchPositioner positioner, int n)
     {
       int i;
       for (i = 0; i < n; i++) {
@@ -94,7 +98,7 @@ public abstract class AbstractBatchWriter<T> implements BatchWriter<T>
   }
 
   @Override
-  public Copier copier(BatchCursor source)
+  public Copier copier(BatchReader source)
   {
     return new NaiveCopier(source);
   }

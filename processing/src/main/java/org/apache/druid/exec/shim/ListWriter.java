@@ -19,8 +19,8 @@
 
 package org.apache.druid.exec.shim;
 
+import org.apache.druid.exec.batch.BatchPositioner;
 import org.apache.druid.exec.batch.BatchSchema;
-import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
 import org.apache.druid.exec.batch.impl.AbstractBatchWriter;
 
 import java.util.ArrayList;
@@ -33,18 +33,27 @@ public abstract class ListWriter<T> extends AbstractBatchWriter<List<T>>
 {
   protected class CopierImpl implements Copier
   {
-    private final ListCursor<T> source;
+    private final ListReader<T> source;
 
-    public CopierImpl(ListCursor<T> source)
+    public CopierImpl(ListReader<T> source)
     {
       this.source = source;
     }
 
     @Override
-    public int copy(int n)
+    public boolean copyRow()
     {
-      final RowPositioner sourcePositioner = source.positioner();
+      final ArrayList<T> data = (ArrayList<T>) batch;
+      if (data.size() >= sizeLimit) {
+        return false;
+      }
+      data.add(source.row);
+      return true;
+    }
 
+    @Override
+    public int copy(BatchPositioner sourcePositioner, int n)
+    {
       // The equivalent of advancing to the next row before reading.
       final int start = sourcePositioner.index() + 1;
       final int availableCount = sourcePositioner.size() - start;

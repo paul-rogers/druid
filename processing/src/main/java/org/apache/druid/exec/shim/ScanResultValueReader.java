@@ -19,7 +19,7 @@
 
 package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.query.scan.ScanQuery;
@@ -31,26 +31,25 @@ import org.apache.druid.query.scan.ScanResultValue;
  * Delegates to the object array or map reader depending on the format
  * of this particular value.
  */
-public class ScanResultValueCursor extends DelegatingBatchCursor
+public class ScanResultValueReader extends DelegatingBatchReader
 {
   private final ResultFormat format;
-  private BatchCursor delegate;
+  private BatchReader delegate;
 
-  public ScanResultValueCursor(
+  public ScanResultValueReader(
       final BatchSchema schema,
-      final ScanQuery.ResultFormat format,
-      final BindableRowPositioner positioner
+      final ScanQuery.ResultFormat format
   )
   {
     super(schema);
     this.format = format;
     this.delegate = ScanResultValueBatchType
         .baseType(format)
-        .newCursor(schema.rowSchema(), positioner);
+        .newReader(schema.rowSchema());
   }
 
   @Override
-  protected BatchCursor delegate()
+  protected BatchReader delegate()
   {
     return delegate;
   }
@@ -62,10 +61,10 @@ public class ScanResultValueCursor extends DelegatingBatchCursor
     }
     switch (format) {
       case RESULT_FORMAT_LIST:
-        ((MapListCursor) delegate).bind(batch.getRows());
+        ((MapListReader) delegate).bind(batch.getRows());
         break;
       case RESULT_FORMAT_COMPACTED_LIST:
-        ((ObjectArrayListCursor) delegate).bind(batch.getRows());
+        ((ObjectArrayListReader) delegate).bind(batch.getRows());
         break;
       default:
         throw new UOE(format.name());

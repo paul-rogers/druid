@@ -21,7 +21,7 @@ package org.apache.druid.exec.shim;
 
 import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchCursor;
-import org.apache.druid.exec.batch.BatchCursor.RowPositioner;
+import org.apache.druid.exec.batch.BatchPositioner;
 import org.apache.druid.exec.batch.BatchType.BatchFormat;
 import org.apache.druid.exec.batch.BatchWriter.Copier;
 import org.apache.druid.exec.batch.BatchWriter;
@@ -91,7 +91,7 @@ public class ScanResultValueBatchTest
 
     // Batch is empty
     BatchCursor cursor = batch.newCursor();
-    RowPositioner positioner = cursor.positioner();
+    BatchPositioner positioner = cursor.positioner();
     assertEquals(0, positioner.size());
     assertEquals(0, cursor.columns().schema().size());
     assertFalse(positioner.next());
@@ -109,7 +109,7 @@ public class ScanResultValueBatchTest
     ColumnReaderProvider columns = cursor.columns();
 
     // Batch is empty
-    RowPositioner positioner = cursor.positioner();
+    BatchPositioner positioner = cursor.positioner();
     assertEquals(0, positioner.size());
 
     // Schema was inferred, but only names.
@@ -207,10 +207,10 @@ public class ScanResultValueBatchTest
         .build();
     BatchCursor cursor = batch.newCursor();
 
-    assertTrue(Batches.canDirectCopy(cursor, writer));
-    Copier copier = writer.copier(cursor);
-    assertEquals(2, copier.copy(10));
-    assertTrue(cursor.sequencer().isEOF());
+    assertTrue(Batches.canDirectCopy(cursor.reader(), writer));
+    Copier copier = writer.copier(cursor.reader());
+    assertEquals(2, copier.copy(cursor.positioner(), 10));
+    assertTrue(cursor.positioner().isEOF());
 
     batchBuilder.newBatch();
     batch = batchBuilder
@@ -220,10 +220,10 @@ public class ScanResultValueBatchTest
         .build();
     batch.bindCursor(cursor);
 
-    assertEquals(1, copier.copy(1));
+    assertEquals(1, copier.copy(cursor.positioner(), 1));
     assertEquals(0, cursor.positioner().index());
-    assertEquals(2, copier.copy(10));
-    assertTrue(cursor.sequencer().isEOF());
+    assertEquals(2, copier.copy(cursor.positioner(), 10));
+    assertTrue(cursor.positioner().isEOF());
 
     batchBuilder.newBatch();
     Batch expected = batchBuilder
@@ -238,6 +238,6 @@ public class ScanResultValueBatchTest
 
     // Cannot direct copy across formats.
     BatchWriter<?> incompat = ScanResultValueBatchType.ARRAY_INSTANCE.newWriter(schema, 1000);
-    assertFalse(Batches.canDirectCopy(cursor, incompat));
+    assertFalse(Batches.canDirectCopy(cursor.reader(), incompat));
   }
 }

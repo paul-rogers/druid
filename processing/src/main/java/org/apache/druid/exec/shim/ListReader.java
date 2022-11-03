@@ -17,46 +17,28 @@
  * under the License.
  */
 
-package org.apache.druid.exec.batch.impl;
+package org.apache.druid.exec.shim;
 
-import org.apache.druid.exec.batch.BatchCursor;
-import org.apache.druid.exec.batch.BatchCursor.PositionListener;
 import org.apache.druid.exec.batch.BatchSchema;
-import org.apache.druid.exec.util.ExecUtils;
+import org.apache.druid.exec.batch.impl.BaseBatchReader;
 
-public abstract class AbstractBatchCursor implements BatchCursor, PositionListener
+import java.util.List;
+
+/**
+ * Base class for readers of batches represented by {@link List}.
+ */
+public abstract class ListReader<T> extends BaseBatchReader<List<T>>
 {
-  protected final BatchSchema schema;
-  protected final BindableRowPositioner positioner;
+  protected T row;
 
-  public AbstractBatchCursor(BatchSchema schema, BindableRowPositioner positioner)
+  public ListReader(BatchSchema schema)
   {
-    this.schema = schema;
-    this.positioner = positioner;
-    positioner.bindListener(this);
+    super(schema);
   }
 
   @Override
-  public RowSequencer sequencer()
+  public void updatePosition(int posn)
   {
-    return positioner;
-  }
-
-  @Override
-  public RowPositioner positioner()
-  {
-    return positioner;
-  }
-
-  @Override
-  public BatchSchema schema()
-  {
-    return schema;
-  }
-
-  @Override
-  public <T> T unwrap(Class<T> readerClass)
-  {
-    return ExecUtils.unwrap(this, readerClass);
+    row = posn == -1 ? null : batch.get(posn);
   }
 }
