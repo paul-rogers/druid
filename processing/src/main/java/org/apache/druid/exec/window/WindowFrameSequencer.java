@@ -1,5 +1,6 @@
 package org.apache.druid.exec.window;
 
+import com.google.common.collect.Iterables;
 import org.apache.druid.exec.batch.RowSequencer;
 import org.apache.druid.exec.window.WindowFrameCursor.Listener;
 
@@ -58,7 +59,7 @@ public class WindowFrameSequencer implements RowSequencer
   private final WindowFrameCursor primaryCursor;
   private final List<WindowFrameCursor> cursors;
 
-  public WindowFrameSequencer(BatchBuffer buffer, WindowFrameCursor primaryCursor, List<WindowFrameCursor> followerCursors)
+  public WindowFrameSequencer(BatchBuffer buffer, WindowFrameCursor primaryCursor, Iterable<WindowFrameCursor> followerCursors)
   {
     this.buffer = buffer;
     this.primaryCursor = primaryCursor;
@@ -105,7 +106,7 @@ public class WindowFrameSequencer implements RowSequencer
     this.cursors = new ArrayList<>();
     if (lead == null) {
       this.cursors.add(primaryCursor);
-      this.cursors.addAll(followerCursors);
+      Iterables.addAll(this.cursors, followerCursors);
     } else {
       this.cursors.add(lead);
       this.cursors.add(primaryCursor);

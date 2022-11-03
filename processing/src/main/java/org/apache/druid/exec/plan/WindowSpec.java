@@ -85,6 +85,8 @@ public class WindowSpec extends AbstractUnarySpec
     }
   }
 
+  @JsonProperty("batchSize")
+  public final int batchSize;
   @JsonProperty("columns")
   public final List<OutputColumn> columns;
   @JsonProperty("partitionKeys")
@@ -95,11 +97,13 @@ public class WindowSpec extends AbstractUnarySpec
   public WindowSpec(
       @JsonProperty("id") final int id,
       @JsonProperty("child") final int child,
+      @JsonProperty("batchSize") final int batchSize,
       @JsonProperty("columns") final List<OutputColumn> columns,
       @JsonProperty("partitionKeys") final List<String> partitionKeys
   )
   {
     super(id, child);
+    this.batchSize = batchSize;
     this.columns = columns;
     this.partitionKeys = partitionKeys;
   }

@@ -3,16 +3,16 @@ package org.apache.druid.exec.window;
 import com.google.common.base.Preconditions;
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
-import org.apache.druid.exec.batch.RowSequencer;
 import org.apache.druid.exec.batch.impl.ConstantScalarReader;
 import org.apache.druid.exec.plan.WindowSpec;
+import org.apache.druid.exec.plan.WindowSpec.CopyProjection;
 import org.apache.druid.exec.plan.WindowSpec.OffsetExpression;
 import org.apache.druid.exec.plan.WindowSpec.OutputColumn;
 import org.apache.druid.exec.plan.WindowSpec.SimpleExpression;
 import org.apache.druid.exec.util.SchemaBuilder;
-import org.apache.druid.exec.window.BatchBufferOld.PartitionCursor;
-import org.apache.druid.exec.window.BatchBufferOld.PartitionReader;
+import org.apache.druid.exec.window.WindowFrameCursor.UnboundedCursor;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprMacroTable;
@@ -22,45 +22,44 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class ProjectionBuilder
 {
-  private final BatchBufferOld buffer;
+  private final BatchBuffer buffer;
   private final WindowSpec spec;
   private final ExprMacroTable macroTable;
-  private final Map<Integer, PartitionReader> offsetReaders = new HashMap<>();
+  private final Map<Integer, WindowFrameCursor> offsetReaders = new HashMap<>();
   private final SchemaBuilder schemaBuilder = new SchemaBuilder();
-  private PartitionReader primaryReader;
+  private WindowFrameCursor primaryReader;
+  private List<ScalarColumnReader> colReaders;
 
-  public ProjectionBuilder(BatchBufferOld buffer, final ExprMacroTable macroTable, WindowSpec spec)
+  public ProjectionBuilder(BatchBuffer buffer, final ExprMacroTable macroTable, WindowSpec spec)
   {
     this.buffer = buffer;
     this.spec = spec;
     this.macroTable = macroTable;
   }
 
-  public Projector build(BatchWriter<?> output)
+  public WindowFrameSequencer build()
   {
+    primaryReader = new UnboundedCursor(buffer);
     buildOffsetReaders();
     int rowWidth = spec.columns.size();
-    List<ScalarColumnReader> colReaders = new ArrayList<>(rowWidth);
+    colReaders = new ArrayList<>(rowWidth);
     for (int i = 0; i < rowWidth; i++) {
       colReaders.add(buildProjection(spec.columns.get(i)));
     }
-    List<PartitionReader> readers = new ArrayList<>();
-    primaryReader = buffer.primaryReader();
-    readers.add(primaryReader);
-    RowSequencer inputCursor = primaryReader.sequencer();
-    if (!offsetReaders.isEmpty()) {
-      List<RowSequencer> followers =
-          offsetReaders.values().stream()
-            .map(reader -> reader.sequencer())
-            .collect(Collectors.toList());
-      inputCursor = new PartitionCursor(inputCursor, followers);
-      readers.addAll(offsetReaders.values());
-    }
-    return new Projector(inputCursor, readers, output, colReaders);
+    return new WindowFrameSequencer(buffer, primaryReader, offsetReaders.values());
+  }
+
+  public RowSchema schema()
+  {
+    return schemaBuilder.build();
+  }
+
+  public List<ScalarColumnReader> columnReaders()
+  {
+    return colReaders;
   }
 
   private void buildOffsetReaders()
@@ -70,17 +69,18 @@ public class ProjectionBuilder
         continue;
       }
       OffsetExpression offsetProj = (OffsetExpression) col;
-      offsetReaders.computeIfAbsent(offsetProj.offset, n -> (buffer.offsetReader(n)));
+      offsetReaders.computeIfAbsent(offsetProj.offset, n -> WindowFrameCursor.offsetCursor(buffer, n));
     }
   }
 
   private ScalarColumnReader buildProjection(OutputColumn outputColumn)
   {
     ColumnSchema colSchema = schemaBuilder.addScalar(outputColumn.name, outputColumn.dataType);
-    if (outputColumn instanceof SimpleExpression) {
+    if (outputColumn instanceof CopyProjection) {
+      return primaryReader.columns().scalar(((CopyProjection) outputColumn).name);
+    } else if (outputColumn instanceof SimpleExpression) {
       return buildSimpleExpression((SimpleExpression) outputColumn, colSchema);
-    }
-    if (outputColumn instanceof OffsetExpression) {
+    } else if (outputColumn instanceof OffsetExpression) {
       return buildOffsetExpression((OffsetExpression) outputColumn, colSchema);
     }
     throw new UOE("Invalid output column type: [%s]", outputColumn.getClass().getSimpleName());
@@ -112,7 +112,7 @@ public class ProjectionBuilder
       // Should not happen if the planner is doing the right thing.
       return new ConstantScalarReader(colSchema, expr.getLiteralValue());
     } else if (expr.isIdentifier()) {
-      PartitionReader sourceReader = offsetReaders.get(exprCol.offset);
+      WindowFrameCursor sourceReader = offsetReaders.get(exprCol.offset);
       ScalarColumnReader sourceCol = sourceReader.columns().scalar(expr.getIdentifierIfIdentifier());
       Preconditions.checkNotNull(sourceCol);
       return sourceCol;

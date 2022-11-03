@@ -1,12 +1,11 @@
 package org.apache.druid.exec.window;
 
 import org.apache.druid.exec.batch.BatchCursor;
-import org.apache.druid.exec.batch.BatchPositioner.BindableRowPositioner;
+import org.apache.druid.exec.batch.BatchSchema;
+import org.apache.druid.exec.batch.Batches;
 import org.apache.druid.exec.batch.ColumnReaderProvider;
-import org.apache.druid.exec.batch.PositionListener;
 import org.apache.druid.exec.batch.RowCursor;
 import org.apache.druid.exec.batch.RowSequencer;
-import org.apache.druid.exec.batch.impl.SimpleBatchPositioner;
 
 public class WindowFrameCursor implements RowCursor, RowSequencer
 {
@@ -42,7 +41,7 @@ public class WindowFrameCursor implements RowCursor, RowSequencer
   public WindowFrameCursor(BatchBuffer buffer)
   {
     this.buffer = buffer;
-    this.cursor = buffer.inputSchema.newReader();
+    this.cursor = Batches.toCursor(buffer.inputSchema.newReader());
   }
 
   public void bindListener(Listener listener)
@@ -50,24 +49,18 @@ public class WindowFrameCursor implements RowCursor, RowSequencer
     this.listener = listener;
   }
 
-  public PositionListener wrapListener(PositionListener wrapper)
-  {
-    SimpleBatchPositioner positioner = (SimpleBatchPositioner) cursor.sequencer();
-    PositionListener oldListener = positioner.listener();
-    positioner.bindListener(wrapper);
-    return oldListener;
-  }
+//  public PositionListener wrapListener(PositionListener wrapper)
+//  {
+//    SimpleBatchPositioner positioner = (SimpleBatchPositioner) cursor.sequencer();
+//    PositionListener oldListener = positioner.listener();
+//    positioner.bindListener(wrapper);
+//    return oldListener;
+//  }
 
   @Override
   public ColumnReaderProvider columns()
   {
     return cursor.columns();
-  }
-
-  @Override
-  public RowSequencer sequencer()
-  {
-    return this;
   }
 
   public int offset()
@@ -84,7 +77,7 @@ public class WindowFrameCursor implements RowCursor, RowSequencer
   @Override
   public boolean isValid()
   {
-    return !eof && cursor.sequencer().isValid();
+    return !eof && cursor.positioner().isValid();
   }
 
   @Override
@@ -99,7 +92,7 @@ public class WindowFrameCursor implements RowCursor, RowSequencer
   protected boolean nextRow()
   {
     while (true) {
-      if (cursor.sequencer().next()) {
+      if (cursor.positioner().next()) {
         return true;
       }
       if (!nextBatch()) {
@@ -120,8 +113,25 @@ public class WindowFrameCursor implements RowCursor, RowSequencer
       eof = true;
       return false;
     }
-    buffer.inputSchema.type().bindReader(cursor, buffer.batch(batchIndex));
+    buffer.inputSchema.type().bindReader(cursor.reader(), buffer.batch(batchIndex));
     return true;
+  }
+
+  @Override
+  public BatchSchema schema()
+  {
+    return buffer.inputSchema;
+  }
+
+  public static WindowFrameCursor offsetCursor(BatchBuffer buffer, Integer n)
+  {
+    if (n == 0) {
+      return new UnboundedCursor(buffer);
+    } else if (n < 0) {
+      return new UnboundedLagCursor(buffer, -n);
+    } else {
+      return new UnboundedLeadCursor(buffer, n);
+    }
   }
 
   public static class UnboundedCursor extends WindowFrameCursor

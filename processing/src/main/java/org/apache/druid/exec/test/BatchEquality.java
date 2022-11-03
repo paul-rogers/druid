@@ -75,7 +75,7 @@ public class BatchEquality
       reporter.error("Batch 2 is null but Batch 1 is not");
       return false;
     }
-    return simple().isContentEqual(batch1.newCursor(), batch2.newCursor());
+    return isContentEqual(batch1.newCursor(), batch2.newCursor());
   }
 
   public static boolean equals(BatchCursor cursor1, BatchCursor cursor2)
