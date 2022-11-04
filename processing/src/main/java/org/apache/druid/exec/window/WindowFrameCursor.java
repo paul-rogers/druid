@@ -201,6 +201,7 @@ public abstract class WindowFrameCursor implements RowCursor
       while (skip > 0) {
         skip -= partitionBounds.seek(cursor.positioner(), skip);
         if (skip > 0 && !nextBatch()) {
+          state = State.AFTER_LAST;
           break;
         }
       }
