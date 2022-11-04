@@ -1,7 +1,6 @@
 package org.apache.druid.exec.window;
 
 import com.google.common.base.Preconditions;
-import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
@@ -12,7 +11,7 @@ import org.apache.druid.exec.plan.WindowSpec.OffsetExpression;
 import org.apache.druid.exec.plan.WindowSpec.OutputColumn;
 import org.apache.druid.exec.plan.WindowSpec.SimpleExpression;
 import org.apache.druid.exec.util.SchemaBuilder;
-import org.apache.druid.exec.window.WindowFrameCursor.UnboundedCursor;
+import org.apache.druid.exec.window.WindowFrameCursor.PrimaryCursor;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprMacroTable;
@@ -42,7 +41,7 @@ public class ProjectionBuilder
 
   public WindowFrameSequencer build()
   {
-    primaryReader = new UnboundedCursor(buffer);
+    primaryReader = new PrimaryCursor(buffer);
     buildOffsetReaders();
     int rowWidth = spec.columns.size();
     colReaders = new ArrayList<>(rowWidth);

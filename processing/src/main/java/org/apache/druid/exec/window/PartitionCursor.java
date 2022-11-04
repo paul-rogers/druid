@@ -7,7 +7,7 @@ import java.util.List;
 
 public class PartitionCursor
 {
-  private class LagListener implements Listener
+  private class LagListener implements BatchEventListener
   {
     @Override
     public void exitBatch(int batchIndex)
@@ -24,7 +24,7 @@ public class PartitionCursor
     }
   }
 
-  private class LeadListener implements Listener
+  private class LeadListener implements BatchEventListener
   {
     @Override
     public void exitBatch(int batchIndex)
@@ -38,7 +38,7 @@ public class PartitionCursor
     }
   }
 
-  private class NoLeadOrLagListener implements Listener
+  private class NoLeadOrLagListener implements BatchEventListener
   {
     @Override
     public void exitBatch(int batchIndex)

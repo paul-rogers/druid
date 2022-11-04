@@ -1,21 +1,22 @@
 package org.apache.druid.exec.window;
 
 import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.BatchPositioner;
 import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.Batches;
 import org.apache.druid.exec.batch.ColumnReaderProvider;
 import org.apache.druid.exec.batch.RowCursor;
-import org.apache.druid.exec.batch.RowSequencer;
+import org.apache.druid.exec.window.Partitioner.PartitionBounds;
 
-public class WindowFrameCursor implements RowCursor, RowSequencer
+public abstract class WindowFrameCursor implements RowCursor
 {
-  public interface Listener
+  public interface BatchEventListener
   {
     void exitBatch(int batchIndex);
     boolean requestBatch(int batchIndex);
   }
 
-  private static final Listener NO_OP_LISTENER = new Listener()
+  private static final BatchEventListener NO_OP_LISTENER = new BatchEventListener()
   {
     @Override
     public void exitBatch(int batchIndex)
@@ -29,33 +30,41 @@ public class WindowFrameCursor implements RowCursor, RowSequencer
     }
   };
 
+  private enum State
+  {
+    BEFORE_FIRST,
+    WITHIN_PARITION,
+    AFTER_LAST;
+  }
+
   protected final BatchBuffer buffer;
   protected final BatchCursor cursor;
-  private Listener listener = NO_OP_LISTENER;
+  protected final BatchPositioner positioner;
+  private BatchEventListener batchListener = NO_OP_LISTENER;
+  protected PartitionBounds partitionBounds;
 
   // Start positioned before the first batch so that the first fetch
   // moves to the first row of the first batch (or EOF in the limit case)
   protected int batchIndex = -1;
+  protected State state = State.BEFORE_FIRST;
   protected boolean eof;
 
   public WindowFrameCursor(BatchBuffer buffer)
   {
     this.buffer = buffer;
     this.cursor = Batches.toCursor(buffer.inputSchema.newReader());
+    this.positioner = cursor.positioner();
   }
 
-  public void bindListener(Listener listener)
+  public void bindListener(BatchEventListener listener)
   {
-    this.listener = listener;
+    this.batchListener = listener;
   }
 
-//  public PositionListener wrapListener(PositionListener wrapper)
-//  {
-//    SimpleBatchPositioner positioner = (SimpleBatchPositioner) cursor.sequencer();
-//    PositionListener oldListener = positioner.listener();
-//    positioner.bindListener(wrapper);
-//    return oldListener;
-//  }
+  public void bindPartitionBounds(PartitionBounds bounds)
+  {
+    this.partitionBounds = bounds;
+  }
 
   @Override
   public ColumnReaderProvider columns()
@@ -68,6 +77,17 @@ public class WindowFrameCursor implements RowCursor, RowSequencer
     return 0;
   }
 
+  public void startPartition()
+  {
+    batchIndex = partitionBounds.startBatch();
+    if (bindBatch()) {
+      state = State.BEFORE_FIRST;
+      positioner.seek(partitionBounds.startRow());
+    } else {
+      state = State.AFTER_LAST;
+    }
+  }
+
   @Override
   public boolean isEOF()
   {
@@ -77,25 +97,35 @@ public class WindowFrameCursor implements RowCursor, RowSequencer
   @Override
   public boolean isValid()
   {
-    return !eof && cursor.positioner().isValid();
+    return state == State.WITHIN_PARITION
+        && positioner.isValid();
   }
 
   @Override
   public boolean next()
   {
-    if (eof) {
+    if (state == State.AFTER_LAST) {
       return false;
+    } else {
+      return nextRow();
     }
-    return nextRow();
   }
 
   protected boolean nextRow()
   {
     while (true) {
-      if (cursor.positioner().next()) {
-        return true;
+      if (positioner.next()) {
+        if (partitionBounds.isWithinPartition(batchIndex, positioner.index())) {
+          state = State.WITHIN_PARITION;
+          return true;
+        } else {
+          state = State.AFTER_LAST;
+          return false;
+        }
       }
       if (!nextBatch()) {
+        eof = true;
+        state = State.AFTER_LAST;
         return false;
       }
     }
@@ -105,11 +135,16 @@ public class WindowFrameCursor implements RowCursor, RowSequencer
   {
     if (batchIndex >= 0) {
       // Listeners are not interested in moving off of the -1 bath
-      listener.exitBatch(batchIndex);
+      batchListener.exitBatch(batchIndex);
     }
     batchIndex++;
+    return bindBatch();
+  }
+
+  protected boolean bindBatch()
+  {
     Object data = buffer.batch(batchIndex);
-    if (data == null && !listener.requestBatch(batchIndex)) {
+    if (data == null && !batchListener.requestBatch(batchIndex)) {
       eof = true;
       return false;
     }
@@ -126,28 +161,27 @@ public class WindowFrameCursor implements RowCursor, RowSequencer
   public static WindowFrameCursor offsetCursor(BatchBuffer buffer, Integer n)
   {
     if (n == 0) {
-      return new UnboundedCursor(buffer);
+      return new PrimaryCursor(buffer);
     } else if (n < 0) {
-      return new UnboundedLagCursor(buffer, -n);
+      return new LagCursor(buffer, -n);
     } else {
-      return new UnboundedLeadCursor(buffer, n);
+      return new LeadCursor(buffer, n);
     }
   }
 
-  public static class UnboundedCursor extends WindowFrameCursor
+  public static class PrimaryCursor extends WindowFrameCursor
   {
-    public UnboundedCursor(BatchBuffer buffer)
+    public PrimaryCursor(BatchBuffer buffer)
     {
       super(buffer);
     }
   }
 
-  public static class UnboundedLeadCursor extends WindowFrameCursor
+  public static class LeadCursor extends WindowFrameCursor
   {
     private final int lead;
-    private boolean primed = false;
 
-    public UnboundedLeadCursor(BatchBuffer buffer, int lead)
+    public LeadCursor(BatchBuffer buffer, int lead)
     {
       super(buffer);
       this.lead = lead;
@@ -160,32 +194,25 @@ public class WindowFrameCursor implements RowCursor, RowSequencer
     }
 
     @Override
-    public boolean next()
+    public void startPartition()
     {
-      if (!primed) {
-        primed = true;
-        int skip = lead;
-        while (true) {
-          if (!nextBatch()) {
-            return false;
-          }
-          int batchSize = cursor.positioner().size();
-          if (skip < batchSize) {
-            cursor.positioner().seek(skip - 1);
-            break;
-          }
-          skip -= batchSize;
+      super.startPartition();
+      int skip = lead;
+      while (skip > 0) {
+        skip -= partitionBounds.seek(cursor.positioner(), skip);
+        if (skip > 0 && !nextBatch()) {
+          break;
         }
       }
-      return super.next();
     }
   }
-  public static class UnboundedLagCursor extends WindowFrameCursor
+
+  public static class LagCursor extends WindowFrameCursor
   {
     private final int lag;
     private int skip;
 
-    public UnboundedLagCursor(BatchBuffer buffer, int lag)
+    public LagCursor(BatchBuffer buffer, int lag)
     {
       super(buffer);
       this.lag = lag;

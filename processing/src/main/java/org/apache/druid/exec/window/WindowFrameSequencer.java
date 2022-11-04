@@ -2,14 +2,14 @@ package org.apache.druid.exec.window;
 
 import com.google.common.collect.Iterables;
 import org.apache.druid.exec.batch.RowSequencer;
-import org.apache.druid.exec.window.WindowFrameCursor.Listener;
+import org.apache.druid.exec.window.WindowFrameCursor.BatchEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class WindowFrameSequencer implements RowSequencer
 {
-  private class LagListener implements Listener
+  private class LagListener implements BatchEventListener
   {
     @Override
     public void exitBatch(int batchIndex)
@@ -26,7 +26,7 @@ public class WindowFrameSequencer implements RowSequencer
     }
   }
 
-  private class LeadListener implements Listener
+  private class LeadListener implements BatchEventListener
   {
     @Override
     public void exitBatch(int batchIndex)
@@ -40,7 +40,7 @@ public class WindowFrameSequencer implements RowSequencer
     }
   }
 
-  private class NoLeadOrLagListener implements Listener
+  private class NoLeadOrLagListener implements BatchEventListener
   {
     @Override
     public void exitBatch(int batchIndex)
@@ -115,6 +115,18 @@ public class WindowFrameSequencer implements RowSequencer
           this.cursors.add(cursor);
         }
       }
+    }
+  }
+
+  public List<WindowFrameCursor> cursors()
+  {
+    return cursors;
+  }
+
+  public void startPartition()
+  {
+    for (WindowFrameCursor cursor : cursors) {
+      cursor.startPartition();
     }
   }
 
