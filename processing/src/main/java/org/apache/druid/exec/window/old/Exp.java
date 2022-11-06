@@ -1,9 +1,10 @@
-package org.apache.druid.exec.window;
+package org.apache.druid.exec.window.old;
 
 import com.google.common.base.Preconditions;
 import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.BatchType;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
+import org.apache.druid.exec.window.BatchBuffer;
 
 import java.util.Comparator;
 

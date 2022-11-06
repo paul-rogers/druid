@@ -161,19 +161,21 @@ public class BatchEquality
       }
       if (null1) {
         reporter.error(
-            "Row %d, column %d [%s] cursor 1 is null, but cursor 2 is not",
+            "Row %d, column %d [%s], values differ: null and [%s]",
             row,
             col + 1,
-            reader1.schema().column(col).name()
+            reader1.schema().column(col).name(),
+            colReader2.getValue()
         );
         return false;
       }
       if (null2) {
         reporter.error(
-            "Row %d, column %d [%s] cursor 2 is null, but cursor 1 is not",
+            "Row %d, column %d [%s], values differ: [%s] and null",
             row,
             col + 1,
-            reader1.schema().column(col).name()
+            reader1.schema().column(col).name(),
+            colReader1.getValue()
         );
         return false;
       }

@@ -28,7 +28,15 @@ import org.apache.druid.exec.operator.ResultIterator.EofException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BatchBuffer
+/**
+ * Buffers the set of batches actively in use by the widow operator.
+ * The active batches are those that cover the current window within the
+ * current partition. To minimize memory use, input batches are read as
+ * late as possible: on demand by the "lead-most" reader. Batches are
+ * dismissed as early as possible: when the "lag-most" reader moves
+ * past them.
+ */
+public class BatchBuffer implements BatchLoader, BatchUnloader
 {
   /**
    * Factory for the holders for input batches.
@@ -79,9 +87,13 @@ public class BatchBuffer
    * passed in and verified to ensure the cursors stay in sync.
    * @return the batch, else {@code null} at EOF.
    */
+  @Override
   public Object loadBatch(int batchToLoad)
   {
-    Preconditions.checkState(batchToLoad == batchCount);
+    Preconditions.checkState(batchToLoad <= batchCount);
+    if (batchToLoad < batchCount) {
+      return batch(batchToLoad);
+    }
     while (true) {
       Object data;
       try {
@@ -110,10 +122,13 @@ public class BatchBuffer
     return batchCount - buffer.size();
   }
 
-  public void unloadBatch(int batchToUnload)
+  @Override
+  public void unloadBatches(int from, int to)
   {
-    Preconditions.checkState(batchToUnload == firstCachedBatch());
-    buffer.remove(0);
+    for (int batchToUnload = Math.max(0, from); batchToUnload <= to; batchToUnload++) {
+      Preconditions.checkState(batchToUnload == firstCachedBatch());
+      buffer.remove(0);
+    }
   }
 
   public Object batch(int batchIndex)

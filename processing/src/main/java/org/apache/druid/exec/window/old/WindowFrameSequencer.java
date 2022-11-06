@@ -4,7 +4,7 @@ import com.google.common.collect.Iterables;
 import org.apache.druid.exec.batch.BatchReader;
 import org.apache.druid.exec.batch.RowSequencer;
 import org.apache.druid.exec.window.BatchBuffer;
-import org.apache.druid.exec.window.Exp.PartitionBuilder.PartitionSequencer;
+import org.apache.druid.exec.window.old.Exp.PartitionBuilder.PartitionSequencer;
 import org.apache.druid.exec.window.old.WindowFrameCursor.BatchEventListener;
 
 import java.util.ArrayList;

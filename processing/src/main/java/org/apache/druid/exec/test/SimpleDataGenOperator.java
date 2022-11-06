@@ -169,7 +169,7 @@ public class SimpleDataGenOperator extends AbstractBatchOperator implements Resu
           @Override
           public Object getObject()
           {
-            return "Group " + (rid() / 5 + 1);
+            return "Group " + (rowCount / 5 + 1);
           }
         };
       default:

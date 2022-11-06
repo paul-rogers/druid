@@ -1,3 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.druid.exec.window;
 
 import org.apache.druid.exec.batch.BatchReader;
@@ -26,90 +45,11 @@ import org.apache.druid.exec.batch.RowSequencer;
  */
 public abstract class PartitionSequencer implements RowSequencer
 {
-  /**
-   * Handles events when first entering, or last leaving, a buffered batch.
-   */
-  public interface BatchEventListener
-  {
-    void exitBatch(int batchIndex);
-    Object requestBatch(int batchIndex);
-  }
-
-  /**
-   * Listener for a reader which does nothing special on batch events. This
-   * occurs either for a reader that is neither the lead-most or lag-most,
-   * or for a reader working against buffered data where we don't need to
-   * load and unload batches.
-
-   */
-  private class PassiveListener implements BatchEventListener
-  {
-    @Override
-    public void exitBatch(int batchIndex)
-    {
-    }
-
-    @Override
-    public Object requestBatch(int batchIndex)
-    {
-      return buffer.batch(batchIndex);
-    }
-  }
-
-  /**
-   * Listener for the tail-most reader when performing streaming. Unloads the
-   * oldest batch when the sequencer moves past it. Since this is used on the
-   * tail-most reader, we know no other sequencer (reader) could possibly
-   * reference this tail batch.
-   */
-  private class TailListener extends PassiveListener
-  {
-    @Override
-    public void exitBatch(int batchIndex)
-    {
-      buffer.unloadBatch(batchIndex);
-    }
-  }
-
-  /**
-   * Listener for the head-most reader when performing streaming. Loads the
-   * newest batch when the sequencer moves onto it. Since this is used on
-   * the lead-most reader, we know no other sequencer (reader) could possibly
-   * have already loaded this batch.
-   */
-  private class HeadListener extends PassiveListener
-  {
-    @Override
-    public Object requestBatch(int batchIndex)
-    {
-      return buffer.loadBatch(batchIndex);
-    }
-  }
-
-  /**
-   * Listener for the case when we have only the primary reader and so the
-   * primary reader is both the head-most and tail-most reader. It both loads
-   * new batches and unloads old batches.
-   */
-  private class HeadAndTailListener implements BatchEventListener
-  {
-    @Override
-    public void exitBatch(int batchIndex)
-    {
-      buffer.unloadBatch(batchIndex);
-    }
-
-    @Override
-    public Object requestBatch(int batchIndex)
-    {
-      return buffer.loadBatch(batchIndex);
-    }
-  }
-
   protected final BatchBuffer buffer;
   protected final BatchReader reader;
-  protected Partitioner.State partitionState = Partitioner.GLOBAL_PARTITION;
-  private BatchEventListener batchListener;
+  protected Partitioner.State partitionState = Partitioner.UNPARTITIONED_STATE;
+  protected BatchLoader loader;
+  protected BatchUnloader unloader;
 
   // Initial values of the batch index, batch size, and row index don't
   // matter: we'll soon take the values provided by the partition state.
@@ -135,25 +75,14 @@ public abstract class PartitionSequencer implements RowSequencer
     this.partitionState = partitionState;
   }
 
-  /**
-   * Configure batch events for the streaming case.
-   *
-   * @param isHead this sequencer is the lead-most one, and should load
-   *               batches from upstream as needed
-   * @param isTail this sequencer is the lag-most one, and should release
-   *               batches from the buffer as it moves off of them
-   */
-  public void bindBatchListener(boolean isHead, boolean isTail)
+  public void bindBatchLoader(BatchLoader loader)
   {
-    if (isHead && isTail) {
-      batchListener = new HeadAndTailListener();
-    } else if (isHead) {
-      batchListener = new HeadListener();
-    } else if (isTail) {
-      batchListener = new TailListener();
-    } else {
-      batchListener = new PassiveListener();
-    }
+    this.loader = loader;
+  }
+
+  public void bindBatchUnloader(BatchUnloader unloader)
+  {
+    this.unloader = unloader;
   }
 
   public abstract void startPartition();
@@ -167,7 +96,10 @@ public abstract class PartitionSequencer implements RowSequencer
    */
   public void seekToStart()
   {
-    batchIndex = partitionState.startingBatch();
+    // Skip over any batches
+    int startBatch = partitionState.startingBatch();
+    unloader.unloadBatches(batchIndex, startBatch - 1);
+    batchIndex = startBatch;
     bindBatch();
     rowIndex = partitionState.startingRow();
     beforeFirst = true;
@@ -215,10 +147,7 @@ public abstract class PartitionSequencer implements RowSequencer
 
   protected boolean nextBatch()
   {
-    if (batchIndex >= 0) {
-      // Listeners are not interested in moving off of the -1 batch
-      batchListener.exitBatch(batchIndex);
-    }
+    unloader.unloadBatches(batchIndex, batchIndex);
     batchIndex++;
     return bindBatch();
   }
@@ -241,7 +170,7 @@ public abstract class PartitionSequencer implements RowSequencer
     }
 
     // Fetch the batch, loading it if needed. Returns null at EOF.
-    Object data = batchListener.requestBatch(batchIndex);
+    Object data = loader.loadBatch(batchIndex);
     if (data == null) {
       // EOF
       endOfPartition = true;
