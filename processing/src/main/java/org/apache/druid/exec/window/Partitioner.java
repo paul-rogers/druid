@@ -123,6 +123,7 @@ public abstract class Partitioner
       super(builder);
       this.reader = builder.buffer.inputSchema.newReader();
       this.sequencer = new PartitionSequencer.PrimarySequencer(builder.buffer, reader);
+      this.sequencer.bindBatchListener(true, false);
       this.comparators = TypeRegistry.INSTANCE.ordering(builder.partitionKeys, reader.columns().schema());
       this.keyColumns = new ScalarColumnReader[builder.partitionKeys.size()];
       for (int i = 0; i < keyColumns.length; i++) {
@@ -149,7 +150,7 @@ public abstract class Partitioner
     {
       int rowCount = 0;
       while (!writer.isFull()) {
-        while (sequencer.next()) {
+        while (next()) {
           rowWriter.write();
           rowCount++;
         }
@@ -160,6 +161,14 @@ public abstract class Partitioner
         sequencer.startPartition();
       }
       return rowCount;
+    }
+
+    private boolean next()
+    {
+      if (!sequencer.next()) {
+        return false;
+      }
+
     }
 
     public boolean isSamePartition()

@@ -30,22 +30,33 @@ import java.util.List;
 
 public class BuilderTest
 {
-  private SimpleDataGenSpec dataGenSpec(int batchSize, int rowCount)
+  private BatchOperator dataGen(int batchSize, int rowCount)
   {
-    return new SimpleDataGenSpec(
+    SimpleDataGenSpec spec = new SimpleDataGenSpec(
         1,
         Arrays.asList("rid"),
         BatchFormat.OBJECT_ARRAY,
         batchSize,
         rowCount
     );
-  }
-
-  private BatchOperator dataGen(int batchSize, int rowCount)
-  {
     return new SimpleDataGenOperator(
         TestUtils.emptyFragment(),
-        dataGenSpec(batchSize, rowCount)
+        spec
+    );
+  }
+
+  private BatchOperator groupDataGen(int batchSize, int rowCount)
+  {
+    SimpleDataGenSpec spec = new SimpleDataGenSpec(
+        1,
+        Arrays.asList("group", "rid"),
+        BatchFormat.OBJECT_ARRAY,
+        batchSize,
+        rowCount
+    );
+    return new SimpleDataGenOperator(
+        TestUtils.emptyFragment(),
+        spec
     );
   }
 
@@ -75,6 +86,17 @@ public class BuilderTest
         1000,  // Batch Size
         cols,  // Output columns
         null   // Partition keys
+    );
+  }
+
+  private WindowSpec partitionedSpec(List<OutputColumn> cols)
+  {
+    return new WindowSpec(
+        1,     // ID - not used
+        2,     // Child - not used
+        1000,  // Batch Size
+        cols,  // Output columns
+        Collections.singletonList("group")   // Partition keys
     );
   }
 
@@ -186,4 +208,46 @@ public class BuilderTest
         .build();
     BatchValidator.assertEquals(expected, output);
   }
+
+  @Test
+  public void testPartitionedPrimaryOnlyEmptyInput()
+  {
+    List<OutputColumn> cols = Arrays.asList(
+        new CopyProjection("group", ColumnType.STRING, "group"),
+        new CopyProjection("rid", ColumnType.LONG, "rid")
+    );
+    final int rowCount = 0;
+    Batch output = runPartitioner(groupDataGen(5, rowCount), partitionedSpec(cols));
+
+    RowSchema expectedSchema = new SchemaBuilder()
+        .scalar("group", ColumnType.STRING)
+        .scalar("rid", ColumnType.LONG)
+        .build();
+    Batch expected = BatchBuilder.arrayList(expectedSchema)
+        .build();
+    BatchValidator.assertEquals(expected, output);
+  }
+
+  @Test
+  public void testPartitionedPrimaryOnly()
+  {
+    List<OutputColumn> cols = Arrays.asList(
+        new CopyProjection("group", ColumnType.STRING, "group"),
+        new CopyProjection("rid", ColumnType.LONG, "rid")
+    );
+    final int rowCount = 9;
+    Batch output = runPartitioner(groupDataGen(5, rowCount), partitionedSpec(cols));
+
+    RowSchema expectedSchema = new SchemaBuilder()
+        .scalar("group", ColumnType.STRING)
+        .scalar("rid", ColumnType.LONG)
+        .build();
+    BatchBuilder batchBuilder = BatchBuilder.arrayList(expectedSchema);
+    for (int i = 0; i < rowCount; i++) {
+      batchBuilder.row("Group " + (i / 5 + 1), i + 1);
+    }
+    Batch expected = batchBuilder.build();
+    BatchValidator.assertEquals(expected, output);
+  }
+
 }

@@ -46,6 +46,7 @@ import java.util.stream.Collectors;
  * <li>{@code rand}: Long pseudo-random (actually, mod 7 or rid).</li>
  * <li>{@code str}: String: "Row x" where x is the rid.</li>
  * <li>{@code rot}: String, "Rot x" where x is rid mod 5.</li>
+ * <li>{@code group}: String, "Group x" where x is (rid / 5) + 1.</li>
  * </li>
  */
 public class SimpleDataGenOperator extends AbstractBatchOperator implements ResultIterator<Object>
@@ -92,6 +93,7 @@ public class SimpleDataGenOperator extends AbstractBatchOperator implements Resu
           break;
         case "str":
         case "str5":
+        case "group":
           schemaBuilder.scalar(col, ColumnType.STRING);
           break;
         default:
@@ -159,6 +161,15 @@ public class SimpleDataGenOperator extends AbstractBatchOperator implements Resu
           public Object getObject()
           {
             return "Rot " + (rid() % 5);
+          }
+        };
+      case "group":
+        return new ColumnReaderImpl(col)
+        {
+          @Override
+          public Object getObject()
+          {
+            return "Group " + (rid() / 5 + 1);
           }
         };
       default:
