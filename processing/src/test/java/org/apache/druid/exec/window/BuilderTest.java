@@ -28,7 +28,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-public class ProjectionBuilderTest
+public class BuilderTest
 {
   private SimpleDataGenSpec dataGenSpec(int batchSize, int rowCount)
   {
@@ -49,16 +49,50 @@ public class ProjectionBuilderTest
     );
   }
 
-  private Batch runSequencer(ProjectionBuilder builder, BatchType batchType, WindowSpec spec)
+  /**
+   * Emulate what the Window operator does to plan the operation, build the
+   * components, then write the output (which is assumed to fit in one output
+   * batch.)
+   */
+  private Batch runPartitioner(BatchOperator inputOp, WindowSpec spec)
   {
-    WindowFrameSequencer sequencer = builder.build();
-    BatchWriter<?> outputWriter = batchType.newWriter(builder.schema(), spec.batchSize);
-    RowWriter rowWriter = outputWriter.rowWriter(builder.columnReaders());
+    final ExprMacroTable macroTable = ExprMacroTable.nil();
+    final BatchBuffer buffer = new BatchBuffer(inputOp.batchSchema(), inputOp.open());
+    final ProjectionBuilder projBuilder = new ProjectionBuilder(buffer, macroTable, spec);
+    final Builder windowBuilder = new Builder(buffer, projBuilder, spec.partitionKeys);
+    final Partitioner partitioner = windowBuilder.build(spec.batchSize);
+    final BatchWriter<?> outputWriter = windowBuilder.writer;
     outputWriter.newBatch();
-    while (sequencer.next()) {
-      rowWriter.write();
-    }
+    partitioner.writeBatch();
     return outputWriter.harvestAsBatch();
+  }
+
+  private WindowSpec unpartitionedSpec(List<OutputColumn> cols)
+  {
+    return new WindowSpec(
+        1,     // ID - not used
+        2,     // Child - not used
+        1000,  // Batch Size
+        cols,  // Output columns
+        null   // Partition keys
+    );
+  }
+
+  @Test
+  public void testPrimaryOnlyEmptyInput()
+  {
+    List<OutputColumn> cols = Collections.singletonList(
+        new CopyProjection("rid", ColumnType.LONG, "rid")
+    );
+    final int rowCount = 0;
+    Batch output = runPartitioner(dataGen(5, rowCount), unpartitionedSpec(cols));
+
+    RowSchema expectedSchema = new SchemaBuilder()
+        .scalar("rid", ColumnType.LONG)
+        .build();
+    Batch expected = BatchBuilder.arrayList(expectedSchema)
+        .build();
+    BatchValidator.assertEquals(expected, output);
   }
 
   @Test
@@ -67,23 +101,11 @@ public class ProjectionBuilderTest
     List<OutputColumn> cols = Collections.singletonList(
         new CopyProjection("rid", ColumnType.LONG, "rid")
     );
-    WindowSpec spec = new WindowSpec(
-        1,    // ID - not used
-        2,    // Child - not used
-        100,  // Batch Size - not used
-        cols, // Output columns
-        null  // Partition keys
-    );
-    final ExprMacroTable macroTable = ExprMacroTable.nil();
     final int rowCount = 4;
-    BatchOperator op = dataGen(5, rowCount);
-    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
-    ProjectionBuilder builder = new ProjectionBuilder(buffer, macroTable, spec);
-    Batch output = runSequencer(builder, op.batchSchema().type(), spec);
+    Batch output = runPartitioner(dataGen(5, rowCount), unpartitionedSpec(cols));
 
     RowSchema expectedSchema = new SchemaBuilder()
         .scalar("rid", ColumnType.LONG)
-        .scalar("rid-2", ColumnType.LONG)
         .build();
     Batch expected = BatchBuilder.arrayList(expectedSchema)
         .row(1)
@@ -95,25 +117,14 @@ public class ProjectionBuilderTest
   }
 
   @Test
-  public void testLeadOnly()
+  public void testLead()
   {
     List<OutputColumn> cols = Arrays.<OutputColumn>asList(
         new CopyProjection("rid", ColumnType.LONG, "rid"),
         new OffsetExpression("rid+2", ColumnType.LONG, "rid", 2)
     );
-    WindowSpec spec = new WindowSpec(
-        1,    // ID - not used
-        2,    // Child - not used
-        100,  // Batch Size - not used
-        cols, // Output columns
-        null  // Partition keys
-    );
-    final ExprMacroTable macroTable = ExprMacroTable.nil();
     final int rowCount = 4;
-    BatchOperator op = dataGen(5, rowCount);
-    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
-    ProjectionBuilder builder = new ProjectionBuilder(buffer, macroTable, spec);
-    Batch output = runSequencer(builder, op.batchSchema().type(), spec);
+    Batch output = runPartitioner(dataGen(5, rowCount), unpartitionedSpec(cols));
 
     RowSchema expectedSchema = new SchemaBuilder()
         .scalar("rid", ColumnType.LONG)
@@ -135,24 +146,12 @@ public class ProjectionBuilderTest
         new CopyProjection("rid", ColumnType.LONG, "rid"),
         new OffsetExpression("rid-2", ColumnType.LONG, "rid", -2)
     );
-    WindowSpec spec = new WindowSpec(
-        1,    // ID - not used
-        2,    // Child - not used
-        100,  // Batch Size - not used
-        cols, // Output columns
-        null  // Partition keys
-    );
-    final ExprMacroTable macroTable = ExprMacroTable.nil();
     final int rowCount = 4;
-    BatchOperator op = dataGen(5, rowCount);
-    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
-    ProjectionBuilder builder = new ProjectionBuilder(buffer, macroTable, spec);
-    Batch output = runSequencer(builder, op.batchSchema().type(), spec);
+    Batch output = runPartitioner(dataGen(5, rowCount), unpartitionedSpec(cols));
 
     RowSchema expectedSchema = new SchemaBuilder()
         .scalar("rid", ColumnType.LONG)
         .scalar("rid-2", ColumnType.LONG)
-        .scalar("rid+2", ColumnType.LONG)
         .build();
     Batch expected = BatchBuilder.arrayList(expectedSchema)
         .row(1, null)
@@ -164,26 +163,15 @@ public class ProjectionBuilderTest
   }
 
   @Test
-  public void testPrimaryLeadAndLag()
+  public void testLeadAndLag()
   {
     List<OutputColumn> cols = Arrays.<OutputColumn>asList(
         new CopyProjection("rid", ColumnType.LONG, "rid"),
         new OffsetExpression("rid-2", ColumnType.LONG, "rid", -2),
         new OffsetExpression("rid+2", ColumnType.LONG, "rid", 2)
     );
-    WindowSpec spec = new WindowSpec(
-        1,    // ID - not used
-        2,    // Child - not used
-        100,  // Batch Size - not used
-        cols, // Output columns
-        null  // Partition keys
-    );
-    final ExprMacroTable macroTable = ExprMacroTable.nil();
     final int rowCount = 4;
-    BatchOperator op = dataGen(5, rowCount);
-    BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
-    ProjectionBuilder builder = new ProjectionBuilder(buffer, macroTable, spec);
-    Batch output = runSequencer(builder, op.batchSchema().type(), spec);
+    Batch output = runPartitioner(dataGen(5, rowCount), unpartitionedSpec(cols));
 
     RowSchema expectedSchema = new SchemaBuilder()
         .scalar("rid", ColumnType.LONG)
@@ -196,7 +184,6 @@ public class ProjectionBuilderTest
         .row(3, 1, null)
         .row(4, 2, null)
         .build();
-    BatchVisualizer.print(output);
     BatchValidator.assertEquals(expected, output);
   }
 }

@@ -5,7 +5,6 @@ import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.BatchWriter.RowWriter;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.util.TypeRegistry;
-import org.apache.druid.utils.CollectionUtils;
 
 import java.util.Comparator;
 import java.util.List;
@@ -40,48 +39,16 @@ public abstract class Partitioner
     }
   };
 
-  public static class Builder
-  {
-    private final BatchBuffer batchBuffer;
-    private final List<String> partitionKeys;
-    private final BatchWriter<?> writer;
-    private List<PartitionSequencer> sequencers;
-    private List<ScalarColumnReader> columnReaders;
-
-    public Builder(BatchBuffer batchBuffer, List<String> partitionKeys, BatchWriter<?> writer)
-    {
-      this.batchBuffer = batchBuffer;
-      this.partitionKeys = partitionKeys;
-      this.writer = writer;
-    }
-
-    public Partitioner build(List<PartitionSequencer> sequencers, List<ScalarColumnReader> columnReaders)
-    {
-      this.sequencers = sequencers;
-      this.columnReaders = columnReaders;
-      if (isPartitioned()) {
-        return new Multiple(this);
-      } else {
-        return new Single(this);
-      }
-    }
-
-    public boolean isPartitioned()
-    {
-      return !CollectionUtils.isNullOrEmpty(partitionKeys);
-    }
-  }
-
   protected final BatchBuffer batchBuffer;
   protected final BatchWriter<?> writer;
   protected final List<PartitionSequencer> projectionSources;
-  protected RowWriter rowWriter;
+  protected final RowWriter rowWriter;
 
-  public Partitioner(Partitioner.Builder builder)
+  public Partitioner(Builder builder)
   {
-    this.batchBuffer = builder.batchBuffer;
+    this.batchBuffer = builder.buffer;
     this.writer = builder.writer;
-    this.rowWriter = this.writer.rowWriter(builder.columnReaders);
+    this.rowWriter = this.writer.rowWriter(builder.projectionBuilder.columnReaders());
     this.projectionSources = builder.sequencers;
   }
 
@@ -94,21 +61,30 @@ public abstract class Partitioner
       seq.next();
     }
   }
+
+  protected void startPartition()
+  {
+    for (PartitionSequencer seq : projectionSources) {
+      seq.startPartition();
+    }
+  }
+
   public static class Single extends Partitioner
   {
-    private PartitionSequencer primary;
+    private final PartitionSequencer primary;
 
-    public Single(Partitioner.Builder builder)
+    public Single(Builder builder)
     {
       super(builder);
-      this.primary = projectionSources.get(0);
+      this.primary = builder.primaryReader.sequencer;
+      startPartition();
     }
 
     @Override
     public int writeBatch()
     {
       int rowCount = 0;
-      while (!writer.isFull()) {
+      while (!writer.isFull() && !isEOF()) {
         while (nextInput()) {
           rowWriter.write();
           rowCount++;
@@ -142,11 +118,11 @@ public abstract class Partitioner
     private int endBatch;
     private int endOffset;
 
-    public Multiple(Partitioner.Builder builder)
+    public Multiple(Builder builder)
     {
       super(builder);
-      this.reader = builder.batchBuffer.inputSchema.newReader();
-      this.sequencer = new PartitionSequencer.PrimarySequencer(builder.batchBuffer, reader);
+      this.reader = builder.buffer.inputSchema.newReader();
+      this.sequencer = new PartitionSequencer.PrimarySequencer(builder.buffer, reader);
       this.comparators = TypeRegistry.INSTANCE.ordering(builder.partitionKeys, reader.columns().schema());
       this.keyColumns = new ScalarColumnReader[builder.partitionKeys.size()];
       for (int i = 0; i < keyColumns.length; i++) {
@@ -159,11 +135,13 @@ public abstract class Partitioner
       startPartition();
     }
 
-    public void startPartition()
+    @Override
+    protected void startPartition()
     {
       for (int i = 0; i < keyColumns.length; i++) {
         currentKey[i] = keyColumns[i].getValue();
       }
+      super.startPartition();
     }
 
     @Override
