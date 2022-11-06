@@ -79,7 +79,7 @@ public class BatchBuffer
    * passed in and verified to ensure the cursors stay in sync.
    * @return the batch, else {@code null} at EOF.
    */
-  public boolean loadBatch(int batchToLoad)
+  public Object loadBatch(int batchToLoad)
   {
     Preconditions.checkState(batchToLoad == batchCount);
     while (true) {
@@ -88,13 +88,13 @@ public class BatchBuffer
         data = inputIter.next();
       } catch (EofException e) {
         eof = true;
-        return false;
+        return null;
       }
       int size = inputSchema.type().sizeOf(data);
       if (size > 0) {
         batchCount++;
         buffer.add(data);
-        return true;
+        return data;
       }
     }
   }

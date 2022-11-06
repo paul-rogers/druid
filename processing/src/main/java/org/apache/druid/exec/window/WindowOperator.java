@@ -12,6 +12,8 @@ import org.apache.druid.exec.operator.impl.AbstractUnaryBatchOperator;
 import org.apache.druid.exec.plan.WindowSpec;
 import org.apache.druid.exec.plan.WindowSpec.OutputColumn;
 import org.apache.druid.exec.util.SchemaBuilder;
+import org.apache.druid.exec.window.old.ResultProjector;
+import org.apache.druid.exec.window.old.UnpartitionedProjector;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.utils.CollectionUtils;
 

@@ -1,11 +1,18 @@
-package org.apache.druid.exec.window;
+package org.apache.druid.exec.window.old;
 
-import org.apache.druid.exec.window.BufferSequencer.Listener;
+import com.google.common.collect.Iterables;
+import org.apache.druid.exec.batch.BatchReader;
+import org.apache.druid.exec.batch.RowSequencer;
+import org.apache.druid.exec.window.BatchBuffer;
+import org.apache.druid.exec.window.Exp.PartitionBuilder.PartitionSequencer;
+import org.apache.druid.exec.window.old.WindowFrameCursor.BatchEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
-public class PartitionCursor
+public class WindowFrameSequencer implements RowSequencer
 {
   private class LagListener implements BatchEventListener
   {
@@ -54,24 +61,34 @@ public class PartitionCursor
   }
 
   private final BatchBuffer buffer;
-  private final BufferSequencer primaryCursor;
-  private final List<BufferSequencer> cursors;
+  private final PartitionSequencer primaryCursor;
+  private final List<PartitionSequencer> cursors;
 
-  public PartitionCursor(BatchBuffer buffer, BufferSequencer primaryCursor, List<BufferSequencer> followerCursors)
+  public WindowFrameSequencer(BatchBuffer buffer, PartitionSequencer primaryCursor, Map<Integer, BatchReader> followerCursors)
   {
     this.buffer = buffer;
     this.primaryCursor = primaryCursor;
-    BufferSequencer lead = null;
-    BufferSequencer lag = null;
-    for (BufferSequencer cursor : followerCursors) {
-      int offset = cursor.offset();
-      if (offset < 0) {
-        if (lag == null || offset < lag.offset()) {
-          lag = cursor;
+    PartitionSequencer lead = null;
+    int leadOffset = 0;
+    PartitionSequencer lag = null;
+    int lagOffset = 0;
+    for (Entry<Integer, BatchReader> entry : followerCursors.entrySet()) {
+      int offset = entry.getKey();
+      BatchReader reader = entry.getValue();
+      PartitionSequencer sequencer;
+      if (offset == 0) {
+        sequencer = new PrimarySequencer(reader);
+      } else if (offset < 0) {
+        sequencer = new LagSequencer(reader, -offset);
+        if (lag == null || offset < lagOffset) {
+          lag = sequencer;
+          lagOffset = offset;
         }
-      } else if (offset > 0) {
-        if (lead == null || offset > lead.offset()) {
-          lead = cursor;
+      } else { // offset > 0
+        sequencer = new LeadSequencer(reader, -offset);
+        if (lead == null || offset > leadOffset) {
+          lead = sequencer;
+          leadOffset = offset;
         }
       }
     }
@@ -104,11 +121,11 @@ public class PartitionCursor
     this.cursors = new ArrayList<>();
     if (lead == null) {
       this.cursors.add(primaryCursor);
-      this.cursors.addAll(followerCursors);
+      Iterables.addAll(this.cursors, followerCursors);
     } else {
       this.cursors.add(lead);
       this.cursors.add(primaryCursor);
-      for (BufferSequencer cursor : followerCursors) {
+      for (WindowFrameCursor cursor : followerCursors) {
         if (cursor != lead) {
           this.cursors.add(cursor);
         }
@@ -116,11 +133,36 @@ public class PartitionCursor
     }
   }
 
+  public List<WindowFrameCursor> cursors()
+  {
+    return cursors;
+  }
+
+  public void startPartition()
+  {
+    for (WindowFrameCursor cursor : cursors) {
+      cursor.startPartition();
+    }
+  }
+
+  @Override
   public boolean next()
   {
-    for (BufferSequencer cursor : cursors) {
+    for (WindowFrameCursor cursor : cursors) {
       cursor.next();
     }
     return !primaryCursor.isEOF();
+  }
+
+  @Override
+  public boolean isEOF()
+  {
+    return primaryCursor.isEOF();
+  }
+
+  @Override
+  public boolean isValid()
+  {
+    return primaryCursor.isValid();
   }
 }

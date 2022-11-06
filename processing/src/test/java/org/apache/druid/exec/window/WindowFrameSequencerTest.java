@@ -5,9 +5,12 @@ import org.apache.druid.exec.operator.BatchOperator;
 import org.apache.druid.exec.test.SimpleDataGenOperator;
 import org.apache.druid.exec.test.SimpleDataGenSpec;
 import org.apache.druid.exec.test.TestUtils;
-import org.apache.druid.exec.window.WindowFrameCursor.PrimaryCursor;
-import org.apache.druid.exec.window.WindowFrameCursor.LagCursor;
-import org.apache.druid.exec.window.WindowFrameCursor.LeadCursor;
+import org.apache.druid.exec.window.old.NonPartitioner;
+import org.apache.druid.exec.window.old.WindowFrameCursor;
+import org.apache.druid.exec.window.old.WindowFrameSequencer;
+import org.apache.druid.exec.window.old.WindowFrameCursor.LagCursor;
+import org.apache.druid.exec.window.old.WindowFrameCursor.LeadCursor;
+import org.apache.druid.exec.window.old.WindowFrameCursor.PrimaryCursor;
 import org.junit.Test;
 
 import java.util.Arrays;

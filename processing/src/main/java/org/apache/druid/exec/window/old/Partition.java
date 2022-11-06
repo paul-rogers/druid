@@ -1,4 +1,4 @@
-package org.apache.druid.exec.window;
+package org.apache.druid.exec.window.old;
 
 public class Partition
 {

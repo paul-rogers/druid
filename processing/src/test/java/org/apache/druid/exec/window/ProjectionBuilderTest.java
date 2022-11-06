@@ -19,6 +19,7 @@ import org.apache.druid.exec.test.TestUtils;
 import org.apache.druid.exec.util.BatchValidator;
 import org.apache.druid.exec.util.BatchVisualizer;
 import org.apache.druid.exec.util.SchemaBuilder;
+import org.apache.druid.exec.window.old.WindowFrameSequencer;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.segment.column.ColumnType;
 import org.junit.Test;

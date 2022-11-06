@@ -1,4 +1,4 @@
-package org.apache.druid.exec.window;
+package org.apache.druid.exec.window.old;
 
 import com.google.common.base.Preconditions;
 import org.apache.druid.exec.batch.BatchSchema;
@@ -7,9 +7,9 @@ import org.apache.druid.exec.batch.RowCursor;
 import org.apache.druid.exec.batch.RowSequencer;
 import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
 import org.apache.druid.exec.util.TypeRegistry;
-import org.apache.druid.exec.window.BatchBufferOld.BufferPosition;
-import org.apache.druid.exec.window.BatchBufferOld.InputReader;
-import org.apache.druid.exec.window.BatchBufferOld.PartitionRange;
+import org.apache.druid.exec.window.old.BatchBufferOld.BufferPosition;
+import org.apache.druid.exec.window.old.BatchBufferOld.InputReader;
+import org.apache.druid.exec.window.old.BatchBufferOld.PartitionRange;
 
 import java.util.Comparator;
 import java.util.List;

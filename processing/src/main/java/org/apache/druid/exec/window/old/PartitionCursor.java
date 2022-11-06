@@ -1,13 +1,12 @@
-package org.apache.druid.exec.window;
+package org.apache.druid.exec.window.old;
 
-import com.google.common.collect.Iterables;
-import org.apache.druid.exec.batch.RowSequencer;
-import org.apache.druid.exec.window.WindowFrameCursor.BatchEventListener;
+import org.apache.druid.exec.window.BatchBuffer;
+import org.apache.druid.exec.window.BufferSequencer.Listener;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class WindowFrameSequencer implements RowSequencer
+public class PartitionCursor
 {
   private class LagListener implements BatchEventListener
   {
@@ -56,16 +55,16 @@ public class WindowFrameSequencer implements RowSequencer
   }
 
   private final BatchBuffer buffer;
-  private final WindowFrameCursor primaryCursor;
-  private final List<WindowFrameCursor> cursors;
+  private final BufferSequencer primaryCursor;
+  private final List<BufferSequencer> cursors;
 
-  public WindowFrameSequencer(BatchBuffer buffer, WindowFrameCursor primaryCursor, Iterable<WindowFrameCursor> followerCursors)
+  public PartitionCursor(BatchBuffer buffer, BufferSequencer primaryCursor, List<BufferSequencer> followerCursors)
   {
     this.buffer = buffer;
     this.primaryCursor = primaryCursor;
-    WindowFrameCursor lead = null;
-    WindowFrameCursor lag = null;
-    for (WindowFrameCursor cursor : followerCursors) {
+    BufferSequencer lead = null;
+    BufferSequencer lag = null;
+    for (BufferSequencer cursor : followerCursors) {
       int offset = cursor.offset();
       if (offset < 0) {
         if (lag == null || offset < lag.offset()) {
@@ -106,11 +105,11 @@ public class WindowFrameSequencer implements RowSequencer
     this.cursors = new ArrayList<>();
     if (lead == null) {
       this.cursors.add(primaryCursor);
-      Iterables.addAll(this.cursors, followerCursors);
+      this.cursors.addAll(followerCursors);
     } else {
       this.cursors.add(lead);
       this.cursors.add(primaryCursor);
-      for (WindowFrameCursor cursor : followerCursors) {
+      for (BufferSequencer cursor : followerCursors) {
         if (cursor != lead) {
           this.cursors.add(cursor);
         }
@@ -118,36 +117,11 @@ public class WindowFrameSequencer implements RowSequencer
     }
   }
 
-  public List<WindowFrameCursor> cursors()
-  {
-    return cursors;
-  }
-
-  public void startPartition()
-  {
-    for (WindowFrameCursor cursor : cursors) {
-      cursor.startPartition();
-    }
-  }
-
-  @Override
   public boolean next()
   {
-    for (WindowFrameCursor cursor : cursors) {
+    for (BufferSequencer cursor : cursors) {
       cursor.next();
     }
     return !primaryCursor.isEOF();
-  }
-
-  @Override
-  public boolean isEOF()
-  {
-    return primaryCursor.isEOF();
-  }
-
-  @Override
-  public boolean isValid()
-  {
-    return primaryCursor.isValid();
   }
 }

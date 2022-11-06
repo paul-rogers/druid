@@ -1,7 +1,8 @@
-package org.apache.druid.exec.window;
+package org.apache.druid.exec.window.old;
 
 import org.apache.druid.exec.batch.BatchWriter;
 import org.apache.druid.exec.batch.BatchWriter.RowWriter;
+import org.apache.druid.exec.window.ProjectionBuilder;
 
 public abstract class BasePartitioner implements Partitioner
 {

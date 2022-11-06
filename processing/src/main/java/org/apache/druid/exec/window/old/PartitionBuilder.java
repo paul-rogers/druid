@@ -1,4 +1,4 @@
-package org.apache.druid.exec.window;
+package org.apache.druid.exec.window.old;
 
 import org.apache.druid.exec.plan.WindowSpec;
 import org.apache.druid.utils.CollectionUtils;

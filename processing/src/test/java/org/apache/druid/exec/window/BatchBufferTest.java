@@ -33,6 +33,8 @@ import java.util.Arrays;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -63,7 +65,7 @@ public class BatchBufferTest
     BatchOperator op = dataGen(5, 0);
     BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
     assertFalse(buffer.isEof());
-    assertFalse(buffer.loadBatch(0));
+    assertNull(buffer.loadBatch(0));
     assertTrue(buffer.isEof());
   }
 
@@ -75,15 +77,15 @@ public class BatchBufferTest
     BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
 
     assertFalse(buffer.isEof());
-    assertTrue(buffer.loadBatch(0));
+    assertNotNull(buffer.loadBatch(0));
     assertFalse(buffer.isEof());
     assertEquals(1, batchType.sizeOf(buffer.batch(0)));
 
-    assertFalse(buffer.loadBatch(1));
+    assertNull(buffer.loadBatch(1));
     assertTrue(buffer.isEof());
 
     // Should never happen. Test stability to small errors.
-    assertFalse(buffer.loadBatch(1));
+    assertNull(buffer.loadBatch(1));
     assertTrue(buffer.isEof());
   }
 
@@ -98,19 +100,19 @@ public class BatchBufferTest
     BatchType batchType = op.batchSchema().type();
     BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
 
-    assertTrue(buffer.loadBatch(0));
+    assertNotNull(buffer.loadBatch(0));
     assertEquals(5, batchType.sizeOf(buffer.batch(0)));
 
-    assertTrue(buffer.loadBatch(1));
+    assertNotNull(buffer.loadBatch(1));
     assertEquals(5, batchType.sizeOf(buffer.batch(0)));
     assertEquals(5, batchType.sizeOf(buffer.batch(1)));
 
-    assertTrue(buffer.loadBatch(2));
+    assertNotNull(buffer.loadBatch(2));
     assertEquals(5, batchType.sizeOf(buffer.batch(0)));
     assertEquals(5, batchType.sizeOf(buffer.batch(1)));
     assertEquals(4, batchType.sizeOf(buffer.batch(2)));
 
-    assertFalse(buffer.loadBatch(3));
+    assertNull(buffer.loadBatch(3));
     assertTrue(buffer.isEof());
   }
 
@@ -133,24 +135,24 @@ public class BatchBufferTest
     BatchType batchType = op.batchSchema().type();
     BatchBuffer buffer = new BatchBuffer(op.batchSchema(), op.open());
 
-    assertTrue(buffer.loadBatch(0));
+    assertNotNull(buffer.loadBatch(0));
     assertEquals(5, batchType.sizeOf(buffer.batch(0)));
 
     // Unload a batch no longer needed. Should now be unavailable.
     buffer.unloadBatch(0);
     assertThrows(IndexOutOfBoundsException.class, () -> buffer.batch(0));
 
-    assertTrue(buffer.loadBatch(1));
+    assertNotNull(buffer.loadBatch(1));
     assertEquals(5, batchType.sizeOf(buffer.batch(1)));
     buffer.unloadBatch(1);
     assertThrows(IndexOutOfBoundsException.class, () -> buffer.batch(1));
 
-    assertTrue(buffer.loadBatch(2));
+    assertNotNull(buffer.loadBatch(2));
     assertEquals(4, batchType.sizeOf(buffer.batch(2)));
     buffer.unloadBatch(2);
     assertThrows(IndexOutOfBoundsException.class, () -> buffer.batch(2));
 
-    assertFalse(buffer.loadBatch(3));
+    assertNull(buffer.loadBatch(3));
     assertTrue(buffer.isEof());
   }
 }

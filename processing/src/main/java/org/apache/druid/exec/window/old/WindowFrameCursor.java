@@ -1,4 +1,4 @@
-package org.apache.druid.exec.window;
+package org.apache.druid.exec.window.old;
 
 import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.BatchPositioner;
@@ -6,7 +6,8 @@ import org.apache.druid.exec.batch.BatchSchema;
 import org.apache.druid.exec.batch.Batches;
 import org.apache.druid.exec.batch.ColumnReaderProvider;
 import org.apache.druid.exec.batch.RowCursor;
-import org.apache.druid.exec.window.Partitioner.PartitionBounds;
+import org.apache.druid.exec.window.BatchBuffer;
+import org.apache.druid.exec.window.old.Partitioner.PartitionBounds;
 
 public abstract class WindowFrameCursor implements RowCursor
 {

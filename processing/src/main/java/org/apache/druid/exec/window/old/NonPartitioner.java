@@ -1,9 +1,10 @@
-package org.apache.druid.exec.window;
+package org.apache.druid.exec.window.old;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.BatchPositioner;
 import org.apache.druid.exec.batch.BatchWriter;
+import org.apache.druid.exec.window.ProjectionBuilder;
 
 public class NonPartitioner extends BasePartitioner
 {

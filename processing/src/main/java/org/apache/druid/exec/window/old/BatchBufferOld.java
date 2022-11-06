@@ -1,4 +1,4 @@
-package org.apache.druid.exec.window;
+package org.apache.druid.exec.window.old;
 
 import com.google.common.base.Preconditions;
 import org.apache.druid.exec.batch.BatchSchema;
