@@ -20,11 +20,11 @@
 package org.apache.druid.exec.util;
 
 import io.netty.util.SuppressForbidden;
-import org.apache.druid.exec.batch.BatchCursor;
-import org.apache.druid.exec.batch.RowSchema;
-import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
-import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.exec.batch.Batch;
+import org.apache.druid.exec.batch.BatchCursor;
+import org.apache.druid.exec.batch.ColumnReaderProvider.ScalarColumnReader;
+import org.apache.druid.exec.batch.RowSchema;
+import org.apache.druid.exec.batch.RowSchema.ColumnSchema;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.segment.column.ColumnType;

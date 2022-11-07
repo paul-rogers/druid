@@ -29,6 +29,7 @@ import org.apache.druid.exec.plan.FragmentSpec;
 import org.apache.druid.exec.plan.OperatorSpec;
 import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.QueryTimeoutException;
 
 import java.io.Closeable;
@@ -42,6 +43,7 @@ import java.util.function.Consumer;
 
 public class FragmentManager implements FragmentContext, Closeable
 {
+  private final ExprMacroTable macroTable;
   private final FragmentPlan plan;
   private final Map<Integer, Operator<?>> operators = new HashMap<>();
   private final Map<Operator<?>, OperatorProfile> profiles = new IdentityHashMap<>();
@@ -57,11 +59,13 @@ public class FragmentManager implements FragmentContext, Closeable
 
   public FragmentManager(
       final String queryId,
-      final FragmentSpec spec
+      final FragmentSpec spec,
+      final ExprMacroTable macroTable
   )
   {
     this.queryId = queryId;
     this.plan = new FragmentPlan(spec);
+    this.macroTable = macroTable;
     this.startTimeMillis = System.currentTimeMillis();
   }
 
@@ -254,5 +258,11 @@ public class FragmentManager implements FragmentContext, Closeable
   public Operator<?> operator(int rootId)
   {
     return operators.get(rootId);
+  }
+
+  @Override
+  public ExprMacroTable macroTable()
+  {
+    return macroTable;
   }
 }

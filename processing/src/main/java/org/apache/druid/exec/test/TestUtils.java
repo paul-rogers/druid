@@ -28,6 +28,7 @@ import org.apache.druid.exec.fragment.FragmentManager;
 import org.apache.druid.exec.fragment.OperatorConverter;
 import org.apache.druid.exec.plan.FragmentSpec;
 import org.apache.druid.exec.plan.OperatorSpec;
+import org.apache.druid.math.expr.ExprMacroTable;
 
 import java.util.Collections;
 import java.util.List;
@@ -49,7 +50,11 @@ public class TestUtils
    */
   public static FragmentManager emptyFragment()
   {
-    return new FragmentManager("dummy", new FragmentSpec(1, 1, 0, Collections.emptyList()));
+    return new FragmentManager(
+        "dummy",
+        new FragmentSpec(1, 1, 0, Collections.emptyList()),
+        ExprMacroTable.nil()
+    );
   }
 
   /**
@@ -62,6 +67,11 @@ public class TestUtils
 
   public static FragmentManager fragment(OperatorConverter converter, List<OperatorSpec> opSpecs)
   {
-    return FragmentConverter.build(converter, "dummy", simpleSpec(opSpecs));
+    return FragmentConverter.build(
+        converter,
+        "dummy",
+        simpleSpec(opSpecs),
+        ExprMacroTable.nil()
+    );
   }
 }

@@ -139,17 +139,17 @@ public class BatchBufferTest
     assertEquals(5, batchType.sizeOf(buffer.batch(0)));
 
     // Unload a batch no longer needed. Should now be unavailable.
-    buffer.unloadBatch(0);
+    buffer.unloadBatches(0, 0);
     assertThrows(IndexOutOfBoundsException.class, () -> buffer.batch(0));
 
     assertNotNull(buffer.loadBatch(1));
     assertEquals(5, batchType.sizeOf(buffer.batch(1)));
-    buffer.unloadBatch(1);
+    buffer.unloadBatches(1, 1);
     assertThrows(IndexOutOfBoundsException.class, () -> buffer.batch(1));
 
     assertNotNull(buffer.loadBatch(2));
     assertEquals(4, batchType.sizeOf(buffer.batch(2)));
-    buffer.unloadBatch(2);
+    buffer.unloadBatches(2, 2);
     assertThrows(IndexOutOfBoundsException.class, () -> buffer.batch(2));
 
     assertNull(buffer.loadBatch(3));

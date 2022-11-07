@@ -22,6 +22,7 @@ package org.apache.druid.exec.fragment;
 import org.apache.druid.exec.operator.Operator;
 import org.apache.druid.exec.plan.FragmentSpec;
 import org.apache.druid.exec.plan.OperatorSpec;
+import org.apache.druid.math.expr.ExprMacroTable;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -42,9 +43,14 @@ public class FragmentConverter
     this.plan = fragment.plan();
   }
 
-  public static FragmentManager build(OperatorConverter opConverter, String queryId, FragmentSpec fragSpec)
+  public static FragmentManager build(
+      final OperatorConverter opConverter,
+      final String queryId,
+      final FragmentSpec fragSpec,
+      final ExprMacroTable macroTable
+  )
   {
-    FragmentManager fragment = new FragmentManager(queryId, fragSpec);
+    FragmentManager fragment = new FragmentManager(queryId, fragSpec, macroTable);
     build(opConverter, fragment);
     return fragment;
   }

@@ -49,7 +49,7 @@ public class PartitionSequencerTest
     return buffer;
   }
 
-  private static final BatchUnloader NO_OP_UNLOADER = b -> { };
+  private static final BatchUnloader NO_OP_UNLOADER = (from, to) -> { };
 
   /**
    * Basic sanity test for the empty-input edge case.

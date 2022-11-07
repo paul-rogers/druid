@@ -40,7 +40,7 @@ public class IndirectBatchType extends AbstractBatchType
 
     public IndirectData(Object data, int[] index)
     {
-       this.data = data;
+      this.data = data;
       this.index = index;
     }
   }

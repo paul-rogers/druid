@@ -19,12 +19,12 @@
 
 package org.apache.druid.exec.batch.impl;
 
+import org.apache.druid.exec.batch.Batch;
 import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.BatchType;
-import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.batch.BatchType.BatchFormat;
 import org.apache.druid.exec.batch.Batches;
-import org.apache.druid.exec.batch.Batch;
+import org.apache.druid.exec.batch.RowSchema;
 import org.apache.druid.exec.shim.ObjectArrayListBatchType;
 import org.apache.druid.exec.test.BatchBuilder;
 import org.apache.druid.exec.util.BatchValidator;

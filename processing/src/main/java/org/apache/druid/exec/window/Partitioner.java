@@ -245,7 +245,7 @@ public abstract class Partitioner
       Object data = batchBuffer.loadBatch(batchIndex);
       if (data == null) {
         eof = true;
-       } else {
+      } else {
         batchType.bindReader(reader, data);
       }
       return data;
@@ -371,7 +371,7 @@ public abstract class Partitioner
     @Override
     public int startingRow()
     {
-       return startOffset;
+      return startOffset;
     }
 
     /**

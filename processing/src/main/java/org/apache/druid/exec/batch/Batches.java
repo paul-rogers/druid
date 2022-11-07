@@ -39,7 +39,7 @@ public class Batches
    */
   public static boolean copy(BatchCursor source, BatchWriter<?> dest)
   {
-    dest.copier(source).copy(Integer.MAX_VALUE);
+    dest.copier(source.reader()).copy(source.positioner(), Integer.MAX_VALUE);
     return source.positioner().isEOF();
   }
 
@@ -98,8 +98,8 @@ public class Batches
         return MapListBatchType.INSTANCE;
       case SCAN_OBJECT_ARRAY:
         return ScanResultValueBatchType.ARRAY_INSTANCE;
-       case SCAN_MAP:
-         return ScanResultValueBatchType.MAP_INSTANCE;
+      case SCAN_MAP:
+        return ScanResultValueBatchType.MAP_INSTANCE;
       default:
         return null;
     }

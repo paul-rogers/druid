@@ -19,8 +19,8 @@
 
 package org.apache.druid.exec.util;
 
-import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.batch.Batch;
+import org.apache.druid.exec.batch.BatchCursor;
 import org.apache.druid.exec.test.BatchEquality;
 import org.apache.druid.java.util.common.StringUtils;
 import org.junit.Assert;

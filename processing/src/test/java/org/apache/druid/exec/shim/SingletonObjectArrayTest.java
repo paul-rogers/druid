@@ -67,7 +67,7 @@ public class SingletonObjectArrayTest
     assertEquals(1, lastSize.get());
     assertEquals(1, reader.size());
 
-    reader.bind(null);;
+    reader.bind(null);
     assertEquals(0, lastSize.get());
     assertEquals(0, reader.size());
   }
@@ -83,7 +83,7 @@ public class SingletonObjectArrayTest
 
     AtomicInteger lastSize = new AtomicInteger(-2);
     reader.bindListener(size -> lastSize.set(size));
-    reader.bind(new Object[] { "first" } );
+    reader.bind(new Object[] {"first"});
     assertEquals(1, lastSize.get());
     assertEquals(1, reader.size());
 
@@ -114,15 +114,14 @@ public class SingletonObjectArrayTest
     SingletonObjectArrayReader cursor = new SingletonObjectArrayReader(schema);
     ColumnReaderProvider columns = cursor.columns();
 
-    // Pass an int value for "b". Should map to the defined
-    // type.
-    cursor.bind(new Object[] { "first", 1 } );
+    // Pass an int value for "b". Should map to the defined type.
+    cursor.bind(new Object[] {"first", 1});
 
     assertEquals("first", columns.scalar(0).getString());
     assertEquals(1L, columns.scalar(1).getLong());
 
     // Second batch
-    cursor.bind(new Object[] { "second", 2L } );
+    cursor.bind(new Object[] {"second", 2L});
 
     assertEquals("second", columns.scalar(0).getString());
     assertEquals(2L, columns.scalar(1).getLong());

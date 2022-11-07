@@ -20,7 +20,7 @@
 package org.apache.druid.exec.batch.impl;
 
 import org.apache.druid.exec.batch.BatchPositioner;
-import org.apache.druid.exec.batch.PositionListener;
+import org.apache.druid.exec.batch.BatchReader;
 
 /**
  * Positioner for a typical batch of data which allows both sequential and
@@ -28,16 +28,9 @@ import org.apache.druid.exec.batch.PositionListener;
  */
 public class SimpleBatchPositioner implements BatchPositioner
 {
-  protected static final PositionListener NULL_LISTENER = p -> {};
-
   protected int size;
-  protected PositionListener listener;
+  protected BatchReader reader;
   protected int posn;
-
-  public SimpleBatchPositioner()
-  {
-    this.listener = NULL_LISTENER;
-  }
 
   @Override
   public void batchBound(int size)
@@ -47,15 +40,10 @@ public class SimpleBatchPositioner implements BatchPositioner
   }
 
   @Override
-  public void bindListener(final PositionListener listener)
+  public void bindReader(final BatchReader reader)
   {
-    this.listener = listener;
-    listener.updatePosition(isValid() ? posn : -1);
-  }
-
-  public PositionListener listener()
-  {
-    return listener;
+    this.reader = reader;
+    reader.updatePosition(isValid() ? posn : -1);
   }
 
   @Override
@@ -64,7 +52,7 @@ public class SimpleBatchPositioner implements BatchPositioner
     // If the batch is empty, start at EOF. Else, start
     // before the first row.
     this.posn = size == 0 ? 0 : -1;
-    listener.updatePosition(-1);
+    reader.updatePosition(-1);
   }
 
   @Override
@@ -72,10 +60,10 @@ public class SimpleBatchPositioner implements BatchPositioner
   {
     if (++posn >= size) {
       posn = size();
-      listener.updatePosition(-1);
+      reader.updatePosition(-1);
       return false;
     }
-    listener.updatePosition(posn);
+    reader.updatePosition(posn);
     return true;
   }
 
@@ -89,12 +77,12 @@ public class SimpleBatchPositioner implements BatchPositioner
       reset();
       return false;
     } else if (newPosn >= size()) {
-      listener.updatePosition(-1);
+      reader.updatePosition(-1);
       posn = size();
       return false;
     }
     posn = newPosn;
-    listener.updatePosition(posn);
+    reader.updatePosition(posn);
     return true;
   }
 

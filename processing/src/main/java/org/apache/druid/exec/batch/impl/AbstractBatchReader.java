@@ -41,8 +41,7 @@ public abstract class AbstractBatchReader implements BatchReader
   }
 
   @Override
-  public
-  void bindListener(BindingListener listener)
+  public void bindListener(BindingListener listener)
   {
     this.listener = listener;
     resetPositioner();

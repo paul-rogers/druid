@@ -69,7 +69,7 @@ public class SimpleBatchPositionerTest
   {
     SimpleBatchPositioner positioner = new SimpleBatchPositioner();
     AtomicInteger lastPosn = new AtomicInteger(-2);
-    positioner.bindListener(posn -> lastPosn.set(posn));
+    positioner.bindReader(posn -> lastPosn.set(posn));
 
     // Since there is no valid position, the listener should not be called.
     assertTrue(positioner.isEOF());
@@ -135,7 +135,7 @@ public class SimpleBatchPositionerTest
     SimpleBatchPositioner positioner = new SimpleBatchPositioner();
     positioner.batchBound(1);
     AtomicInteger lastPosn = new AtomicInteger(-2);
-    positioner.bindListener(posn -> lastPosn.set(posn));
+    positioner.bindReader(posn -> lastPosn.set(posn));
 
     assertEquals(1, positioner.size());
     assertEquals(-1, lastPosn.get());
@@ -172,7 +172,7 @@ public class SimpleBatchPositionerTest
     SimpleBatchPositioner positioner = new SimpleBatchPositioner();
     positioner.batchBound(10);
     AtomicInteger lastPosn = new AtomicInteger(-2);
-    positioner.bindListener(posn -> lastPosn.set(posn));
+    positioner.bindReader(posn -> lastPosn.set(posn));
 
     assertEquals(10, positioner.size());
     assertEquals(-1, lastPosn.get());

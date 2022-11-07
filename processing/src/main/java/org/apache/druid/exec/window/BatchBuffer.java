@@ -98,7 +98,8 @@ public class BatchBuffer implements BatchLoader, BatchUnloader
       Object data;
       try {
         data = inputIter.next();
-      } catch (EofException e) {
+      }
+      catch (EofException e) {
         eof = true;
         return null;
       }

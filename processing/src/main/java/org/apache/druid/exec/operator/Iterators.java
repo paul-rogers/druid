@@ -57,9 +57,6 @@ public class Iterators
         eof = true;
         return false;
       }
-//      catch (StallException e) {
-//        throw new UOE("Async mode not supported for a wrapped iterator.");
-//      }
     }
 
     @Override

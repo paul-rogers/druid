@@ -21,6 +21,7 @@ package org.apache.druid.exec.fragment;
 
 import org.apache.druid.exec.operator.Operator;
 import org.apache.druid.exec.operator.OperatorProfile;
+import org.apache.druid.math.expr.ExprMacroTable;
 
 /**
  * Provides fragment-level context to operators within a single
@@ -77,4 +78,6 @@ public interface FragmentContext
    * The last update wins, so metrics must be cummulative.
    */
   void updateProfile(Operator<?> op, OperatorProfile profile);
+
+  ExprMacroTable macroTable();
 }
