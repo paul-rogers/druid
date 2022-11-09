@@ -147,6 +147,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
     private List<ResourceAction> expectedResources;
     private Query<?> expectedQuery;
     private Matcher<Throwable> validationErrorMatcher;
+    private String expectedLogicalPlanResource;
 
     private IngestionDmlTester()
     {
@@ -224,6 +225,12 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
       );
     }
 
+    public IngestionDmlTester expectLogicalPlanFrom(String resource)
+    {
+      this.expectedLogicalPlanResource = resource;
+      return this;
+    }
+
     public void verify()
     {
       if (didTest) {
@@ -299,6 +306,12 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
           .expectedResources(expectedResources)
           .run();
 
+      String expectedLogicalPlan;
+      if (expectedLogicalPlanResource != null) {
+        expectedLogicalPlan = StringUtils.getResource(this, expectedLogicalPlanResource);
+      } else {
+        expectedLogicalPlan = null;
+      }
       testBuilder()
           .sql(sql)
           .queryContext(queryContext)
@@ -306,6 +319,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
           .plannerConfig(plannerConfig)
           .expectedQuery(expectedQuery)
           .expectedResults(Collections.singletonList(new Object[]{expectedTargetDataSource, expectedTargetSignature}))
+          .expectedLogicalPlan(expectedLogicalPlan)
           .run();
     }
 

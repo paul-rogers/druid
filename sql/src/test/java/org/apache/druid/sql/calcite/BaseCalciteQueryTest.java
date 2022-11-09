@@ -875,6 +875,11 @@ public class BaseCalciteQueryTest extends CalciteTestBase
           verifySteps.add(new QueryTestRunner.VerifyResults(execStep));
         }
 
+        // Verify the logical plan, if requested.
+        if (builder.expectedLogicalPlan != null) {
+          verifySteps.add(new QueryTestRunner.VerifyLogicalPlan(execStep));
+        }
+
         // The exception is always verified: either there should be no exception
         // (the other steps ran), or there should be the defined exception.
         verifySteps.add(new QueryTestRunner.VerifyExpectedException(execStep));

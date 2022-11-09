@@ -413,7 +413,7 @@ public class DruidOperatorTable implements SqlOperatorTable
     for (SqlAggregator aggregator : aggregators) {
       final OperatorKey operatorKey = OperatorKey.of(aggregator.calciteFunction());
       if (this.aggregators.put(operatorKey, aggregator) != null) {
-        throw new ISE("Cannot have two operators with key[%s]", operatorKey);
+        throw new ISE("Cannot have two operators with key [%s]", operatorKey);
       }
     }
 
@@ -428,7 +428,7 @@ public class DruidOperatorTable implements SqlOperatorTable
       final OperatorKey operatorKey = OperatorKey.of(operatorConversion.calciteOperator());
       if (this.aggregators.containsKey(operatorKey)
           || this.operatorConversions.put(operatorKey, operatorConversion) != null) {
-        throw new ISE("Cannot have two operators with key[%s]", operatorKey);
+        throw new ISE("Cannot have two operators with key [%s]", operatorKey);
       }
     }
 

@@ -20,9 +20,12 @@
 package org.apache.druid.java.util.common;
 
 import com.google.common.base.Strings;
+import org.apache.commons.io.IOUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -653,6 +656,15 @@ public class StringUtils
       return s;
     } else {
       return s.substring(0, maxBytes);
+    }
+  }
+
+  public static String getResource(Object ref, String resource)
+  {
+    try {
+      return IOUtils.toString(ref.getClass().getResourceAsStream(resource), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new ISE("Resource not found: [%s]", resource);
     }
   }
 }

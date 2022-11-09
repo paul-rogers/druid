@@ -20,7 +20,6 @@
 package org.apache.druid.sql.calcite.external;
 
 import com.google.inject.Inject;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -28,7 +27,6 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
-import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.validate.SqlUserDefinedTableMacro;
 import org.apache.druid.segment.column.RowSignature;
@@ -48,7 +46,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Registers the "EXTERN" operator, which is used in queries like "INSERT INTO dst SELECT * FROM TABLE(EXTERN(...))".
+ * Registers the "EXTERN" operator, which is used in queries like
+ * "INSERT INTO dst SELECT * FROM TABLE(EXTERN(...))".
  *
  * This class is exercised in CalciteInsertDmlTest but is not currently exposed to end users.
  */
@@ -59,8 +58,6 @@ public class ExternalOperatorConversion implements SqlOperatorConversion
   // Resource that allows reading external data via SQL.
   public static final ResourceAction EXTERNAL_RESOURCE_ACTION =
       new ResourceAction(new Resource("EXTERNAL", ResourceType.EXTERNAL), Action.READ);
-
-  private static final RelDataTypeFactory TYPE_FACTORY = new SqlTypeFactoryImpl(DruidTypeSystem.INSTANCE);
 
   private final SqlUserDefinedTableMacro operator;
 
@@ -99,7 +96,7 @@ public class ExternalOperatorConversion implements SqlOperatorConversion
           ),
           macro.getParameters()
                .stream()
-               .map(parameter -> parameter.getType(TYPE_FACTORY))
+               .map(parameter -> parameter.getType(DruidTypeSystem.TYPE_FACTORY))
                .collect(Collectors.toList()),
           macro
       );

@@ -42,7 +42,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Used by {@link ExternalOperatorConversion} to generate {@link DruidTable} that reference {@link ExternalDataSource}.
+ * Used by {@link ExternalOperatorConversion} to generate a {@link DruidTable}
+ * that references an {@link ExternalDataSource}.
  *
  * This class is exercised in CalciteInsertDmlTest but is not currently exposed to end users.
  */
