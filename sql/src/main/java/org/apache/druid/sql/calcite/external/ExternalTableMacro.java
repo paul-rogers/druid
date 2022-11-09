@@ -23,8 +23,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.FunctionParameter;
 import org.apache.calcite.schema.TableMacro;
 import org.apache.calcite.schema.TranslatableTable;
@@ -35,6 +33,7 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.table.DruidTable;
 import org.apache.druid.sql.calcite.table.ExternalTable;
 
@@ -49,6 +48,12 @@ import java.util.Optional;
  */
 public class ExternalTableMacro implements TableMacro
 {
+  private static final List<FunctionParameter> PARAMETERS = ImmutableList.of(
+      new FunctionParameterImpl(0, "inputSource", DruidTypeSystem.TYPE_FACTORY.createJavaType(String.class)),
+      new FunctionParameterImpl(1, "inputFormat", DruidTypeSystem.TYPE_FACTORY.createJavaType(String.class)),
+      new FunctionParameterImpl(2, "signature", DruidTypeSystem.TYPE_FACTORY.createJavaType(String.class))
+  );
+
   private final ObjectMapper jsonMapper;
 
   @Inject
@@ -89,85 +94,6 @@ public class ExternalTableMacro implements TableMacro
   @Override
   public List<FunctionParameter> getParameters()
   {
-    return ImmutableList.of(
-        new FunctionParameter()
-        {
-          @Override
-          public int getOrdinal()
-          {
-            return 0;
-          }
-
-          @Override
-          public String getName()
-          {
-            return "inputSource";
-          }
-
-          @Override
-          public RelDataType getType(RelDataTypeFactory typeFactory)
-          {
-            return typeFactory.createJavaType(String.class);
-          }
-
-          @Override
-          public boolean isOptional()
-          {
-            return false;
-          }
-        },
-        new FunctionParameter()
-        {
-          @Override
-          public int getOrdinal()
-          {
-            return 1;
-          }
-
-          @Override
-          public String getName()
-          {
-            return "inputFormat";
-          }
-
-          @Override
-          public RelDataType getType(RelDataTypeFactory typeFactory)
-          {
-            return typeFactory.createJavaType(String.class);
-          }
-
-          @Override
-          public boolean isOptional()
-          {
-            return false;
-          }
-        },
-        new FunctionParameter()
-        {
-          @Override
-          public int getOrdinal()
-          {
-            return 2;
-          }
-
-          @Override
-          public String getName()
-          {
-            return "signature";
-          }
-
-          @Override
-          public RelDataType getType(RelDataTypeFactory typeFactory)
-          {
-            return typeFactory.createJavaType(String.class);
-          }
-
-          @Override
-          public boolean isOptional()
-          {
-            return false;
-          }
-        }
-    );
+    return PARAMETERS;
   }
 }

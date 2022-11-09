@@ -26,6 +26,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -662,9 +663,13 @@ public class StringUtils
   public static String getResource(Object ref, String resource)
   {
     try {
-      return IOUtils.toString(ref.getClass().getResourceAsStream(resource), StandardCharsets.UTF_8);
+      InputStream is = ref.getClass().getResourceAsStream(resource);
+      if (is == null) {
+        throw new ISE("Resource not found: [%s]", resource);
+      }
+      return IOUtils.toString(is, StandardCharsets.UTF_8);
     } catch (IOException e) {
-      throw new ISE("Resource not found: [%s]", resource);
+      throw new ISE(e, "Cannot load resource: [%s]", resource);
     }
   }
 }

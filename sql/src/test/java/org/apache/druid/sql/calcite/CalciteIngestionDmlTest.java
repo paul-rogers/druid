@@ -308,7 +308,10 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
 
       String expectedLogicalPlan;
       if (expectedLogicalPlanResource != null) {
-        expectedLogicalPlan = StringUtils.getResource(this, expectedLogicalPlanResource);
+        expectedLogicalPlan = StringUtils.getResource(
+            this,
+            "/calcite/expected/ingest/" + expectedLogicalPlanResource + "-logicalPlan.txt"
+        );
       } else {
         expectedLogicalPlan = null;
       }

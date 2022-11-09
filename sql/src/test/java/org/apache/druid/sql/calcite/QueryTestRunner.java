@@ -39,8 +39,7 @@ import org.apache.druid.sql.DirectStatement;
 import org.apache.druid.sql.PreparedStatement;
 import org.apache.druid.sql.SqlQueryPlus;
 import org.apache.druid.sql.SqlStatementFactory;
-import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
-import org.apache.druid.sql.calcite.parser.DruidSqlReplace;
+import org.apache.druid.sql.calcite.parser.DruidSqlIngest;
 import org.apache.druid.sql.calcite.planner.PlannerCaptureHook;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 import org.apache.druid.sql.calcite.util.QueryLogHook;
@@ -55,7 +54,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Runs a test build up by {@link QueryTestBuilder}. Running a SQL query test
+ * Runs a test built up by {@link QueryTestBuilder}. Running a SQL query test
  * is somewhat complex; with different modes and items to verify. To manage the
  * complexity, test execution is done in two steps:
  * <ol>
@@ -265,6 +264,7 @@ public class QueryTestRunner
       try {
         final PlannerCaptureHook capture = doCapture ? new PlannerCaptureHook() : null;
         final DirectStatement stmt = sqlStatementFactory.directStatement(query);
+        stmt.setHook(capture);
         final Sequence<Object[]> results = stmt.execute().getResults();
         final RelDataType rowType = stmt.prepareResult().getReturnedRowType();
         return new QueryResults(
@@ -465,41 +465,23 @@ public class QueryTestRunner
       SqlInsert insertNode = hook.insertNode;
       if (insertNode == null) {
         plan = queryPlan;
-      } else if (insertNode instanceof DruidSqlInsert) {
-        DruidSqlInsert druidInsertNode = (DruidSqlInsert) insertNode;
-        // The target is a SQLIdentifier literal, pre-resolution, so does
-        // not include the schema.
-        plan = StringUtils.format(
-            "LogicalInsert(target=[%s], granularity=[%s])\n",
-            druidInsertNode.getTargetTable(),
-            druidInsertNode.getPartitionedBy() == null ? "<none>" : druidInsertNode.getPartitionedBy());
-        if (druidInsertNode.getClusteredBy() != null) {
-          plan += "  Clustered By: " + druidInsertNode.getClusteredBy();
-        }
-        plan +=
-            "  " + StringUtils.replace(queryPlan, "\n ", "\n   ");
-      } else if (insertNode instanceof DruidSqlReplace) {
-        DruidSqlReplace druidInsertNode = (DruidSqlReplace) insertNode;
-        // The target is a SQLIdentifier literal, pre-resolution, so does
-        // not include the schema.
-        plan = StringUtils.format(
-            "LogicalInsert(target=[%s], granularity=[%s])\n",
-            druidInsertNode.getTargetTable(),
-            druidInsertNode.getPartitionedBy() == null ? "<none>" : druidInsertNode.getPartitionedBy());
-        if (druidInsertNode.getClusteredBy() != null) {
-          plan += "  Clustered By: " + druidInsertNode.getClusteredBy();
-        }
-        plan +=
-            "  " + StringUtils.replace(queryPlan, "\n ", "\n   ");
       } else {
-        plan = queryPlan;
+        DruidSqlIngest druidInsertNode = (DruidSqlIngest) insertNode;
+        // The target is a SQLIdentifier literal, pre-resolution, so does
+        // not include the schema.
+       plan = StringUtils.format(
+            "LogicalInsert(target=[%s], partitionedBy=[%s], clusteredBy=[%s])\n",
+            druidInsertNode.getTargetTable(),
+            druidInsertNode.getPartitionedBy() == null ? "<none>" : druidInsertNode.getPartitionedBy(),
+            druidInsertNode.getClusteredBy() == null ? "<none>" : druidInsertNode.getClusteredBy()
+        ) + "  " + StringUtils.replace(queryPlan, "\n ", "\n   ");
       }
       return plan;
     }
   }
 
   /**
-   * Verify the exception thrown by a query using a jUnit expected
+   * Verify the exception thrown by a query using a JUnit expected
    * exception. This is actually an awkward way to to the job, but it is
    * what the Calcite queries have long used. There are three modes.
    * In the first, the exception is simply thrown and the expected
