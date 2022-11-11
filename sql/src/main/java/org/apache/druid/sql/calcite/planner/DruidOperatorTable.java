@@ -546,16 +546,6 @@ public class DruidOperatorTable implements SqlOperatorTable
       return new OperatorKey(operator.getName(), operator.getSyntax());
     }
 
-    public String getName()
-    {
-      return name;
-    }
-
-    public SqlSyntax getSyntax()
-    {
-      return syntax;
-    }
-
     @Override
     public boolean equals(final Object o)
     {

@@ -20,6 +20,7 @@
 package org.apache.druid.catalog.model.table;
 
 import org.apache.druid.catalog.model.CatalogUtils;
+import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ModelProperties.StringListPropertyDefn;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.table.ExternalTableDefn.FormattedExternalTableDefn;
@@ -49,11 +50,10 @@ public class InlineTableDefn extends FormattedExternalTableDefn
         "Inline input table",
         TABLE_TYPE,
         Collections.singletonList(
-            new StringListPropertyDefn(DATA_PROPERTY)
+            new StringListPropertyDefn(DATA_PROPERTY, PropertyAttributes.SQL_FN_PARAM)
         ),
         Collections.singletonList(INPUT_COLUMN_DEFN),
-        InputFormats.ALL_FORMATS,
-        null
+        InputFormats.ALL_FORMATS
     );
   }
 

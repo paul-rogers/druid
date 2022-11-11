@@ -20,7 +20,9 @@
 package org.apache.druid.sql.calcite.planner;
 
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.schema.FunctionParameter;
 import org.apache.calcite.schema.TableMacro;
+import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
@@ -64,7 +66,7 @@ import java.util.List;
  * <p>
  * For Druid, we want the above form: extend a table function, not a
  * literal table. Since we can't change the Calcite parser, we instead use
- * tricks to within the constraints of the parser.
+ * tricks within the constraints of the parser.
  * <ul>
  * <li>First, use use a Python script to modify the parser to add the
  * EXTEND rule for a table function.</li>
@@ -72,7 +74,7 @@ import java.util.List;
  * and the column list. Since our case has a function call as the first argument,
  * we can't let Calcite see our AST. So, we use a rewrite trick to convert the
  * EXTEND node into the usual TABLE(.) node, and we modify the associated macro
- * to hold onto the schema, which is not out of sight of Calcite, and so will not
+ * to hold onto the schema, which is now out of sight of Calcite, and so will not
  * cause problems with rules that don't understand our usage.</li>
  * <li>Calcite will helpfully rewrite calls, replacing our modified operator with
  * the original. So, we override those to keep our modified operator.</li>
@@ -110,13 +112,12 @@ public abstract class UserDefinedTableMacroFunction extends SqlUserDefinedTableM
 
   public UserDefinedTableMacroFunction copyWithSchema(SqlNodeList schema)
   {
-    throw new UOE("Implement copyWithSchema to use this macro with EXTEND");
+    throw new UOE("Implement copyWithSchema to use this macro function with EXTEND");
   }
 
   public SqlBasicCall rewriteCall(SqlBasicCall oldCall, SqlNodeList schema)
   {
-    UserDefinedTableMacroFunction newOp = copyWithSchema(schema);
-    return new ExtendedCall(oldCall, newOp, schema);
+    return new ExtendedCall(oldCall, copyWithSchema(schema), schema);
   }
 
   private static class ExtendedCall extends SqlBasicCall
@@ -175,6 +176,43 @@ public abstract class UserDefinedTableMacroFunction extends SqlUserDefinedTableM
       Frame frame = writer.startList("(", ")");
       schema.unparse(writer, leftPrec, rightPrec);
       writer.endList(frame);
+    }
+  }
+
+  public interface ExtendedTableMacro extends TableMacro
+  {
+    TranslatableTable apply(List<Object> arguments, SqlNodeList schema);
+  }
+
+  /**
+   * Calcite table macro created dynamically to squirrel away the
+   * schema provided by the EXTEND clause to allow <pre><code>
+   * SELECT ... FROM TABLE(fn(arg => value, ...)) (col1 <type1>, ...)
+   * </code></pre>
+   * This macro wraps the actual input table macro, which does the
+   * actual work to build the Druid table.
+   */
+  protected static class ShimTableMacro implements TableMacro
+  {
+    private final ExtendedTableMacro delegate;
+    private final SqlNodeList schema;
+
+    public ShimTableMacro(ExtendedTableMacro delegate, SqlNodeList schema)
+    {
+      this.delegate = delegate;
+      this.schema = schema;
+    }
+
+    @Override
+    public TranslatableTable apply(List<Object> arguments)
+    {
+      return delegate.apply(arguments, schema);
+    }
+
+    @Override
+    public List<FunctionParameter> getParameters()
+    {
+      return delegate.getParameters();
     }
   }
 }

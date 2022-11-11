@@ -65,7 +65,6 @@ public class ExtendsOperator extends SqlInternalOperator
     UserDefinedTableMacroFunction macro = (UserDefinedTableMacroFunction) tableFnCall.getOperator();
 
     SqlNodeList schema = (SqlNodeList) call.operand(1);
-
     SqlCall newCall = macro.rewriteCall(tableFnCall, schema);
     return SqlStdOperatorTable.COLLECTION_TABLE.createCall(call.getParserPosition(), newCall);
   }

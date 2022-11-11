@@ -23,6 +23,8 @@ import com.fasterxml.jackson.databind.Module;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
+import org.apache.druid.catalog.model.TableDefnRegistry;
+import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.StartupInjectorBuilder;
 import org.apache.druid.initialization.CoreInjectorBuilder;
 import org.apache.druid.initialization.DruidModule;
@@ -34,6 +36,7 @@ import org.apache.druid.query.lookup.LookupSerdeModule;
 import org.apache.druid.sql.calcite.aggregation.SqlAggregationModule;
 import org.apache.druid.sql.calcite.expression.builtin.QueryLookupOperatorConversion;
 import org.apache.druid.sql.calcite.external.ExternalOperatorConversion;
+import org.apache.druid.sql.calcite.external.HttpOperatorConversion;
 import org.apache.druid.sql.guice.SqlBindings;
 import org.apache.druid.timeline.DataSegment;
 
@@ -102,6 +105,10 @@ public class CalciteTestInjectorBuilder extends CoreInjectorBuilder
 
       // Add "EXTERN" table macro, for CalciteInsertDmlTest.
       SqlBindings.addOperatorConversion(binder, ExternalOperatorConversion.class);
+
+      // For catalog and related
+      binder.bind(TableDefnRegistry.class).in(LazySingleton.class);
+      SqlBindings.addOperatorConversion(binder, HttpOperatorConversion.class);
     }
 
     @Override

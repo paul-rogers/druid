@@ -23,6 +23,7 @@ import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ModelProperties.StringListPropertyDefn;
 import org.apache.druid.catalog.model.ModelProperties.StringPropertyDefn;
 import org.apache.druid.catalog.model.ParameterizedDefn;
+import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.table.ExternalTableDefn.FormattedExternalTableDefn;
 import org.apache.druid.data.input.InputSource;
@@ -61,16 +62,12 @@ public class LocalTableDefn extends FormattedExternalTableDefn implements Parame
         "Local file input table",
         TABLE_TYPE,
         Arrays.asList(
-            new StringPropertyDefn(BASE_DIR_PROPERTY),
-            new StringPropertyDefn(FILE_FILTER_PROPERTY),
-            new StringListPropertyDefn(FILES_PROPERTY)
+            new StringPropertyDefn(BASE_DIR_PROPERTY, PropertyAttributes.SQL_FN_PARAM),
+            new StringPropertyDefn(FILE_FILTER_PROPERTY, PropertyAttributes.SQL_FN_PARAM),
+            new StringListPropertyDefn(FILES_PROPERTY, PropertyAttributes.SQL_AND_TABLE_PARAM)
         ),
         Collections.singletonList(INPUT_COLUMN_DEFN),
-        InputFormats.ALL_FORMATS,
-        Arrays.asList(
-            new ParameterImpl(FILE_FILTER_PROPERTY, String.class),
-            new ParameterImpl(FILES_PROPERTY, String.class)
-        )
+        InputFormats.ALL_FORMATS
     );
   }
 
