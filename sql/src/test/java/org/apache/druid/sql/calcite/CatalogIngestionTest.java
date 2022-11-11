@@ -4,9 +4,10 @@ import com.google.common.collect.ImmutableList;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.data.input.impl.HttpInputSourceConfig;
-import org.apache.druid.data.input.impl.InlineInputSource;
+import org.apache.druid.guice.DruidInjectorBuilder;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.metadata.DefaultPasswordProvider;
+import org.apache.druid.metadata.input.InputSourceModule;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
@@ -19,8 +20,16 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
 
+import static org.junit.Assert.assertNotNull;
+
 public class CatalogIngestionTest extends CalciteIngestionDmlTest
 {
+  @Override
+  public void configureGuice(DruidInjectorBuilder builder)
+  {
+    builder.addModule(new InputSourceModule());
+  }
+
   @Test
   public void testReference()
   {
@@ -68,6 +77,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
   @Test
   public void testHttpExtern()
   {
+    assertNotNull(queryFramework().injector().getInstance(HttpInputSourceConfig.class));
     testIngestionQuery()
         .sql("INSERT INTO dst SELECT * FROM %s PARTITIONED BY ALL TIME", externSql(httpDataSource))
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)

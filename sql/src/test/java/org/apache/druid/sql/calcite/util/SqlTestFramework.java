@@ -538,11 +538,17 @@ public class SqlTestFramework
   private SqlTestFramework(Builder builder)
   {
     this.componentSupplier = builder.componentSupplier;
-    this.injector = new CalciteTestInjectorBuilder()
-      .addModule(new TestSetupModule(builder))
-      .build();
+    DruidInjectorBuilder builder = new CalciteTestInjectorBuilder()
+      .addModule(new TestSetupModule(builder));
+    builder.componentSupplier.configureGuice(injectorBuilder);
+    this.injector = injectorBuilder.build();
     this.engine = builder.componentSupplier.createEngine(queryLifecycleFactory(), queryJsonMapper());
     componentSupplier.configureJsonMapper(queryJsonMapper());
+  }
+
+  public Injector injector()
+  {
+    return injector;
   }
 
   public ObjectMapper queryJsonMapper()
