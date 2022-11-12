@@ -71,6 +71,7 @@ public class VarianceSqlAggregatorTest extends BaseCalciteQueryTest
   @Override
   public void configureGuice(DruidInjectorBuilder builder)
   {
+    super.configureGuice(builder);
     builder.addModule(new DruidStatsModule());
   }
 

@@ -93,6 +93,7 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
   @Override
   public void configureGuice(DruidInjectorBuilder builder)
   {
+    super.configureGuice(builder);
     builder.addModule(new HllSketchModule());
   }
 

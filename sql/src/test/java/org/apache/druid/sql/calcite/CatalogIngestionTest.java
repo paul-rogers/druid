@@ -47,12 +47,6 @@ import static org.junit.Assert.assertNotNull;
 
 public class CatalogIngestionTest extends CalciteIngestionDmlTest
 {
-  @Override
-  public void configureGuice(DruidInjectorBuilder builder)
-  {
-    builder.addModule(new InputSourceModule());
-  }
-
   @Test
   public void testReference()
   {

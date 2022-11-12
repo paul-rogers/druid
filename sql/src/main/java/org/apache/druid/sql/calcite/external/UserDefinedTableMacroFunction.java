@@ -17,13 +17,14 @@
  * under the License.
  */
 
-package org.apache.druid.sql.calcite.planner;
+package org.apache.druid.sql.calcite.external;
 
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.schema.FunctionParameter;
 import org.apache.calcite.schema.TableMacro;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
@@ -31,17 +32,19 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.SqlWriter.Frame;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.type.SqlOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlOperandTypeInference;
 import org.apache.calcite.sql.type.SqlReturnTypeInference;
 import org.apache.calcite.sql.validate.SqlUserDefinedTableMacro;
-import org.apache.druid.java.util.common.UOE;
+import org.apache.druid.server.security.ResourceAction;
+import org.apache.druid.sql.calcite.expression.AuthorizableOperator;
 
 import java.util.List;
+import java.util.Set;
 
 /**
- * Table macro designed for use with the Druid EXTEND
- * operator. Example:
+ * Table macro designed for use with the Druid EXTEND operator. Example:
  * <code><pre>
  * INSERT INTO dst
  * SELECT *
@@ -61,8 +64,8 @@ import java.util.List;
  * SELECT ..
  * FROM myTable EXTEND (x VARCHAR, ...)
  * </pre></code>
- * Though, oddly, a search of Apache Phoenix itself does not find
- * a hit for EXTEND, so perhaps the feature was never completed?
+ * Though, oddly, a search of Apache Phoenix itself does not find a hit for
+ * EXTEND, so perhaps the feature was never completed?
  * <p>
  * For Druid, we want the above form: extend a table function, not a
  * literal table. Since we can't change the Calcite parser, we instead use
@@ -97,42 +100,77 @@ import java.util.List;
  * </pre></code>
  * Since we seldom use unparse, we can perhaps live with this limitation for now.
  */
-public abstract class UserDefinedTableMacroFunction extends SqlUserDefinedTableMacro
+public abstract class UserDefinedTableMacroFunction extends SqlUserDefinedTableMacro implements AuthorizableOperator
 {
+  protected final ExtendedTableMacro macro;
+
   public UserDefinedTableMacroFunction(
       SqlIdentifier opName,
       SqlReturnTypeInference returnTypeInference,
       SqlOperandTypeInference operandTypeInference,
       SqlOperandTypeChecker operandTypeChecker,
       List<RelDataType> paramTypes,
-      TableMacro tableMacro)
+      ExtendedTableMacro tableMacro
+  )
   {
     super(opName, returnTypeInference, operandTypeInference, operandTypeChecker, paramTypes, tableMacro);
+
+    // Because Calcite's copy of the macro is private
+    this.macro = tableMacro;
   }
 
-  public UserDefinedTableMacroFunction copyWithSchema(SqlNodeList schema)
-  {
-    throw new UOE("Implement copyWithSchema to use this macro function with EXTEND");
-  }
-
+  /**
+   * Rewrite the call to the original table macro function to a new "shim" version that
+   * holds both the original one and the schema from EXTEND.
+   */
   public SqlBasicCall rewriteCall(SqlBasicCall oldCall, SqlNodeList schema)
   {
-    return new ExtendedCall(oldCall, copyWithSchema(schema), schema);
+    return new ExtendedCall(oldCall, new ShimTableMacroFunction(this, schema));
   }
 
+  private static class ShimTableMacroFunction extends SqlUserDefinedTableMacro implements AuthorizableOperator
+  {
+    protected final UserDefinedTableMacroFunction base;
+    protected final SqlNodeList schema;
+
+    public ShimTableMacroFunction(final UserDefinedTableMacroFunction base, final SqlNodeList schema)
+    {
+      super(
+          base.getNameAsId(),
+          ReturnTypes.CURSOR,
+          null,
+          base.getOperandTypeChecker(),
+          base.getParamTypes(),
+          new ShimTableMacro(base.macro, schema)
+      );
+      this.base = base;
+      this.schema = schema;
+    }
+
+    @Override
+    public Set<ResourceAction> computeResources(final SqlCall call)
+    {
+      return base.computeResources(call);
+    }
+  }
+
+  /**
+   * Call primarily to (nearly) recreate the EXTEND clause during unparse.
+   */
   private static class ExtendedCall extends SqlBasicCall
   {
     private final SqlNodeList schema;
 
-    public ExtendedCall(SqlBasicCall oldCall, UserDefinedTableMacroFunction macro, SqlNodeList schema)
+    public ExtendedCall(SqlBasicCall oldCall, ShimTableMacroFunction macro)
     {
       super(
           macro,
           oldCall.getOperands(),
           oldCall.getParserPosition(),
           false,
-          oldCall.getFunctionQuantifier());
-      this.schema = schema;
+          oldCall.getFunctionQuantifier()
+      );
+      this.schema = macro.schema;
     }
 
     public ExtendedCall(ExtendedCall from, SqlParserPos pos)
@@ -142,7 +180,8 @@ public abstract class UserDefinedTableMacroFunction extends SqlUserDefinedTableM
           from.getOperands(),
           pos,
           false,
-          from.getFunctionQuantifier());
+          from.getFunctionQuantifier()
+      );
       this.schema = from.schema;
     }
 

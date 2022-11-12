@@ -62,9 +62,9 @@ import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.calcite.expression.AuthorizableOperator;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.expression.SqlOperatorConversion;
+import org.apache.druid.sql.calcite.external.UserDefinedTableMacroFunction.ExtendedTableMacro;
 import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
-import org.apache.druid.sql.calcite.planner.UserDefinedTableMacroFunction;
 import org.apache.druid.sql.calcite.table.ExternalTable;
 
 import javax.annotation.Nullable;
@@ -105,8 +105,6 @@ public class HttpOperatorConversion implements SqlOperatorConversion
 
   private static class HttpOperator extends UserDefinedTableMacroFunction implements AuthorizableOperator
   {
-    protected final TableMacro macro;
-
     public HttpOperator(final HttpTableMacro macro)
     {
       super(
@@ -119,22 +117,6 @@ public class HttpOperatorConversion implements SqlOperatorConversion
           macro.dataTypes(),
           macro
       );
-
-      // Because Calcite's copy of the macro is private
-      this.macro = macro;
-    }
-
-    public HttpOperator(final HttpOperator base, final HttpTableMacro macro)
-    {
-      super(
-          base.getNameAsId(),
-          ReturnTypes.CURSOR,
-          null,
-          base.getOperandTypeChecker(),
-          base.getParamTypes(),
-          macro
-      );
-      this.macro = macro;
     }
 
     @Override
@@ -142,37 +124,19 @@ public class HttpOperatorConversion implements SqlOperatorConversion
     {
       return Collections.singleton(ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION);
     }
-
-    @Override
-    public UserDefinedTableMacroFunction copyWithSchema(SqlNodeList schema)
-    {
-      return new HttpOperator(
-          this,
-          new HttpTableMacro((HttpTableMacro) macro, schema));
-    }
   }
 
-  public static class HttpTableMacro implements TableMacro
+  public static class HttpTableMacro implements ExtendedTableMacro
   {
     private final List<FunctionParameter> parameters;
     private final ExternalTableDefn tableDefn;
     private final ObjectMapper jsonMapper;
-    private final SqlNodeList schema;
 
     public HttpTableMacro(final ExternalTableDefn tableDefn, final ObjectMapper jsonMapper)
     {
       this.tableDefn = tableDefn;
       this.jsonMapper = jsonMapper;
       this.parameters = convertParameters(tableDefn);
-      this.schema = null;
-    }
-
-    public HttpTableMacro(final HttpTableMacro base, final SqlNodeList schema)
-    {
-      this.tableDefn = base.tableDefn;
-      this.jsonMapper = base.jsonMapper;
-      this.parameters = base.parameters;
-      this.schema = schema;
     }
 
     public static List<FunctionParameter> convertParameters(final ExternalTableDefn tableDefn)
@@ -201,6 +165,15 @@ public class HttpOperatorConversion implements SqlOperatorConversion
 
     @Override
     public TranslatableTable apply(final List<Object> arguments)
+    {
+      throw new IAE(
+          "The %s table function requires an EXTEND clause with a schema.",
+          FUNCTION_NAME
+      );
+    }
+
+    @Override
+    public TranslatableTable apply(List<Object> arguments, SqlNodeList schema)
     {
       final TableBuilder builder = TableBuilder.of(tableDefn);
       for (int i = 0; i < parameters.size(); i++) {

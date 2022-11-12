@@ -526,7 +526,7 @@ public class SqlTestFramework
         .addModule(new BasicTestModule())
         .addModule(new SqlAggregationModule())
         .addModule(new ExpressionModule())
-        .addModule(new LookupSerdeModule())
+        //.addModule(new LookupSerdeModule())
         .addModule(new TestSetupModule(builder));
     builder.componentSupplier.configureGuice(injectorBuilder);
     this.injector = injectorBuilder.build();

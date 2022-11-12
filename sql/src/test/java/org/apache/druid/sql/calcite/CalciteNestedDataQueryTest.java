@@ -147,6 +147,7 @@ public class CalciteNestedDataQueryTest extends BaseCalciteQueryTest
   @Override
   public void configureGuice(DruidInjectorBuilder builder)
   {
+    super.configureGuice(builder);
     builder.addModule(new NestedDataModule());
   }
 

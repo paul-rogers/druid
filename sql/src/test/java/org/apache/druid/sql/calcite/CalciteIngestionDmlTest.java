@@ -20,15 +20,21 @@
 package org.apache.druid.sql.calcite;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Binder;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.InlineInputSource;
+import org.apache.druid.guice.DruidInjectorBuilder;
+import org.apache.druid.initialization.DruidModule;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularity;
+import org.apache.druid.metadata.input.InputSourceModule;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFactory;
@@ -41,10 +47,13 @@ import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.SqlQueryPlus;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
+import org.apache.druid.sql.calcite.external.ExternalOperatorConversion;
+import org.apache.druid.sql.calcite.external.HttpOperatorConversion;
 import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.util.CalciteTests;
+import org.apache.druid.sql.guice.SqlBindings;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.hamcrest.MatcherAssert;
@@ -91,6 +100,56 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
   public CalciteIngestionDmlTest()
   {
     super(IngestionTestSqlEngine.INSTANCE);
+  }
+
+  @Override
+  public void configureGuice(DruidInjectorBuilder builder)
+  {
+    super.configureGuice(builder);
+
+    builder.addModule(new DruidModule() {
+
+      // Clone of MSQExternalDataSourceModule since it is not
+      // visible here.
+      @Override
+      public List<? extends Module> getJacksonModules()
+      {
+        return Collections.singletonList(
+            new SimpleModule(getClass().getSimpleName())
+                .registerSubtypes(ExternalDataSource.class)
+        );
+      }
+
+      @Override
+      public void configure(Binder binder)
+      {
+        // Nothing to do.
+      }
+    });
+
+    builder.addModule(new DruidModule() {
+
+      // Partial clone of MsqSqlModule, since that module is not
+      // visible to this one.
+
+      @Override
+      public List<? extends Module> getJacksonModules()
+      {
+        // We want this module to bring input sources along for the ride.
+        return new InputSourceModule().getJacksonModules();
+      }
+
+      @Override
+      public void configure(Binder binder)
+      {
+        // We want this module to bring InputSourceModule along for the ride.
+        binder.install(new InputSourceModule());
+
+        // Set up the EXTERN macro.
+        SqlBindings.addOperatorConversion(binder, ExternalOperatorConversion.class);
+        SqlBindings.addOperatorConversion(binder, HttpOperatorConversion.class);
+      }
+    });
   }
 
   @After

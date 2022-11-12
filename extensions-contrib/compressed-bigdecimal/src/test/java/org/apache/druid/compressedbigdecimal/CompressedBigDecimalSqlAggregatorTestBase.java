@@ -75,6 +75,7 @@ public abstract class CompressedBigDecimalSqlAggregatorTestBase extends BaseCalc
   @Override
   public void configureGuice(DruidInjectorBuilder builder)
   {
+    super.configureGuice(builder);
     builder.addModule(new CompressedBigDecimalModule());
   }
 
