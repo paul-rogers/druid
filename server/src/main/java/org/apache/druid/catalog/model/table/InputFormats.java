@@ -131,8 +131,8 @@ public class InputFormats
           typeTag,
           CatalogUtils.concatLists(
               Arrays.asList(
-                  new StringPropertyDefn(LIST_DELIMITER_PROPERTY, PropertyAttributes.SQL_FN_PARAM),
-                  new IntPropertyDefn(SKIP_ROWS_PROPERTY, PropertyAttributes.SQL_FN_PARAM)
+                  new StringPropertyDefn(LIST_DELIMITER_PROPERTY, PropertyAttributes.OPTIONAL_SQL_FN_PARAM),
+                  new IntPropertyDefn(SKIP_ROWS_PROPERTY, PropertyAttributes.OPTIONAL_SQL_FN_PARAM)
               ),
               properties
           )
@@ -204,7 +204,7 @@ public class InputFormats
           "Delimited Text",
           DELIMITED_FORMAT_TYPE,
           Collections.singletonList(
-              new StringPropertyDefn(DELIMITER_PROPERTY, PropertyAttributes.SQL_FN_PARAM)
+              new StringPropertyDefn(DELIMITER_PROPERTY, PropertyAttributes.OPTIONAL_SQL_FN_PARAM)
           )
       );
     }

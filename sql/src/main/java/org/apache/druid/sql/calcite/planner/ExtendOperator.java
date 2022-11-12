@@ -28,21 +28,21 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.fun.SqlCollectionTableOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.validate.SqlValidator;
-import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.java.util.common.ISE;
 
 /**
  * Druid-specific implementation of the EXTEND operator in Calcite, which
  * is said to have been added for Apache Phoenix, and which we repurpose to
- * suppy a schema for a ingest input table.
+ * supply a schema for an ingest input table.
  *
  * @see {@link UserDefinedTableMacroFunction} for details
 = */
-public class ExtendsOperator extends SqlInternalOperator
+public class ExtendOperator extends SqlInternalOperator
 {
   //  private static final TableMacro macro = new ExtendsMacroWrapper();
-  public static final ExtendsOperator EXTENDS = new ExtendsOperator();
+  public static final ExtendOperator EXTEND = new ExtendOperator();
 
-  ExtendsOperator()
+  ExtendOperator()
   {
     super("EXTEND", SqlKind.EXTEND, MDX_PRECEDENCE);
   }
@@ -59,7 +59,7 @@ public class ExtendsOperator extends SqlInternalOperator
   {
     SqlBasicCall tableOpCall = (SqlBasicCall) call.operand(0);
     if (!(tableOpCall.getOperator() instanceof SqlCollectionTableOperator)) {
-      throw new IAE("First argument to EXTENDS must be a table function");
+      throw new ISE("First argument to EXTEND must be a table function");
     }
     SqlBasicCall tableFnCall = (SqlBasicCall) tableOpCall.operand(0);
     UserDefinedTableMacroFunction macro = (UserDefinedTableMacroFunction) tableFnCall.getOperator();

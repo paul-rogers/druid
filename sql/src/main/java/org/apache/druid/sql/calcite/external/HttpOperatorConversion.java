@@ -29,14 +29,17 @@ import org.apache.calcite.schema.FunctionParameter;
 import org.apache.calcite.schema.TableMacro;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlOperandCountRange;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlTypeNameSpec;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
+import org.apache.calcite.sql.type.SqlOperandCountRanges;
 import org.apache.calcite.sql.type.SqlOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlSingleOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -112,7 +115,9 @@ public class HttpOperatorConversion implements SqlOperatorConversion
           new SqlIdentifier(FUNCTION_NAME, SqlParserPos.ZERO),
           ReturnTypes.CURSOR,
           null,
-          macro.typeChecker(),
+          // Use our own definition of variadic since Calcite's doesn't allow
+          // optional parameters.
+          variadic(macro.parameters),
           macro.dataTypes(),
           macro
       );
@@ -181,8 +186,9 @@ public class HttpOperatorConversion implements SqlOperatorConversion
         params.add(new FunctionParameterImpl(
             i,
             prop.name(),
-            DruidTypeSystem.TYPE_FACTORY.createJavaType(PropertyAttributes.sqlParameterType(prop)))
-        );
+            DruidTypeSystem.TYPE_FACTORY.createJavaType(PropertyAttributes.sqlParameterType(prop)),
+            PropertyAttributes.isOptional(prop)
+        ));
       }
       return params.build();
     }
@@ -193,17 +199,6 @@ public class HttpOperatorConversion implements SqlOperatorConversion
           .stream()
           .map(parameter -> parameter.getType(DruidTypeSystem.TYPE_FACTORY))
           .collect(Collectors.toList());
-    }
-
-    public SqlOperandTypeChecker typeChecker()
-    {
-      final SqlSingleOperandTypeChecker[] rules = new SqlSingleOperandTypeChecker[parameters.size()];
-      for (int i = 0; i < rules.length; i++) {
-        rules[i] = OperandTypes.family(parameters.get(i).getType(DruidTypeSystem.TYPE_FACTORY).getSqlTypeName().getFamily());
-      }
-      final List<String> names = parameters.stream().map(p -> p.getName()).collect(Collectors.toList());
-      final String signature = "(" + String.join(", ", names) + ")";
-      return OperandTypes.sequence(signature, rules);
     }
 
     @Override
@@ -315,5 +310,58 @@ public class HttpOperatorConversion implements SqlOperatorConversion
     {
       return parameters;
     }
+  }
+  /**
+   * Define a variadic (variable arity) type checker that allows an argument
+   * count that ranges from the number of required parameters to the number of
+   * available parameters. We have to define this because the Calcite form does
+   * not allow optional parameters, but we allow any parameter to be optional.
+   * We are also not fussy about the type: we catch any type errors from the
+   * declared types. We catch missing required parameters at conversion time,
+   * where we also catch invalid values, incompatible values, and so on.
+   */
+  public static SqlOperandTypeChecker variadic(List<FunctionParameter> params)
+  {
+    int min = 0;
+    for (FunctionParameter param : params) {
+      if (!param.isOptional()) {
+        min++;
+      }
+    }
+    SqlOperandCountRange range = SqlOperandCountRanges.between(min, params.size());
+    return new SqlOperandTypeChecker()
+    {
+      @Override
+      public boolean checkOperandTypes(
+          SqlCallBinding callBinding,
+          boolean throwOnFailure)
+      {
+        return range.isValidCount(callBinding.getOperandCount());
+      }
+
+      @Override
+      public SqlOperandCountRange getOperandCountRange()
+      {
+        return range;
+      }
+
+      @Override
+      public String getAllowedSignatures(SqlOperator op, String opName)
+      {
+        return opName + "(...)";
+      }
+
+      @Override
+      public boolean isOptional(int i)
+      {
+        return true;
+      }
+
+      @Override
+      public Consistency getConsistency()
+      {
+        return Consistency.NONE;
+      }
+    };
   }
 }

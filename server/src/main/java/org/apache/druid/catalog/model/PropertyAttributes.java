@@ -9,12 +9,15 @@ import java.util.Map;
 public class PropertyAttributes
 {
   public static final String IS_SQL_FN_PARAM_KEY = "sqlFnArg";
+  public static final String IS_SQL_FN_OPTIONAL = "optional";
   public static final String IS_PARAMETER = "param";
   public static final String TYPE_NAME = "typeName";
   public static final String SQL_JAVA_TYPE = "sqlJavaType";
 
   public static final Map<String, Object> SQL_FN_PARAM =
       ImmutableMap.of(IS_SQL_FN_PARAM_KEY, true);
+  public static final Map<String, Object> OPTIONAL_SQL_FN_PARAM =
+      ImmutableMap.of(IS_SQL_FN_PARAM_KEY, true, IS_SQL_FN_OPTIONAL, true);
   public static final Map<String, Object> TABLE_PARAM =
       ImmutableMap.of(IS_PARAMETER, true);
   public static final Map<String, Object> SQL_AND_TABLE_PARAM =
@@ -23,6 +26,11 @@ public class PropertyAttributes
   public static boolean isSqlFunctionParameter(PropertyDefn<?> defn)
   {
     return defn.attributes().get(IS_SQL_FN_PARAM_KEY) == Boolean.TRUE;
+  }
+
+  public static boolean isOptional(PropertyDefn<?> defn)
+  {
+    return defn.attributes().get(IS_SQL_FN_OPTIONAL) == Boolean.TRUE;
   }
 
   public static String typeName(PropertyDefn<?> defn)

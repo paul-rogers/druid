@@ -22,14 +22,16 @@ package org.apache.druid.query.aggregation.datasketches.theta.sql;
 import com.fasterxml.jackson.databind.Module;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.inject.Binder;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.Provides;
 import org.apache.druid.common.config.NullHandling;
-import org.apache.druid.guice.ExpressionModule;
+import org.apache.druid.guice.DruidInjectorBuilder;
+import org.apache.druid.initialization.DruidModule;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.PeriodGranularity;
-import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
@@ -38,6 +40,7 @@ import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.FilteredAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.aggregation.datasketches.SketchQueryContext;
+import org.apache.druid.query.aggregation.datasketches.hll.sql.HllSketchApproxCountDistinctSqlAggregator;
 import org.apache.druid.query.aggregation.datasketches.theta.SketchEstimatePostAggregator;
 import org.apache.druid.query.aggregation.datasketches.theta.SketchMergeAggregatorFactory;
 import org.apache.druid.query.aggregation.datasketches.theta.SketchModule;
@@ -58,57 +61,51 @@ import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMediumFactory;
 import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
 import org.apache.druid.sql.calcite.aggregation.ApproxCountDistinctSqlAggregator;
+import org.apache.druid.sql.calcite.aggregation.SqlAggregator;
 import org.apache.druid.sql.calcite.aggregation.builtin.CountSqlAggregator;
 import org.apache.druid.sql.calcite.filtration.Filtration;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
 import org.apache.druid.sql.calcite.util.TestDataBuilder;
+import org.apache.druid.sql.guice.ApproxCountDistinct;
+import org.apache.druid.sql.guice.SqlBindings;
+import org.apache.druid.sql.guice.SqlModule;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.LinearShardSpec;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Period;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 
 public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
 {
   private static final String DATA_SOURCE = "foo";
 
-  private ExprMacroTable macroTable;
-
-  @Before
-  public void setUp()
+  @Override
+  public void gatherProperties(Properties properties)
   {
-    macroTable = createMacroTable();
+    super.gatherProperties(properties);
+
+    // Use APPROX_COUNT_DISTINCT_DS_THETA as APPROX_COUNT_DISTINCT impl for these tests.
+    properties.put(SqlModule.PROPERTY_SQL_APPROX_COUNT_DISTINCT_CHOICE, ThetaSketchApproxCountDistinctSqlAggregator.NAME);
   }
 
   @Override
-  public Iterable<? extends Module> getJacksonModules()
+  public void configureGuice(DruidInjectorBuilder builder)
   {
-    return Iterables.concat(super.getJacksonModules(), new SketchModule().getJacksonModules());
-  }
-
-  @Override
-  public ExprMacroTable createMacroTable()
-  {
-    final List<ExprMacroTable.ExprMacro> exprMacros = new ArrayList<>();
-    for (Class<? extends ExprMacroTable.ExprMacro> clazz : ExpressionModule.EXPR_MACROS) {
-      exprMacros.add(CalciteTests.INJECTOR.getInstance(clazz));
-    }
-    return new ExprMacroTable(exprMacros);
+    builder.addModule(new SketchModule());
   }
 
   @Override
   public SpecificSegmentsQuerySegmentWalker createQuerySegmentWalker(
       final QueryRunnerFactoryConglomerate conglomerate,
-      final JoinableFactoryWrapper joinableFactory
+      final JoinableFactoryWrapper joinableFactory,
+      final Injector injector
   ) throws IOException
   {
     SketchModule.registerSerde();
@@ -148,30 +145,30 @@ public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
     );
   }
 
-  @Override
-  public DruidOperatorTable createOperatorTable()
-  {
-    final ThetaSketchApproxCountDistinctSqlAggregator approxCountDistinctSqlAggregator =
-        new ThetaSketchApproxCountDistinctSqlAggregator();
-
-    return new DruidOperatorTable(
-        ImmutableSet.of(
-            new ThetaSketchApproxCountDistinctSqlAggregator(),
-            new ThetaSketchObjectSqlAggregator(),
-
-            // Use APPROX_COUNT_DISTINCT_DS_THETA as APPROX_COUNT_DISTINCT impl for these tests.
-            new CountSqlAggregator(new ApproxCountDistinctSqlAggregator(approxCountDistinctSqlAggregator)),
-            new ApproxCountDistinctSqlAggregator(approxCountDistinctSqlAggregator)
-        ),
-        ImmutableSet.of(
-            new ThetaSketchEstimateOperatorConversion(),
-            new ThetaSketchEstimateWithErrorBoundsOperatorConversion(),
-            new ThetaSketchSetIntersectOperatorConversion(),
-            new ThetaSketchSetUnionOperatorConversion(),
-            new ThetaSketchSetNotOperatorConversion()
-        )
-    );
-  }
+//  @Override
+//  public DruidOperatorTable createOperatorTable()
+//  {
+//    final ThetaSketchApproxCountDistinctSqlAggregator approxCountDistinctSqlAggregator =
+//        new ThetaSketchApproxCountDistinctSqlAggregator();
+//
+//    return new DruidOperatorTable(
+//        ImmutableSet.of(
+//            new ThetaSketchApproxCountDistinctSqlAggregator(),
+//            new ThetaSketchObjectSqlAggregator(),
+//
+//            // Use APPROX_COUNT_DISTINCT_DS_THETA as APPROX_COUNT_DISTINCT impl for these tests.
+//            new CountSqlAggregator(new ApproxCountDistinctSqlAggregator(approxCountDistinctSqlAggregator)),
+//            new ApproxCountDistinctSqlAggregator(approxCountDistinctSqlAggregator)
+//        ),
+//        ImmutableSet.of(
+//            new ThetaSketchEstimateOperatorConversion(),
+//            new ThetaSketchEstimateWithErrorBoundsOperatorConversion(),
+//            new ThetaSketchSetIntersectOperatorConversion(),
+//            new ThetaSketchSetUnionOperatorConversion(),
+//            new ThetaSketchSetNotOperatorConversion()
+//        )
+//    );
+//  }
 
   @Test
   public void testApproxCountDistinctThetaSketch()
@@ -235,13 +232,13 @@ public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
                           "v0",
                           "substring(\"dim2\", 0, 1)",
                           ColumnType.STRING,
-                          macroTable
+                          queryFramework().macroTable()
                       ),
                       new ExpressionVirtualColumn(
                           "v1",
                           "concat(substring(\"dim2\", 0, 1),'x')",
                           ColumnType.STRING,
-                          macroTable
+                          queryFramework().macroTable()
                       )
                   )
                   .aggregators(
@@ -444,7 +441,7 @@ public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
                           "v0",
                           "concat(\"dim2\",'hello')",
                           ColumnType.STRING,
-                          macroTable
+                          queryFramework().macroTable()
                       )
                   )
                   .aggregators(
@@ -621,7 +618,7 @@ public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
                           "v0",
                           "concat(\"dim2\",'hello')",
                           ColumnType.STRING,
-                          macroTable
+                          queryFramework().macroTable()
                       )
                   )
                   .aggregators(

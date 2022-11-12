@@ -1,11 +1,14 @@
 package org.apache.druid.sql.calcite;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.data.input.impl.HttpInputSourceConfig;
 import org.apache.druid.guice.DruidInjectorBuilder;
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.metadata.DefaultPasswordProvider;
 import org.apache.druid.metadata.input.InputSourceModule;
 import org.apache.druid.segment.column.ColumnType;
@@ -13,6 +16,7 @@ import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.external.ExternalOperatorConversion;
 import org.apache.druid.sql.calcite.filtration.Filtration;
+import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.junit.Test;
 
@@ -74,6 +78,9 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                   .build()
   );
 
+  /**
+   * Basic use of EXTERN
+   */
   @Test
   public void testHttpExtern()
   {
@@ -81,11 +88,83 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
     testIngestionQuery()
         .sql("INSERT INTO dst SELECT * FROM %s PARTITIONED BY ALL TIME", externSql(httpDataSource))
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
-        .expectTarget("dst", externalDataSource.getSignature())
+        .expectTarget("dst", httpDataSource.getSignature())
         .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
         .expectQuery(
             newScanQueryBuilder()
-                .dataSource(externalDataSource)
+                .dataSource(httpDataSource)
+                .intervals(querySegmentSpec(Filtration.eternity()))
+                .columns("x", "y", "z")
+                .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
+                .build()
+        )
+        .expectLogicalPlanFrom("httpExtern")
+        .verify();
+  }
+
+  protected String externSqlByName(final ExternalDataSource externalDataSource)
+  {
+    ObjectMapper queryJsonMapper = queryFramework().queryJsonMapper();
+    try {
+      return StringUtils.format(
+          "TABLE(extern(inputSource => %s,\n" +
+          "             inputFormat => %s,\n" +
+          "             signature => %s))",
+          Calcites.escapeStringLiteral(queryJsonMapper.writeValueAsString(externalDataSource.getInputSource())),
+          Calcites.escapeStringLiteral(queryJsonMapper.writeValueAsString(externalDataSource.getInputFormat())),
+          Calcites.escapeStringLiteral(queryJsonMapper.writeValueAsString(externalDataSource.getSignature()))
+      );
+    }
+    catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * EXTERN with parameters by name. Logical plan and native query are identical
+   * to the basic EXTERN.
+   */
+  @Test
+  public void testHttpExternByName()
+  {
+    assertNotNull(queryFramework().injector().getInstance(HttpInputSourceConfig.class));
+    testIngestionQuery()
+        .sql("INSERT INTO dst SELECT *\nFROM %s\nPARTITIONED BY ALL TIME", externSqlByName(httpDataSource))
+        .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+        .expectTarget("dst", httpDataSource.getSignature())
+        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectQuery(
+            newScanQueryBuilder()
+                .dataSource(httpDataSource)
+                .intervals(querySegmentSpec(Filtration.eternity()))
+                .columns("x", "y", "z")
+                .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
+                .build()
+        )
+        .expectLogicalPlanFrom("httpExtern")
+        .verify();
+  }
+
+  /**
+   * HTTP with parameters by name. Logical plan and native query are identical
+   * to the basic EXTERN.
+   */
+  @Test
+  public void testHttpFn()
+  {
+    assertNotNull(queryFramework().injector().getInstance(HttpInputSourceConfig.class));
+    testIngestionQuery()
+        .sql("INSERT INTO dst SELECT *\n" +
+             "FROM TABLE(http(\"user\" => 'bob', password => 'secret',\n" +
+             "                uris => 'http:foo.com/bar.csv', format => 'csv'))\n" +
+             "     EXTEND (x VARCHAR, y VARCHAR, z BIGINT)\n" +
+             "PARTITIONED BY ALL TIME")
+        .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+        .expectTarget("dst", httpDataSource.getSignature())
+        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectQuery(
+            newScanQueryBuilder()
+                .dataSource(httpDataSource)
                 .intervals(querySegmentSpec(Filtration.eternity()))
                 .columns("x", "y", "z")
                 .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)

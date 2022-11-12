@@ -78,9 +78,9 @@ public class HttpTableDefn extends FormattedExternalTableDefn implements Paramet
         TABLE_TYPE,
         Arrays.asList(
             new StringListPropertyDefn(URIS_PROPERTY, PropertyAttributes.SQL_AND_TABLE_PARAM),
-            new StringPropertyDefn(USER_PROPERTY, PropertyAttributes.SQL_FN_PARAM),
-            new StringPropertyDefn(PASSWORD_PROPERTY, PropertyAttributes.SQL_FN_PARAM),
-            new StringPropertyDefn(PASSWORD_ENV_VAR_PROPERTY, PropertyAttributes.SQL_FN_PARAM),
+            new StringPropertyDefn(USER_PROPERTY, PropertyAttributes.OPTIONAL_SQL_FN_PARAM),
+            new StringPropertyDefn(PASSWORD_PROPERTY, PropertyAttributes.OPTIONAL_SQL_FN_PARAM),
+            new StringPropertyDefn(PASSWORD_ENV_VAR_PROPERTY, PropertyAttributes.OPTIONAL_SQL_FN_PARAM),
             new StringPropertyDefn(URI_TEMPLATE_PROPERTY, null)
         ),
         Collections.singletonList(INPUT_COLUMN_DEFN),
