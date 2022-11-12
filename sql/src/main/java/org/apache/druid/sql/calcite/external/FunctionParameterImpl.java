@@ -67,4 +67,14 @@ public class FunctionParameterImpl implements FunctionParameter
     return isOptional;
   }
 
+  @Override
+  public String toString()
+  {
+    return "FunctionParameter{" +
+        "name=\"" + name + "\"" +
+        ", type=" + type +
+        ", optional=" + isOptional +
+        "}";
+  }
+
 }

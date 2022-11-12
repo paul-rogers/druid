@@ -66,7 +66,10 @@ public class HttpTableDefn extends FormattedExternalTableDefn implements Paramet
   // that class for the meaning of these properties.
 
   public static final String URI_TEMPLATE_PROPERTY = "uriTemplate";
-  public static final String USER_PROPERTY = "user";
+
+  // Note, cannot be the simpler "user" since USER is a reserved word in SQL
+  // and we don't want to require users to quote "user" each time it is used.
+  public static final String USER_PROPERTY = "userName";
   public static final String PASSWORD_PROPERTY = "password";
   public static final String PASSWORD_ENV_VAR_PROPERTY = "passwordEnvVar";
   public static final String URIS_PROPERTY = "uris";

@@ -229,12 +229,15 @@ public abstract class UserDefinedTableMacroFunction extends SqlUserDefinedTableM
    * SELECT ... FROM TABLE(fn(arg => value, ...)) (col1 <type1>, ...)
    * </code></pre>
    * This macro wraps the actual input table macro, which does the
-   * actual work to build the Druid table.
+   * actual work to build the Druid table. This macro also caches the
+   * translated table to avoid the need to recompute the table multiple
+   * times.
    */
   protected static class ShimTableMacro implements TableMacro
   {
     private final ExtendedTableMacro delegate;
     private final SqlNodeList schema;
+    private TranslatableTable table;
 
     public ShimTableMacro(ExtendedTableMacro delegate, SqlNodeList schema)
     {
@@ -245,7 +248,10 @@ public abstract class UserDefinedTableMacroFunction extends SqlUserDefinedTableM
     @Override
     public TranslatableTable apply(List<Object> arguments)
     {
-      return delegate.apply(arguments, schema);
+      if (table == null) {
+        table = delegate.apply(arguments, schema);
+      }
+      return table;
     }
 
     @Override

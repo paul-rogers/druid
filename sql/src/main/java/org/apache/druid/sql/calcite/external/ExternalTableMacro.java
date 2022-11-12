@@ -25,18 +25,14 @@ import com.google.common.collect.ImmutableList;
 import org.apache.calcite.schema.FunctionParameter;
 import org.apache.calcite.schema.TableMacro;
 import org.apache.calcite.schema.TranslatableTable;
+import org.apache.druid.catalog.model.table.ExternalTableSpec;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.InputSource;
-import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.segment.column.ColumnHolder;
-import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.table.DruidTable;
-import org.apache.druid.sql.calcite.table.ExternalTable;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -70,25 +66,12 @@ public class ExternalTableMacro implements TableMacro
   public TranslatableTable apply(final List<Object> arguments)
   {
     try {
-      final InputSource inputSource = jsonMapper.readValue((String) arguments.get(0), InputSource.class);
-      final InputFormat inputFormat = jsonMapper.readValue((String) arguments.get(1), InputFormat.class);
-      final RowSignature signature = jsonMapper.readValue((String) arguments.get(2), RowSignature.class);
-
-      // Prevent a RowSignature that has a ColumnSignature with name "__time" and type that is not LONG because it
-      // will be automatically cast to LONG while processing in RowBasedColumnSelectorFactory.
-      // This can cause an issue when the incorrectly type-casted data is ingested or processed upon. One such example
-      // of inconsistency is that functions such as TIME_PARSE evaluate incorrectly
-      Optional<ColumnType> timestampColumnTypeOptional = signature.getColumnType(ColumnHolder.TIME_COLUMN_NAME);
-      if (timestampColumnTypeOptional.isPresent() && !timestampColumnTypeOptional.get().equals(ColumnType.LONG)) {
-        throw new ISE("EXTERN function with __time column can be used when __time column is of type long. "
-                      + "Please change the column name to something other than __time");
-      }
-
-      return new ExternalTable(
-            new ExternalDataSource(inputSource, inputFormat, signature),
-            signature,
-            jsonMapper
+      ExternalTableSpec spec = new ExternalTableSpec(
+          jsonMapper.readValue((String) arguments.get(0), InputSource.class),
+          jsonMapper.readValue((String) arguments.get(1), InputFormat.class),
+          jsonMapper.readValue((String) arguments.get(2), RowSignature.class)
       );
+      return Externals.buildExternalTable(spec, jsonMapper);
     }
     catch (JsonProcessingException e) {
       throw new RuntimeException(e);

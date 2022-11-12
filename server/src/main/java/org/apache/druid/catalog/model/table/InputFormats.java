@@ -239,7 +239,7 @@ public class InputFormats
           "JSON",
           JSON_FORMAT_TYPE,
           Collections.singletonList(
-              new BooleanPropertyDefn(KEEP_NULLS_PROPERTY, PropertyAttributes.SQL_FN_PARAM)
+              new BooleanPropertyDefn(KEEP_NULLS_PROPERTY, PropertyAttributes.OPTIONAL_SQL_FN_PARAM)
           )
       );
     }
@@ -277,7 +277,7 @@ public class InputFormats
                     PropertyAttributes.SQL_JAVA_TYPE,
                     String.class
                 ),
-                PropertyAttributes.SQL_FN_PARAM
+                PropertyAttributes.OPTIONAL_SQL_FN_PARAM
             )
         );
       }

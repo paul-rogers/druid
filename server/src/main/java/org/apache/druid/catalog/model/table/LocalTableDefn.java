@@ -75,9 +75,9 @@ public class LocalTableDefn extends FormattedExternalTableDefn implements Parame
   public ResolvedTable mergeParameters(ResolvedTable table, Map<String, Object> values)
   {
     // The safe get can only check
-    String filesParam = CatalogUtils.safeGet(values, FILES_PROPERTY, String.class);
-    String filterParam = CatalogUtils.safeGet(values, FILE_FILTER_PROPERTY, String.class);
-    Map<String, Object> revisedProps = new HashMap<>(table.properties());
+    final String filesParam = CatalogUtils.safeGet(values, FILES_PROPERTY, String.class);
+    final String filterParam = CatalogUtils.safeGet(values, FILE_FILTER_PROPERTY, String.class);
+    final Map<String, Object> revisedProps = new HashMap<>(table.properties());
     if (filesParam != null) {
       revisedProps.put(FILES_PROPERTY, CatalogUtils.stringToList(filesParam));
     }
@@ -90,11 +90,11 @@ public class LocalTableDefn extends FormattedExternalTableDefn implements Parame
   @Override
   protected InputSource convertSource(ResolvedTable table)
   {
-    Map<String, Object> jsonMap = new HashMap<>();
+    final Map<String, Object> jsonMap = new HashMap<>();
     jsonMap.put(InputSource.TYPE_PROPERTY, LocalInputSource.TYPE_KEY);
-    String baseDir = table.stringProperty(BASE_DIR_PROPERTY);
+    final String baseDir = table.stringProperty(BASE_DIR_PROPERTY);
     jsonMap.put("baseDir", baseDir);
-    List<String> files = table.stringListProperty(FILES_PROPERTY);
+    final List<String> files = table.stringListProperty(FILES_PROPERTY);
     jsonMap.put("files", files);
 
     // Note the odd semantics of this class.

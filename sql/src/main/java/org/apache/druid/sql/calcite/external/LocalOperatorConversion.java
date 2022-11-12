@@ -22,19 +22,21 @@ package org.apache.druid.sql.calcite.external;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import org.apache.druid.catalog.model.TableDefnRegistry;
-import org.apache.druid.catalog.model.table.HttpTableDefn;
+import org.apache.druid.catalog.model.table.LocalTableDefn;
 import org.apache.druid.guice.annotations.Json;
 
-public class HttpOperatorConversion extends CatalogExternalTableOperatorConversion
+public class LocalOperatorConversion extends CatalogExternalTableOperatorConversion
 {
-  public static final String FUNCTION_NAME = "http";
+  // Cannot use "local" because it is a SQL keyword and the user would
+  // be required to quote the name.
+  public static final String FUNCTION_NAME = "localfiles";
 
   @Inject
-  public HttpOperatorConversion(
+  public LocalOperatorConversion(
       final TableDefnRegistry registry,
       @Json final ObjectMapper jsonMapper
   )
   {
-    super(FUNCTION_NAME, registry, HttpTableDefn.TABLE_TYPE, jsonMapper);
+    super(FUNCTION_NAME, registry, LocalTableDefn.TABLE_TYPE, jsonMapper);
   }
 }

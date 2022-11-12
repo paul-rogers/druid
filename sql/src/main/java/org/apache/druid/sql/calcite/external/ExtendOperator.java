@@ -62,6 +62,10 @@ public class ExtendOperator extends SqlInternalOperator
       throw new ISE("First argument to EXTEND must be a table function");
     }
     SqlBasicCall tableFnCall = (SqlBasicCall) tableOpCall.operand(0);
+    if (!(tableFnCall.getOperator() instanceof UserDefinedTableMacroFunction)) {
+      // May be an unresolved function.
+      return call;
+    }
     UserDefinedTableMacroFunction macro = (UserDefinedTableMacroFunction) tableFnCall.getOperator();
 
     SqlNodeList schema = (SqlNodeList) call.operand(1);

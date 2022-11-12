@@ -22,19 +22,19 @@ package org.apache.druid.sql.calcite.external;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import org.apache.druid.catalog.model.TableDefnRegistry;
-import org.apache.druid.catalog.model.table.HttpTableDefn;
+import org.apache.druid.catalog.model.table.InlineTableDefn;
 import org.apache.druid.guice.annotations.Json;
 
-public class HttpOperatorConversion extends CatalogExternalTableOperatorConversion
+public class InlineOperatorConversion extends CatalogExternalTableOperatorConversion
 {
-  public static final String FUNCTION_NAME = "http";
+  public static final String FUNCTION_NAME = "inline";
 
   @Inject
-  public HttpOperatorConversion(
+  public InlineOperatorConversion(
       final TableDefnRegistry registry,
       @Json final ObjectMapper jsonMapper
   )
   {
-    super(FUNCTION_NAME, registry, HttpTableDefn.TABLE_TYPE, jsonMapper);
+    super(FUNCTION_NAME, registry, InlineTableDefn.TABLE_TYPE, jsonMapper);
   }
 }
