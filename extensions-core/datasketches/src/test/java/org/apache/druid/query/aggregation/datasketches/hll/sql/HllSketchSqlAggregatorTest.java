@@ -60,7 +60,6 @@ import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMediumFactory;
 import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
-import org.apache.druid.sql.calcite.aggregation.builtin.BuiltinApproxCountDistinctSqlAggregator;
 import org.apache.druid.sql.calcite.filtration.Filtration;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.SpecificSegmentsQuerySegmentWalker;
@@ -140,30 +139,6 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
         index
     );
   }
-
-//  @Override
-//  public DruidOperatorTable createOperatorTable()
-//  {
-//    final HllSketchApproxCountDistinctSqlAggregator approxCountDistinctSqlAggregator =
-//        new HllSketchApproxCountDistinctSqlAggregator();
-//
-//    return new DruidOperatorTable(
-//        ImmutableSet.of(
-//            approxCountDistinctSqlAggregator,
-//            new HllSketchObjectSqlAggregator(),
-//
-//            // Use APPROX_COUNT_DISTINCT_DS_HLL as APPROX_COUNT_DISTINCT impl for these tests.
-//            new CountSqlAggregator(new ApproxCountDistinctSqlAggregator(approxCountDistinctSqlAggregator)),
-//            new ApproxCountDistinctSqlAggregator(approxCountDistinctSqlAggregator)
-//        ),
-//        ImmutableSet.of(
-//            new HllSketchSetUnionOperatorConversion(),
-//            new HllSketchEstimateOperatorConversion(),
-//            new HllSketchToStringOperatorConversion(),
-//            new HllSketchEstimateWithErrorBoundsOperatorConversion()
-//        )
-//    );
-//  }
 
   @Test
   public void testApproxCountDistinctHllSketch()

@@ -668,7 +668,8 @@ public class StringUtils
         throw new ISE("Resource not found: [%s]", resource);
       }
       return IOUtils.toString(is, StandardCharsets.UTF_8);
-    } catch (IOException e) {
+    }
+    catch (IOException e) {
       throw new ISE(e, "Cannot load resource: [%s]", resource);
     }
   }

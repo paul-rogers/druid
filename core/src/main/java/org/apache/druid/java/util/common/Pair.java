@@ -55,7 +55,7 @@ public class Pair<T1, T2>
     if (!(o instanceof Pair)) {
       return false;
     }
-    Pair<?,?> pair = (Pair<?,?>) o;
+    Pair<?, ?> pair = (Pair<?, ?>) o;
     return Objects.equals(lhs, pair.lhs) && Objects.equals(rhs, pair.rhs);
   }
 

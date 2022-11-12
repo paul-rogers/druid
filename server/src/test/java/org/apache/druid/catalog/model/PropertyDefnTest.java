@@ -75,7 +75,7 @@ public class PropertyDefnTest
     // Custom type name
     StringPropertyDefn prop = new StringPropertyDefn("prop", ImmutableMap.of(PropertyAttributes.TYPE_NAME, "MyType"));
     assertEquals("MyType", prop.typeName());
-   }
+  }
 
   @Test
   public void testBoolean()

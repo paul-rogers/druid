@@ -303,7 +303,7 @@ public class DruidPlanner implements Closeable
     @Override
     public PlannerHook hook()
     {
-       return hook;
+      return hook;
     }
   }
 }

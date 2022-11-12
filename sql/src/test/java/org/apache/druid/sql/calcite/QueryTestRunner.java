@@ -469,7 +469,7 @@ public class QueryTestRunner
         DruidSqlIngest druidInsertNode = (DruidSqlIngest) insertNode;
         // The target is a SQLIdentifier literal, pre-resolution, so does
         // not include the schema.
-       plan = StringUtils.format(
+        plan = StringUtils.format(
             "LogicalInsert(target=[%s], partitionedBy=[%s], clusteredBy=[%s])\n",
             druidInsertNode.getTargetTable(),
             druidInsertNode.getPartitionedBy() == null ? "<none>" : druidInsertNode.getPartitionedBy(),
