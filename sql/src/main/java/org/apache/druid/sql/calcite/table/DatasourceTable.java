@@ -23,10 +23,17 @@ import com.google.common.base.Preconditions;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalTableScan;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.util.Util;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.TableDataSource;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -84,6 +91,19 @@ public class DatasourceTable extends DruidTable
       return broadcast;
     }
 
+    public EffectiveMetadata toEffectiveMetadata()
+    {
+      Map<String, EffectiveColumnMetadata> columns = new HashMap<>();
+      for (int i = 0; i < rowSignature.size(); i++) {
+        String colName = rowSignature.getColumnName(i);
+        ColumnType colType = rowSignature.getColumnType(i).get();
+
+        EffectiveColumnMetadata colMetadata = EffectiveColumnMetadata.fromPhysical(colName, colType);
+        columns.put(colName, colMetadata);
+      }
+      return EffectiveMetadata.fromPhysical(columns);
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -120,14 +140,143 @@ public class DatasourceTable extends DruidTable
     }
   }
 
+  public static enum ColumnKind
+  {
+    TIME,
+    DETAIL,
+    DIMENSION
+  }
+
+  public static abstract class EffectiveColumnMetadata
+  {
+    protected final String name;
+    protected final ColumnType type;
+
+    public EffectiveColumnMetadata(String name, ColumnType type)
+    {
+      this.name = name;
+      this.type = type;
+    }
+
+    public String name()
+    {
+      return name;
+    }
+
+    public ColumnType druidType()
+    {
+      return type;
+    }
+
+    public abstract ColumnKind kind();
+
+    public static EffectiveColumnMetadata fromPhysical(String name, ColumnType type)
+    {
+      if (name.equals("__time")) {
+        return new EffectiveDimensionMetadata(name, type, ColumnKind.TIME);
+      } else {
+        return new EffectiveDimensionMetadata(name, type, ColumnKind.DIMENSION);
+      }
+    }
+
+    protected SqlNode rewriteForSelect(
+        SqlParserPos posn,
+        SqlIdentifier identifier
+    )
+    {
+      return null;
+    }
+  }
+
+  public static class EffectiveDimensionMetadata extends EffectiveColumnMetadata
+  {
+    private final ColumnKind kind;
+
+    public EffectiveDimensionMetadata(String name, ColumnType type, ColumnKind kind)
+    {
+      super(name, type);
+      this.kind = kind;
+    }
+
+    @Override
+    public ColumnKind kind()
+    {
+      return kind;
+    }
+
+    @Override
+    public String toString()
+    {
+      return "Dimension{" +
+          "name=" + name +
+          ", kind=" + kind.name() +
+          ", type=" + type.asTypeString() +
+          "}";
+    }
+  }
+
+  public static abstract class EffectiveMetadata
+  {
+    private final boolean isEmpty;
+    private final Map<String, EffectiveColumnMetadata> columns;
+
+
+    public EffectiveMetadata(Map<String, EffectiveColumnMetadata> columns, boolean isEmpty) {
+      this.isEmpty = isEmpty;
+      this.columns = columns;
+    }
+
+    public static EffectiveMetadata fromPhysical(Map<String, EffectiveColumnMetadata> columns)
+    {
+      return new EffectiveDetailMetadata(columns, false);
+    }
+
+    public EffectiveColumnMetadata column(String name)
+    {
+      return columns.get(name);
+    }
+
+    @Override
+    public String toString()
+    {
+      return getClass().getSimpleName() + "{" +
+          "empty=" + Boolean.toString(isEmpty) +
+          ", columns=" + columns.toString() +
+          "}";
+
+    }
+  }
+
+  public static class EffectiveDetailMetadata extends EffectiveMetadata
+  {
+    public EffectiveDetailMetadata(Map<String, EffectiveColumnMetadata> columns, boolean isEmpty)
+    {
+      super(columns, isEmpty);
+    }
+  }
+
   private final PhysicalDatasourceMetadata physicalMetadata;
+  private final EffectiveMetadata effectiveMetadata;
 
   public DatasourceTable(
       final PhysicalDatasourceMetadata physicalMetadata
   )
   {
-    super(physicalMetadata.rowSignature());
+    this(
+        physicalMetadata.rowSignature(),
+        physicalMetadata,
+        physicalMetadata.toEffectiveMetadata());
+  }
+
+  public DatasourceTable(
+      final RowSignature rowSignature,
+      final PhysicalDatasourceMetadata physicalMetadata,
+      final EffectiveMetadata effectiveMetadata
+  )
+  {
+    super(rowSignature);
     this.physicalMetadata = physicalMetadata;
+    this.effectiveMetadata = effectiveMetadata;
   }
 
   @Override
@@ -148,10 +297,27 @@ public class DatasourceTable extends DruidTable
     return physicalMetadata.isBroadcast();
   }
 
+  public EffectiveMetadata effectiveMetadata()
+  {
+    return effectiveMetadata;
+  }
+
   @Override
   public RelNode toRel(final RelOptTable.ToRelContext context, final RelOptTable table)
   {
     return LogicalTableScan.create(context.getCluster(), table);
+  }
+
+  public SqlNode rewriteSelectColumn(
+      SqlParserPos posn,
+      SqlIdentifier identifier
+  )
+  {
+    EffectiveColumnMetadata col = effectiveMetadata.column(Util.last(identifier.names));
+    if (col == null) {
+      return null;
+    }
+    return col.rewriteForSelect(posn, identifier);
   }
 
   @Override
@@ -182,8 +348,9 @@ public class DatasourceTable extends DruidTable
   {
     // Don't include the row signature: it is the same as in
     // physicalMetadata.
-    return "DruidTable{" +
-           physicalMetadata +
+    return "DruidTable{physicalMetadata=" +
+           physicalMetadata == null ? "null" : physicalMetadata.toString() +
+           ", effectiveMetadata=" + effectiveMetadata.toString() +
            '}';
   }
 }

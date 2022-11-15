@@ -34,13 +34,13 @@ import javax.annotation.Nullable;
  */
 public abstract class DruidSqlIngest extends SqlInsert
 {
-  protected final Granularity partitionedBy;
+  protected Granularity partitionedBy;
 
   // Used in the unparse function to generate the original query since we convert the string to an enum
-  protected final String partitionedByStringForUnparse;
+  protected String partitionedByStringForUnparse;
 
   @Nullable
-  protected final SqlNodeList clusteredBy;
+  protected SqlNodeList clusteredBy;
 
   public DruidSqlIngest(SqlParserPos pos,
       SqlNodeList keywords,
@@ -68,5 +68,18 @@ public abstract class DruidSqlIngest extends SqlInsert
   public SqlNodeList getClusteredBy()
   {
     return clusteredBy;
+  }
+
+  // This method and the next should not exist. There should be a
+  // SqlNode that holds this information, not the parse nodes.
+  public void updateParitionedBy(Granularity granularity, String granularityString)
+  {
+    this.partitionedBy = granularity;
+    this.partitionedByStringForUnparse = granularityString;
+  }
+
+  public void updateClusteredBy(SqlNodeList clusteredBy)
+  {
+    this.clusteredBy = clusteredBy;
   }
 }

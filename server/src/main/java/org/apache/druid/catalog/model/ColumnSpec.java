@@ -85,6 +85,11 @@ public class ColumnSpec
     this.properties = properties == null ? Collections.emptyMap() : properties;
   }
 
+  public ColumnSpec(ColumnSpec from)
+  {
+    this(from.type, from.name, from.sqlType, from.properties);
+  }
+
   @JsonProperty("type")
   public String type()
   {

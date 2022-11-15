@@ -73,6 +73,7 @@ public class PlannerFactory
   private final String druidSchemaName;
   private final CalciteRulesManager calciteRuleManager;
   private final JoinableFactoryWrapper joinableFactoryWrapper;
+  private final CatalogResolver catalog;
 
   @Inject
   public PlannerFactory(
@@ -84,7 +85,8 @@ public class PlannerFactory
       final @Json ObjectMapper jsonMapper,
       final @DruidSchemaName String druidSchemaName,
       final CalciteRulesManager calciteRuleManager,
-      final JoinableFactoryWrapper joinableFactoryWrapper
+      final JoinableFactoryWrapper joinableFactoryWrapper,
+      final CatalogResolver catalog
   )
   {
     this.rootSchema = rootSchema;
@@ -96,6 +98,7 @@ public class PlannerFactory
     this.druidSchemaName = druidSchemaName;
     this.calciteRuleManager = calciteRuleManager;
     this.joinableFactoryWrapper = joinableFactoryWrapper;
+    this.catalog = catalog;
   }
 
   /**
@@ -120,7 +123,7 @@ public class PlannerFactory
         joinableFactoryWrapper
     );
 
-    return new DruidPlanner(buildFrameworkConfig(context), context, engine, hook);
+    return new DruidPlanner(buildFrameworkConfig(context), context, engine, hook catalog);
   }
 
   /**

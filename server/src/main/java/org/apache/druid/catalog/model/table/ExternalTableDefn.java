@@ -32,11 +32,16 @@ import org.apache.druid.catalog.model.ParameterizedDefn;
 import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefn;
+import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.model.table.InputFormats.InputFormatDefn;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.utils.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -260,6 +265,11 @@ public abstract class ExternalTableDefn extends TableDefn
     return convertToExtern(revised);
   }
 
+  public static boolean isExternalTable(ResolvedTable table)
+  {
+    return table.defn() instanceof ExternalTableDefn;
+  }
+
   public static Set<String> tableTypes()
   {
     // Known input tables. Get this from a registry later.
@@ -268,5 +278,20 @@ public abstract class ExternalTableDefn extends TableDefn
         HttpTableDefn.TABLE_TYPE,
         LocalTableDefn.TABLE_TYPE
     );
+  }
+
+  public static RowSignature rowSignature(TableSpec spec)
+  {
+    RowSignature.Builder builder = RowSignature.builder();
+    if (spec.columns() != null) {
+      for (ColumnSpec col : spec.columns()) {
+        ColumnType druidType = Columns.SQL_TO_DRUID_TYPES.get(StringUtils.toUpperCase(col.sqlType()));
+        if (druidType == null) {
+          druidType = ColumnType.STRING;
+        }
+        builder.add(col.name(), druidType);
+      }
+    }
+    return builder.build();
   }
 }

@@ -104,6 +104,7 @@ public class DruidPlanner implements Closeable
       final PlannerContext plannerContext,
       final SqlEngine engine,
       final PlannerHook hook
+      final CatalogResolver catalog
   )
   {
     this.frameworkConfig = frameworkConfig;
@@ -111,6 +112,7 @@ public class DruidPlanner implements Closeable
     this.plannerContext = plannerContext;
     this.engine = engine;
     this.hook = hook == null ? NoOpPlannerHook.INSTANCE : hook;
+    this.catalog = catalog;
   }
 
   /**
