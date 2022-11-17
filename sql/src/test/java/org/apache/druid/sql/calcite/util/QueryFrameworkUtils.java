@@ -136,7 +136,8 @@ public class QueryFrameworkUtils
       final PlannerConfig plannerConfig,
       @Nullable final ViewManager viewManager,
       final DruidSchemaManager druidSchemaManager,
-      final AuthorizerMapper authorizerMapper
+      final AuthorizerMapper authorizerMapper,
+      final NamedSchema extraSchema
   )
   {
     DruidSchema druidSchema = createMockSchema(injector, conglomerate, walker, plannerConfig, druidSchemaManager);
@@ -151,6 +152,9 @@ public class QueryFrameworkUtils
     namedSchemas.add(new NamedDruidSchema(druidSchema, CalciteTests.DRUID_SCHEMA_NAME));
     namedSchemas.add(new NamedSystemSchema(plannerConfig, systemSchema));
     namedSchemas.add(new NamedLookupSchema(lookupSchema));
+    if (extraSchema != null) {
+      namedSchemas.add(extraSchema);
+    }
 
     if (viewSchema != null) {
       namedSchemas.add(new NamedViewSchema(viewSchema));
@@ -173,6 +177,9 @@ public class QueryFrameworkUtils
     if (viewSchema != null) {
       rootSchema.add(NamedViewSchema.NAME, viewSchema);
     }
+    if (extraSchema != null) {
+      rootSchema.add(extraSchema.getSchemaName(), extraSchema.getSchema());
+    }
 
     return catalog;
   }
@@ -185,7 +192,16 @@ public class QueryFrameworkUtils
       final AuthorizerMapper authorizerMapper
   )
   {
-    return createMockRootSchema(injector, conglomerate, walker, plannerConfig, null, new NoopDruidSchemaManager(), authorizerMapper);
+    return createMockRootSchema(
+        injector,
+        conglomerate,
+        walker,
+        plannerConfig,
+        null,
+        new NoopDruidSchemaManager(),
+        authorizerMapper,
+        null
+    );
   }
 
   private static DruidSchema createMockSchema(

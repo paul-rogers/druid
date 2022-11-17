@@ -1,114 +1,170 @@
 package org.apache.druid.catalog.sql;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Binder;
 import org.apache.druid.catalog.CatalogException;
 import org.apache.druid.catalog.ExternalTableBuilder;
+import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.model.TableSpec;
-import org.apache.druid.catalog.model.table.InlineTableDefn;
-import org.apache.druid.catalog.model.table.InputFormats;
-import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.model.table.AbstractDatasourceDefn;
 import org.apache.druid.catalog.model.table.ClusterKeySpec;
 import org.apache.druid.catalog.model.table.ExternalTableDefn.FormattedExternalTableDefn;
 import org.apache.druid.catalog.model.table.HttpTableDefn;
+import org.apache.druid.catalog.model.table.InlineTableDefn;
+import org.apache.druid.catalog.model.table.InputFormats;
+import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.storage.CatalogStorage;
 import org.apache.druid.catalog.storage.CatalogTests;
+import org.apache.druid.catalog.sync.CachedMetadataCatalog;
+import org.apache.druid.catalog.sync.MetadataCatalog;
+import org.apache.druid.guice.DruidInjectorBuilder;
+import org.apache.druid.initialization.DruidModule;
+import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.metadata.TestDerbyConnector;
-import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
+import org.apache.druid.sql.calcite.CalciteIngestionDmlTest;
+import org.apache.druid.sql.calcite.CalciteInsertDmlTest;
+import org.apache.druid.sql.calcite.external.ExternalOperatorConversion;
+import org.apache.druid.sql.calcite.external.Externals;
+import org.apache.druid.sql.calcite.filtration.Filtration;
+import org.apache.druid.sql.calcite.util.CalciteTests;
+import org.apache.druid.sql.calcite.util.SqlTestFramework;
+import org.apache.druid.sql.calcite.util.SqlTestFramework.Builder;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
+import org.junit.Test;
 
 import java.util.Arrays;
 
 import static org.junit.Assert.fail;
 
-public class CatalogTest extends BaseCalciteQueryTest
+public class CatalogTest extends CalciteIngestionDmlTest
 {
   @Rule
   public final TestDerbyConnector.DerbyConnectorRule derbyConnectorRule = new TestDerbyConnector.DerbyConnectorRule();
 
-  private ObjectMapper jsonMapper = new ObjectMapper();
-  private TableDefnRegistry registry = new TableDefnRegistry(jsonMapper);
+  private TableDefnRegistry registry;
   private CatalogTests.DbFixture dbFixture;
   private CatalogStorage storage;
 
-  @Before
-  public void setUp()
+  @Override
+  protected void configureBuilder(Builder builder)
   {
+    super.configureBuilder(builder);
     dbFixture = new CatalogTests.DbFixture(derbyConnectorRule);
     storage = dbFixture.storage;
+    registry = new TableDefnRegistry(storage.jsonMapper());
+    MetadataCatalog catalog = new CachedMetadataCatalog(
+        storage,
+        storage.schemaRegistry(),
+        storage.jsonMapper()
+    );
+    builder.catalogResolver(new LiveCatalogResolver(catalog));
+    builder.extraSchema(new ExternalSchema(catalog, storage.jsonMapper()));
+  }
+
+  /**
+   * Test an inline table defined in the catalog. The structure is identical to the
+   * inline tests in CatalogIngestionTest, only here the information comes from the
+   * catalog.
+   */
+  @Test
+  public void testInlineTable()
+  {
+    testIngestionQuery()
+        .sql("INSERT INTO dst SELECT *\n" +
+             "FROM ext.inline\n" +
+             "PARTITIONED BY ALL TIME")
+        .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+        .expectTarget("dst", externalDataSource.getSignature())
+        .expectResources(dataSourceWrite("dst"), Externals.externalRead("inline"))
+        .expectQuery(
+            newScanQueryBuilder()
+                .dataSource(externalDataSource)
+                .intervals(querySegmentSpec(Filtration.eternity()))
+                .columns("x", "y", "z")
+                .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
+                .build()
+        )
+        .expectLogicalPlanFrom("insertFromExternal")
+        .verify();
+  }
+
+  /**
+   * Test an inline table defined in the catalog. The structure is identical to the
+   * inline tests in CatalogIngestionTest, only here the information comes from the
+   * catalog.
+   */
+  @Test
+  public void testInlineTableFn()
+  {
+    testIngestionQuery()
+        .sql("INSERT INTO dst SELECT *\n" +
+             "FROM Table(inline())\n" +
+             "PARTITIONED BY ALL TIME")
+        .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+        .expectTarget("dst", externalDataSource.getSignature())
+        .expectResources(dataSourceWrite("dst"), Externals.externalRead("inline"))
+        .expectQuery(
+            newScanQueryBuilder()
+                .dataSource(externalDataSource)
+                .intervals(querySegmentSpec(Filtration.eternity()))
+                .columns("x", "y", "z")
+                .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
+                .build()
+        )
+        .expectLogicalPlanFrom("insertFromExternal")
+        .verify();
   }
 
   @After
-  public void tearDown()
+  public void catalogTearDown()
   {
     CatalogTests.tearDown(dbFixture);
   }
 
-  private PlannerFixture.Builder catalogBuilder(boolean useMsqe) throws IOException
+  @Override
+  public void configureGuice(DruidInjectorBuilder builder)
   {
-    PlannerFixture.Builder builder = standardBuilder()
-        .defaultQueryPlanningContext(
-            ImmutableMap.of(
-              // Enable MSQE so we can capture the controller task
-              TalariaParserUtils.CTX_MULTI_STAGE_QUERY,
-              useMsqe,
-              // Use a the same dummy ID to make text compares easier.
-              BaseQuery.SQL_QUERY_ID,
-              "dummyId"))
+    super.configureGuice(builder);
+    builder.addModule(new DruidModule() {
 
-        // Ugly, but we won't use either the native query factory or the indexing
-        // client: we really just want the part that does the translation, but that
-        // is wrapped up in query routing.
-        .withQueryMaker(om -> new ImplyQueryMakerFactory(
-            // Note: can't use this query maker factor for non-MSQE queries.
-            // We can't easily get at the actual query lifecycle factory in this
-            // config: this code would have to be in the planner factory, or we'd
-            //have to use Guice.
-            null,
-            null,
-            om))
+      @Override
+      public void configure(Binder binder)
+      {
+        // Bindings, if such were possible. But, it isn't yet for tests.
+        // binder.bind(MetadataCatalog.CatalogSource.class).toInstance(storage);
+        // binder.bind(SchemaRegistry.class).toInstance(storage.schemaRegistry());
+        // binder.bind(MetadataCatalog.class).to(CachedMetadataCatalog.class).in(LazySingleton.class);
+        // binder.bind(CatalogResolver.class).to(LiveCatalogResolver.class).in(LazySingleton.class);
 
-        // To allow access to external tables
-        .withAuthResult(CalciteTests.SUPER_USER_AUTH_RESULT)
+        // Register the external schema
+        // SqlBindings.addSchema(binder, ExternalSchema.class);
+      }
+    });
+  }
 
-        // MSQE needs dynamic Jackson configuration for the indexing tuning types
-        .withJacksonModules(new IndexingServiceTuningConfigModule().getJacksonModules());
-
-    // Bug: we need to inject this value in the injector created by Guice per run,
-    // but we need to create the schema here, with an injector not yet built.
-    // Using the early-stage injector doesn't work: BaseCalciteQuery.setMapperInjectableValues
-    // overwrites any injectables we create. Need to sort this out properly.
-    //.withJacksonInjectable(HttpInputSourceConfig.class, new HttpInputSourceConfig(null));
-
-    CachedMetadataCatalog catalog = new CachedMetadataCatalog(storage, storage.schemaRegistry());
-    storage.register(catalog);
-
-    InputTableMacro macro = new InputTableMacro(builder.jsonMapper(), dbFixture.externModel);
-    InputSchema inputSchema = new InputSchema(catalog, builder.jsonMapper(), macro);
+  @Override
+  public void finalizeTestFramework(SqlTestFramework sqlTestFramework)
+  {
+    super.finalizeTestFramework(sqlTestFramework);
     try {
       buildInlineTable();
       buildKttmInputTable();
       buildTargetDatasources();
       buildFooDatasource();
     }
-    catch (DuplicateKeyException e) {
+    catch (CatalogException e) {
       throw new ISE(e, e.getMessage());
     }
-    builder.withSchema(inputSchema);
-    builder.withCatalogResolver(new LiveCatalogResolver(catalog));
-    return builder;
   }
 
   private void buildInlineTable() throws CatalogException
   {
     TableSpec inputDefn = new ExternalTableBuilder(registry.defnFor(InlineTableDefn.TABLE_TYPE))
         .property(FormattedExternalTableDefn.FORMAT_PROPERTY, InputFormats.CSV_FORMAT_TYPE)
-        .property(InlineTableDefn.DATA_PROPERTY, Arrays.asList("a,b,1\n", "c,d,2\n"))
+        .property(InlineTableDefn.DATA_PROPERTY, Arrays.asList("a,b,1", "c,d,2"))
         .column("x", "VARCHAR")
         .column("y", "VARCHAR")
         .column("z", "BIGINT")
@@ -197,9 +253,7 @@ public class CatalogTest extends BaseCalciteQueryTest
 
   public void buildFooDatasource()
   {
-    DatasourceSpec spec = DatasourceSpec
-        .builder()
-        .segmentGranularity("ALL")
+    TableMetadata spec = TableBuilder.datasource("foo", "ALL")
         .timeColumn()
         .column("extra1", null)
         .column("dim2", null)
@@ -210,6 +264,6 @@ public class CatalogTest extends BaseCalciteQueryTest
         .column("extra3", Columns.VARCHAR)
         .hiddenColumns(Arrays.asList("dim3", "unique_dim1"))
         .build();
-    createTableMetadata("foo", spec);
+    createTableMetadata(spec);
   }
 }

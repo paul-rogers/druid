@@ -41,7 +41,6 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.utils.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;

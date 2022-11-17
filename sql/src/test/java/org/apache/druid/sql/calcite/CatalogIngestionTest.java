@@ -51,7 +51,7 @@ import java.util.Collections;
  * <p>
  * The tests first verify the baseline EXTERN form, then do the same ingest using
  * the simpler functions. Verification against both the logical plan and native
- * query ensure that the resuling MSQ task is identical regardless of the path
+ * query ensure that the resulting MSQ task is identical regardless of the path
  * taken.
  */
 public class CatalogIngestionTest extends CalciteIngestionDmlTest

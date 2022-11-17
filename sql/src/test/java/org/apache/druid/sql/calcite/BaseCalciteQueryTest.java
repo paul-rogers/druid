@@ -487,7 +487,12 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   @Rule
   public QueryLogHook getQueryLogHook()
   {
-    return queryLogHook = QueryLogHook.create(queryFramework().queryJsonMapper());
+    // Indirection for the JSON mapper. Otherwise, this rule method is called
+    // before Setup is called, causing the query framework to be built before
+    // tests have done their setup. The indirection means we access the query
+    // framework only when we log the first query. By then, the query framework
+    // will have been created via the normal path.
+    return queryLogHook = new QueryLogHook(() -> queryFramework().queryJsonMapper());
   }
 
   public SqlTestFramework queryFramework()
@@ -517,10 +522,15 @@ public class BaseCalciteQueryTest extends CalciteTestBase
     catch (IOException e) {
       throw new RE(e);
     }
-    queryFramework = new SqlTestFramework.Builder(this)
+    SqlTestFramework.Builder builder = new SqlTestFramework.Builder(this)
         .minTopNThreshold(minTopNThreshold)
-        .mergeBufferCount(mergeBufferCount)
-        .build();
+        .mergeBufferCount(mergeBufferCount);
+    configureBuilder(builder);
+    queryFramework = builder.build();
+  }
+
+  protected void configureBuilder(Builder builder)
+  {
   }
 
   @Override
@@ -574,6 +584,12 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   public JoinableFactoryWrapper createJoinableFactoryWrapper(LookupExtractorFactoryContainerProvider lookupProvider)
   {
     return baseComponentSupplier.createJoinableFactoryWrapper(lookupProvider);
+  }
+
+  @Override
+  public void finalizeTestFramework(SqlTestFramework sqlTestFramework)
+  {
+    baseComponentSupplier.finalizeTestFramework(sqlTestFramework);
   }
 
   @Override
@@ -885,7 +901,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
     @Override
     public PlannerFixture plannerFixture(PlannerConfig plannerConfig, AuthConfig authConfig)
     {
-      return queryFramework.plannerFixture(BaseCalciteQueryTest.this, plannerConfig, authConfig);
+      return queryFramework().plannerFixture(BaseCalciteQueryTest.this, plannerConfig, authConfig);
     }
 
     @Override

@@ -94,8 +94,8 @@ public class HttpTableDefn extends FormattedExternalTableDefn implements Paramet
   @Override
   public ResolvedTable mergeParameters(ResolvedTable table, Map<String, Object> values)
   {
-    String urisValue = CatalogUtils.safeGet(values, URIS_PROPERTY, String.class);
-    List<String> uriValues = CatalogUtils.stringToList(urisValue);
+    @SuppressWarnings("unchecked")
+    List<String> uriValues = (List<String>) values.get(URIS_PROPERTY);
     if (CollectionUtils.isNullOrEmpty(uriValues)) {
       throw new IAE("One or more values are required for parameter %s", URIS_PROPERTY);
     }
@@ -128,7 +128,10 @@ public class HttpTableDefn extends FormattedExternalTableDefn implements Paramet
   {
     Map<String, Object> jsonMap = new HashMap<>();
     jsonMap.put(InputSource.TYPE_PROPERTY, HttpInputSource.TYPE_KEY);
-    jsonMap.put("httpAuthenticationUsername", table.stringProperty(USER_PROPERTY));
+    String user = table.stringProperty(USER_PROPERTY);
+    if (user != null) {
+      jsonMap.put("httpAuthenticationUsername", user);
+    }
     String password = table.stringProperty(PASSWORD_PROPERTY);
     String passwordEnvVar = table.stringProperty(PASSWORD_ENV_VAR_PROPERTY);
     if (password != null && passwordEnvVar != null) {

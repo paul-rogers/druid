@@ -105,9 +105,12 @@ public class InlineTableDefn extends FormattedExternalTableDefn
   }
 
   @Override
-  public ResolvedTable mergeParameters(ResolvedTable spec, Map<String, Object> values)
+  public ResolvedTable mergeParameters(ResolvedTable table, Map<String, Object> values)
   {
-    throw new UOE("Inline table does not support parameters");
+    if (!values.isEmpty()) {
+      throw new UOE("Inline table does not support parameters");
+    }
+    return table;
   }
 
   @Override

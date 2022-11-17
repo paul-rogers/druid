@@ -114,6 +114,21 @@ public abstract class IngestHandler extends QueryHandler
   @Override
   public void validate() throws ValidationException
   {
+    targetDatasource = validateAndGetDataSourceForIngest();
+
+    // Resolve the datasource against the catalog, and fill in information from the catalog
+    // where present.
+    //
+    // Should be done in the validator, but Druid doesn't use the validator for INSERT/REPLACE
+    // nodes, so we do it ad-hoc here. The information should come from the Druid table
+    // within the Calcite catalog. Since we're rolling our own, we just read from the
+    // catalog directly (via a wrapper).
+
+    handlerContext.catalog().resolveInsert(
+        ingestNode(),
+        targetDatasource,
+        handlerContext.queryContextMap()
+    );
     if (ingestNode().getPartitionedBy() == null) {
       throw new ValidationException(StringUtils.format(
           "%s statements must specify PARTITIONED BY clause explicitly",
@@ -144,7 +159,6 @@ public abstract class IngestHandler extends QueryHandler
           )
       );
     }
-    targetDatasource = validateAndGetDataSourceForIngest();
     resourceActions.add(new ResourceAction(new Resource(targetDatasource, ResourceType.DATASOURCE), Action.WRITE));
   }
 

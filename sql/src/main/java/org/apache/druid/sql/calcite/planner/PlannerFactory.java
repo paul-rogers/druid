@@ -123,7 +123,7 @@ public class PlannerFactory
         joinableFactoryWrapper
     );
 
-    return new DruidPlanner(buildFrameworkConfig(context), context, engine, hook catalog);
+    return new DruidPlanner(buildFrameworkConfig(context), context, engine, hook, catalog);
   }
 
   /**

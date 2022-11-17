@@ -46,6 +46,10 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.server.security.Action;
+import org.apache.druid.server.security.Resource;
+import org.apache.druid.server.security.ResourceAction;
+import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.table.ExternalTable;
 
@@ -65,7 +69,11 @@ public class Externals
    */
   public static List<FunctionParameter> convertParameters(final ExternalTableDefn tableDefn)
   {
-    List<ModelProperties.PropertyDefn<?>> props = tableDefn.tableFunctionParameters();
+    return convertToCalciteParameters(tableDefn.tableFunctionParameters());
+  }
+
+  private static List<FunctionParameter> convertToCalciteParameters(List<ModelProperties.PropertyDefn<?>> props)
+  {
     ImmutableList.Builder<FunctionParameter> params = ImmutableList.builder();
     for (int i = 0; i < props.size(); i++) {
       ModelProperties.PropertyDefn<?> prop = props.get(i);
@@ -77,6 +85,15 @@ public class Externals
       ));
     }
     return params.build();
+  }
+
+  /**
+   * Convert parameters from Catalog external table definition form to the SQL form
+   * used for a table macro and its function.
+   */
+  public static List<FunctionParameter> convertTableParameters(final ExternalTableDefn tableDefn)
+  {
+    return convertToCalciteParameters(tableDefn.parameters());
   }
 
   /**
@@ -187,7 +204,6 @@ public class Externals
     return tableDefn.convertToExtern(table);
   }
 
-
   /**
    * Define the Druid input schema from a name provided in the EXTEND
    * clause. Calcite allows any form of name: a.b.c, say. But, Druid
@@ -274,5 +290,10 @@ public class Externals
           spec.signature,
           jsonMapper
     );
+  }
+
+  public static ResourceAction externalRead(String name)
+  {
+    return new ResourceAction(new Resource(name, ResourceType.EXTERNAL), Action.READ);
   }
 }

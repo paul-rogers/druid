@@ -59,7 +59,7 @@ import java.util.Set;
  *     password => 'secret',
  *     uris => 'http:foo.com/bar.csv',
  *     format => 'csv'))
- *   EXTEND (x VARCHAR, y VARCHAR, z BIGINT)
+ *   [EXTEND] (x VARCHAR, y VARCHAR, z BIGINT)
  * PARTITIONED BY ...
  * </pre></code>
  */

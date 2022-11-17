@@ -19,22 +19,31 @@
 
 package org.apache.druid.catalog.sync;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.InjectableValues.Std;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
+import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.schema.Function;
 import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.TableMacro;
+import org.apache.calcite.schema.TranslatableTable;
 import org.apache.druid.catalog.CatalogException;
-import org.apache.druid.catalog.ExternalTableBuilder;
-import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.model.TableMetadata;
-import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.model.table.ExternalTableDefn.FormattedExternalTableDefn;
+import org.apache.druid.catalog.model.table.HttpTableDefn;
 import org.apache.druid.catalog.model.table.InlineTableDefn;
 import org.apache.druid.catalog.model.table.InputFormats;
+import org.apache.druid.catalog.model.table.TableBuilder;
+import org.apache.druid.catalog.sql.ExternalSchema;
 import org.apache.druid.catalog.storage.CatalogStorage;
 import org.apache.druid.catalog.storage.CatalogTests;
-import org.apache.druid.catalog.storage.sql.ExternalSchema;
+import org.apache.druid.data.input.impl.CsvInputFormat;
+import org.apache.druid.data.input.impl.HttpInputSource;
+import org.apache.druid.data.input.impl.HttpInputSourceConfig;
+import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.metadata.TestDerbyConnector;
+import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.table.ExternalTable;
 import org.junit.After;
 import org.junit.Before;
@@ -42,6 +51,9 @@ import org.junit.Rule;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
@@ -50,8 +62,10 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Mini integration test of the input schema. Creates an input schema
+ * Test of the external schema. Creates an external schema
  * directly and via a cached catalog, to ensure changes are propagated.
+ * Then, ensures that parameterized tables work, at least at the mechanical
+ * level.
  */
 public class ExternalSchemaTest
 {
@@ -59,8 +73,6 @@ public class ExternalSchemaTest
   public final TestDerbyConnector.DerbyConnectorRule derbyConnectorRule =
       new TestDerbyConnector.DerbyConnectorRule();
 
-  private ObjectMapper jsonMapper = new ObjectMapper();
-  private TableDefnRegistry registry = new TableDefnRegistry(jsonMapper);
   private CatalogTests.DbFixture dbFixture;
   private CatalogStorage storage;
 
@@ -69,6 +81,7 @@ public class ExternalSchemaTest
   {
     dbFixture = new CatalogTests.DbFixture(derbyConnectorRule);
     storage = dbFixture.storage;
+    storage.jsonMapper().setInjectableValues(new Std().addValue(HttpInputSourceConfig.class, new HttpInputSourceConfig(null)));
   }
 
   @After
@@ -77,12 +90,9 @@ public class ExternalSchemaTest
     CatalogTests.tearDown(dbFixture);
   }
 
-  private ExternalSchema inputSchema(MetadataCatalog catalog)
+  private ExternalSchema externalSchema(MetadataCatalog catalog)
   {
-    return new ExternalSchema(
-        catalog,
-        CatalogTests.JSON_MAPPER
-    );
+    return new ExternalSchema(catalog, storage.jsonMapper());
   }
 
   @Test
@@ -90,7 +100,7 @@ public class ExternalSchemaTest
   {
     populateCatalog();
     MetadataCatalog catalog = new LocalMetadataCatalog(storage, storage.schemaRegistry());
-    ExternalSchema schema = inputSchema(catalog);
+    ExternalSchema schema = externalSchema(catalog);
     verifyInitial(schema);
     alterCatalog();
     verifyAltered(schema);
@@ -103,10 +113,10 @@ public class ExternalSchemaTest
     CachedMetadataCatalog catalog = new CachedMetadataCatalog(
         storage,
         storage.schemaRegistry(),
-        jsonMapper
+        storage.jsonMapper()
     );
     storage.register(catalog);
-    ExternalSchema schema = inputSchema(catalog);
+    ExternalSchema schema = externalSchema(catalog);
     verifyInitial(schema);
     alterCatalog();
     verifyAltered(schema);
@@ -114,15 +124,11 @@ public class ExternalSchemaTest
 
   private void populateCatalog() throws CatalogException
   {
-    TableSpec inputSpec = new ExternalTableBuilder(registry.defnFor(InlineTableDefn.TABLE_TYPE))
+    TableMetadata table = TableBuilder.external(InlineTableDefn.TABLE_TYPE, "input1")
         .property(FormattedExternalTableDefn.FORMAT_PROPERTY, InputFormats.CSV_FORMAT_TYPE)
-        .property(InlineTableDefn.DATA_PROPERTY, Arrays.asList("a\n", "c\n"))
+        .property(InlineTableDefn.DATA_PROPERTY, Arrays.asList("a", "c"))
         .column("a", "varchar")
         .build();
-    TableMetadata table = TableMetadata.newTable(
-        TableId.external("input1"),
-        inputSpec
-    );
     storage.tables().create(table);
   }
 
@@ -145,23 +151,18 @@ public class ExternalSchemaTest
     TableId id1 = TableId.external("input1");
     TableMetadata table1 = storage.tables().read(id1);
     assertNotNull(table1);
-    ResolvedTable resolved1 = registry.resolve(table1.spec());
 
-    TableSpec defn = ExternalTableBuilder.from(resolved1)
+    TableMetadata defn = TableBuilder.copyOf(table1)
         .column("b", "DOUBLE")
         .build();
-    storage.tables().update(TableMetadata.of(id1, defn), table1.updateTime());
+    storage.tables().update(defn, table1.updateTime());
 
     // Create a table 2
-    TableSpec inputSpec = new ExternalTableBuilder(registry.defnFor(InlineTableDefn.TABLE_TYPE))
+    TableMetadata table = TableBuilder.external(InlineTableDefn.TABLE_TYPE, "input2")
         .property(FormattedExternalTableDefn.FORMAT_PROPERTY, InputFormats.CSV_FORMAT_TYPE)
-        .property(InlineTableDefn.DATA_PROPERTY, Arrays.asList("1\n", "2\n"))
+        .property(InlineTableDefn.DATA_PROPERTY, Arrays.asList("1", "2"))
         .column("x", "bigint")
         .build();
-    TableMetadata table = TableMetadata.newTable(
-        TableId.external("input2"),
-        inputSpec
-    );
     storage.tables().create(table);
   }
 
@@ -179,5 +180,75 @@ public class ExternalSchemaTest
     assertEquals(2, names.size());
     assertTrue(names.contains("input1"));
     assertTrue(names.contains("input2"));
+  }
+
+  private void createParameterizedTable() throws CatalogException
+  {
+    TableMetadata table = TableBuilder.external(HttpTableDefn.TABLE_TYPE, "httpParam")
+        .property(FormattedExternalTableDefn.FORMAT_PROPERTY, InputFormats.CSV_FORMAT_TYPE)
+        .property(HttpTableDefn.URI_TEMPLATE_PROPERTY, "http://koalas.com/{}.csv")
+        .column("a", "varchar")
+        .build();
+    storage.tables().create(table);
+  }
+
+  @Test
+  public void testParameterizedFn() throws CatalogException
+  {
+    populateCatalog();
+    createParameterizedTable();
+    CachedMetadataCatalog catalog = new CachedMetadataCatalog(
+        storage,
+        storage.schemaRegistry(),
+        storage.jsonMapper()
+    );
+    storage.register(catalog);
+    ExternalSchema schema = externalSchema(catalog);
+    CalciteSchema calciteSchema = schema.createSchema(null, schema.getSchemaName());
+
+    // Non-parameterized table, so no arguments. Using the table function form
+    // doesn't accomplish much, but no harm in doing so.
+    //
+    // This is not a full check of the external data source
+    // conversion; just a sanity check that the values are passed along
+    // as expected.
+    {
+      // There should be a dynamic function for our table
+      Collection<Function> fns = calciteSchema.getFunctions("input1", true);
+      assertEquals(1, fns.size());
+      Function fn = Iterators.getOnlyElement(fns.iterator());
+      TableMacro macro = (TableMacro) fn;
+
+      // Convert the function (macro) to a Druid external table
+      TranslatableTable table = macro.apply(Collections.emptyList());
+      ExternalTable druidTable = (ExternalTable) table;
+
+      // Verify that the external table contains what we expect.
+      assertEquals(1, druidTable.getRowSignature().size());
+      ExternalDataSource extds = (ExternalDataSource) druidTable.getDataSource();
+      assertTrue(extds.getInputFormat() instanceof CsvInputFormat);
+      assertEquals(ImmutableList.of("a"), ((CsvInputFormat) extds.getInputFormat()).getColumns());
+      assertTrue(extds.getInputSource() instanceof InlineInputSource);
+      assertEquals("a\nc\n", ((InlineInputSource) extds.getInputSource()).getData());
+    }
+
+    // Override properties
+    {
+      Collection<Function> fns = calciteSchema.getFunctions("httpParam", true);
+      assertEquals(1, fns.size());
+      Function fn = Iterators.getOnlyElement(fns.iterator());
+      TableMacro macro = (TableMacro) fn;
+
+      List<Object> args = Collections.singletonList("foo");
+      TranslatableTable table = macro.apply(args);
+      ExternalTable druidTable = (ExternalTable) table;
+      assertEquals(1, druidTable.getRowSignature().size());
+      ExternalDataSource extds = (ExternalDataSource) druidTable.getDataSource();
+      assertTrue(extds.getInputFormat() instanceof CsvInputFormat);
+      assertEquals(ImmutableList.of("a"), ((CsvInputFormat) extds.getInputFormat()).getColumns());
+      assertTrue(extds.getInputSource() instanceof HttpInputSource);
+      HttpInputSource httpSource = (HttpInputSource) extds.getInputSource();
+      assertEquals("http://koalas.com/foo.csv", httpSource.getUris().get(0).toString());
+    }
   }
 }

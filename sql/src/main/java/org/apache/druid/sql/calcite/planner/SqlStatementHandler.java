@@ -57,6 +57,7 @@ public interface SqlStatementHandler
     SchemaPlus defaultSchema();
     ObjectMapper jsonMapper();
     DateTimeZone timeZone();
+    CatalogResolver catalog();
     PlannerHook hook();
   }
 

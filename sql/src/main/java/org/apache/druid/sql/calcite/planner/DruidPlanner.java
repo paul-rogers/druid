@@ -94,6 +94,7 @@ public class DruidPlanner implements Closeable
   private final CalcitePlanner planner;
   private final PlannerContext plannerContext;
   private final SqlEngine engine;
+  private final CatalogResolver catalog;
   private final PlannerHook hook;
   private State state = State.START;
   private SqlStatementHandler handler;
@@ -103,7 +104,7 @@ public class DruidPlanner implements Closeable
       final FrameworkConfig frameworkConfig,
       final PlannerContext plannerContext,
       final SqlEngine engine,
-      final PlannerHook hook
+      final PlannerHook hook,
       final CatalogResolver catalog
   )
   {
@@ -300,6 +301,12 @@ public class DruidPlanner implements Closeable
     public DateTimeZone timeZone()
     {
       return plannerContext.getTimeZone();
+    }
+
+    @Override
+    public CatalogResolver catalog()
+    {
+      return catalog;
     }
 
     @Override
