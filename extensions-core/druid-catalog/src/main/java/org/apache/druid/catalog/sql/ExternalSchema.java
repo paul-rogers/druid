@@ -20,16 +20,13 @@
 package org.apache.druid.catalog.sql;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
-import org.apache.calcite.jdbc.CalciteSchema;
-import org.apache.calcite.jdbc.DruidSimpleCalciteSchema;
-import org.apache.calcite.jdbc.SchemaCreator;
 import org.apache.calcite.schema.Function;
 import org.apache.calcite.schema.FunctionParameter;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.TableMacro;
 import org.apache.calcite.schema.TranslatableTable;
+import org.apache.calcite.sql.SqlCall;
 import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableId;
@@ -39,7 +36,9 @@ import org.apache.druid.catalog.sync.MetadataCatalog;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.sql.calcite.expression.AuthorizableOperator;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.external.Externals;
 import org.apache.druid.sql.calcite.schema.AbstractTableSchema;
@@ -50,6 +49,8 @@ import org.apache.druid.sql.calcite.table.ExternalTable;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +64,7 @@ import java.util.Set;
  * Uses the same update mechanism as the general cache, but ignores
  * updates for all but the input schema.
  */
-public class ExternalSchema extends AbstractTableSchema implements NamedSchema, SchemaCreator
+public class ExternalSchema extends AbstractTableSchema implements NamedSchema
 {
   public static final int NOT_FETCHED = -1;
   public static final int UNDEFINED = 0;
@@ -135,7 +136,7 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema, 
     }
     if (!ExternalTableDefn.isExternalTable(table)) {
       throw new IAE(
-          StringUtils.format("Table [%s] is not an input table", id.sqlName()));
+          StringUtils.format("Table [%s] is not an external table", id.sqlName()));
     }
     return table;
   }
@@ -156,8 +157,10 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema, 
   }
 
   /**
-   * Create a custom form of {@link CalciteSchema} that dynamically creates
-   * a function to wrap an input table, allowing the user to specify additional
+   * Return the set of (table) functions for this schema. Here, those table
+   * functions correspond to external tables. Function parameters, if any, are
+   * defined by the "parameter" defined by each external table type. This form
+   * allows the user to specify additional
    * properties in the query. Typically used to provide file names for a defined
    * input table that specifies directory location and properties.
    * <p>
@@ -168,23 +171,15 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema, 
    * and do the name lookup.
    */
   @Override
-  public CalciteSchema createSchema(CalciteSchema parentSchema, String name)
+  public Collection<Function> getFunctions(String name)
   {
-    return new DruidSimpleCalciteSchema(parentSchema, this, name)
-    {
-      @Override
-      protected void addImplicitFunctionsToBuilder(
-          ImmutableList.Builder<Function> builder,
-          String name,
-          boolean caseSensitive
-      )
-      {
-        ResolvedTable inputTable = getExternalTable(name);
-        if (inputTable != null) {
-          builder.add(new ParameterizedTableMacro(inputTable));
-        }
-      }
-    };
+    ResolvedTable inputTable = getExternalTable(name);
+    if (inputTable == null) {
+      return Collections.emptyList();
+    }
+    return Collections.singletonList(
+      new ParameterizedTableMacro(name, inputTable)
+    );
   }
 
   /**
@@ -196,15 +191,18 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema, 
    * macro. Calcite will create an instance of {@code SqlUserDefinedTableMacro}
    * automatically, based on the fact that this function implements {@code TableMacro}.
    */
-  public static class ParameterizedTableMacro implements TableMacro
+  public static class ParameterizedTableMacro implements TableMacro, AuthorizableOperator
   {
+    private final String tableName;
     private final List<FunctionParameter> parameters;
     private final ResolvedTable externalTable;
 
     public ParameterizedTableMacro(
-        ResolvedTable externalTable
+        final String tableName,
+        final ResolvedTable externalTable
     )
     {
+      this.tableName = tableName;
       this.externalTable = externalTable;
       this.parameters = Externals.convertTableParameters((ExternalTableDefn) externalTable.defn());
     }
@@ -233,6 +231,12 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema, 
     public List<FunctionParameter> getParameters()
     {
       return parameters;
+    }
+
+    @Override
+    public Set<ResourceAction> computeResources(final SqlCall call)
+    {
+      return Collections.singleton(Externals.externalRead(tableName));
     }
   }
 }

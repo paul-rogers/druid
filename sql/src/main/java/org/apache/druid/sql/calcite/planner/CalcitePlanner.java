@@ -52,6 +52,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.sql.util.ChainedSqlOperatorTable;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.RelDecorrelator;
@@ -65,8 +66,8 @@ import org.apache.calcite.tools.ValidationException;
 import org.apache.calcite.util.Pair;
 
 import javax.annotation.Nullable;
-
 import java.io.Reader;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
@@ -76,7 +77,7 @@ import java.util.Properties;
  * but with the validator made accessible, and with the minimum of formatting
  * changes needed to pass Druid's static checks. Note that the resulting code
  * is more Calcite-like than Druid-like. There seemed no value in restructuring
- * the code just to be more Druid-like.
+ * the code just to be more Druid-like any more than necessary to pass checkstyle.
  */
 public class CalcitePlanner implements Planner, ViewExpander
 {
@@ -112,7 +113,6 @@ public class CalcitePlanner implements Planner, ViewExpander
   {
     this.frameworkConfig = config;
     this.defaultSchema = config.getDefaultSchema();
-    this.operatorTable = config.getOperatorTable();
     this.programs = config.getPrograms();
     this.parserConfig = config.getParserConfig();
     this.sqlToRelConverterConfig = config.getSqlToRelConverterConfig();
@@ -122,6 +122,20 @@ public class CalcitePlanner implements Planner, ViewExpander
     this.executor = config.getExecutor();
     this.context = config.getContext();
     this.connectionConfig = connConfig();
+
+    // With the catalog, schemas can provide functions.
+    // Add the necessary indirection. The type factory used here
+    // is the Druid one, since the per-query one is not yet available
+    // here. Nor are built-in function associated with per-query types.
+    this.operatorTable = new ChainedSqlOperatorTable(
+        Arrays.asList(
+            config.getOperatorTable(),
+            new CalciteCatalogReader(
+                CalciteSchema.from(rootSchema(defaultSchema)),
+                CalciteSchema.from(defaultSchema).path(null),
+                DruidTypeSystem.TYPE_FACTORY,
+                connectionConfig
+            )));
     reset();
   }
 

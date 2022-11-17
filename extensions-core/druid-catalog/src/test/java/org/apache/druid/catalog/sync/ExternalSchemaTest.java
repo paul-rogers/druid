@@ -43,7 +43,10 @@ import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.data.input.impl.HttpInputSourceConfig;
 import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.metadata.TestDerbyConnector;
+import org.apache.druid.server.security.ResourceAction;
+import org.apache.druid.sql.calcite.expression.AuthorizableOperator;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
+import org.apache.druid.sql.calcite.external.Externals;
 import org.apache.druid.sql.calcite.table.ExternalTable;
 import org.junit.After;
 import org.junit.Before;
@@ -204,7 +207,6 @@ public class ExternalSchemaTest
     );
     storage.register(catalog);
     ExternalSchema schema = externalSchema(catalog);
-    CalciteSchema calciteSchema = schema.createSchema(null, schema.getSchemaName());
 
     // Non-parameterized table, so no arguments. Using the table function form
     // doesn't accomplish much, but no harm in doing so.
@@ -214,7 +216,7 @@ public class ExternalSchemaTest
     // as expected.
     {
       // There should be a dynamic function for our table
-      Collection<Function> fns = calciteSchema.getFunctions("input1", true);
+      Collection<Function> fns = schema.getFunctions("input1");
       assertEquals(1, fns.size());
       Function fn = Iterators.getOnlyElement(fns.iterator());
       TableMacro macro = (TableMacro) fn;
@@ -230,11 +232,15 @@ public class ExternalSchemaTest
       assertEquals(ImmutableList.of("a"), ((CsvInputFormat) extds.getInputFormat()).getColumns());
       assertTrue(extds.getInputSource() instanceof InlineInputSource);
       assertEquals("a\nc\n", ((InlineInputSource) extds.getInputSource()).getData());
+
+      Set<ResourceAction> actions = ((AuthorizableOperator) fn).computeResources(null);
+      assertEquals(1, actions.size());
+      assertEquals(Externals.externalRead("input1"), Iterators.getOnlyElement(actions.iterator()));
     }
 
     // Override properties
     {
-      Collection<Function> fns = calciteSchema.getFunctions("httpParam", true);
+      Collection<Function> fns = schema.getFunctions("httpParam");
       assertEquals(1, fns.size());
       Function fn = Iterators.getOnlyElement(fns.iterator());
       TableMacro macro = (TableMacro) fn;
@@ -249,6 +255,10 @@ public class ExternalSchemaTest
       assertTrue(extds.getInputSource() instanceof HttpInputSource);
       HttpInputSource httpSource = (HttpInputSource) extds.getInputSource();
       assertEquals("http://koalas.com/foo.csv", httpSource.getUris().get(0).toString());
+
+      Set<ResourceAction> actions = ((AuthorizableOperator) fn).computeResources(null);
+      assertEquals(1, actions.size());
+      assertEquals(Externals.externalRead("httpParam"), Iterators.getOnlyElement(actions.iterator()));
     }
   }
 }

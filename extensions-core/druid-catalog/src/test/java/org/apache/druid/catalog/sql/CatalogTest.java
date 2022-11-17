@@ -101,7 +101,7 @@ public class CatalogTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql("INSERT INTO dst SELECT *\n" +
-             "FROM Table(inline())\n" +
+             "FROM TABLE(ext.inline())\n" +
              "PARTITIONED BY ALL TIME")
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .expectTarget("dst", externalDataSource.getSignature())

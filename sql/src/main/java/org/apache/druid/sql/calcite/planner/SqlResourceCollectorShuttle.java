@@ -20,10 +20,13 @@
 package org.apache.druid.sql.calcite.planner;
 
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.IdentifierNamespace;
+import org.apache.calcite.sql.validate.SqlUserDefinedTableMacro;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
@@ -62,8 +65,17 @@ public class SqlResourceCollectorShuttle extends SqlShuttle
   @Override
   public SqlNode visit(SqlCall call)
   {
-    if (call.getOperator() instanceof AuthorizableOperator) {
-      resourceActions.addAll(((AuthorizableOperator) call.getOperator()).computeResources(call));
+    SqlOperator operator = call.getOperator();
+    if (operator instanceof AuthorizableOperator) {
+      resourceActions.addAll(((AuthorizableOperator) operator).computeResources(call));
+    }
+    else if (operator instanceof SqlUserDefinedTableMacro) {
+      // This case is unfortunate: we have a table macro inside of a Calcite
+      // "user-defined" table macro. The Calcite object won't let us access the Druid
+      // object which could give us permissions. So, we have to reverse-engineer permissions
+      // from all we are allowed to see, which is the identifier.
+      SqlIdentifier id = ((SqlFunction) operator).getSqlIdentifier();
+      visitIdentifier(id.names);
     }
 
     return super.visit(call);
@@ -80,21 +92,26 @@ public class SqlResourceCollectorShuttle extends SqlShuttle
       // this should not probably be null if the namespace was not null,
       if (validatorTable != null) {
         List<String> qualifiedNameParts = validatorTable.getQualifiedName();
-        // 'schema'.'identifier'
-        if (qualifiedNameParts.size() == 2) {
-          final String schema = qualifiedNameParts.get(0);
-          final String resourceName = qualifiedNameParts.get(1);
-          final String resourceType = plannerContext.getSchemaResourceType(schema, resourceName);
-          if (resourceType != null) {
-            resourceActions.add(new ResourceAction(new Resource(resourceName, resourceType), Action.READ));
-          }
-        } else if (qualifiedNameParts.size() > 2) {
-          // Don't expect to see more than 2 names (catalog?).
-          throw new ISE("Cannot analyze table idetifier %s", qualifiedNameParts);
-        }
+         visitIdentifier(qualifiedNameParts);
       }
     }
     return super.visit(id);
+  }
+
+  private void visitIdentifier(List<String> qualifiedNameParts)
+  {
+    // 'schema'.'identifier'
+    if (qualifiedNameParts.size() == 2) {
+      final String schema = qualifiedNameParts.get(0);
+      final String resourceName = qualifiedNameParts.get(1);
+      final String resourceType = plannerContext.getSchemaResourceType(schema, resourceName);
+      if (resourceType != null) {
+        resourceActions.add(new ResourceAction(new Resource(resourceName, resourceType), Action.READ));
+      }
+    } else if (qualifiedNameParts.size() > 2) {
+      // Don't expect to see more than 2 names (catalog?).
+      throw new ISE("Cannot analyze table identifier %s", qualifiedNameParts);
+    }
   }
 
   public Set<ResourceAction> getResourceActions()
