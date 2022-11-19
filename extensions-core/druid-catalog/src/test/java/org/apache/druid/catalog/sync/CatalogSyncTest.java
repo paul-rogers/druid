@@ -227,7 +227,7 @@ public class CatalogSyncTest
       assertEquals(DatasourceColumnDefn.COLUMN_TYPE, cols.get(0).type());
 
       DatasourceFacade ds = new DatasourceFacade(catalog.resolveTable(id));
-      assertEquals("P1D", ds.segmentGranularityString());
+      assertEquals("P1D", ds.segmentGranularity());
     }
     {
       TableId id = TableId.datasource("table2");
@@ -250,7 +250,7 @@ public class CatalogSyncTest
       assertEquals(DatasourceColumnDefn.COLUMN_TYPE, cols.get(2).type());
 
       DatasourceFacade ds = new DatasourceFacade(catalog.resolveTable(id));
-      assertEquals("P1D", ds.segmentGranularityString());
+      assertEquals("P1D", ds.segmentGranularity());
     }
 
     assertNull(catalog.getTable(TableId.datasource("table3")));
@@ -363,7 +363,7 @@ public class CatalogSyncTest
     {
       TableId id = TableId.datasource("table1");
       DatasourceFacade ds = new DatasourceFacade(catalog.resolveTable(id));
-      assertEquals("P1D", ds.segmentGranularityString());
+      assertEquals("P1D", ds.segmentGranularity());
       assertEquals("bar", ds.stringProperty("foo"));
     }
     {

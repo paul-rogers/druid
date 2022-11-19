@@ -420,6 +420,7 @@ public class SqlTestFramework
           viewManager,
           componentSupplier.createSchemaManager(),
           framework.authorizerMapper,
+          framework.builder.catalogResolver,
           framework.builder.extraSchema
       );
 

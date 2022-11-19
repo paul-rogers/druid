@@ -21,7 +21,6 @@ package org.apache.druid.sql.calcite;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
@@ -117,7 +116,6 @@ import org.junit.rules.TemporaryFolder;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -839,54 +837,6 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   public class CalciteTestConfig implements QueryTestBuilder.QueryTestConfig
   {
     @Override
-    public QueryTestRunner analyze(QueryTestBuilder builder)
-    {
-      if (builder.expectedResultsVerifier == null && builder.expectedResults != null) {
-        builder.expectedResultsVerifier = defaultResultsVerifier(
-            builder.expectedResults,
-            builder.expectedResultSignature
-        );
-      }
-      final List<QueryTestRunner.QueryRunStep> runSteps = new ArrayList<>();
-      final List<QueryTestRunner.QueryVerifyStep> verifySteps = new ArrayList<>();
-
-      // Historically, a test either prepares the query (to check resources), or
-      // runs the query (to check the native query and results.) In the future we
-      // may want to do both in a single test; but we have no such tests today.
-      if (builder.expectedResources != null) {
-        Preconditions.checkArgument(
-            builder.expectedResultsVerifier == null,
-            "Cannot check both results and resources"
-        );
-        QueryTestRunner.PrepareQuery execStep = new QueryTestRunner.PrepareQuery(builder);
-        runSteps.add(execStep);
-        verifySteps.add(new QueryTestRunner.VerifyResources(execStep));
-      } else {
-        QueryTestRunner.ExecuteQuery execStep = new QueryTestRunner.ExecuteQuery(builder);
-        runSteps.add(execStep);
-
-        // Verify native queries before results. (Note: change from prior pattern
-        // that reversed the steps.
-        if (builder.expectedQueries != null) {
-          verifySteps.add(new QueryTestRunner.VerifyNativeQueries(execStep));
-        }
-        if (builder.expectedResultsVerifier != null) {
-          verifySteps.add(new QueryTestRunner.VerifyResults(execStep));
-        }
-
-        // Verify the logical plan, if requested.
-        if (builder.expectedLogicalPlan != null) {
-          verifySteps.add(new QueryTestRunner.VerifyLogicalPlan(execStep));
-        }
-
-        // The exception is always verified: either there should be no exception
-        // (the other steps ran), or there should be the defined exception.
-        verifySteps.add(new QueryTestRunner.VerifyExpectedException(execStep));
-      }
-      return new QueryTestRunner(runSteps, verifySteps);
-    }
-
-    @Override
     public QueryLogHook queryLogHook()
     {
       return queryLogHook;
@@ -908,6 +858,18 @@ public class BaseCalciteQueryTest extends CalciteTestBase
     public ObjectMapper jsonMapper()
     {
       return queryFramework().queryJsonMapper();
+    }
+
+    @Override
+    public ResultsVerifier defaultResultsVerifier(
+        List<Object[]> expectedResults,
+        RowSignature expectedResultSignature
+    )
+    {
+      return BaseCalciteQueryTest.this.defaultResultsVerifier(
+          expectedResults,
+          expectedResultSignature
+      );
     }
   }
 

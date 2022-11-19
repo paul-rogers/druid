@@ -19,11 +19,9 @@
 
 package org.apache.druid.catalog.model.facade;
 
-import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.table.AbstractDatasourceDefn;
 import org.apache.druid.catalog.model.table.ClusterKeySpec;
-import org.apache.druid.java.util.common.granularity.Granularity;
 
 import java.util.Collections;
 import java.util.List;
@@ -40,15 +38,9 @@ public class DatasourceFacade extends TableFacade
     super(resolved);
   }
 
-  public String segmentGranularityString()
+  public String segmentGranularity()
   {
     return stringProperty(AbstractDatasourceDefn.SEGMENT_GRANULARITY_PROPERTY);
-  }
-
-  public Granularity segmentGranularity()
-  {
-    String value = stringProperty(AbstractDatasourceDefn.SEGMENT_GRANULARITY_PROPERTY);
-    return value == null ? null : CatalogUtils.asDruidGranularity(value);
   }
 
   public Integer targetSegmentRows()

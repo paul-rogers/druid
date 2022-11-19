@@ -120,10 +120,12 @@ public class PlannerFactory
         rootSchema,
         engine,
         queryContext,
-        joinableFactoryWrapper
+        joinableFactoryWrapper,
+        hook,
+        catalog
     );
 
-    return new DruidPlanner(buildFrameworkConfig(context), context, engine, hook, catalog);
+    return new DruidPlanner(buildFrameworkConfig(context), context, engine);
   }
 
   /**

@@ -88,6 +88,8 @@ public class PlannerContext
   private final String sqlQueryId;
   private final boolean stringifyArrays;
   private final CopyOnWriteArrayList<String> nativeQueryIds = new CopyOnWriteArrayList<>();
+  private final CatalogResolver catalog;
+  private final PlannerHook hook;
   // bindings for dynamic parameters to bind during planning
   private List<TypedValue> parameters = Collections.emptyList();
   // result of authentication, providing identity to authorize set of resources produced by validation
@@ -113,7 +115,9 @@ public class PlannerContext
       final DruidSchemaCatalog rootSchema,
       final SqlEngine engine,
       final Map<String, Object> queryContext,
-      final JoinableFactoryWrapper joinableFactoryWrapper
+      final JoinableFactoryWrapper joinableFactoryWrapper,
+      final PlannerHook hook,
+      final CatalogResolver catalog
   )
   {
     this.sql = sql;
@@ -127,6 +131,8 @@ public class PlannerContext
     this.localNow = Preconditions.checkNotNull(localNow, "localNow");
     this.stringifyArrays = stringifyArrays;
     this.joinableFactoryWrapper = joinableFactoryWrapper;
+    this.hook = hook == null ? NoOpPlannerHook.INSTANCE : hook;
+    this.catalog = catalog;
 
     String sqlQueryId = (String) this.queryContext.get(QueryContexts.CTX_SQL_QUERY_ID);
     // special handling for DruidViewMacro, normal client will allocate sqlid in SqlLifecyle
@@ -145,7 +151,9 @@ public class PlannerContext
       final DruidSchemaCatalog rootSchema,
       final SqlEngine engine,
       final Map<String, Object> queryContext,
-      final JoinableFactoryWrapper joinableFactoryWrapper
+      final JoinableFactoryWrapper joinableFactoryWrapper,
+      final PlannerHook hook,
+      final CatalogResolver catalog
   )
   {
     final DateTime utcNow;
@@ -185,7 +193,9 @@ public class PlannerContext
         rootSchema,
         engine,
         queryContext,
-        joinableFactoryWrapper
+        joinableFactoryWrapper,
+        hook,
+        catalog
     );
   }
 
@@ -266,6 +276,16 @@ public class PlannerContext
   public String getSql()
   {
     return sql;
+  }
+
+  public CatalogResolver getCatalogResolver()
+  {
+    return catalog;
+  }
+
+  public PlannerHook getPlannerHook()
+  {
+    return hook;
   }
 
   public String getSqlQueryId()

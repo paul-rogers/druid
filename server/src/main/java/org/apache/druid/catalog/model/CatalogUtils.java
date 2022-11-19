@@ -22,6 +22,7 @@ package org.apache.druid.catalog.model;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
+import org.apache.druid.catalog.model.table.AbstractDatasourceDefn;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
@@ -58,7 +59,7 @@ public class CatalogUtils
    */
   public static Granularity asDruidGranularity(String value)
   {
-    if (Strings.isNullOrEmpty(value)) {
+    if (Strings.isNullOrEmpty(value) || value.equalsIgnoreCase(AbstractDatasourceDefn.ALL_GRANULARITY)) {
       return Granularities.ALL;
     }
     try {

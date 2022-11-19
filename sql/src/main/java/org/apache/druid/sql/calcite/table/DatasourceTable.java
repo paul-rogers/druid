@@ -23,10 +23,6 @@ import com.google.common.base.Preconditions;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalTableScan;
-import org.apache.calcite.sql.SqlIdentifier;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.util.Util;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.segment.column.ColumnType;
@@ -140,14 +136,7 @@ public class DatasourceTable extends DruidTable
     }
   }
 
-  public static enum ColumnKind
-  {
-    TIME,
-    DETAIL,
-    DIMENSION
-  }
-
-  public static abstract class EffectiveColumnMetadata
+  public static class EffectiveColumnMetadata
   {
     protected final String name;
     protected final ColumnType type;
@@ -168,67 +157,35 @@ public class DatasourceTable extends DruidTable
       return type;
     }
 
-    public abstract ColumnKind kind();
-
     public static EffectiveColumnMetadata fromPhysical(String name, ColumnType type)
     {
-      if (name.equals("__time")) {
-        return new EffectiveDimensionMetadata(name, type, ColumnKind.TIME);
-      } else {
-        return new EffectiveDimensionMetadata(name, type, ColumnKind.DIMENSION);
-      }
-    }
-
-    protected SqlNode rewriteForSelect(
-        SqlParserPos posn,
-        SqlIdentifier identifier
-    )
-    {
-      return null;
-    }
-  }
-
-  public static class EffectiveDimensionMetadata extends EffectiveColumnMetadata
-  {
-    private final ColumnKind kind;
-
-    public EffectiveDimensionMetadata(String name, ColumnType type, ColumnKind kind)
-    {
-      super(name, type);
-      this.kind = kind;
-    }
-
-    @Override
-    public ColumnKind kind()
-    {
-      return kind;
+      return new EffectiveColumnMetadata(name, type);
     }
 
     @Override
     public String toString()
     {
-      return "Dimension{" +
+      return "Column{" +
           "name=" + name +
-          ", kind=" + kind.name() +
           ", type=" + type.asTypeString() +
           "}";
     }
   }
 
-  public static abstract class EffectiveMetadata
+  public static class EffectiveMetadata
   {
     private final boolean isEmpty;
     private final Map<String, EffectiveColumnMetadata> columns;
 
-
-    public EffectiveMetadata(Map<String, EffectiveColumnMetadata> columns, boolean isEmpty) {
+    public EffectiveMetadata(Map<String, EffectiveColumnMetadata> columns, boolean isEmpty)
+    {
       this.isEmpty = isEmpty;
       this.columns = columns;
     }
 
     public static EffectiveMetadata fromPhysical(Map<String, EffectiveColumnMetadata> columns)
     {
-      return new EffectiveDetailMetadata(columns, false);
+      return new EffectiveMetadata(columns, false);
     }
 
     public EffectiveColumnMetadata column(String name)
@@ -243,15 +200,6 @@ public class DatasourceTable extends DruidTable
           "empty=" + Boolean.toString(isEmpty) +
           ", columns=" + columns.toString() +
           "}";
-
-    }
-  }
-
-  public static class EffectiveDetailMetadata extends EffectiveMetadata
-  {
-    public EffectiveDetailMetadata(Map<String, EffectiveColumnMetadata> columns, boolean isEmpty)
-    {
-      super(columns, isEmpty);
     }
   }
 
@@ -308,18 +256,6 @@ public class DatasourceTable extends DruidTable
     return LogicalTableScan.create(context.getCluster(), table);
   }
 
-  public SqlNode rewriteSelectColumn(
-      SqlParserPos posn,
-      SqlIdentifier identifier
-  )
-  {
-    EffectiveColumnMetadata col = effectiveMetadata.column(Util.last(identifier.names));
-    if (col == null) {
-      return null;
-    }
-    return col.rewriteForSelect(posn, identifier);
-  }
-
   @Override
   public boolean equals(Object o)
   {
@@ -347,7 +283,7 @@ public class DatasourceTable extends DruidTable
   public String toString()
   {
     // Don't include the row signature: it is the same as in
-    // physicalMetadata.
+    // effectiveMetadata.
     return "DruidTable{physicalMetadata=" +
            physicalMetadata == null ? "null" : physicalMetadata.toString() +
            ", effectiveMetadata=" + effectiveMetadata.toString() +

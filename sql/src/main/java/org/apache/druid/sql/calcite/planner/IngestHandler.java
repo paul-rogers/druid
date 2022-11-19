@@ -62,7 +62,6 @@ public abstract class IngestHandler extends QueryHandler
           + "E.g. if you are ingesting \"func(X)\", then you can rewrite it as "
           + "\"func(X) as myColumn\"";
 
-  protected final Granularity ingestionGranularity;
   protected String targetDatasource;
 
   IngestHandler(
@@ -73,7 +72,6 @@ public abstract class IngestHandler extends QueryHandler
   )
   {
     super(handlerContext, queryNode, explain);
-    this.ingestionGranularity = ingestNode.getPartitionedBy();
     handlerContext.hook().captureInsert(ingestNode);
   }
 
@@ -137,6 +135,7 @@ public abstract class IngestHandler extends QueryHandler
     }
     try {
       PlannerContext plannerContext = handlerContext.plannerContext();
+      final Granularity ingestionGranularity = ingestNode().getPartitionedBy();
       if (ingestionGranularity != null) {
         plannerContext.queryContextMap().put(
             DruidSqlInsert.SQL_INSERT_SEGMENT_GRANULARITY,
@@ -345,6 +344,7 @@ public abstract class IngestHandler extends QueryHandler
             + "OVERWRITE WHERE <__time based condition> or OVERWRITE ALL to overwrite the entire table.");
       }
 
+      final Granularity ingestionGranularity = ingestNode().getPartitionedBy();
       replaceIntervals = DruidSqlParserUtils.validateQueryAndConvertToIntervals(
           replaceTimeQuery,
           ingestionGranularity,

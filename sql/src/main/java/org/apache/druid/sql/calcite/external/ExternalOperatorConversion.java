@@ -59,7 +59,7 @@ public class ExternalOperatorConversion implements SqlOperatorConversion
 
   // Resource that allows reading external data via SQL.
   public static final ResourceAction EXTERNAL_RESOURCE_ACTION =
-      new ResourceAction(new Resource("EXTERNAL", ResourceType.EXTERNAL), Action.READ);
+      new ResourceAction(new Resource(ResourceType.EXTERNAL, ResourceType.EXTERNAL), Action.READ);
 
   private final SqlUserDefinedTableMacro operator;
 

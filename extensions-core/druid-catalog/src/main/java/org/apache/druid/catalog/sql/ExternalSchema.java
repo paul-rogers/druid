@@ -69,13 +69,6 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema
   public static final int NOT_FETCHED = -1;
   public static final int UNDEFINED = 0;
 
-  // Temporary: we may want to add a real resource.
-  public static final String EXTERNAL_RESOURCE = "EXTERNAL";
-
-  static {
-    ResourceType.registerResourceType(EXTERNAL_RESOURCE);
-  }
-
   private final MetadataCatalog catalog;
   private final ObjectMapper jsonMapper;
   private final String schemaName = TableId.EXTERNAL_SCHEMA;
@@ -105,7 +98,7 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema
   @Override
   public String getSchemaResourceType(String resourceName)
   {
-    return EXTERNAL_RESOURCE;
+    return ResourceType.EXTERNAL;
   }
 
   @Override

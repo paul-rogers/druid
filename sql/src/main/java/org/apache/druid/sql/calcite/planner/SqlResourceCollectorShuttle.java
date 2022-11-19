@@ -68,13 +68,12 @@ public class SqlResourceCollectorShuttle extends SqlShuttle
     SqlOperator operator = call.getOperator();
     if (operator instanceof AuthorizableOperator) {
       resourceActions.addAll(((AuthorizableOperator) operator).computeResources(call));
-    }
-    else if (operator instanceof SqlUserDefinedTableMacro) {
+    } else if (operator instanceof SqlUserDefinedTableMacro) {
       // This case is unfortunate: we have a table macro inside of a Calcite
       // "user-defined" table macro. The Calcite object won't let us access the Druid
       // object which could give us permissions. So, we have to reverse-engineer permissions
       // from all we are allowed to see, which is the identifier.
-      SqlIdentifier id = ((SqlFunction) operator).getSqlIdentifier();
+      final SqlIdentifier id = ((SqlFunction) operator).getSqlIdentifier();
       visitIdentifier(id.names);
     }
 
@@ -91,8 +90,7 @@ public class SqlResourceCollectorShuttle extends SqlShuttle
       SqlValidatorTable validatorTable = namespace.getTable();
       // this should not probably be null if the namespace was not null,
       if (validatorTable != null) {
-        List<String> qualifiedNameParts = validatorTable.getQualifiedName();
-         visitIdentifier(qualifiedNameParts);
+        visitIdentifier(validatorTable.getQualifiedName());
       }
     }
     return super.visit(id);

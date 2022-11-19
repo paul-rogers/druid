@@ -40,11 +40,8 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFactory;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthenticationResult;
-import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
-import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.SqlQueryPlus;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.external.ExternalOperatorConversion;
@@ -396,20 +393,5 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
           .auth(authenticationResult)
           .build();
     }
-  }
-
-  protected static ResourceAction viewRead(final String viewName)
-  {
-    return new ResourceAction(new Resource(viewName, ResourceType.VIEW), Action.READ);
-  }
-
-  protected static ResourceAction dataSourceRead(final String dataSource)
-  {
-    return new ResourceAction(new Resource(dataSource, ResourceType.DATASOURCE), Action.READ);
-  }
-
-  protected static ResourceAction dataSourceWrite(final String dataSource)
-  {
-    return new ResourceAction(new Resource(dataSource, ResourceType.DATASOURCE), Action.WRITE);
   }
 }

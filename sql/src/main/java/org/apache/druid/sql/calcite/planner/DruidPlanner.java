@@ -94,8 +94,6 @@ public class DruidPlanner implements Closeable
   private final CalcitePlanner planner;
   private final PlannerContext plannerContext;
   private final SqlEngine engine;
-  private final CatalogResolver catalog;
-  private final PlannerHook hook;
   private State state = State.START;
   private SqlStatementHandler handler;
   private boolean authorized;
@@ -103,17 +101,13 @@ public class DruidPlanner implements Closeable
   DruidPlanner(
       final FrameworkConfig frameworkConfig,
       final PlannerContext plannerContext,
-      final SqlEngine engine,
-      final PlannerHook hook,
-      final CatalogResolver catalog
+      final SqlEngine engine
   )
   {
     this.frameworkConfig = frameworkConfig;
     this.planner = new CalcitePlanner(frameworkConfig);
     this.plannerContext = plannerContext;
     this.engine = engine;
-    this.hook = hook == null ? NoOpPlannerHook.INSTANCE : hook;
-    this.catalog = catalog;
   }
 
   /**
@@ -131,7 +125,7 @@ public class DruidPlanner implements Closeable
 
     // Parse the query string.
     String sql = plannerContext.getSql();
-    hook.captureSql(sql);
+    plannerContext.getPlannerHook().captureSql(sql);
     SqlNode root = planner.parse(sql);
     handler = createHandler(root);
 
@@ -306,13 +300,13 @@ public class DruidPlanner implements Closeable
     @Override
     public CatalogResolver catalog()
     {
-      return catalog;
+      return plannerContext.getCatalogResolver();
     }
 
     @Override
     public PlannerHook hook()
     {
-      return hook;
+      return plannerContext.getPlannerHook();
     }
   }
 }

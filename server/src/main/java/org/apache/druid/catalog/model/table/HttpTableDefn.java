@@ -21,7 +21,6 @@ package org.apache.druid.catalog.model.table;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ModelProperties.StringListPropertyDefn;
 import org.apache.druid.catalog.model.ModelProperties.StringPropertyDefn;
 import org.apache.druid.catalog.model.ParameterizedDefn;

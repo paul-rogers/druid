@@ -68,11 +68,11 @@ public class QueryTestBuilder
    */
   public interface QueryTestConfig
   {
-    QueryTestRunner analyze(QueryTestBuilder builder);
     QueryLogHook queryLogHook();
     ExpectedException expectedException();
     ObjectMapper jsonMapper();
     PlannerFixture plannerFixture(PlannerConfig plannerConfig, AuthConfig authConfig);
+    ResultsVerifier defaultResultsVerifier(List<Object[]> expectedResults, RowSignature expectedResultSignature);
   }
 
   protected final QueryTestConfig config;
@@ -92,6 +92,7 @@ public class QueryTestBuilder
   protected AuthConfig authConfig = new AuthConfig();
   protected PlannerFixture plannerFixture;
   protected String expectedLogicalPlan;
+  protected SqlSchema expectedSqlSchema;
 
   public QueryTestBuilder(final QueryTestConfig config)
   {
@@ -223,9 +224,15 @@ public class QueryTestBuilder
     return this;
   }
 
+  public QueryTestBuilder expectedSqlSchema(SqlSchema querySchema)
+  {
+    this.expectedSqlSchema = querySchema;
+    return this;
+  }
+
   public QueryTestRunner build()
   {
-    return config.analyze(this);
+    return new QueryTestRunner(this);
   }
 
   /**

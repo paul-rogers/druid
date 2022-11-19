@@ -45,6 +45,7 @@ import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.segment.virtual.VirtualizedColumnSelectorFactory;
 import org.apache.druid.sql.calcite.planner.Calcites;
+import org.apache.druid.sql.calcite.planner.CatalogResolver;
 import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
@@ -90,7 +91,9 @@ class ExpressionTestHelper
       ),
       null, /* Don't need engine */
       Collections.emptyMap(),
-      JOINABLE_FACTORY_WRAPPER
+      JOINABLE_FACTORY_WRAPPER,
+      null,
+      CatalogResolver.NULL_RESOLVER
   );
 
   private final RowSignature rowSignature;

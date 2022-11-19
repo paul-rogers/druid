@@ -324,4 +324,64 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
         .expectLogicalPlanFrom("localExtern")
         .verify();
   }
+
+  /**
+   * Local with a table alias an explicit column references.
+   */
+  @Test
+  public void testLocalFnWithAlias()
+  {
+    testIngestionQuery()
+        .sql("INSERT INTO dst\n" +
+             "SELECT myTable.x, myTable.y, myTable.z\n" +
+             "FROM TABLE(localfiles(files => '/tmp/foo.csv, /tmp/bar.csv',\n" +
+             "                  format => 'csv'))\n" +
+             "     (x VARCHAR, y VARCHAR, z BIGINT)\n" +
+             "     As myTable\n" +
+             "PARTITIONED BY ALL TIME"
+         )
+        .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+        .expectTarget("dst", localDataSource.getSignature())
+        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectQuery(
+            newScanQueryBuilder()
+                .dataSource(localDataSource)
+                .intervals(querySegmentSpec(Filtration.eternity()))
+                .columns("x", "y", "z")
+                .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
+                .build()
+        )
+        .expectLogicalPlanFrom("localExtern")
+        .verify();
+  }
+
+  /**
+   * Local with NOT NULL on columns, which is ignored.
+   */
+  @Test
+  public void testLocalFnNotNull()
+  {
+    testIngestionQuery()
+        .sql("INSERT INTO dst\n" +
+             "SELECT myTable.x, myTable.y, myTable.z\n" +
+             "FROM TABLE(localfiles(files => '/tmp/foo.csv, /tmp/bar.csv',\n" +
+             "                  format => 'csv'))\n" +
+             "     (x VARCHAR NOT NULL, y VARCHAR NOT NULL, z BIGINT NOT NULL)\n" +
+             "     As myTable\n" +
+             "PARTITIONED BY ALL TIME"
+         )
+        .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+        .expectTarget("dst", localDataSource.getSignature())
+        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectQuery(
+            newScanQueryBuilder()
+                .dataSource(localDataSource)
+                .intervals(querySegmentSpec(Filtration.eternity()))
+                .columns("x", "y", "z")
+                .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
+                .build()
+        )
+        .expectLogicalPlanFrom("localExtern")
+        .verify();
+  }
 }

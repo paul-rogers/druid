@@ -22,7 +22,6 @@ package org.apache.druid.catalog.sync;
 import com.fasterxml.jackson.databind.InjectableValues.Std;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.Function;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.TableMacro;

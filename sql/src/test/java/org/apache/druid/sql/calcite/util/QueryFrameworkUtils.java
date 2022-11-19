@@ -52,6 +52,7 @@ import org.apache.druid.sql.SqlLifecycleManager;
 import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.SqlToolbox;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
+import org.apache.druid.sql.calcite.planner.CatalogResolver.NullCatalogResolver;
 import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
@@ -137,10 +138,18 @@ public class QueryFrameworkUtils
       @Nullable final ViewManager viewManager,
       final DruidSchemaManager druidSchemaManager,
       final AuthorizerMapper authorizerMapper,
+      final CatalogResolver catalogResolver,
       final NamedSchema extraSchema
   )
   {
-    DruidSchema druidSchema = createMockSchema(injector, conglomerate, walker, plannerConfig, druidSchemaManager);
+    DruidSchema druidSchema = createMockSchema(
+        injector,
+        conglomerate,
+        walker,
+        plannerConfig,
+        druidSchemaManager,
+        catalogResolver
+    );
     SystemSchema systemSchema =
         CalciteTests.createMockSystemSchema(druidSchema, walker, plannerConfig, authorizerMapper);
 
@@ -200,6 +209,7 @@ public class QueryFrameworkUtils
         null,
         new NoopDruidSchemaManager(),
         authorizerMapper,
+        NullCatalogResolver.NULL_RESOLVER,
         null
     );
   }
@@ -209,7 +219,8 @@ public class QueryFrameworkUtils
       final QueryRunnerFactoryConglomerate conglomerate,
       final SpecificSegmentsQuerySegmentWalker walker,
       final PlannerConfig plannerConfig,
-      final DruidSchemaManager druidSchemaManager
+      final DruidSchemaManager druidSchemaManager,
+      final CatalogResolver catalog
   )
   {
     final SegmentMetadataCache cache = new SegmentMetadataCache(
@@ -238,7 +249,7 @@ public class QueryFrameworkUtils
     }
 
     cache.stop();
-    return new DruidSchema(cache, druidSchemaManager, CatalogResolver.NULL_RESOLVER);
+    return new DruidSchema(cache, druidSchemaManager, catalog);
   }
 
   public static JoinableFactory createDefaultJoinableFactory(Injector injector)

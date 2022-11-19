@@ -49,6 +49,11 @@ public class AbstractDatasourceDefn extends TableDefn
   public static final String SEGMENT_GRANULARITY_PROPERTY = "segmentGranularity";
 
   /**
+   * Catalog property value for the "all time" granularity.
+   */
+  public static final String ALL_GRANULARITY = "ALL";
+
+  /**
    * The target segment size at ingestion and initial compaction.
    * If unset, then the system setting is used.
    */

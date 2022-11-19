@@ -24,6 +24,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
@@ -38,10 +39,7 @@ import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.parser.DruidSqlIngest;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
 import org.apache.druid.sql.calcite.table.DatasourceTable;
-import org.apache.druid.sql.calcite.table.DatasourceTable.ColumnKind;
 import org.apache.druid.sql.calcite.table.DatasourceTable.EffectiveColumnMetadata;
-import org.apache.druid.sql.calcite.table.DatasourceTable.EffectiveDetailMetadata;
-import org.apache.druid.sql.calcite.table.DatasourceTable.EffectiveDimensionMetadata;
 import org.apache.druid.sql.calcite.table.DatasourceTable.EffectiveMetadata;
 import org.apache.druid.sql.calcite.table.DatasourceTable.PhysicalDatasourceMetadata;
 import org.apache.druid.sql.calcite.table.DruidTable;
@@ -83,10 +81,11 @@ public class LiveCatalogResolver implements CatalogResolver
     }
 
     // Segment granularity
-    if (insert.getPartitionedBy() == null) {
+    String definedGranularity = table.segmentGranularity();
+    if (insert.getPartitionedBy() == null && definedGranularity != null) {
       insert.updateParitionedBy(
-          table.segmentGranularity(),
-          table.segmentGranularityString()
+          CatalogUtils.asDruidGranularity(definedGranularity),
+          definedGranularity
       );
     }
 
@@ -176,17 +175,16 @@ public class LiveCatalogResolver implements CatalogResolver
     boolean hasTime = false;
     for (ColumnSpec col : dsSpec.columns()) {
       EffectiveColumnMetadata colMetadata = columnFromCatalog(col, null);
-      if (colMetadata.kind() == ColumnKind.TIME) {
+      if (colMetadata.name().equals(Columns.TIME_COLUMN)) {
         hasTime = true;
       }
       builder.add(col.name(), colMetadata.druidType());
       columns.put(col.name(), colMetadata);
     }
     if (!hasTime) {
-      columns.put(Columns.TIME_COLUMN, new EffectiveDimensionMetadata(
+      columns.put(Columns.TIME_COLUMN, new EffectiveColumnMetadata(
           Columns.TIME_COLUMN,
-          ColumnType.LONG,
-          ColumnKind.TIME
+          ColumnType.LONG
       ));
       builder = RowSignature.builder()
           .add(Columns.TIME_COLUMN, ColumnType.LONG)
@@ -202,7 +200,7 @@ public class LiveCatalogResolver implements CatalogResolver
     return new DatasourceTable(
         mergedMetadata.rowSignature(),
         mergedMetadata,
-        new EffectiveDetailMetadata(columns, true)
+        new EffectiveMetadata(columns, true)
     );
   }
 
@@ -221,13 +219,7 @@ public class LiveCatalogResolver implements CatalogResolver
     } else {
       type = physicalType;
     }
-    final ColumnKind kind;
-    if (Columns.isTimeColumn(col.name())) {
-      kind = ColumnKind.TIME;
-    } else {
-      kind = ColumnKind.DETAIL;
-    }
-    return new EffectiveDimensionMetadata(col.name(), type, kind);
+    return new EffectiveColumnMetadata(col.name(), type);
   }
 
   private DruidTable mergeDatasource(
