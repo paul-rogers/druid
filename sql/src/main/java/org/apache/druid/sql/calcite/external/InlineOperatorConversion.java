@@ -22,7 +22,7 @@ package org.apache.druid.sql.calcite.external;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import org.apache.druid.catalog.model.TableDefnRegistry;
-import org.apache.druid.catalog.model.table.InlineTableDefn;
+import org.apache.druid.catalog.model.table.InlineInputSourceDefn;
 import org.apache.druid.guice.annotations.Json;
 
 public class InlineOperatorConversion extends CatalogExternalTableOperatorConversion
@@ -35,6 +35,6 @@ public class InlineOperatorConversion extends CatalogExternalTableOperatorConver
       @Json final ObjectMapper jsonMapper
   )
   {
-    super(FUNCTION_NAME, registry, InlineTableDefn.TABLE_TYPE, jsonMapper);
+    super(FUNCTION_NAME, registry, InlineInputSourceDefn.TABLE_TYPE, jsonMapper);
   }
 }

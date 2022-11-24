@@ -22,7 +22,7 @@ package org.apache.druid.sql.calcite.external;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import org.apache.druid.catalog.model.TableDefnRegistry;
-import org.apache.druid.catalog.model.table.HttpTableDefn;
+import org.apache.druid.catalog.model.table.HttpInputSourceDefn;
 import org.apache.druid.guice.annotations.Json;
 
 public class HttpOperatorConversion extends CatalogExternalTableOperatorConversion
@@ -35,6 +35,6 @@ public class HttpOperatorConversion extends CatalogExternalTableOperatorConversi
       @Json final ObjectMapper jsonMapper
   )
   {
-    super(FUNCTION_NAME, registry, HttpTableDefn.TABLE_TYPE, jsonMapper);
+    super(FUNCTION_NAME, registry, HttpInputSourceDefn.TABLE_TYPE, jsonMapper);
   }
 }

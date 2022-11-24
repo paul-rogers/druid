@@ -25,7 +25,7 @@ import org.apache.druid.catalog.model.ModelProperties.StringPropertyDefn;
 import org.apache.druid.catalog.model.ParameterizedDefn;
 import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.table.ExternalTableDefn.FormattedExternalTableDefn;
+import org.apache.druid.catalog.model.table.InputSourceDefn.FormattedInputSourceDefn;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.utils.CollectionUtils;
@@ -40,7 +40,7 @@ import java.util.Map;
  * Definition for a catalog table object that represents a Druid
  * {@link LocalInputSource}.
  */
-public class LocalTableDefn extends FormattedExternalTableDefn implements ParameterizedDefn
+public class LocalInputSourceDefn extends FormattedInputSourceDefn implements ParameterizedDefn
 {
   public static final String TABLE_TYPE = LocalInputSource.TYPE_KEY;
 
@@ -56,7 +56,7 @@ public class LocalTableDefn extends FormattedExternalTableDefn implements Parame
   public static final String FILE_FILTER_PROPERTY = "fileFilter";
   public static final String FILES_PROPERTY = "files";
 
-  public LocalTableDefn()
+  public LocalInputSourceDefn()
   {
     super(
         "Local file input table",

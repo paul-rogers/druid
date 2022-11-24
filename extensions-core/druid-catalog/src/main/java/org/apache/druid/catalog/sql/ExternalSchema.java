@@ -30,7 +30,7 @@ import org.apache.calcite.sql.SqlCall;
 import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableId;
-import org.apache.druid.catalog.model.table.ExternalTableDefn;
+import org.apache.druid.catalog.model.table.InputSourceDefn;
 import org.apache.druid.catalog.model.table.ExternalTableSpec;
 import org.apache.druid.catalog.sync.MetadataCatalog;
 import org.apache.druid.guice.annotations.Json;
@@ -127,7 +127,7 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema
     if (table == null || table.spec() == null) {
       return null;
     }
-    if (!ExternalTableDefn.isExternalTable(table)) {
+    if (!InputSourceDefn.isExternalTable(table)) {
       throw new IAE(
           StringUtils.format("Table [%s] is not an external table", id.sqlName()));
     }
@@ -136,7 +136,7 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema
 
   public DruidTable toDruidTable(ResolvedTable table)
   {
-    ExternalTableDefn defn = (ExternalTableDefn) table.defn();
+    InputSourceDefn defn = (InputSourceDefn) table.defn();
     ExternalTableSpec spec = defn.convertToExtern(table);
     return new ExternalTable(
         new ExternalDataSource(
@@ -197,7 +197,7 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema
     {
       this.tableName = tableName;
       this.externalTable = externalTable;
-      this.parameters = Externals.convertTableParameters((ExternalTableDefn) externalTable.defn());
+      this.parameters = Externals.convertTableParameters((InputSourceDefn) externalTable.defn());
     }
 
     @Override
@@ -205,7 +205,7 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema
     {
       Map<String, Object> args = new HashMap<>();
       List<FunctionParameter> parameters = getParameters();
-      ExternalTableDefn tableDefn = (ExternalTableDefn) externalTable.defn();
+      InputSourceDefn tableDefn = (InputSourceDefn) externalTable.defn();
       ObjectMapper jsonMapper = externalTable.jsonMapper();
       for (int i = 0; i < parameters.size(); i++) {
         String name = parameters.get(i).getName();

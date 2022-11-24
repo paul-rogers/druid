@@ -55,22 +55,38 @@ import java.util.stream.Collectors;
  * input source, a format and a set of columns. Also provides
  * properties, as do all table definitions.
  * <p>
- * The external table implements the mechanism for parameterized tables,
+ * An input source can be thought of as a "connection", though Druid does not
+ * use that term. An input source is a template for an external table. The input
+ * source says how to get data, and optionally the format and structure of that data.
+ * Since Druid never ingests the same data twice, the actual external table needs
+ * details that says which data to read on any specific ingestion. Thus, an input
+ * source is a "partial table": all the information that remains constant
+ * across ingestions, but without the information that changes. The changing
+ * information is typically the list of files (or objects or URLs) to ingest.
+ * <p>
+ * The pattern is:<br>
+ * {@code input source + parameters --> external table}
+ * <p>
+ * Since an input source is a parameterized (partial) external table, we can reuse
+ * the table metadata structures and APIs, avoiding the need to have a separate (but 
+ * otherwise identical) structure for input sources.
+ * <p>
+ * The input source implements the mechanism for parameterized tables,
  * but does not implement the {@link ParameterizedDefn} interface itself.
- * Tables which are parameterized implement that interface to expose
+ * Input sources which are parameterized implement that interface to expose
  * methods defined here.
  */
-public abstract class ExternalTableDefn extends TableDefn
+public abstract class InputSourceDefn extends TableDefn
 {
   public static final String EXTERNAL_COLUMN_TYPE = "extern";
 
-  public abstract static class FormattedExternalTableDefn extends ExternalTableDefn
+  public abstract static class FormattedInputSourceDefn extends InputSourceDefn
   {
     public static final String FORMAT_PROPERTY = "format";
 
     private final Map<String, InputFormatDefn> formats;
 
-    public FormattedExternalTableDefn(
+    public FormattedInputSourceDefn(
         final String name,
         final String typeValue,
         final List<PropertyDefn<?>> properties,
@@ -188,7 +204,7 @@ public abstract class ExternalTableDefn extends TableDefn
 
   private final List<PropertyDefn<?>> fields;
 
-  public ExternalTableDefn(
+  public InputSourceDefn(
       final String name,
       final String typeValue,
       final List<PropertyDefn<?>> fields,
@@ -266,16 +282,16 @@ public abstract class ExternalTableDefn extends TableDefn
 
   public static boolean isExternalTable(ResolvedTable table)
   {
-    return table.defn() instanceof ExternalTableDefn;
+    return table.defn() instanceof InputSourceDefn;
   }
 
   public static Set<String> tableTypes()
   {
     // Known input tables. Get this from a registry later.
     return ImmutableSet.of(
-        InlineTableDefn.TABLE_TYPE,
-        HttpTableDefn.TABLE_TYPE,
-        LocalTableDefn.TABLE_TYPE
+        InlineInputSourceDefn.TABLE_TYPE,
+        HttpInputSourceDefn.TABLE_TYPE,
+        LocalInputSourceDefn.TABLE_TYPE
     );
   }
 

@@ -42,7 +42,7 @@ import static org.junit.Assert.assertThrows;
 public class InlineTableTest
 {
   private final ObjectMapper mapper = new ObjectMapper();
-  private final InlineTableDefn tableDefn = new InlineTableDefn();
+  private final InlineInputSourceDefn tableDefn = new InlineInputSourceDefn();
   private final TableBuilder baseBuilder = TableBuilder.of(tableDefn)
       .description("inline input")
       .format(InputFormats.CSV_FORMAT_TYPE)

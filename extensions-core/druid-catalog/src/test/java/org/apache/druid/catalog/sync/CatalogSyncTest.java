@@ -32,8 +32,8 @@ import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.model.facade.DatasourceFacade;
 import org.apache.druid.catalog.model.table.DatasourceDefn;
 import org.apache.druid.catalog.model.table.DatasourceDefn.DatasourceColumnDefn;
-import org.apache.druid.catalog.model.table.ExternalTableDefn;
-import org.apache.druid.catalog.model.table.InlineTableDefn;
+import org.apache.druid.catalog.model.table.InputSourceDefn;
+import org.apache.druid.catalog.model.table.InlineInputSourceDefn;
 import org.apache.druid.catalog.model.table.InputFormats;
 import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.storage.CatalogStorage;
@@ -93,7 +93,7 @@ public class CatalogSyncTest
   {
     // Valid definition
     {
-      TableMetadata table = TableBuilder.external(InlineTableDefn.TABLE_TYPE, "externTable")
+      TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "externTable")
           .format(InputFormats.CSV_FORMAT_TYPE)
           .data("a", "c")
           .column("a", Columns.VARCHAR)
@@ -103,7 +103,7 @@ public class CatalogSyncTest
 
     // No columns
     {
-      TableMetadata table = TableBuilder.external(InlineTableDefn.TABLE_TYPE, "externTable")
+      TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "externTable")
           .format(InputFormats.CSV_FORMAT_TYPE)
           .data("a", "c")
           .build();
@@ -112,7 +112,7 @@ public class CatalogSyncTest
 
     // No format
     {
-      TableMetadata table = TableBuilder.external(InlineTableDefn.TABLE_TYPE, "externTable")
+      TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "externTable")
           .data("a", "c")
           .column("a", Columns.VARCHAR)
           .build();
@@ -198,7 +198,7 @@ public class CatalogSyncTest
     storage.validate(table2);
     storage.tables().create(table2);
 
-    TableMetadata table3 = TableBuilder.external(InlineTableDefn.TABLE_TYPE, "table3")
+    TableMetadata table3 = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "table3")
         .format(InputFormats.CSV_FORMAT_TYPE)
         .data("a", "c")
         .column("a", Columns.VARCHAR)
@@ -263,12 +263,12 @@ public class CatalogSyncTest
       assertTrue(table.updateTime() > 0);
 
       TableSpec inputSpec = table.spec();
-      assertEquals(InlineTableDefn.TABLE_TYPE, inputSpec.type());
+      assertEquals(InlineInputSourceDefn.TABLE_TYPE, inputSpec.type());
       List<ColumnSpec> cols = inputSpec.columns();
       assertEquals(1, cols.size());
       assertEquals("a", cols.get(0).name());
       assertEquals(Columns.VARCHAR, cols.get(0).sqlType());
-      assertEquals(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, cols.get(0).type());
+      assertEquals(InputSourceDefn.EXTERNAL_COLUMN_TYPE, cols.get(0).type());
 
       assertNotNull(inputSpec.properties());
     }

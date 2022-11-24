@@ -24,7 +24,7 @@ import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ModelProperties.StringListPropertyDefn;
 import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.table.ExternalTableDefn.FormattedExternalTableDefn;
+import org.apache.druid.catalog.model.table.InputSourceDefn.FormattedInputSourceDefn;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.java.util.common.IAE;
@@ -39,10 +39,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Describes an inline table: one where the data is provided in the
- * table spec as a series of text lines.
+ * Describes an inline input source: one where the data is provided in the
+ * table spec as a series of text lines. Primarily for testing.
  */
-public class InlineTableDefn extends FormattedExternalTableDefn
+public class InlineInputSourceDefn extends FormattedInputSourceDefn
 {
   public static final String TABLE_TYPE = InlineInputSource.TYPE_KEY;
   public static final String DATA_PROPERTY = "data";
@@ -72,7 +72,7 @@ public class InlineTableDefn extends FormattedExternalTableDefn
     }
   }
 
-  public InlineTableDefn()
+  public InlineInputSourceDefn()
   {
     super(
         "Inline input table",

@@ -29,7 +29,7 @@ import org.apache.druid.catalog.model.TableDefn;
 import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.model.TableSpec;
-import org.apache.druid.catalog.model.table.ExternalTableDefn.FormattedExternalTableDefn;
+import org.apache.druid.catalog.model.table.InputSourceDefn.FormattedInputSourceDefn;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 
@@ -200,7 +200,7 @@ public class TableBuilder
     Preconditions.checkNotNull(tableType);
     String colType;
     if (isInputTable(tableType)) {
-      colType = ExternalTableDefn.EXTERNAL_COLUMN_TYPE;
+      colType = InputSourceDefn.EXTERNAL_COLUMN_TYPE;
     } else if (DatasourceDefn.TABLE_TYPE.equals(tableType)) {
       colType = DatasourceDefn.DatasourceColumnDefn.COLUMN_TYPE;
     } else {
@@ -212,9 +212,9 @@ public class TableBuilder
   public static boolean isInputTable(String tableType)
   {
     switch (tableType) {
-      case InlineTableDefn.TABLE_TYPE:
-      case HttpTableDefn.TABLE_TYPE:
-      case LocalTableDefn.TABLE_TYPE:
+      case InlineInputSourceDefn.TABLE_TYPE:
+      case HttpInputSourceDefn.TABLE_TYPE:
+      case LocalInputSourceDefn.TABLE_TYPE:
         return true;
       default:
         return false;
@@ -238,12 +238,12 @@ public class TableBuilder
 
   public TableBuilder format(String format)
   {
-    return property(FormattedExternalTableDefn.FORMAT_PROPERTY, format);
+    return property(FormattedInputSourceDefn.FORMAT_PROPERTY, format);
   }
 
   public TableBuilder data(List<String> data)
   {
-    return property(InlineTableDefn.DATA_PROPERTY, data);
+    return property(InlineInputSourceDefn.DATA_PROPERTY, data);
   }
 
   public TableBuilder data(String...data)

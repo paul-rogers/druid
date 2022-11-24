@@ -38,7 +38,7 @@ import org.apache.druid.catalog.model.ModelProperties;
 import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
 import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.table.ExternalTableDefn;
+import org.apache.druid.catalog.model.table.InputSourceDefn;
 import org.apache.druid.catalog.model.table.ExternalTableSpec;
 import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.java.util.common.IAE;
@@ -67,7 +67,7 @@ public class Externals
    * Convert parameters from Catalog external table definition form to the SQL form
    * used for a table macro and its function.
    */
-  public static List<FunctionParameter> convertParameters(final ExternalTableDefn tableDefn)
+  public static List<FunctionParameter> convertParameters(final InputSourceDefn tableDefn)
   {
     return convertToCalciteParameters(tableDefn.tableFunctionParameters());
   }
@@ -91,7 +91,7 @@ public class Externals
    * Convert parameters from Catalog external table definition form to the SQL form
    * used for a table macro and its function.
    */
-  public static List<FunctionParameter> convertTableParameters(final ExternalTableDefn tableDefn)
+  public static List<FunctionParameter> convertTableParameters(final InputSourceDefn tableDefn)
   {
     return convertToCalciteParameters(tableDefn.parameters());
   }
@@ -174,7 +174,7 @@ public class Externals
    * @return a spec with the three values that MSQ needs to create an external table
    */
   public static ExternalTableSpec convertArguments(
-      final ExternalTableDefn tableDefn,
+      final InputSourceDefn tableDefn,
       final List<FunctionParameter> parameters,
       final List<Object> arguments,
       final SqlNodeList schema,

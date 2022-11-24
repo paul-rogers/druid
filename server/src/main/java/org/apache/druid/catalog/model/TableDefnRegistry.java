@@ -23,9 +23,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.model.table.DatasourceDefn;
-import org.apache.druid.catalog.model.table.HttpTableDefn;
-import org.apache.druid.catalog.model.table.InlineTableDefn;
-import org.apache.druid.catalog.model.table.LocalTableDefn;
+import org.apache.druid.catalog.model.table.HttpInputSourceDefn;
+import org.apache.druid.catalog.model.table.InlineInputSourceDefn;
+import org.apache.druid.catalog.model.table.LocalInputSourceDefn;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
 
@@ -57,9 +57,9 @@ public class TableDefnRegistry
   // Guice later to allow extensions to define table types.
   private static final TableDefn[] TABLE_DEFNS = {
       new DatasourceDefn(),
-      new InlineTableDefn(),
-      new HttpTableDefn(),
-      new LocalTableDefn()
+      new InlineInputSourceDefn(),
+      new HttpInputSourceDefn(),
+      new LocalInputSourceDefn()
   };
 
   private final Map<String, TableDefn> defns;

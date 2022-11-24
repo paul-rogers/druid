@@ -26,7 +26,7 @@ import org.apache.druid.catalog.model.ModelProperties.StringPropertyDefn;
 import org.apache.druid.catalog.model.ParameterizedDefn;
 import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.table.ExternalTableDefn.FormattedExternalTableDefn;
+import org.apache.druid.catalog.model.table.InputSourceDefn.FormattedInputSourceDefn;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.java.util.common.IAE;
@@ -48,7 +48,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Definition of an input table for an HTTP data source. Provides the same
+ * Definition of an HTTP input source source. Provides the same
  * properties as the {@link HttpInputSource}, but as top-level properties
  * that can be mapped to SQL function parameters. Property names are
  * cleaned up for ease-of-use. The HTTP input source has multiple quirks,
@@ -57,7 +57,7 @@ import java.util.regex.Pattern;
  * form where the user provides the partial URLs to use for a particular
  * query.
  */
-public class HttpTableDefn extends FormattedExternalTableDefn implements ParameterizedDefn
+public class HttpInputSourceDefn extends FormattedInputSourceDefn implements ParameterizedDefn
 {
   public static final String TABLE_TYPE = HttpInputSource.TYPE_KEY;
 
@@ -73,7 +73,7 @@ public class HttpTableDefn extends FormattedExternalTableDefn implements Paramet
   public static final String PASSWORD_ENV_VAR_PROPERTY = "passwordEnvVar";
   public static final String URIS_PROPERTY = "uris";
 
-  public HttpTableDefn()
+  public HttpInputSourceDefn()
   {
     super(
         "HTTP input table",

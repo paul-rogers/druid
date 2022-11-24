@@ -27,7 +27,7 @@ import org.apache.druid.catalog.model.ParameterizedDefn;
 import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefnRegistry;
-import org.apache.druid.catalog.model.table.ExternalTableDefn.FormattedExternalTableDefn;
+import org.apache.druid.catalog.model.table.InputSourceDefn.FormattedInputSourceDefn;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.java.util.common.IAE;
@@ -50,7 +50,7 @@ import static org.junit.Assert.assertTrue;
 @Category(CatalogTest.class)
 public class LocalTableTest extends BaseExternTableTest
 {
-  private final LocalTableDefn tableDefn = new LocalTableDefn();
+  private final LocalInputSourceDefn tableDefn = new LocalInputSourceDefn();
   private final TableBuilder baseBuilder = TableBuilder.of(tableDefn)
       .description("local file input")
       .format(InputFormats.CSV_FORMAT_TYPE)
@@ -61,9 +61,9 @@ public class LocalTableTest extends BaseExternTableTest
   public void testFullyDefined()
   {
     ResolvedTable table = baseBuilder.copy()
-        .property(LocalTableDefn.BASE_DIR_PROPERTY, "/tmp")
-        .property(LocalTableDefn.FILE_FILTER_PROPERTY, "*.csv")
-        .property(LocalTableDefn.FILES_PROPERTY, Collections.singletonList("my.csv"))
+        .property(LocalInputSourceDefn.BASE_DIR_PROPERTY, "/tmp")
+        .property(LocalInputSourceDefn.FILE_FILTER_PROPERTY, "*.csv")
+        .property(LocalInputSourceDefn.FILES_PROPERTY, Collections.singletonList("my.csv"))
         .buildResolved(mapper);
 
     // Check validation
@@ -95,8 +95,8 @@ public class LocalTableTest extends BaseExternTableTest
   public void testNoFilter()
   {
     ResolvedTable table = baseBuilder.copy()
-        .property(LocalTableDefn.BASE_DIR_PROPERTY, "/tmp")
-        .property(LocalTableDefn.FILES_PROPERTY, Collections.singletonList("my.csv"))
+        .property(LocalInputSourceDefn.BASE_DIR_PROPERTY, "/tmp")
+        .property(LocalInputSourceDefn.FILES_PROPERTY, Collections.singletonList("my.csv"))
          .buildResolved(mapper);
 
     // Check validation
@@ -115,8 +115,8 @@ public class LocalTableTest extends BaseExternTableTest
   public void testNoFiles()
   {
     ResolvedTable table = baseBuilder.copy()
-        .property(LocalTableDefn.BASE_DIR_PROPERTY, "/tmp")
-        .property(LocalTableDefn.FILE_FILTER_PROPERTY, "*.csv")
+        .property(LocalInputSourceDefn.BASE_DIR_PROPERTY, "/tmp")
+        .property(LocalInputSourceDefn.FILE_FILTER_PROPERTY, "*.csv")
         .buildResolved(mapper);
 
     // Check validation
@@ -135,7 +135,7 @@ public class LocalTableTest extends BaseExternTableTest
   public void testNoFilesOrFlter()
   {
     ResolvedTable table = baseBuilder.copy()
-        .property(LocalTableDefn.BASE_DIR_PROPERTY, "/tmp")
+        .property(LocalInputSourceDefn.BASE_DIR_PROPERTY, "/tmp")
         .buildResolved(mapper);
 
     // Check validation
@@ -157,7 +157,7 @@ public class LocalTableTest extends BaseExternTableTest
   public void testFilesParameter()
   {
     ResolvedTable table = baseBuilder.copy()
-        .property(LocalTableDefn.BASE_DIR_PROPERTY, "/tmp")
+        .property(LocalInputSourceDefn.BASE_DIR_PROPERTY, "/tmp")
         .buildResolved(mapper);
 
     ParameterizedDefn parameterizedTable = tableDefn;
@@ -165,7 +165,7 @@ public class LocalTableTest extends BaseExternTableTest
 
     // Apply files parameter
     Map<String, Object> params = ImmutableMap.of(
-        LocalTableDefn.FILES_PROPERTY, "foo.csv,bar.csv"
+        LocalInputSourceDefn.FILES_PROPERTY, "foo.csv,bar.csv"
     );
 
     // Convert to an external spec
@@ -184,12 +184,12 @@ public class LocalTableTest extends BaseExternTableTest
   public void testFilterParameter()
   {
     ResolvedTable table = baseBuilder.copy()
-        .property(LocalTableDefn.BASE_DIR_PROPERTY, "/tmp")
+        .property(LocalInputSourceDefn.BASE_DIR_PROPERTY, "/tmp")
         .buildResolved(mapper);
 
     // Apply files parameter
     Map<String, Object> params = ImmutableMap.of(
-        LocalTableDefn.FILE_FILTER_PROPERTY, "Oct*.csv"
+        LocalInputSourceDefn.FILE_FILTER_PROPERTY, "Oct*.csv"
     );
 
     // Convert to an external spec
@@ -207,15 +207,15 @@ public class LocalTableTest extends BaseExternTableTest
     List<PropertyDefn<?>> params = tableDefn.tableFunctionParameters();
 
     // Ensure the relevant properties are available as SQL function parameters
-    PropertyDefn<?> fileDirProp = findProperty(params, LocalTableDefn.BASE_DIR_PROPERTY);
+    PropertyDefn<?> fileDirProp = findProperty(params, LocalInputSourceDefn.BASE_DIR_PROPERTY);
     assertNotNull(fileDirProp);
     assertEquals(String.class, PropertyAttributes.sqlParameterType(fileDirProp));
 
-    PropertyDefn<?> filesProp = findProperty(params, LocalTableDefn.FILES_PROPERTY);
+    PropertyDefn<?> filesProp = findProperty(params, LocalInputSourceDefn.FILES_PROPERTY);
     assertNotNull(filesProp);
     assertEquals(String.class, PropertyAttributes.sqlParameterType(fileDirProp));
 
-    PropertyDefn<?> formatProp = findProperty(params, FormattedExternalTableDefn.FORMAT_PROPERTY);
+    PropertyDefn<?> formatProp = findProperty(params, FormattedInputSourceDefn.FORMAT_PROPERTY);
     assertNotNull(formatProp);
     assertEquals(String.class, PropertyAttributes.sqlParameterType(formatProp));
 

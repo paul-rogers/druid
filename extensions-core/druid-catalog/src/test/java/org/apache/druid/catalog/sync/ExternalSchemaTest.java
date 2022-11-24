@@ -29,9 +29,9 @@ import org.apache.calcite.schema.TranslatableTable;
 import org.apache.druid.catalog.CatalogException;
 import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.model.TableMetadata;
-import org.apache.druid.catalog.model.table.ExternalTableDefn.FormattedExternalTableDefn;
-import org.apache.druid.catalog.model.table.HttpTableDefn;
-import org.apache.druid.catalog.model.table.InlineTableDefn;
+import org.apache.druid.catalog.model.table.InputSourceDefn.FormattedInputSourceDefn;
+import org.apache.druid.catalog.model.table.HttpInputSourceDefn;
+import org.apache.druid.catalog.model.table.InlineInputSourceDefn;
 import org.apache.druid.catalog.model.table.InputFormats;
 import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.sql.ExternalSchema;
@@ -126,9 +126,9 @@ public class ExternalSchemaTest
 
   private void populateCatalog() throws CatalogException
   {
-    TableMetadata table = TableBuilder.external(InlineTableDefn.TABLE_TYPE, "input1")
-        .property(FormattedExternalTableDefn.FORMAT_PROPERTY, InputFormats.CSV_FORMAT_TYPE)
-        .property(InlineTableDefn.DATA_PROPERTY, Arrays.asList("a", "c"))
+    TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "input1")
+        .property(FormattedInputSourceDefn.FORMAT_PROPERTY, InputFormats.CSV_FORMAT_TYPE)
+        .property(InlineInputSourceDefn.DATA_PROPERTY, Arrays.asList("a", "c"))
         .column("a", "varchar")
         .build();
     storage.tables().create(table);
@@ -160,9 +160,9 @@ public class ExternalSchemaTest
     storage.tables().update(defn, table1.updateTime());
 
     // Create a table 2
-    TableMetadata table = TableBuilder.external(InlineTableDefn.TABLE_TYPE, "input2")
-        .property(FormattedExternalTableDefn.FORMAT_PROPERTY, InputFormats.CSV_FORMAT_TYPE)
-        .property(InlineTableDefn.DATA_PROPERTY, Arrays.asList("1", "2"))
+    TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "input2")
+        .property(FormattedInputSourceDefn.FORMAT_PROPERTY, InputFormats.CSV_FORMAT_TYPE)
+        .property(InlineInputSourceDefn.DATA_PROPERTY, Arrays.asList("1", "2"))
         .column("x", "bigint")
         .build();
     storage.tables().create(table);
@@ -186,9 +186,9 @@ public class ExternalSchemaTest
 
   private void createParameterizedTable() throws CatalogException
   {
-    TableMetadata table = TableBuilder.external(HttpTableDefn.TABLE_TYPE, "httpParam")
-        .property(FormattedExternalTableDefn.FORMAT_PROPERTY, InputFormats.CSV_FORMAT_TYPE)
-        .property(HttpTableDefn.URI_TEMPLATE_PROPERTY, "http://koalas.com/{}.csv")
+    TableMetadata table = TableBuilder.external(HttpInputSourceDefn.TABLE_TYPE, "httpParam")
+        .property(FormattedInputSourceDefn.FORMAT_PROPERTY, InputFormats.CSV_FORMAT_TYPE)
+        .property(HttpInputSourceDefn.URI_TEMPLATE_PROPERTY, "http://koalas.com/{}.csv")
         .column("a", "varchar")
         .build();
     storage.tables().create(table);
