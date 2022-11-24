@@ -68,7 +68,7 @@ import java.util.stream.Collectors;
  * {@code input source + parameters --> external table}
  * <p>
  * Since an input source is a parameterized (partial) external table, we can reuse
- * the table metadata structures and APIs, avoiding the need to have a separate (but 
+ * the table metadata structures and APIs, avoiding the need to have a separate (but
  * otherwise identical) structure for input sources.
  * <p>
  * The input source implements the mechanism for parameterized tables,
@@ -100,7 +100,7 @@ public abstract class InputSourceDefn extends TableDefn
           addFormatProperties(properties, formats),
           columnDefns
       );
-      ImmutableMap.Builder<String, InputFormatDefn> builder = ImmutableMap.builder();
+      final ImmutableMap.Builder<String, InputFormatDefn> builder = ImmutableMap.builder();
       for (InputFormatDefn format : formats) {
         builder.put(format.typeTag(), format);
       }
@@ -117,13 +117,13 @@ public abstract class InputSourceDefn extends TableDefn
         final List<InputFormatDefn> formats
     )
     {
-      List<PropertyDefn<?>> toAdd = new ArrayList<>();
-      PropertyDefn<?> formatProp = new ModelProperties.StringPropertyDefn(FORMAT_PROPERTY, PropertyAttributes.SQL_FN_PARAM);
+      final List<PropertyDefn<?>> toAdd = new ArrayList<>();
+      final PropertyDefn<?> formatProp = new ModelProperties.StringPropertyDefn(FORMAT_PROPERTY, PropertyAttributes.SQL_FN_PARAM);
       toAdd.add(formatProp);
-      Map<String, PropertyDefn<?>> formatProps = new HashMap<>();
+      final Map<String, PropertyDefn<?>> formatProps = new HashMap<>();
       for (InputFormatDefn format : formats) {
         for (PropertyDefn<?> prop : format.properties()) {
-          PropertyDefn<?> existing = formatProps.putIfAbsent(prop.name(), prop);
+          final PropertyDefn<?> existing = formatProps.putIfAbsent(prop.name(), prop);
           if (existing == null) {
             toAdd.add(prop);
           } else if (existing.getClass() != prop.getClass()) {
@@ -148,11 +148,11 @@ public abstract class InputSourceDefn extends TableDefn
 
     protected InputFormatDefn formatDefn(ResolvedTable table)
     {
-      String formatTag = table.stringProperty(FORMAT_PROPERTY);
+      final String formatTag = table.stringProperty(FORMAT_PROPERTY);
       if (formatTag == null) {
         throw new IAE("%s property must be set", FORMAT_PROPERTY);
       }
-      InputFormatDefn formatDefn = formats.get(formatTag);
+      final InputFormatDefn formatDefn = formats.get(formatTag);
       if (formatDefn == null) {
         throw new IAE(
             "Format type [%s] for property %s is not valid",
@@ -276,8 +276,7 @@ public abstract class InputSourceDefn extends TableDefn
 
   public ExternalTableSpec applyParameters(ResolvedTable table, Map<String, Object> parameters)
   {
-    ResolvedTable revised = mergeParameters(table, parameters);
-    return convertToExtern(revised);
+    return convertToExtern(mergeParameters(table, parameters));
   }
 
   public static boolean isExternalTable(ResolvedTable table)
@@ -297,7 +296,7 @@ public abstract class InputSourceDefn extends TableDefn
 
   public static RowSignature rowSignature(TableSpec spec)
   {
-    RowSignature.Builder builder = RowSignature.builder();
+    final RowSignature.Builder builder = RowSignature.builder();
     if (spec.columns() != null) {
       for (ColumnSpec col : spec.columns()) {
         ColumnType druidType = Columns.SQL_TO_DRUID_TYPES.get(StringUtils.toUpperCase(col.sqlType()));
