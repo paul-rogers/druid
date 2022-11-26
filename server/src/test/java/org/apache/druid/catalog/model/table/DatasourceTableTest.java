@@ -30,6 +30,7 @@ import org.apache.druid.catalog.model.TableDefn;
 import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.model.table.DatasourceDefn.DatasourceColumnDefn;
+import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.IAE;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -55,7 +56,7 @@ public class DatasourceTableTest
 {
   private static final String SUM_BIGINT = "SUM(BIGINT)";
 
-  private final ObjectMapper mapper = new ObjectMapper();
+  private final ObjectMapper mapper = DefaultObjectMapper.INSTANCE;
   private final TableDefnRegistry registry = new TableDefnRegistry(mapper);
 
   @Test

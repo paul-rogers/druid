@@ -29,10 +29,10 @@ import org.apache.calcite.schema.TranslatableTable;
 import org.apache.druid.catalog.CatalogException;
 import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.model.TableMetadata;
-import org.apache.druid.catalog.model.table.InputSourceDefn.FormattedInputSourceDefn;
+import org.apache.druid.catalog.model.table.OldInputSourceDefn.FormattedInputSourceDefn;
 import org.apache.druid.catalog.model.table.HttpInputSourceDefn;
 import org.apache.druid.catalog.model.table.InlineInputSourceDefn;
-import org.apache.druid.catalog.model.table.InputFormats;
+import org.apache.druid.catalog.model.table.OldInputFormats;
 import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.sql.ExternalSchema;
 import org.apache.druid.catalog.storage.CatalogStorage;
@@ -127,7 +127,7 @@ public class ExternalSchemaTest
   private void populateCatalog() throws CatalogException
   {
     TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "input1")
-        .property(FormattedInputSourceDefn.FORMAT_PROPERTY, InputFormats.CSV_FORMAT_TYPE)
+        .property(FormattedInputSourceDefn.FORMAT_PROPERTY, OldInputFormats.CSV_FORMAT_TYPE)
         .property(InlineInputSourceDefn.DATA_PROPERTY, Arrays.asList("a", "c"))
         .column("a", "varchar")
         .build();
@@ -161,7 +161,7 @@ public class ExternalSchemaTest
 
     // Create a table 2
     TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "input2")
-        .property(FormattedInputSourceDefn.FORMAT_PROPERTY, InputFormats.CSV_FORMAT_TYPE)
+        .property(FormattedInputSourceDefn.FORMAT_PROPERTY, OldInputFormats.CSV_FORMAT_TYPE)
         .property(InlineInputSourceDefn.DATA_PROPERTY, Arrays.asList("1", "2"))
         .column("x", "bigint")
         .build();
@@ -187,7 +187,7 @@ public class ExternalSchemaTest
   private void createParameterizedTable() throws CatalogException
   {
     TableMetadata table = TableBuilder.external(HttpInputSourceDefn.TABLE_TYPE, "httpParam")
-        .property(FormattedInputSourceDefn.FORMAT_PROPERTY, InputFormats.CSV_FORMAT_TYPE)
+        .property(FormattedInputSourceDefn.FORMAT_PROPERTY, OldInputFormats.CSV_FORMAT_TYPE)
         .property(HttpInputSourceDefn.URI_TEMPLATE_PROPERTY, "http://koalas.com/{}.csv")
         .column("a", "varchar")
         .build();

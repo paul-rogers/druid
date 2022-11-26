@@ -23,8 +23,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.model.table.DatasourceDefn;
+import org.apache.druid.catalog.model.table.ExternalTableDefn;
 import org.apache.druid.catalog.model.table.HttpInputSourceDefn;
 import org.apache.druid.catalog.model.table.InlineInputSourceDefn;
+import org.apache.druid.catalog.model.table.InputFormatDefn;
+import org.apache.druid.catalog.model.table.InputFormats;
+import org.apache.druid.catalog.model.table.InputSourceDefn;
+import org.apache.druid.catalog.model.table.InputSources;
 import org.apache.druid.catalog.model.table.LocalInputSourceDefn;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
@@ -59,23 +64,55 @@ public class TableDefnRegistry
       new DatasourceDefn(),
       new InlineInputSourceDefn(),
       new HttpInputSourceDefn(),
-      new LocalInputSourceDefn()
+      new LocalInputSourceDefn(),
+      new ExternalTableDefn()
+  };
+  private static final InputSourceDefn[] INPUT_SOURCE_DEFNS = {
+      new InputSources.InlineInputSourceDefn()
+  };
+  private static final InputFormatDefn[] INPUT_FORMAT_DEFNS = {
+      new InputFormats.CsvFormatDefn()
   };
 
-  private final Map<String, TableDefn> defns;
+  private final Map<String, TableDefn> tableDefns;
+  private final Map<String, InputSourceDefn> inputSourceDefns;
+  private final Map<String, InputFormatDefn> inputFormatDefns;
   private final ObjectMapper jsonMapper;
 
   public TableDefnRegistry(
-      final TableDefn[] defns,
+      final TableDefn[] tableDefns,
+      final InputSourceDefn[] inputSourceDefns,
+      final InputFormatDefn[] inputFormatDefns,
       final ObjectMapper jsonMapper
   )
   {
-    ImmutableMap.Builder<String, TableDefn> builder = ImmutableMap.builder();
-    for (TableDefn defn : defns) {
-      builder.put(defn.typeValue(), defn);
-    }
-    this.defns = builder.build();
     this.jsonMapper = jsonMapper;
+
+    ImmutableMap.Builder<String, TableDefn> tableBuilder = ImmutableMap.builder();
+    for (TableDefn defn : tableDefns) {
+      tableBuilder.put(defn.typeValue(), defn);
+    }
+    this.tableDefns = tableBuilder.build();
+
+    ImmutableMap.Builder<String, InputSourceDefn> sourceBuilder = ImmutableMap.builder();
+    for (InputSourceDefn defn : inputSourceDefns) {
+      sourceBuilder.put(defn.typeValue(), defn);
+    }
+    this.inputSourceDefns = sourceBuilder.build();
+
+    ImmutableMap.Builder<String, InputFormatDefn> formatBuilder = ImmutableMap.builder();
+    for (InputFormatDefn defn : inputFormatDefns) {
+      formatBuilder.put(defn.typeValue(), defn);
+    }
+    this.inputFormatDefns = formatBuilder.build();
+
+    // Initialize all items once the entire set of bindings is defined.
+    for (InputSourceDefn defn : inputSourceDefns) {
+      defn.bind(this);
+    }
+    for (TableDefn defn : tableDefns) {
+      defn.bind(this);
+    }
   }
 
   @Inject
@@ -83,12 +120,12 @@ public class TableDefnRegistry
       @Json ObjectMapper jsonMapper
   )
   {
-    this(TABLE_DEFNS, jsonMapper);
+    this(TABLE_DEFNS, INPUT_SOURCE_DEFNS, INPUT_FORMAT_DEFNS, jsonMapper);
   }
 
-  public TableDefn defnFor(String type)
+  public TableDefn tableDefnFor(String type)
   {
-    return defns.get(type);
+    return tableDefns.get(type);
   }
 
   public ObjectMapper jsonMapper()
@@ -102,10 +139,25 @@ public class TableDefnRegistry
     if (Strings.isNullOrEmpty(type)) {
       throw new IAE("The table type is required.");
     }
-    TableDefn defn = defns.get(type);
+    TableDefn defn = tableDefns.get(type);
     if (defn == null) {
       throw new IAE("Table type [%s] is not valid.", type);
     }
     return new ResolvedTable(defn, spec, jsonMapper);
+  }
+
+  public InputSourceDefn inputSourceDefnFor(String type)
+  {
+    return type == null ? null : inputSourceDefns.get(type);
+  }
+
+  public InputFormatDefn inputFormatDefnFor(String type)
+  {
+    return type == null ? null : inputFormatDefns.get(type);
+  }
+
+  public Map<String, InputFormatDefn> formats()
+  {
+    return inputFormatDefns;
   }
 }

@@ -26,8 +26,8 @@ import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableSpec;
-import org.apache.druid.catalog.model.table.InputFormats.GenericFormatDefn;
-import org.apache.druid.catalog.model.table.InputFormats.InputFormatDefn;
+import org.apache.druid.catalog.model.table.OldInputFormats.GenericFormatDefn;
+import org.apache.druid.catalog.model.table.OldInputFormats.InputFormatDefn;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DelimitedInputFormat;
@@ -50,7 +50,7 @@ public class InputFormatTest
   @Test
   public void testCsvFormat()
   {
-    InputFormatDefn converter = InputFormats.CSV_FORMAT_DEFN;
+    InputFormatDefn converter = OldInputFormats.CSV_FORMAT_DEFN;
     List<ColumnSpec> cols = Arrays.asList(
         new ColumnSpec("type", "x", Columns.VARCHAR, null),
         new ColumnSpec("type", "y", Columns.BIGINT, null)
@@ -119,7 +119,7 @@ public class InputFormatTest
   @Test
   public void testDelimitedTextFormat()
   {
-    InputFormatDefn converter = InputFormats.DELIMITED_FORMAT_DEFN;
+    InputFormatDefn converter = OldInputFormats.DELIMITED_FORMAT_DEFN;
     List<ColumnSpec> cols = Arrays.asList(
         new ColumnSpec("type", "x", Columns.VARCHAR, null),
         new ColumnSpec("type", "y", Columns.BIGINT, null)
@@ -146,7 +146,7 @@ public class InputFormatTest
   @Test
   public void testJsonFormat()
   {
-    InputFormatDefn converter = InputFormats.JSON_FORMAT_DEFN;
+    InputFormatDefn converter = OldInputFormats.JSON_FORMAT_DEFN;
     List<ColumnSpec> cols = Arrays.asList(
         new ColumnSpec("type", "x", Columns.VARCHAR, null),
         new ColumnSpec("type", "y", Columns.BIGINT, null)
@@ -181,7 +181,7 @@ public class InputFormatTest
   @Test
   public void testGenericFormat()
   {
-    InputFormatDefn converter = InputFormats.GENERIC_FORMAT_DEFN;
+    InputFormatDefn converter = OldInputFormats.GENERIC_FORMAT_DEFN;
     List<ColumnSpec> cols = Arrays.asList(
         new ColumnSpec("type", "x", Columns.VARCHAR, null),
         new ColumnSpec("type", "y", Columns.BIGINT, null)

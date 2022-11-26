@@ -43,9 +43,9 @@ public class InlineTableTest
 {
   private final ObjectMapper mapper = new ObjectMapper();
   private final InlineInputSourceDefn tableDefn = new InlineInputSourceDefn();
-  private final TableBuilder baseBuilder = TableBuilder.of(tableDefn)
+  private final TableBuilder baseBuilder = TableBuilder.of(null, tableDefn)
       .description("inline input")
-      .format(InputFormats.CSV_FORMAT_TYPE)
+      .format(OldInputFormats.CSV_FORMAT_TYPE)
       .column("x", Columns.VARCHAR)
       .column("y", Columns.BIGINT);
 

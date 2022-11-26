@@ -21,12 +21,17 @@ package org.apache.druid.catalog.model.table;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
+import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
+import org.apache.druid.data.input.InputFormat;
+import org.apache.druid.jackson.DefaultObjectMapper;
+import org.apache.druid.java.util.common.ISE;
 
 import java.util.List;
+import java.util.Map;
 
 public class BaseExternTableTest
 {
-  protected final ObjectMapper mapper = new ObjectMapper();
+  protected final ObjectMapper mapper = DefaultObjectMapper.INSTANCE;
 
   protected PropertyDefn<?> findProperty(List<PropertyDefn<?>> props, String name)
   {
@@ -36,5 +41,42 @@ public class BaseExternTableTest
       }
     }
     return null;
+  }
+
+  protected Map<String, Object> toMap(InputFormat format)
+  {
+    try {
+      return mapper.convertValue(format, ExternalTableDefn.MAP_TYPE_REF);
+    }
+    catch (Exception e) {
+      throw new ISE(e, "bad conversion");
+    }
+  }
+
+  protected String toJsonString(Map<String, Object> formatMap)
+  {
+    try {
+      return mapper.writeValueAsString(formatMap);
+    }
+    catch (Exception e) {
+      throw new ISE(e, "bad conversion");
+    }
+  }
+
+  protected String formatToJson(InputFormat format)
+  {
+    Map<String, Object> formatMap = toMap(format);
+    formatMap.remove("columns");
+    return toJsonString(formatMap);
+  }
+
+  protected boolean hasParam(TableFunction fn, String key)
+  {
+    for (ParameterDefn param : fn.parameters()) {
+      if (param.name().equals(key)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

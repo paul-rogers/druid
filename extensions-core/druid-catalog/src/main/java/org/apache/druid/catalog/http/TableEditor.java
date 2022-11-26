@@ -276,7 +276,7 @@ public class TableEditor
 
   private TableDefn resolveDefn(String tableType) throws CatalogException
   {
-    TableDefn defn = catalog.tableRegistry().defnFor(tableType);
+    TableDefn defn = catalog.tableRegistry().tableDefnFor(tableType);
     if (defn == null) {
       throw new CatalogException(
           CatalogException.BAD_STATE,

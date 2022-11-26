@@ -21,7 +21,7 @@ package org.apache.druid.catalog.model;
 
 import com.google.common.collect.Lists;
 import org.apache.druid.catalog.model.table.AbstractDatasourceDefn;
-import org.apache.druid.catalog.model.table.InputSourceDefn;
+import org.apache.druid.catalog.model.table.OldInputSourceDefn;
 import org.apache.druid.server.security.ResourceType;
 
 import java.util.Collections;
@@ -115,7 +115,7 @@ public class SchemaRegistryImpl implements SchemaRegistry
     register(new SchemaDefnImpl(
         TableId.EXTERNAL_SCHEMA,
         EXTERNAL_RESOURCE,
-        InputSourceDefn.tableTypes()
+        OldInputSourceDefn.tableTypes()
     ));
     register(new SchemaDefnImpl(
         TableId.VIEW_SCHEMA,

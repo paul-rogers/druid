@@ -22,6 +22,7 @@ package org.apache.druid.catalog.model;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.model.table.AbstractDatasourceDefn;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
@@ -83,7 +84,7 @@ public class CatalogUtils
     return Arrays.asList(value.split(",\\s*"));
   }
 
-  public static <T> T safeCast(Object value, Class<T> type, String propertyName)
+  public static <T> T safeCast(Object value, Class<T> type, String key)
   {
     if (value == null) {
       return null;
@@ -94,15 +95,25 @@ public class CatalogUtils
     catch (ClassCastException e) {
       throw new IAE("Value [%s] is not valid for property %s, expected type %s",
           value,
-          propertyName,
+          key,
           type.getSimpleName()
       );
     }
   }
 
-  public static <T> T safeGet(Map<String, Object> map, String propertyName, Class<T> type)
+  public static <T> T safeGet(Map<String, Object> map, String key, Class<T> type)
   {
-    return safeCast(map.get(propertyName), type, propertyName);
+    return safeCast(map.get(key), type, key);
+  }
+
+  public static String getString(Map<String, Object> map, String key)
+  {
+    return safeGet(map, key, String.class);
+  }
+
+  public static List<String> getStringList(Map<String, Object> map, String key)
+  {
+    return stringToList(getString(map, key));
   }
 
   public static String stringListToLines(List<String> lines)
@@ -144,5 +155,14 @@ public class CatalogUtils
         .filter(Objects::nonNull)
         .flatMap(Collection::stream)
         .collect(Collectors.toList());
+  }
+
+  public static Map<String, ColumnDefn> toColumnMap(final List<ColumnDefn> colTypes)
+  {
+    ImmutableMap.Builder<String, ColumnDefn> builder = ImmutableMap.builder();
+    for (ColumnDefn colType : colTypes) {
+      builder.put(colType.typeValue(), colType);
+    }
+    return builder.build();
   }
 }

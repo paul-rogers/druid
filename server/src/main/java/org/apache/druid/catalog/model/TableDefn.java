@@ -66,18 +66,12 @@ public class TableDefn extends ObjectDefn
             properties
         )
     );
-    this.columnDefns = columnDefns == null ? Collections.emptyMap() : toColumnMap(columnDefns);
+    this.columnDefns = columnDefns == null ? Collections.emptyMap() : CatalogUtils.toColumnMap(columnDefns);
   }
 
-  public static Map<String, ColumnDefn> toColumnMap(final List<ColumnDefn> colTypes)
+  public void bind(TableDefnRegistry registry)
   {
-    ImmutableMap.Builder<String, ColumnDefn> builder = ImmutableMap.builder();
-    for (ColumnDefn colType : colTypes) {
-      builder.put(colType.typeValue(), colType);
-    }
-    return builder.build();
   }
-
   /**
    * Validate a table spec using the table, field and column definitions defined
    * here. The column definitions validate the type of each property value using

@@ -24,7 +24,7 @@ import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ModelProperties.StringListPropertyDefn;
 import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.table.InputSourceDefn.FormattedInputSourceDefn;
+import org.apache.druid.catalog.model.table.OldInputSourceDefn.FormattedInputSourceDefn;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.java.util.common.IAE;
@@ -81,7 +81,7 @@ public class InlineInputSourceDefn extends FormattedInputSourceDefn
             new DataPropertyDefn(PropertyAttributes.SQL_FN_PARAM)
         ),
         Collections.singletonList(INPUT_COLUMN_DEFN),
-        InputFormats.ALL_FORMATS
+        OldInputFormats.ALL_FORMATS
     );
   }
 

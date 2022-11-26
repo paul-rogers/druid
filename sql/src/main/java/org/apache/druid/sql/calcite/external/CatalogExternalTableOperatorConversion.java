@@ -31,7 +31,7 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.validate.SqlUserDefinedTableMacro;
 import org.apache.druid.catalog.model.TableDefnRegistry;
-import org.apache.druid.catalog.model.table.InputSourceDefn;
+import org.apache.druid.catalog.model.table.OldInputSourceDefn;
 import org.apache.druid.catalog.model.table.ExternalTableSpec;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.segment.column.RowSignature;
@@ -74,7 +74,7 @@ public abstract class CatalogExternalTableOperatorConversion implements SqlOpera
       final ObjectMapper jsonMapper
   )
   {
-    InputSourceDefn tableDefn = (InputSourceDefn) registry.defnFor(tableType);
+    OldInputSourceDefn tableDefn = (OldInputSourceDefn) registry.tableDefnFor(tableType);
     this.operator = new CatalogExternalTableOperator(
         new CatalogTableMacro(
             name,
@@ -124,12 +124,12 @@ public abstract class CatalogExternalTableOperatorConversion implements SqlOpera
   {
     private final String name;
     private final List<FunctionParameter> parameters;
-    private final InputSourceDefn tableDefn;
+    private final OldInputSourceDefn tableDefn;
     private final ObjectMapper jsonMapper;
 
     public CatalogTableMacro(
         final String name,
-        final InputSourceDefn tableDefn,
+        final OldInputSourceDefn tableDefn,
         final ObjectMapper jsonMapper
     )
     {

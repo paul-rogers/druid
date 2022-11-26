@@ -32,9 +32,9 @@ import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.model.facade.DatasourceFacade;
 import org.apache.druid.catalog.model.table.DatasourceDefn;
 import org.apache.druid.catalog.model.table.DatasourceDefn.DatasourceColumnDefn;
-import org.apache.druid.catalog.model.table.InputSourceDefn;
+import org.apache.druid.catalog.model.table.OldInputSourceDefn;
 import org.apache.druid.catalog.model.table.InlineInputSourceDefn;
-import org.apache.druid.catalog.model.table.InputFormats;
+import org.apache.druid.catalog.model.table.OldInputFormats;
 import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.storage.CatalogStorage;
 import org.apache.druid.catalog.storage.CatalogTests;
@@ -94,7 +94,7 @@ public class CatalogSyncTest
     // Valid definition
     {
       TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "externTable")
-          .format(InputFormats.CSV_FORMAT_TYPE)
+          .format(OldInputFormats.CSV_FORMAT_TYPE)
           .data("a", "c")
           .column("a", Columns.VARCHAR)
           .build();
@@ -104,7 +104,7 @@ public class CatalogSyncTest
     // No columns
     {
       TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "externTable")
-          .format(InputFormats.CSV_FORMAT_TYPE)
+          .format(OldInputFormats.CSV_FORMAT_TYPE)
           .data("a", "c")
           .build();
       assertThrows(IAE.class, () -> storage.validate(table));
@@ -199,7 +199,7 @@ public class CatalogSyncTest
     storage.tables().create(table2);
 
     TableMetadata table3 = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "table3")
-        .format(InputFormats.CSV_FORMAT_TYPE)
+        .format(OldInputFormats.CSV_FORMAT_TYPE)
         .data("a", "c")
         .column("a", Columns.VARCHAR)
         .build();
@@ -268,7 +268,7 @@ public class CatalogSyncTest
       assertEquals(1, cols.size());
       assertEquals("a", cols.get(0).name());
       assertEquals(Columns.VARCHAR, cols.get(0).sqlType());
-      assertEquals(InputSourceDefn.EXTERNAL_COLUMN_TYPE, cols.get(0).type());
+      assertEquals(OldInputSourceDefn.EXTERNAL_COLUMN_TYPE, cols.get(0).type());
 
       assertNotNull(inputSpec.properties());
     }

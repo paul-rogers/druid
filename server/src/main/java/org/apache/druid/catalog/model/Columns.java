@@ -91,12 +91,14 @@ public class Columns
     return TIME_COLUMN.equals(name);
   }
 
-  public static RowSignature convertSignature(TableSpec spec)
+  public static RowSignature convertSignature(List<ColumnSpec> columns)
   {
-    List<ColumnSpec> columns = spec.columns();
     RowSignature.Builder builder = RowSignature.builder();
     for (ColumnSpec col : columns) {
-      ColumnType druidType = Columns.SQL_TO_DRUID_TYPES.get(StringUtils.toUpperCase(col.sqlType()));
+      ColumnType druidType = null;
+      if (col.sqlType() != null) {
+        druidType = Columns.SQL_TO_DRUID_TYPES.get(StringUtils.toUpperCase(col.sqlType()));
+      }
       if (druidType == null) {
         druidType = ColumnType.STRING;
       }

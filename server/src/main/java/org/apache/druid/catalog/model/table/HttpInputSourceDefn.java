@@ -26,7 +26,7 @@ import org.apache.druid.catalog.model.ModelProperties.StringPropertyDefn;
 import org.apache.druid.catalog.model.ParameterizedDefn;
 import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.table.InputSourceDefn.FormattedInputSourceDefn;
+import org.apache.druid.catalog.model.table.OldInputSourceDefn.FormattedInputSourceDefn;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.java.util.common.IAE;
@@ -86,7 +86,7 @@ public class HttpInputSourceDefn extends FormattedInputSourceDefn implements Par
             new StringPropertyDefn(URI_TEMPLATE_PROPERTY, null)
         ),
         Collections.singletonList(INPUT_COLUMN_DEFN),
-        InputFormats.ALL_FORMATS
+        OldInputFormats.ALL_FORMATS
     );
   }
 

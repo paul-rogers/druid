@@ -120,7 +120,7 @@ public interface ModelProperties
     }
   }
 
-  abstract class SimplePropertyDefn<T> extends BasePropertyDefn<T>
+  public static class SimplePropertyDefn<T> extends BasePropertyDefn<T>
   {
     public final Class<T> valueClass;
 
@@ -178,13 +178,13 @@ public interface ModelProperties
       decode(value, jsonMapper);
     }
 
-    protected T decodeJson(Object value, ObjectMapper jsonMapper)
+    public T decodeJson(String value, ObjectMapper jsonMapper)
     {
       if (value == null) {
         return null;
       }
       try {
-        return jsonMapper.readValue((String) value, valueClass);
+        return jsonMapper.readValue(value, valueClass);
       }
       catch (Exception e) {
         throw new IAE(

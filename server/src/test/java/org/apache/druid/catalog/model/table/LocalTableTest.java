@@ -27,7 +27,7 @@ import org.apache.druid.catalog.model.ParameterizedDefn;
 import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefnRegistry;
-import org.apache.druid.catalog.model.table.InputSourceDefn.FormattedInputSourceDefn;
+import org.apache.druid.catalog.model.table.OldInputSourceDefn.FormattedInputSourceDefn;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.java.util.common.IAE;
@@ -51,9 +51,9 @@ import static org.junit.Assert.assertTrue;
 public class LocalTableTest extends BaseExternTableTest
 {
   private final LocalInputSourceDefn tableDefn = new LocalInputSourceDefn();
-  private final TableBuilder baseBuilder = TableBuilder.of(tableDefn)
+  private final TableBuilder baseBuilder = TableBuilder.of(null, tableDefn)
       .description("local file input")
-      .format(InputFormats.CSV_FORMAT_TYPE)
+      .format(OldInputFormats.CSV_FORMAT_TYPE)
       .column("x", Columns.VARCHAR)
       .column("y", Columns.BIGINT);
 
@@ -220,10 +220,10 @@ public class LocalTableTest extends BaseExternTableTest
     assertEquals(String.class, PropertyAttributes.sqlParameterType(formatProp));
 
     // Pretend to accept values for the SQL parameters.
-    final ResolvedTable table = TableBuilder.of(tableDefn)
+    final ResolvedTable table = TableBuilder.of(null, tableDefn)
         .property(fileDirProp.name(), fileDirProp.decodeSqlValue("/tmp", mapper))
         .property(filesProp.name(), filesProp.decodeSqlValue("Oct.csv, Nov.csv", mapper))
-        .property(formatProp.name(), formatProp.decodeSqlValue(InputFormats.CSV_FORMAT_TYPE, mapper))
+        .property(formatProp.name(), formatProp.decodeSqlValue(OldInputFormats.CSV_FORMAT_TYPE, mapper))
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
         .buildResolved(mapper);

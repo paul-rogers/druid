@@ -25,7 +25,7 @@ import org.apache.druid.catalog.model.ModelProperties.StringPropertyDefn;
 import org.apache.druid.catalog.model.ParameterizedDefn;
 import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.table.InputSourceDefn.FormattedInputSourceDefn;
+import org.apache.druid.catalog.model.table.OldInputSourceDefn.FormattedInputSourceDefn;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.utils.CollectionUtils;
@@ -67,7 +67,7 @@ public class LocalInputSourceDefn extends FormattedInputSourceDefn implements Pa
             new StringListPropertyDefn(FILES_PROPERTY, PropertyAttributes.SQL_AND_TABLE_PARAM)
         ),
         Collections.singletonList(INPUT_COLUMN_DEFN),
-        InputFormats.ALL_FORMATS
+        OldInputFormats.ALL_FORMATS
     );
   }
 

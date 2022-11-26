@@ -33,7 +33,7 @@ import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.model.table.AbstractDatasourceDefn;
 import org.apache.druid.catalog.model.table.DatasourceDefn;
 import org.apache.druid.catalog.model.table.InlineInputSourceDefn;
-import org.apache.druid.catalog.model.table.InputFormats;
+import org.apache.druid.catalog.model.table.OldInputFormats;
 import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.storage.CatalogTests;
 import org.apache.druid.metadata.TestDerbyConnector;
@@ -143,7 +143,7 @@ public class CatalogResourceTest
 
     // Inline input source
     TableSpec inputSpec = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "inline")
-        .format(InputFormats.CSV_FORMAT_TYPE)
+        .format(OldInputFormats.CSV_FORMAT_TYPE)
         .data("a,b,1", "c,d,2")
         .column("a", Columns.VARCHAR)
         .column("b", Columns.VARCHAR)

@@ -38,7 +38,7 @@ import org.apache.druid.catalog.model.ModelProperties;
 import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
 import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.table.InputSourceDefn;
+import org.apache.druid.catalog.model.table.OldInputSourceDefn;
 import org.apache.druid.catalog.model.table.ExternalTableSpec;
 import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.java.util.common.IAE;
@@ -67,7 +67,7 @@ public class Externals
    * Convert parameters from Catalog external table definition form to the SQL form
    * used for a table macro and its function.
    */
-  public static List<FunctionParameter> convertParameters(final InputSourceDefn tableDefn)
+  public static List<FunctionParameter> convertParameters(final OldInputSourceDefn tableDefn)
   {
     return convertToCalciteParameters(tableDefn.tableFunctionParameters());
   }
@@ -91,7 +91,7 @@ public class Externals
    * Convert parameters from Catalog external table definition form to the SQL form
    * used for a table macro and its function.
    */
-  public static List<FunctionParameter> convertTableParameters(final InputSourceDefn tableDefn)
+  public static List<FunctionParameter> convertTableParameters(final OldInputSourceDefn tableDefn)
   {
     return convertToCalciteParameters(tableDefn.parameters());
   }
@@ -174,14 +174,14 @@ public class Externals
    * @return a spec with the three values that MSQ needs to create an external table
    */
   public static ExternalTableSpec convertArguments(
-      final InputSourceDefn tableDefn,
+      final OldInputSourceDefn tableDefn,
       final List<FunctionParameter> parameters,
       final List<Object> arguments,
       final SqlNodeList schema,
       final ObjectMapper jsonMapper
   )
   {
-    final TableBuilder builder = TableBuilder.of(tableDefn);
+    final TableBuilder builder = TableBuilder.of(null, tableDefn);
     for (int i = 0; i < parameters.size(); i++) {
       String name = parameters.get(i).getName();
       Object value = arguments.get(i);
