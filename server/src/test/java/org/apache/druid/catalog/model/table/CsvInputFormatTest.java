@@ -38,7 +38,7 @@ public class CsvInputFormatTest extends BaseExternTableTest
     resolved.validate();
 
     InputFormatDefn defn = registry.inputFormatDefnFor(CsvInputFormat.TYPE_KEY);
-    InputFormat inputFormat = defn.fromTable(new ResolvedExternalTable(resolved));
+    InputFormat inputFormat = defn.convertFromTable(new ResolvedExternalTable(resolved));
     CsvInputFormat csvFormat = (CsvInputFormat) inputFormat;
     assertEquals(0, csvFormat.getSkipHeaderRows());
     assertFalse(csvFormat.isFindColumnsFromHeader());
@@ -63,7 +63,7 @@ public class CsvInputFormatTest extends BaseExternTableTest
     resolved.validate();
 
     InputFormatDefn defn = registry.inputFormatDefnFor(CsvInputFormat.TYPE_KEY);
-    InputFormat inputFormat = defn.fromTable(new ResolvedExternalTable(resolved));
+    InputFormat inputFormat = defn.convertFromTable(new ResolvedExternalTable(resolved));
     CsvInputFormat csvFormat = (CsvInputFormat) inputFormat;
     assertEquals(1, csvFormat.getSkipHeaderRows());
     assertFalse(csvFormat.isFindColumnsFromHeader());
@@ -87,7 +87,7 @@ public class CsvInputFormatTest extends BaseExternTableTest
     args.put(CsvFormatDefn.SKIP_ROWS_PARAM, 1);
     InputFormatDefn defn = registry.inputFormatDefnFor(CsvInputFormat.TYPE_KEY);
     List<ColumnSpec> columns = Collections.singletonList(new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "a", null, null));
-    InputFormat inputFormat = defn.fromFnArgs(args, columns, mapper);
+    InputFormat inputFormat = defn.convertFromArgs(args, columns, mapper);
     CsvInputFormat csvFormat = (CsvInputFormat) inputFormat;
     assertEquals(1, csvFormat.getSkipHeaderRows());
     assertFalse(csvFormat.isFindColumnsFromHeader());

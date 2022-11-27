@@ -78,7 +78,7 @@ public interface InputFormatDefn
    * @return an input format as defined by the arguments
    * @throws IAE if the arguments are not valid
    */
-  InputFormat fromFnArgs(
+  InputFormat convertFromArgs(
       Map<String, Object> args,
       List<ColumnSpec> columns,
       ObjectMapper jsonMapper
@@ -94,5 +94,5 @@ public interface InputFormatDefn
    * @return an input format as defined by the table spec
    * @throws IAE if the spec is not valid
    */
-  InputFormat fromTable(ResolvedExternalTable table);
+  InputFormat convertFromTable(ResolvedExternalTable table);
 }

@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
 import org.apache.druid.data.input.InputFormat;
+import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.ISE;
 
@@ -31,6 +32,8 @@ import java.util.Map;
 
 public class BaseExternTableTest
 {
+  protected static final String CSV_FORMAT = "{\"type\": \"" + CsvInputFormat.TYPE_KEY + "\"}";
+
   protected final ObjectMapper mapper = DefaultObjectMapper.INSTANCE;
 
   protected PropertyDefn<?> findProperty(List<PropertyDefn<?>> props, String name)
@@ -43,10 +46,10 @@ public class BaseExternTableTest
     return null;
   }
 
-  protected Map<String, Object> toMap(InputFormat format)
+  protected Map<String, Object> toMap(Object obj)
   {
     try {
-      return mapper.convertValue(format, ExternalTableDefn.MAP_TYPE_REF);
+      return mapper.convertValue(obj, ExternalTableDefn.MAP_TYPE_REF);
     }
     catch (Exception e) {
       throw new ISE(e, "bad conversion");

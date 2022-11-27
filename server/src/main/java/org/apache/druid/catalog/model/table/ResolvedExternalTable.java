@@ -146,7 +146,7 @@ public class ResolvedExternalTable
    */
   public TableFunction tableFn()
   {
-    return inputSourceDefn.tableFn(this);
+    return inputSourceDefn.partialTableFn(this);
   }
 
   /**

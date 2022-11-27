@@ -68,7 +68,8 @@ public class TableDefnRegistry
       new ExternalTableDefn()
   };
   private static final InputSourceDefn[] INPUT_SOURCE_DEFNS = {
-      new InputSources.InlineInputSourceDefn()
+      new InputSources.InlineInputSourceDefn(),
+      new InputSources.HttpInputSourceDefn()
   };
   private static final InputFormatDefn[] INPUT_FORMAT_DEFNS = {
       new InputFormats.CsvFormatDefn()

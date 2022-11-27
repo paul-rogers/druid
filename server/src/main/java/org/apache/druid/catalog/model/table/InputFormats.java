@@ -202,7 +202,7 @@ public class InputFormats
     }
 
     @Override
-    public InputFormat fromFnArgs(
+    public InputFormat convertFromArgs(
         Map<String, Object> args,
         List<ColumnSpec> columns,
         ObjectMapper jsonMapper
@@ -214,7 +214,7 @@ public class InputFormats
     }
 
     @Override
-    public InputFormat fromTable(ResolvedExternalTable table)
+    public InputFormat convertFromTable(ResolvedExternalTable table)
     {
       return convert(toMap(table), table.resolvedTable().jsonMapper());
     }

@@ -1,3 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.druid.catalog.model.table;
 
 import org.apache.druid.catalog.model.ColumnSpec;
@@ -5,16 +24,16 @@ import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.TableMetadata;
-import org.apache.druid.data.input.impl.CsvInputFormat;
-import org.apache.druid.data.input.impl.InlineInputSource;
-import org.apache.druid.catalog.model.table.InputSources.InlineInputSourceDefn;
-import org.apache.druid.catalog.model.table.InputSources.FormattedInputSourceDefn;
-import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
 import org.apache.druid.catalog.model.table.InputFormats.CsvFormatDefn;
 import org.apache.druid.catalog.model.table.InputFormats.FlatTextFormatDefn;
+import org.apache.druid.catalog.model.table.InputSources.FormattedInputSourceDefn;
+import org.apache.druid.catalog.model.table.InputSources.InlineInputSourceDefn;
+import org.apache.druid.data.input.impl.CsvInputFormat;
+import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.java.util.common.IAE;
 import org.junit.Test;
 
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -36,6 +55,8 @@ public class InlineInputSourceTest extends BaseExternTableTest
     // No data property: not valid
     TableMetadata table = TableBuilder.external("foo")
         .inputSource("{\"type\": \"" + InlineInputSource.TYPE_KEY + "\"}")
+        .inputFormat(CSV_FORMAT)
+        .column("x", Columns.VARCHAR)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     assertThrows(IAE.class, () -> resolved.validate());
@@ -47,6 +68,18 @@ public class InlineInputSourceTest extends BaseExternTableTest
     // No format: not valid. For inline, format must be provided to match data
     TableMetadata table = TableBuilder.external("foo")
         .inputSource(mapper, new InlineInputSource("a\n"))
+        .column("x", Columns.VARCHAR)
+        .build();
+    ResolvedTable resolved = registry.resolve(table.spec());
+    assertThrows(IAE.class, () -> resolved.validate());
+  }
+
+  @Test
+  public void testValidateNoColumns() throws URISyntaxException
+  {
+    TableMetadata table = TableBuilder.external("foo")
+        .inputSource(mapper, new InlineInputSource("a\n"))
+        .inputFormat(CSV_FORMAT)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     assertThrows(IAE.class, () -> resolved.validate());
@@ -55,11 +88,10 @@ public class InlineInputSourceTest extends BaseExternTableTest
   @Test
   public void testValidateGood()
   {
-    CsvInputFormat format = new CsvInputFormat(
-        Collections.singletonList("a"), ";", false, false, 0);
     TableMetadata table = TableBuilder.external("foo")
         .inputSource(mapper, new InlineInputSource("a\n"))
-        .inputFormat(formatToJson(format))
+        .inputFormat(CSV_FORMAT)
+        .column("x", Columns.VARCHAR)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     resolved.validate();
@@ -69,10 +101,10 @@ public class InlineInputSourceTest extends BaseExternTableTest
   public void testFullTableFnBasics()
   {
     InputSourceDefn defn = registry.inputSourceDefnFor(InlineInputSourceDefn.TYPE_KEY);
-    TableFunction fn = defn.externFn();
+    TableFunction fn = defn.adHocTableFn();
     assertNotNull(fn);
     assertTrue(hasParam(fn, InlineInputSourceDefn.DATA_PROPERTY));
-    assertTrue(hasParam(fn, FormattedInputSourceDefn.FORMAT_PROPERTY));
+    assertTrue(hasParam(fn, FormattedInputSourceDefn.FORMAT_PARAMETER));
     assertTrue(hasParam(fn, FlatTextFormatDefn.LIST_DELIMITER_PARAM));
   }
 
@@ -80,7 +112,7 @@ public class InlineInputSourceTest extends BaseExternTableTest
   public void testMissingArgs()
   {
     InputSourceDefn defn = registry.inputSourceDefnFor(InlineInputSourceDefn.TYPE_KEY);
-    TableFunction fn = defn.externFn();
+    TableFunction fn = defn.adHocTableFn();
     assertThrows(IAE.class, () -> fn.apply(new HashMap<>(), Collections.emptyList(), mapper));
   }
 
@@ -88,45 +120,47 @@ public class InlineInputSourceTest extends BaseExternTableTest
   public void testMissingFormat()
   {
     InputSourceDefn defn = registry.inputSourceDefnFor(InlineInputSourceDefn.TYPE_KEY);
-    TableFunction fn = defn.externFn();
+    TableFunction fn = defn.adHocTableFn();
     Map<String, Object> args = new HashMap<>();
     args.put(InlineInputSourceDefn.DATA_PROPERTY, "a");
     assertThrows(IAE.class, () -> fn.apply(new HashMap<>(), Collections.emptyList(), mapper));
   }
 
   @Test
-  public void testValidFullFn()
+  public void testValidAdHocFn()
   {
     // Simulate the information obtained from an SQL table function
-    InputSourceDefn defn = registry.inputSourceDefnFor(InlineInputSourceDefn.TYPE_KEY);
-    Map<String, Object> args = new HashMap<>();
+    final InputSourceDefn defn = registry.inputSourceDefnFor(InlineInputSourceDefn.TYPE_KEY);
+    final Map<String, Object> args = new HashMap<>();
     args.put(InlineInputSourceDefn.DATA_PROPERTY, "a,b\nc,d");
-    args.put(FormattedInputSourceDefn.FORMAT_PROPERTY, CsvFormatDefn.TYPE_KEY);
-    List<ColumnSpec> columns = Arrays.asList(
+    args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
+    final List<ColumnSpec> columns = Arrays.asList(
         new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "a", Columns.VARCHAR, null),
         new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "b", Columns.VARCHAR, null)
     );
 
-    ExternalTableSpec extern = defn.externFn().apply(args, columns, mapper);
+    final TableFunction fn = defn.adHocTableFn();
+    ExternalTableSpec extern = fn.apply(args, columns, mapper);
 
     assertTrue(extern.inputSource instanceof InlineInputSource);
     InlineInputSource inputSource = (InlineInputSource) extern.inputSource;
-    assertEquals("a,b\nc,d\n", inputSource.getData());
+    assertEquals("a,b\nc,d", inputSource.getData());
     assertTrue(extern.inputFormat instanceof CsvInputFormat);
     CsvInputFormat format = (CsvInputFormat) extern.inputFormat;
     assertEquals(Arrays.asList("a", "b"), format.getColumns());
     assertEquals(2, extern.signature.size());
+
+    // Fails if no columns are provided.
+    assertThrows(IAE.class, () -> fn.apply(new HashMap<>(), Collections.emptyList(), mapper));
   }
 
   @Test
   public void testPartialTable()
   {
     // Define an inline table
-    CsvInputFormat format = new CsvInputFormat(
-        Collections.singletonList("a"), ";", false, false, 0);
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a,b\nc,d"))
-        .inputFormat(formatToJson(format))
+        .inputSource(mapper, new InlineInputSource("a,b\nc,d\n"))
+        .inputFormat(CSV_FORMAT)
         .column("a", Columns.VARCHAR)
         .column("b", Columns.VARCHAR)
         .build();
@@ -144,11 +178,18 @@ public class InlineInputSourceTest extends BaseExternTableTest
 
     assertTrue(extern.inputSource instanceof InlineInputSource);
     InlineInputSource inputSource = (InlineInputSource) extern.inputSource;
-    assertEquals("a,b\nc,d\n", inputSource.getData());
+    assertEquals("a,b\nc,d", inputSource.getData());
     assertTrue(extern.inputFormat instanceof CsvInputFormat);
     CsvInputFormat actualFormat = (CsvInputFormat) extern.inputFormat;
     assertEquals(Arrays.asList("a", "b"), actualFormat.getColumns());
     assertEquals(2, extern.signature.size());
+
+    // Cannot supply columns with the function
+    List<ColumnSpec> columns = Arrays.asList(
+        new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "a", Columns.VARCHAR, null),
+        new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "b", Columns.VARCHAR, null)
+    );
+    assertThrows(IAE.class, () -> fn.apply(new HashMap<>(), columns, mapper));
   }
 
   @Test
@@ -172,7 +213,7 @@ public class InlineInputSourceTest extends BaseExternTableTest
     // Verify the conversion
     assertTrue(extern.inputSource instanceof InlineInputSource);
     InlineInputSource inputSource = (InlineInputSource) extern.inputSource;
-    assertEquals("a,b\nc,d\n", inputSource.getData());
+    assertEquals("a,b\nc,d", inputSource.getData());
     assertTrue(extern.inputFormat instanceof CsvInputFormat);
     CsvInputFormat actualFormat = (CsvInputFormat) extern.inputFormat;
     assertEquals(Arrays.asList("a", "b"), actualFormat.getColumns());

@@ -64,6 +64,41 @@ import java.util.Map;
  * use that term. When used as a connection, the external table spec will omit the
  * format. Instead, the format will also be provided at ingest time, along with the
  * list of tables (or objects.)
+ * <p>
+ * To keep all this straight, we adopt the following terms:
+ * <dl>
+ * <dt>External table spec</dt>
+ * <dd>The JSON serialized version of an external table which can be partial or
+ * complete. The spec is a named entry in the Druid catalog</dd>
+ * <dt>Complete spec</dt>
+ * <dd>An external table spec that provides all information needed to access an
+ * external table. Each use identifies the same set of data. Useful if MSQ is used
+ * to query an external data source. A complete spec can be referenced as a
+ * first-class table in a {@code FROM} clause in an MSQ query.</dd>
+ * <dt>Partial spec</dt>
+ * <dd>An external table spec that omits some information. That information must
+ * be provided at query time in the form of a {@code TABLE} function. If the partial
+ * spec includes a format, then it is essentially a <i>partial table</i>. If it
+ * omits the format, then it is essentially a <i>connection</i>.</dd>
+ * <dt>Completed table</dt>
+ * <dd>The full external table that results from a partial spec and a set of SQL
+ * table function parameters.</dd>
+ * <dt>Ad-hoc table</dt>
+ * <dd>Users can define an external table using the generic {@code EXTERN} function
+ * or one of the input-source-specific functions. In this case, there is no
+ * catalog entry: all information comes from the SQL table function</dd>
+ * <dt>Partial table function</dt>
+ * <dd>The SQL table function used to "complete" a partial spec. The function
+ * defines parameters to fill in the missing information. The function is generated
+ * on demand and has the same name as the catalog entry for the partial spec.
+ * The function will include parameters for format if the catalog spec does not
+ * specify a format. Else, the format parameters are omitted and the completed
+ * table uses the format provided in the catalog spec.</dd>
+ * <dt>Ad-hoc table function</dt>
+ * <dd>The SQL table function used to create an ad-hoc external table. The function
+ * as a name defined by the {@link InputFormatDefn}, and has parameters for all
+ * support formats: the user must specify all input source and format properties.</dd>
+ * </dl>
  *
  * <h4>External Table Structure</h4>
  *
@@ -101,7 +136,7 @@ import java.util.Map;
  * <li>From a fully-defined table specification, converted to a {@code ExternalTableSpec}
  * by the {@link #convert(ResolvedTable)} function.</li>
  * <li>From a fully-defined set of arguments to a SQL table function. The
- * {@link InputSourceDefn#externFn()} method provides the function definition which
+ * {@link InputSourceDefn#adHocTableFn()} method provides the function definition which
  * handles the conversion.</li>
  * <li>From a partially-defined table specification in the catalog, augmented by
  * parameters passed from a SQL function. The {@link #tableFn(ResolvedTable)} method
