@@ -34,6 +34,9 @@ import org.joda.time.Period;
 
 import javax.annotation.Nullable;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -164,5 +167,54 @@ public class CatalogUtils
       builder.put(colType.typeValue(), colType);
     }
     return builder.build();
+  }
+
+  /**
+   * Get a string parameter that can either be null or non-blank.
+   */
+  public static String getNonBlankString(Map<String, Object> args, String parameter)
+  {
+    String value = CatalogUtils.getString(args, parameter);
+    if (value != null) {
+      value = value.trim();
+      if (value.isEmpty()) {
+        throw new IAE("%s parameter cannot be a blank string", parameter);
+      }
+    }
+    return value;
+  }
+
+  public static List<String> getUriListArg(Map<String, Object> args, String parameter)
+  {
+    String urisString = CatalogUtils.getString(args, parameter);
+    if (Strings.isNullOrEmpty(urisString)) {
+      throw new IAE("One or more values are required for parameter %s", parameter);
+    }
+    return stringToList(urisString);
+  }
+
+  public static List<URI> stringToUriList(String uris)
+  {
+    return stringListToUriList(stringToList(uris));
+  }
+
+  /**
+   * Convert a list of strings to a list of {@link URI} objects.
+   */
+  public static List<URI> stringListToUriList(List<String> list)
+  {
+    if (list == null) {
+      return null;
+    }
+    List<URI> uris = new ArrayList<>();
+    for (String strValue : list) {
+      try {
+        uris.add(new URI(strValue));
+      }
+      catch (URISyntaxException e) {
+        throw new IAE(StringUtils.format("Argument [%s] is not a valid URI", strValue));
+      }
+    }
+    return uris;
   }
 }

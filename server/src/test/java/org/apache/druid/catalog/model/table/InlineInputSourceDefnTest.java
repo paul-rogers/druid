@@ -45,7 +45,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-public class InlineInputSourceTest extends BaseExternTableTest
+public class InlineInputSourceDefnTest extends BaseExternTableTest
 {
   private final TableDefnRegistry registry = new TableDefnRegistry(mapper);
 

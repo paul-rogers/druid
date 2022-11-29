@@ -34,13 +34,11 @@ import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.metadata.DefaultPasswordProvider;
 import org.apache.druid.metadata.EnvironmentVariablePasswordProvider;
 import org.apache.druid.utils.CollectionUtils;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -257,6 +255,27 @@ public class InputSources
      * Convert the format spec, if any, to an input format.
      */
     protected abstract InputFormat convertTableToFormat(ResolvedExternalTable table);
+
+    /**
+     *  Choose table or SQL-provided columns: table takes precedence.
+     */
+    protected List<ColumnSpec> selectPartialTableColumns(
+        final ResolvedExternalTable table,
+        final List<ColumnSpec> columns
+    )
+    {
+      final List<ColumnSpec> tableCols = table.resolvedTable().spec().columns();
+      if (CollectionUtils.isNullOrEmpty(tableCols)) {
+        return columns;
+      } else if (!columns.isEmpty()) {
+          throw new IAE(
+              "Catalog definition for the %s input source already contains column definitions",
+              typeValue()
+          );
+      } else {
+        return tableCols;
+      }
+    }
   }
 
   /**
@@ -359,6 +378,47 @@ public class InputSources
         );
       }
       return formatDefn.convertFromArgs(args, columns, jsonMapper);
+    }
+
+    /**
+     * Converted a formatted external table given the table definition, function
+     * args, columns and the merged generic JSON map representing the input source.
+     *
+     * @param table     the resolved external table from the catalog
+     * @param args      values of arguments from an SQL table function. Here we consider
+     *                  only the format arguments; input source arguments should already
+     *                  have been handled
+     * @param columns   the set of columns provided by the SQL table function
+     * @param sourceMap the generic JSON map for the input source with function
+     *                  parameters merged into the definition in the catalog
+     *
+     * @return          an external table spec to be used to create a Calcite table
+     */
+    protected ExternalTableSpec convertPartialFormattedTable(
+        final ResolvedExternalTable table,
+        final Map<String, Object> args,
+        final List<ColumnSpec> columns,
+        final Map<String, Object> sourceMap
+    )
+    {
+      final ObjectMapper jsonMapper = table.resolvedTable().jsonMapper();
+
+      // Choose table or SQL-provided columns: table takes precedence.
+      final List<ColumnSpec> completedCols = selectPartialTableColumns(table, columns);
+
+      // Get the format from the table, if defined, else from arguments.
+      final InputFormat inputFormat;
+      if (table.formatMap() == null) {
+        inputFormat = convertArgsToFormat(args, completedCols, jsonMapper);
+      } else {
+        inputFormat = convertTableToFormat(table);
+      }
+
+      return new ExternalTableSpec(
+          convertSource(sourceMap, jsonMapper),
+          inputFormat,
+          Columns.convertSignature(completedCols)
+      );
     }
   }
 
@@ -511,7 +571,7 @@ public class InputSources
     public static final String PASSWORD_ENV_VAR_PARAMETER = "passwordEnvVar";
 
     private static final List<ParameterDefn> URI_PARAMS = Arrays.asList(
-        new Parameter(URIS_PARAMETER, String.class, false)
+        new Parameter(URIS_PARAMETER, String.class, true)
     );
 
     private static final List<ParameterDefn> USER_PWD_PARAMS = Arrays.asList(
@@ -561,12 +621,12 @@ public class InputSources
       }
       if (hasUri && !hasFormat) {
         throw new IAE(
-            "An external HTTP tables with a URI must also provide the corresponding format"
+            "An external HTTP table with a URI must also provide the corresponding format"
         );
       }
       if (hasUri && !hasColumns) {
         throw new IAE(
-            "An external HTTP tables with a URI must also provide the corresponding columns"
+            "An external HTTP table with a URI must also provide the corresponding columns"
         );
       }
       if (hasTemplate) {
@@ -613,7 +673,7 @@ public class InputSources
     protected void convertArgsToSourceMap(Map<String, Object> jsonMap, Map<String, Object> args)
     {
       jsonMap.put(InputSource.TYPE_PROPERTY, HttpInputSource.TYPE_KEY);
-      convertUriArgs(jsonMap, args);
+      convertUriArg(jsonMap, args);
       convertUserPasswordArgs(jsonMap, args);
     }
 
@@ -648,29 +708,13 @@ public class InputSources
         final List<ColumnSpec> columns
     )
     {
-      final ObjectMapper jsonMapper = table.resolvedTable().jsonMapper();
-
-      // Choose table or SQL-provided columns: table takes precedence.
-      final List<ColumnSpec> completedCols;
-      final List<ColumnSpec> tableCols = table.resolvedTable().spec().columns();
-      if (CollectionUtils.isNullOrEmpty(tableCols)) {
-        completedCols = columns;
-      } else if (!columns.isEmpty()) {
-          throw new IAE(
-              "Catalog definition for the %s input source already contains column definitions",
-              typeValue()
-          );
-      } else {
-        completedCols = tableCols;
-      }
-
       // Get URIs from table if defined, else from arguments.
       final Map<String, Object> sourceMap = new HashMap<>(table.sourceMap());
       final String uriTemplate = table.resolvedTable().stringProperty(URI_TEMPLATE_PROPERTY);
       if (uriTemplate != null) {
         convertUriTemplateArgs(sourceMap, uriTemplate, args);
       } else if (!sourceMap.containsKey(URIS_FIELD)) {
-        convertUriArgs(sourceMap, args);
+        convertUriArg(sourceMap, args);
       }
 
       // Get user and password from the table if defined, else from arguments.
@@ -678,20 +722,7 @@ public class InputSources
       {
         convertUserPasswordArgs(sourceMap, args);
       }
-
-      // Get the format from the table, if defined, else from arguments.
-      final InputFormat inputFormat;
-      if (table.formatMap() == null) {
-        inputFormat = convertArgsToFormat(args, completedCols, jsonMapper);
-      } else {
-        inputFormat = convertTableToFormat(table);
-      }
-
-      return new ExternalTableSpec(
-          convertSource(sourceMap, jsonMapper),
-          inputFormat,
-          Columns.convertSignature(completedCols)
-      );
+      return convertPartialFormattedTable(table, args, columns, sourceMap);
     }
 
     private void convertUriTemplateArgs(Map<String, Object> jsonMap, String uriTemplate, Map<String, Object> args)
@@ -700,25 +731,21 @@ public class InputSources
       final List<String> uris = getUriListArg(args).stream()
           .map(uri -> m.replaceFirst(uri))
           .collect(Collectors.toList());
-      jsonMap.put(URIS_FIELD, convertUriList(uris));
+      jsonMap.put(URIS_FIELD, CatalogUtils.stringListToUriList(uris));
     }
 
     /**
      * URIs in SQL is in the form of a string that contains a comma-delimited
      * set of URIs. Done since SQL doesn't support array scalars.
      */
-    private void convertUriArgs(Map<String, Object> jsonMap, Map<String, Object> args)
+    private void convertUriArg(Map<String, Object> jsonMap, Map<String, Object> args)
     {
-      jsonMap.put(URIS_FIELD, convertUriList(getUriListArg(args)));
+      jsonMap.put(URIS_FIELD, CatalogUtils.stringListToUriList(getUriListArg(args)));
     }
 
     private List<String> getUriListArg(Map<String, Object> args)
     {
-      String urisString = CatalogUtils.getString(args, URIS_PARAMETER);
-      if (Strings.isNullOrEmpty(urisString)) {
-        throw new IAE("One or more values are required for parameter %s", URIS_PARAMETER);
-      }
-      return CatalogUtils.stringToList(urisString);
+      return CatalogUtils.getUriListArg(args, URIS_PARAMETER);
     }
 
     /**
@@ -753,23 +780,6 @@ public class InputSources
             ImmutableMap.of("type", EnvironmentVariablePasswordProvider.TYPE_KEY, "variable", passwordEnvVar)
         );
       }
-    }
-
-    /**
-     * Convert a list of strings to a list of {@link URI} objects.
-     */
-    public static List<URI> convertUriList(List<String> list)
-    {
-      List<URI> uris = new ArrayList<>();
-      for (String strValue : list) {
-        try {
-          uris.add(new URI(strValue));
-        }
-        catch (URISyntaxException e) {
-          throw new IAE(StringUtils.format("Argument [%s] is not a valid URI", strValue));
-        }
-      }
-      return uris;
     }
   }
 }

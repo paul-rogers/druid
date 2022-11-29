@@ -290,8 +290,9 @@ public class ExternalTableDefn extends TableDefn
   public void validate(ResolvedTable table)
   {
     for (PropertyDefn<?> propDefn : properties().values()) {
-      if (propDefn != SOURCE_PROPERTY_DEFN && propDefn != FORMAT_PROPERTY_DEFN)
+      if (propDefn != SOURCE_PROPERTY_DEFN && propDefn != FORMAT_PROPERTY_DEFN) {
         propDefn.validate(table.property(propDefn.name()), table.jsonMapper());
+      }
     }
     validateColumns(table.spec().columns(), table.jsonMapper());
     new ResolvedExternalTable(table).validate(registry);

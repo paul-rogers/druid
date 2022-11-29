@@ -21,6 +21,7 @@ package org.apache.druid.catalog.model.table;
 
 import com.fasterxml.jackson.databind.InjectableValues;
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
@@ -54,7 +55,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-public class HttpInputSourceTest extends BaseExternTableTest
+public class HttpInputSourceDefnTest extends BaseExternTableTest
 {
   private static final List<ColumnSpec> COLUMNS = Arrays.asList(
       new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "x", Columns.VARCHAR, null),
@@ -226,7 +227,7 @@ public class HttpInputSourceTest extends BaseExternTableTest
     );
     TableMetadata table = TableBuilder.external("foo")
         .inputSource(mapper, inputSource)
-        .inputFormat("{\"type\": \"" + CsvInputFormat.TYPE_KEY + "\"}")
+        .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
         .build();
@@ -357,7 +358,7 @@ public class HttpInputSourceTest extends BaseExternTableTest
 
     HttpInputSource sourceSpec = (HttpInputSource) externSpec.inputSource;
     assertEquals(
-        HttpInputSourceDefn.convertUriList(Arrays.asList("http://foo.com/foo.csv", "http://foo.com/bar.csv")),
+        CatalogUtils.stringListToUriList(Arrays.asList("http://foo.com/foo.csv", "http://foo.com/bar.csv")),
         sourceSpec.getUris()
     );
   }
@@ -399,7 +400,7 @@ public class HttpInputSourceTest extends BaseExternTableTest
 
     HttpInputSource sourceSpec = (HttpInputSource) externSpec.inputSource;
     assertEquals(
-        HttpInputSourceDefn.convertUriList(Arrays.asList("http://foo.com/my.csv", "http://foo.com/bar.csv")),
+        CatalogUtils.stringListToUriList(Arrays.asList("http://foo.com/my.csv", "http://foo.com/bar.csv")),
         sourceSpec.getUris()
     );
   }
@@ -422,7 +423,7 @@ public class HttpInputSourceTest extends BaseExternTableTest
 
     HttpInputSource sourceSpec = (HttpInputSource) externSpec.inputSource;
     assertEquals(
-        HttpInputSourceDefn.convertUriList(Arrays.asList("http://foo.com/foo.csv", "http://foo.com/bar.csv")),
+        CatalogUtils.stringListToUriList(Arrays.asList("http://foo.com/foo.csv", "http://foo.com/bar.csv")),
         sourceSpec.getUris()
     );
   }

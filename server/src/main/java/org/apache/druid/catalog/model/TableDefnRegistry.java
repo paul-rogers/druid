@@ -34,8 +34,12 @@ import org.apache.druid.catalog.model.table.LocalInputSourceDefn;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -60,20 +64,20 @@ public class TableDefnRegistry
 {
   // Temporary list of Druid-define table definitions. This should come from
   // Guice later to allow extensions to define table types.
-  private static final TableDefn[] TABLE_DEFNS = {
+  private static final List<TableDefn> BUILTIN_TABLE_DEFNS = Arrays.asList(
       new DatasourceDefn(),
       new InlineInputSourceDefn(),
       new HttpInputSourceDefn(),
       new LocalInputSourceDefn(),
       new ExternalTableDefn()
-  };
-  private static final InputSourceDefn[] INPUT_SOURCE_DEFNS = {
+  );
+  private static final List<InputSourceDefn> BUILTIN_INPUT_SOURCE_DEFNS = Arrays.asList(
       new InputSources.InlineInputSourceDefn(),
       new InputSources.HttpInputSourceDefn()
-  };
-  private static final InputFormatDefn[] INPUT_FORMAT_DEFNS = {
+  );
+  private static final List<InputFormatDefn> BUILTIN_INPUT_FORMAT_DEFNS = Collections.singletonList(
       new InputFormats.CsvFormatDefn()
-  };
+  );
 
   private final Map<String, TableDefn> tableDefns;
   private final Map<String, InputSourceDefn> inputSourceDefns;
@@ -81,13 +85,16 @@ public class TableDefnRegistry
   private final ObjectMapper jsonMapper;
 
   public TableDefnRegistry(
-      final TableDefn[] tableDefns,
-      final InputSourceDefn[] inputSourceDefns,
-      final InputFormatDefn[] inputFormatDefns,
+      @Nullable final List<TableDefn> tableDefnExtns,
+      @Nullable final List<InputSourceDefn> inputSourceDefnExtns,
+      @Nullable final List<InputFormatDefn> inputFormatDefnExtns,
       final ObjectMapper jsonMapper
   )
   {
     this.jsonMapper = jsonMapper;
+    final List<TableDefn> tableDefns = CatalogUtils.concatLists(tableDefnExtns, BUILTIN_TABLE_DEFNS);
+    final List<InputSourceDefn> inputSourceDefns = CatalogUtils.concatLists(inputSourceDefnExtns, BUILTIN_INPUT_SOURCE_DEFNS);
+    final List<InputFormatDefn> inputFormatDefns = CatalogUtils.concatLists(inputFormatDefnExtns, BUILTIN_INPUT_FORMAT_DEFNS);
 
     ImmutableMap.Builder<String, TableDefn> tableBuilder = ImmutableMap.builder();
     for (TableDefn defn : tableDefns) {
@@ -121,7 +128,7 @@ public class TableDefnRegistry
       @Json ObjectMapper jsonMapper
   )
   {
-    this(TABLE_DEFNS, INPUT_SOURCE_DEFNS, INPUT_FORMAT_DEFNS, jsonMapper);
+    this(null, null, null, jsonMapper);
   }
 
   public TableDefn tableDefnFor(String type)
