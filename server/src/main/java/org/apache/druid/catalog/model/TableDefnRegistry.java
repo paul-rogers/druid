@@ -29,7 +29,6 @@ import org.apache.druid.catalog.model.table.InlineInputSourceDefn;
 import org.apache.druid.catalog.model.table.InputFormatDefn;
 import org.apache.druid.catalog.model.table.InputFormats;
 import org.apache.druid.catalog.model.table.InputSourceDefn;
-import org.apache.druid.catalog.model.table.InputSources;
 import org.apache.druid.catalog.model.table.LocalInputSourceDefn;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
@@ -66,14 +65,12 @@ public class TableDefnRegistry
   // Guice later to allow extensions to define table types.
   private static final List<TableDefn> BUILTIN_TABLE_DEFNS = Arrays.asList(
       new DatasourceDefn(),
-      new InlineInputSourceDefn(),
-      new HttpInputSourceDefn(),
-      new LocalInputSourceDefn(),
       new ExternalTableDefn()
   );
   private static final List<InputSourceDefn> BUILTIN_INPUT_SOURCE_DEFNS = Arrays.asList(
-      new InputSources.InlineInputSourceDefn(),
-      new InputSources.HttpInputSourceDefn()
+      new InlineInputSourceDefn(),
+      new HttpInputSourceDefn(),
+      new LocalInputSourceDefn()
   );
   private static final List<InputFormatDefn> BUILTIN_INPUT_FORMAT_DEFNS = Collections.singletonList(
       new InputFormats.CsvFormatDefn()

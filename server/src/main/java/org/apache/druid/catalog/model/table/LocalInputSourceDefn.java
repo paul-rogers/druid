@@ -19,106 +19,205 @@
 
 package org.apache.druid.catalog.model.table;
 
+import com.google.common.base.Strings;
 import org.apache.druid.catalog.model.CatalogUtils;
-import org.apache.druid.catalog.model.ModelProperties.StringListPropertyDefn;
-import org.apache.druid.catalog.model.ModelProperties.StringPropertyDefn;
-import org.apache.druid.catalog.model.ParameterizedDefn;
-import org.apache.druid.catalog.model.PropertyAttributes;
-import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.table.OldInputSourceDefn.FormattedInputSourceDefn;
+import org.apache.druid.catalog.model.ColumnSpec;
+import org.apache.druid.catalog.model.table.BaseFunctionDefn.Parameter;
+import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.LocalInputSource;
+import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.utils.CollectionUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Definition for a catalog table object that represents a Druid
- * {@link LocalInputSource}.
+ * Definition for a {@link LocalInputSource}.
  */
-public class LocalInputSourceDefn extends FormattedInputSourceDefn implements ParameterizedDefn
+public class LocalInputSourceDefn extends FormattedInputSourceDefn
 {
-  public static final String TABLE_TYPE = LocalInputSource.TYPE_KEY;
+  public static final String TYPE_KEY = LocalInputSource.TYPE_KEY;
 
   /**
    * Base directory for file or filter operations. If not provided,
    * then the servers current working directory is assumed, which is
    * typically valid only for sample data.
    */
-  public static final String BASE_DIR_PROPERTY = "baseDir";
+  public static final String BASE_DIR_PARAMETER = "baseDir";
 
   // Note name "fileFilter", not "filter". These properties mix in with
   // others and "filter" is a bit too generic in that context.
-  public static final String FILE_FILTER_PROPERTY = "fileFilter";
-  public static final String FILES_PROPERTY = "files";
+  public static final String FILTER_PARAMETER = "fileFilter";
+  public static final String FILES_PARAMETER = "files";
 
-  public LocalInputSourceDefn()
+  private static final String BASE_DIR_FIELD = "baseDir";
+  private static final String FILES_FIELD = "files";
+  private static final String FILTER_FIELD = "filter";
+
+  private final ParameterDefn FILTER_PARAM_DEFN = new Parameter(FILTER_PARAMETER, String.class, true);
+  private final ParameterDefn FILES_PARAM_DEFN = new Parameter(FILES_PARAMETER, String.class, true);
+
+  @Override
+  public String typeValue()
   {
-    super(
-        "Local file input table",
-        TABLE_TYPE,
-        Arrays.asList(
-            new StringPropertyDefn(BASE_DIR_PROPERTY, PropertyAttributes.OPTIONAL_SQL_FN_PARAM),
-            new StringPropertyDefn(FILE_FILTER_PROPERTY, PropertyAttributes.OPTIONAL_SQL_FN_PARAM),
-            new StringListPropertyDefn(FILES_PROPERTY, PropertyAttributes.SQL_AND_TABLE_PARAM)
-        ),
-        Collections.singletonList(INPUT_COLUMN_DEFN),
-        OldInputFormats.ALL_FORMATS
+    return LocalInputSource.TYPE_KEY;
+  }
+
+  @Override
+  protected Class<? extends InputSource> inputSourceClass()
+  {
+    return LocalInputSource.class;
+  }
+
+  @Override
+  public void validate(ResolvedExternalTable table)
+  {
+    final Map<String, Object> sourceMap = new HashMap<>(table.sourceMap());
+    final boolean hasBaseDir = sourceMap.containsKey(BASE_DIR_FIELD);
+    final boolean hasFiles = !CollectionUtils.isNullOrEmpty(CatalogUtils.safeGet(sourceMap, FILES_FIELD, List.class));
+    final boolean hasFilter = !Strings.isNullOrEmpty(CatalogUtils.getString(sourceMap, FILTER_FIELD));
+
+    if (!hasBaseDir && !hasFiles) {
+      throw new IAE(
+          "A local input source requires one property of %s or %s",
+          BASE_DIR_FIELD,
+          FILES_FIELD
+      );
+    }
+    if (!hasBaseDir && hasFilter) {
+      throw new IAE(
+          "If a local input source sets property %s, it must also set property %s",
+          FILTER_FIELD,
+          BASE_DIR_FIELD
+      );
+    }
+    super.validate(table);
+  }
+
+  @Override
+  protected List<ParameterDefn> adHocTableFnParameters()
+  {
+    return Arrays.asList(
+        new Parameter(BASE_DIR_PARAMETER, String.class, true),
+        FILTER_PARAM_DEFN,
+        FILES_PARAM_DEFN
     );
   }
 
   @Override
-  public ResolvedTable mergeParameters(ResolvedTable table, Map<String, Object> values)
+  protected void convertArgsToSourceMap(Map<String, Object> jsonMap, Map<String, Object> args)
   {
-    // The safe get can only check
-    final String filesParam = CatalogUtils.safeGet(values, FILES_PROPERTY, String.class);
-    final String filterParam = CatalogUtils.safeGet(values, FILE_FILTER_PROPERTY, String.class);
-    final Map<String, Object> revisedProps = new HashMap<>(table.properties());
+    jsonMap.put(InputSource.TYPE_PROPERTY, LocalInputSource.TYPE_KEY);
+
+    final String baseDirParam = CatalogUtils.getString(args, BASE_DIR_PARAMETER);
+    final String filesParam = CatalogUtils.getString(args, FILES_PARAMETER);
+    final String filterParam = CatalogUtils.getString(args, FILTER_PARAMETER);
+    if (Strings.isNullOrEmpty(baseDirParam) && Strings.isNullOrEmpty(filesParam)) {
+      throw new IAE(
+          "A local input source requires one parameter of %s or %s",
+          BASE_DIR_PARAMETER,
+          FILES_PARAMETER
+      );
+    }
+    if (Strings.isNullOrEmpty(baseDirParam) && ! Strings.isNullOrEmpty(filterParam)) {
+      throw new IAE(
+          "If a local input source sets property %s, it must also set property %s",
+          FILTER_PARAMETER,
+          BASE_DIR_PARAMETER
+      );
+    }
+    if (baseDirParam != null) {
+      jsonMap.put(BASE_DIR_FIELD, baseDirParam);
+    }
     if (filesParam != null) {
-      revisedProps.put(FILES_PROPERTY, CatalogUtils.stringToList(filesParam));
+      jsonMap.put(FILES_FIELD, CatalogUtils.stringToList(filesParam));
     }
     if (filterParam != null) {
-      revisedProps.put(FILE_FILTER_PROPERTY, filterParam);
+      jsonMap.put(FILTER_FIELD, filterParam);
     }
-    return table.withProperties(revisedProps);
   }
 
   @Override
-  protected InputSource convertSource(ResolvedTable table)
+  public TableFunction partialTableFn(ResolvedExternalTable table)
   {
-    final Map<String, Object> jsonMap = new HashMap<>();
-    jsonMap.put(InputSource.TYPE_PROPERTY, LocalInputSource.TYPE_KEY);
-    final String baseDir = table.stringProperty(BASE_DIR_PROPERTY);
-    jsonMap.put("baseDir", baseDir);
-    final List<String> files = table.stringListProperty(FILES_PROPERTY);
-    jsonMap.put("files", files);
+    final Map<String, Object> sourceMap = new HashMap<>(table.sourceMap());
+    final boolean hasFiles = !CollectionUtils.isNullOrEmpty(CatalogUtils.safeGet(sourceMap, FILES_FIELD, List.class));
+    final boolean hasFilter = !Strings.isNullOrEmpty(CatalogUtils.getString(sourceMap, FILTER_FIELD));
+    List<ParameterDefn> params = new ArrayList<>();
+    if (!hasFiles && !hasFilter) {
+      params.add(FILES_PARAM_DEFN);
+      params.add(FILTER_PARAM_DEFN);
+    }
 
+    // Does the table define a format?
+    if (table.formatMap() == null) {
+      params = addFormatParameters(params);
+    }
+    return new PartialTableFunction(table, params);
+  }
+
+  @Override
+  protected ExternalTableSpec convertCompletedTable(
+      final ResolvedExternalTable table,
+      final Map<String, Object> args,
+      final List<ColumnSpec> columns
+  )
+  {
+    final Map<String, Object> sourceMap = new HashMap<>(table.sourceMap());
+    final boolean hasFiles = !CollectionUtils.isNullOrEmpty(CatalogUtils.safeGet(sourceMap, FILES_FIELD, List.class));
+    final boolean hasFilter = !Strings.isNullOrEmpty(CatalogUtils.getString(sourceMap, FILTER_FIELD));
+    final String filesParam = CatalogUtils.getString(args, FILES_PARAMETER);
+    final String filterParam = CatalogUtils.getString(args, FILTER_PARAMETER);
+    if (!hasFiles && !hasFilter && Strings.isNullOrEmpty(filesParam) && Strings.isNullOrEmpty(filterParam)) {
+      throw new IAE(
+          "For a local input source, set either %s or %s",
+          FILES_PARAMETER,
+          FILTER_PARAMETER
+      );
+    }
+    if (filesParam != null) {
+      sourceMap.put(FILES_FIELD, CatalogUtils.stringToList(filesParam));
+    }
+    if (filterParam != null) {
+      sourceMap.put(FILTER_FIELD, filterParam);
+    }
+    return convertPartialFormattedTable(table, args, columns, sourceMap);
+  }
+
+  @Override
+  protected void auditInputSource(Map<String, Object> jsonMap)
+  {
     // Note the odd semantics of this class.
     // If we give a base directory, and explicitly state files, we must
     // also provide a file filter which presumably matches the very files
     // we list. Take pity on the user and provide a filter in this case.
-    String filter = table.stringProperty(FILE_FILTER_PROPERTY);
-    if (baseDir != null && !CollectionUtils.isNullOrEmpty(files) && filter == null) {
-      filter = "*";
+    String filter = CatalogUtils.getString(jsonMap, FILTER_FIELD);
+    if (filter != null) {
+      return;
     }
-    jsonMap.put("filter", filter);
-    return convertObject(table.jsonMapper(), jsonMap, LocalInputSource.class);
+    String baseDir = CatalogUtils.getString(jsonMap, BASE_DIR_FIELD);
+    if (baseDir != null) {
+      jsonMap.put(FILTER_FIELD, "*");
+    }
   }
 
   @Override
-  public void validate(ResolvedTable table)
+  public ExternalTableSpec convertTable(ResolvedExternalTable table)
   {
-    super.validate(table);
-    formatDefn(table).validate(table);
-
-    // Validate the source if it is complete enough; else we need
-    // parameters later.
-    if (table.hasProperty(BASE_DIR_PROPERTY) || table.hasProperty(FILES_PROPERTY)) {
-      convertSource(table);
+    final Map<String, Object> sourceMap = new HashMap<>(table.sourceMap());
+    final boolean hasFiles = !CollectionUtils.isNullOrEmpty(CatalogUtils.safeGet(sourceMap, FILES_FIELD, List.class));
+    final boolean hasFilter = !Strings.isNullOrEmpty(CatalogUtils.getString(sourceMap, FILTER_FIELD));
+    if (!hasFiles && !hasFilter) {
+      throw new IAE(
+          "Use a table function to set either %s or %s",
+          FILES_PARAMETER,
+          FILTER_PARAMETER
+      );
     }
+    return super.convertTable(table);
   }
 }

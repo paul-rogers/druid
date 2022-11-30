@@ -19,104 +19,115 @@
 
 package org.apache.druid.catalog.model.table;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
 import org.apache.druid.catalog.model.CatalogUtils;
-import org.apache.druid.catalog.model.ModelProperties.StringListPropertyDefn;
-import org.apache.druid.catalog.model.PropertyAttributes;
-import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.table.OldInputSourceDefn.FormattedInputSourceDefn;
+import org.apache.druid.catalog.model.ColumnSpec;
+import org.apache.druid.catalog.model.table.BaseFunctionDefn.Parameter;
+import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.java.util.common.IAE;
-import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.java.util.common.UOE;
+import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.utils.CollectionUtils;
 
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Describes an inline input source: one where the data is provided in the
- * table spec as a series of text lines. Primarily for testing.
+ * table spec as a series of text lines. Since the data is provided, the input
+ * format is required in the table spec: it cannot be provided at ingest time.
+ * Primarily for testing.
  */
 public class InlineInputSourceDefn extends FormattedInputSourceDefn
 {
-  public static final String TABLE_TYPE = InlineInputSource.TYPE_KEY;
+  public static final String TYPE_KEY = InlineInputSource.TYPE_KEY;
   public static final String DATA_PROPERTY = "data";
 
-  /**
-   * Special handling of the data property which, in SQL, is a null-delimited
-   * list of rows. The user will usually provide a trailing newline which should
-   * not be interpreted as an empty data row.
-   */
-  private static class DataPropertyDefn extends StringListPropertyDefn
+  @Override
+  public String typeValue()
   {
-    public DataPropertyDefn(
-        final Map<String, Object> attribs
-    )
-    {
-      super(DATA_PROPERTY, attribs);
-    }
-
-    @Override
-    public List<String> decodeSqlValue(Object value, ObjectMapper jsonMapper)
-    {
-      if (!(value instanceof String)) {
-        throw new IAE(StringUtils.format("Argument [%s] is not a VARCHAR", value));
-      }
-      String[] values = ((String) value).trim().split("\n");
-      return Arrays.asList(values);
-    }
+    return TYPE_KEY;
   }
 
-  public InlineInputSourceDefn()
+  @Override
+  protected Class<? extends InputSource> inputSourceClass()
   {
-    super(
-        "Inline input table",
-        TABLE_TYPE,
-        Collections.singletonList(
-            new DataPropertyDefn(PropertyAttributes.SQL_FN_PARAM)
-        ),
-        Collections.singletonList(INPUT_COLUMN_DEFN),
-        OldInputFormats.ALL_FORMATS
+    return InlineInputSource.class;
+  }
+
+  @Override
+  protected List<ParameterDefn> adHocTableFnParameters()
+  {
+    return Collections.singletonList(
+        new Parameter(DATA_PROPERTY, String.class, false)
     );
   }
 
   @Override
-  protected InputSource convertSource(ResolvedTable table)
+  public TableFunction partialTableFn(ResolvedExternalTable table)
   {
-    Map<String, Object> jsonMap = new HashMap<>();
+    return new PartialTableFunction(table, Collections.emptyList());
+  }
+
+  @Override
+  public void validate(ResolvedExternalTable table)
+  {
+    // For inline, format is required to match the data
+    if (table.formatMap() == null) {
+      throw new IAE("An inline input source must provide a format.");
+    }
+    if (CollectionUtils.isNullOrEmpty(table.resolvedTable().spec().columns())) {
+      throw new IAE("An inline input source must provide one or more columns");
+    }
+
+    super.validate(table);
+  }
+
+  @Override
+  protected void convertArgsToSourceMap(Map<String, Object> jsonMap, Map<String, Object> args)
+  {
     jsonMap.put(InputSource.TYPE_PROPERTY, InlineInputSource.TYPE_KEY);
-    List<String> dataList = table.stringListProperty(DATA_PROPERTY);
+    String data = CatalogUtils.getString(args, DATA_PROPERTY);
 
     // Would be nice, from a completeness perspective, for the inline data
     // source to allow zero rows of data. However, such is not the case.
-    if (CollectionUtils.isNullOrEmpty(dataList)) {
+    if (Strings.isNullOrEmpty(data)) {
       throw new IAE(
           "An inline table requires one or more rows of data in the '%s' property",
           DATA_PROPERTY
       );
     }
-    jsonMap.put("data", CatalogUtils.stringListToLines(dataList));
-    return convertObject(table.jsonMapper(), jsonMap, InlineInputSource.class);
+    jsonMap.put("data", data);
   }
 
   @Override
-  public ResolvedTable mergeParameters(ResolvedTable table, Map<String, Object> values)
+  protected ExternalTableSpec convertCompletedTable(
+      final ResolvedExternalTable table,
+      final Map<String, Object> args,
+      final List<ColumnSpec> columns
+  )
   {
-    if (!values.isEmpty()) {
-      throw new UOE("Inline table does not support parameters");
+    if (!args.isEmpty()) {
+      throw new ISE("Cannot provide arguments for an inline table");
     }
-    return table;
+    if (!columns.isEmpty()) {
+      throw new IAE("Cannot provide columns for an inline table");
+    }
+    return convertTable(table);
   }
 
   @Override
-  public void validate(ResolvedTable table)
+  protected void auditInputSource(Map<String, Object> jsonMap)
   {
-    super.validate(table);
-    convertSource(table);
+    // Special handling of the data property which, in SQL, is a null-delimited
+    // list of rows. The user will usually provide a trailing newline which should
+    // not be interpreted as an empty data row. That is, if the data ends with
+    // a newline, the inline input source will interpret that as a blank line, oddly.
+    String data = CatalogUtils.getString(jsonMap, "data");
+     if (data != null && data.endsWith("\n")) {
+      jsonMap.put("data", data.trim());
+    }
   }
 }

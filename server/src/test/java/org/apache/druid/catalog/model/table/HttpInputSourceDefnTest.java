@@ -22,14 +22,10 @@ package org.apache.druid.catalog.model.table;
 import com.fasterxml.jackson.databind.InjectableValues;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.model.CatalogUtils;
-import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.model.table.InputFormats.CsvFormatDefn;
-import org.apache.druid.catalog.model.table.InputSources.FormattedInputSourceDefn;
-import org.apache.druid.catalog.model.table.InputSources.HttpInputSourceDefn;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.data.input.impl.HttpInputSourceConfig;
@@ -46,7 +42,6 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
@@ -57,12 +52,6 @@ import static org.junit.Assert.assertTrue;
 
 public class HttpInputSourceDefnTest extends BaseExternTableTest
 {
-  private static final List<ColumnSpec> COLUMNS = Arrays.asList(
-      new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "x", Columns.VARCHAR, null),
-      new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "y", Columns.BIGINT, null)
-  );
-  private final TableDefnRegistry registry = new TableDefnRegistry(mapper);
-
   @Before
   public void setup()
   {

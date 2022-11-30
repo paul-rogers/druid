@@ -27,7 +27,6 @@ import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.model.table.InputFormats.CsvFormatDefn;
-import org.apache.druid.catalog.model.table.InputSources.FormattedInputSourceDefn;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
 import org.apache.druid.data.input.impl.CloudObjectLocation;
 import org.apache.druid.data.input.impl.CsvInputFormat;

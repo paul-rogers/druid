@@ -22,12 +22,9 @@ package org.apache.druid.catalog.model.table;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.model.table.InputFormats.CsvFormatDefn;
 import org.apache.druid.catalog.model.table.InputFormats.FlatTextFormatDefn;
-import org.apache.druid.catalog.model.table.InputSources.FormattedInputSourceDefn;
-import org.apache.druid.catalog.model.table.InputSources.InlineInputSourceDefn;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.java.util.common.IAE;
@@ -47,8 +44,6 @@ import static org.junit.Assert.assertTrue;
 
 public class InlineInputSourceDefnTest extends BaseExternTableTest
 {
-  private final TableDefnRegistry registry = new TableDefnRegistry(mapper);
-
   @Test
   public void testValidateEmptyInputSource()
   {

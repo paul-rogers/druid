@@ -22,7 +22,6 @@ package org.apache.druid.catalog.model.table;
 import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.table.BaseFunctionDefn.Parameter;
-import org.apache.druid.catalog.model.table.InputSources.FormattedInputSourceDefn;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.CloudObjectLocation;
@@ -61,7 +60,7 @@ import java.util.Map;
  * parameter (if not already provided in the table spec.)</li>
  * <li>Partially define the table: using URIs with the {@code glob} to be provided later, or
  * by using the {@code bucket} table property. The table function provides the {@code objects}
- * parameter to specify the specfic objects. This form provides both the format and the list
+ * parameter to specify the specific objects. This form provides both the format and the list
  * of columns.</li>
  * <li>Partially define the table as a connection: provide only the {@code bucket} property,
  * and omit both the format and the columns. The table function requests the {@code objects}
@@ -239,7 +238,7 @@ public class S3InputSourceDefn extends FormattedInputSourceDefn
       String objectsString = CatalogUtils.getNonBlankString(args, OBJECTS_PARAMETER);
       if (objectsString == null) {
         throw new IAE(
-            "S3 external table defines the %s property. The table function must provide a list of objects in %s",
+            "S3 external table defines the %s property. The table function must provide the %s argument",
             BUCKET_PROPERTY,
             OBJECTS_PARAMETER
         );

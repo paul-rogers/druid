@@ -20,6 +20,9 @@
 package org.apache.druid.catalog.model.table;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.druid.catalog.model.ColumnSpec;
+import org.apache.druid.catalog.model.Columns;
+import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
 import org.apache.druid.data.input.InputFormat;
@@ -27,14 +30,20 @@ import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.ISE;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 public class BaseExternTableTest
 {
   protected static final String CSV_FORMAT = "{\"type\": \"" + CsvInputFormat.TYPE_KEY + "\"}";
+  protected static final List<ColumnSpec> COLUMNS = Arrays.asList(
+      new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "x", Columns.VARCHAR, null),
+      new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "y", Columns.BIGINT, null)
+  );
 
   protected final ObjectMapper mapper = DefaultObjectMapper.INSTANCE;
+  protected final TableDefnRegistry registry = new TableDefnRegistry(mapper);
 
   protected PropertyDefn<?> findProperty(List<PropertyDefn<?>> props, String name)
   {
