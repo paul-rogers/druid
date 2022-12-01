@@ -72,8 +72,10 @@ public class TableDefnRegistry
       new HttpInputSourceDefn(),
       new LocalInputSourceDefn()
   );
-  private static final List<InputFormatDefn> BUILTIN_INPUT_FORMAT_DEFNS = Collections.singletonList(
-      new InputFormats.CsvFormatDefn()
+  private static final List<InputFormatDefn> BUILTIN_INPUT_FORMAT_DEFNS = Arrays.asList(
+      new InputFormats.CsvFormatDefn(),
+      new InputFormats.DelimitedFormatDefn(),
+      new InputFormats.JsonFormatDefn()
   );
 
   private final Map<String, TableDefn> tableDefns;

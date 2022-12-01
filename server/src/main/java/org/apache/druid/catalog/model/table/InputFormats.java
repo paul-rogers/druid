@@ -20,6 +20,7 @@
 package org.apache.druid.catalog.model.table;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.ResolvedTable;
@@ -27,6 +28,8 @@ import org.apache.druid.catalog.model.table.BaseFunctionDefn.Parameter;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.CsvInputFormat;
+import org.apache.druid.data.input.impl.DelimitedInputFormat;
+import org.apache.druid.data.input.impl.JsonInputFormat;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.utils.CollectionUtils;
 
@@ -69,6 +72,17 @@ public class InputFormats
      */
     protected abstract Class<? extends InputFormat> inputFormatClass();
 
+    @Override
+    public void validate(ResolvedExternalTable table)
+    {
+      // Bare-bones validation: the format has to convert to the proper object.
+      // Subclasses should replace this with something fancier where needed.
+
+      if (table.formatMap() != null) {
+        convertFromTable(table);
+      }
+    }
+
     /**
      * Convert columns from the {@link ColumnSpec} format used by the catalog to the
      * list of names form requires by input formats.
@@ -97,6 +111,12 @@ public class InputFormats
         throw new IAE(e, "Invalid format specification");
       }
     }
+
+    @Override
+    public InputFormat convertFromTable(ResolvedExternalTable table)
+    {
+      return convert(table.formatMap(), table.resolvedTable().jsonMapper());
+    }
   }
 
   /**
@@ -114,16 +134,21 @@ public class InputFormats
    */
   public abstract static class FlatTextFormatDefn extends BaseFormatDefn
   {
-    public static final String LIST_DELIMITER_PARAM = "listDelimiter";
-    public static final String SKIP_ROWS_PARAM = "skipRows";
+    public static final String LIST_DELIMITER_PARAMETER = "listDelimiter";
+    public static final String SKIP_ROWS_PARAMETER = "skipRows";
+
+    private static final String COLUMNS_FIELD = "columns";
+    private static final String FIND_COLUMNS_FIELD = "findColumnsFromHeader";
+    private static final String SKIP_HEADERS_FIELD = "skipHeaderRows";
+    private static final String LIST_DELIMITER_FIELD = "listDelimiter";
 
     public FlatTextFormatDefn(List<ParameterDefn> parameters)
     {
       super(
           CatalogUtils.concatLists(
               Arrays.asList(
-                  new Parameter(LIST_DELIMITER_PARAM, String.class, true),
-                  new Parameter(SKIP_ROWS_PARAM, Boolean.class, true)
+                  new Parameter(LIST_DELIMITER_PARAMETER, String.class, true),
+                  new Parameter(SKIP_ROWS_PARAMETER, Boolean.class, true)
               ),
               parameters
           )
@@ -138,9 +163,9 @@ public class InputFormats
       }
       ResolvedTable resolvedTable = table.resolvedTable();
       Map<String, Object> jsonMap = toMap(table);
-      if (!jsonMap.containsKey("columns")) {
+      if (!jsonMap.containsKey(COLUMNS_FIELD)) {
         // Make up a column just so that validation will pass.
-        jsonMap.put("columns", Collections.singletonList("a"));
+        jsonMap.put(COLUMNS_FIELD, Collections.singletonList("a"));
       }
       convert(jsonMap, resolvedTable.jsonMapper());
     }
@@ -159,19 +184,25 @@ public class InputFormats
     protected void adjustValues(Map<String, Object> jsonMap)
     {
       // findColumnsFromHeader is required, even though we don't infer headers.
-      jsonMap.put("findColumnsFromHeader", false);
-      jsonMap.computeIfAbsent("skipHeaderRows", key -> 0);
+      jsonMap.put(FIND_COLUMNS_FIELD, false);
+      jsonMap.computeIfAbsent(SKIP_HEADERS_FIELD, key -> 0);
     }
 
     protected Map<String, Object> mapFromArgs(Map<String, Object> args, List<ColumnSpec> columns)
     {
       Map<String, Object> jsonMap = new HashMap<>();
-      jsonMap.put("listDelimiter", args.get(LIST_DELIMITER_PARAM));
-      Object value = args.get(SKIP_ROWS_PARAM);
-      jsonMap.put("skipHeaderRows", value == null ? 0 : value);
+      jsonMap.put(LIST_DELIMITER_FIELD, args.get(LIST_DELIMITER_PARAMETER));
+      Object value = args.get(SKIP_ROWS_PARAMETER);
+      jsonMap.put(SKIP_HEADERS_FIELD, value == null ? 0 : value);
       convertColumns(jsonMap, columns);
       adjustValues(jsonMap);
       return jsonMap;
+    }
+
+    @Override
+    public InputFormat convertFromTable(ResolvedExternalTable table)
+    {
+      return convert(toMap(table), table.resolvedTable().jsonMapper());
     }
   }
 
@@ -212,11 +243,97 @@ public class InputFormats
       jsonMap.put(InputFormat.TYPE_PROPERTY, CsvInputFormat.TYPE_KEY);
       return convert(jsonMap, jsonMapper);
     }
+  }
+
+  public static class DelimitedFormatDefn extends FlatTextFormatDefn
+  {
+    public static final String TYPE_KEY = DelimitedInputFormat.TYPE_KEY;
+    public static final String DELIMITER_PARAMETER = "delimiter";
+
+    @VisibleForTesting
+    public static final String DELIMITER_FIELD = "delimiter";
+
+    public DelimitedFormatDefn()
+    {
+      super(
+          Collections.singletonList(
+                  new Parameter(DELIMITER_PARAMETER, String.class, true)
+          )
+      );
+    }
 
     @Override
-    public InputFormat convertFromTable(ResolvedExternalTable table)
+    public String typeValue()
     {
-      return convert(toMap(table), table.resolvedTable().jsonMapper());
+      return TYPE_KEY;
+    }
+
+    @Override
+    protected Class<? extends InputFormat> inputFormatClass()
+    {
+       return DelimitedInputFormat.class;
+    }
+
+    @Override
+    public InputFormat convertFromArgs(
+        Map<String, Object> args,
+        List<ColumnSpec> columns,
+        ObjectMapper jsonMapper
+    )
+    {
+      Map<String, Object> jsonMap = mapFromArgs(args, columns);
+      jsonMap.put(InputFormat.TYPE_PROPERTY, DelimitedInputFormat.TYPE_KEY);
+      jsonMap.put(DELIMITER_FIELD, CatalogUtils.getString(args, DELIMITER_PARAMETER));
+      return convert(jsonMap, jsonMapper);
+    }
+  }
+
+  /**
+   * JSON format definition. For now, we only expose the "keep nulls" attribute via a table
+   * function argument. We can easily add more later as the JSON format evolves.
+   */
+  public static class JsonFormatDefn extends BaseFormatDefn
+  {
+    public static final String TYPE_KEY = JsonInputFormat.TYPE_KEY;
+
+    public static final String KEEP_NULLS_PARAMETER = "keepNulls";
+    public static final String KEEP_NULLS_FIELD = "keepNullColumns";
+
+    public JsonFormatDefn()
+    {
+      super(
+          Collections.singletonList(
+                  new Parameter(KEEP_NULLS_PARAMETER, Boolean.class, false)
+          )
+      );
+    }
+
+    @Override
+    public String typeValue()
+    {
+      return TYPE_KEY;
+    }
+
+    @Override
+    protected Class<? extends InputFormat> inputFormatClass()
+    {
+       return JsonInputFormat.class;
+    }
+
+    @Override
+    public InputFormat convertFromArgs(
+        Map<String, Object> args,
+        List<ColumnSpec> columns,
+        ObjectMapper jsonMapper
+    )
+    {
+      Map<String, Object> jsonMap = new HashMap<>();
+      jsonMap.put(InputFormat.TYPE_PROPERTY, JsonInputFormat.TYPE_KEY);
+      Boolean keepNulls = CatalogUtils.safeGet(args, KEEP_NULLS_PARAMETER, Boolean.class);
+      if (keepNulls != null) {
+        jsonMap.put(KEEP_NULLS_FIELD, keepNulls);
+      }
+      return convert(jsonMap, jsonMapper);
     }
   }
 }

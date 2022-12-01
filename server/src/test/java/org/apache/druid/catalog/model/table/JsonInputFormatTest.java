@@ -23,14 +23,13 @@ import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableMetadata;
-import org.apache.druid.catalog.model.table.InputFormats.FlatTextFormatDefn;
+import org.apache.druid.catalog.model.table.InputFormats.JsonFormatDefn;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
 import org.apache.druid.data.input.InputFormat;
-import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.InlineInputSource;
+import org.apache.druid.data.input.impl.JsonInputFormat;
 import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -39,75 +38,77 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
-public class CsvInputFormatTest extends BaseExternTableTest
+public class JsonInputFormatTest extends BaseExternTableTest
 {
   @Test
   public void testDefaults()
   {
     TableMetadata table = TableBuilder.external("foo")
         .inputSource(mapper, new InlineInputSource("a\n"))
-        .inputFormat("{\"type\": \"" + CsvInputFormat.TYPE_KEY + "\"}")
+        .inputFormat("{\"type\": \"" + JsonInputFormat.TYPE_KEY + "\"}")
         .column("a", Columns.VARCHAR)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     resolved.validate();
 
-    InputFormatDefn defn = registry.inputFormatDefnFor(CsvInputFormat.TYPE_KEY);
+    InputFormatDefn defn = registry.inputFormatDefnFor(JsonInputFormat.TYPE_KEY);
     InputFormat inputFormat = defn.convertFromTable(new ResolvedExternalTable(resolved));
-    CsvInputFormat csvFormat = (CsvInputFormat) inputFormat;
-    assertEquals(0, csvFormat.getSkipHeaderRows());
-    assertFalse(csvFormat.isFindColumnsFromHeader());
-    assertNull(csvFormat.getListDelimiter());
-    assertEquals(Collections.singletonList("a"), csvFormat.getColumns());
+    JsonInputFormat jsonFormat = (JsonInputFormat) inputFormat;
+    assertNull(jsonFormat.getFlattenSpec());
+    assertTrue(jsonFormat.getFeatureSpec().isEmpty());
+    assertFalse(jsonFormat.isKeepNullColumns());
+    assertFalse(jsonFormat.isAssumeNewlineDelimited());
+    assertFalse(jsonFormat.isUseJsonNodeReader());
   }
 
   @Test
   public void testConversion()
   {
-    CsvInputFormat format = new CsvInputFormat(
-        Collections.singletonList("a"), ";", false, false, 1);
-    Map<String, Object> formatMap = toMap(format);
-    formatMap.remove("columns");
+    JsonInputFormat format = new JsonInputFormat(
+        null, null, true, true, false);
     TableMetadata table = TableBuilder.external("foo")
         .inputSource(mapper, new InlineInputSource("a\n"))
-        .inputFormat(toJsonString(formatMap))
+        .inputFormat(mapper, format)
         .column("a", Columns.VARCHAR)
         .column("b", Columns.BIGINT)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     resolved.validate();
 
-    InputFormatDefn defn = registry.inputFormatDefnFor(CsvInputFormat.TYPE_KEY);
+    InputFormatDefn defn = registry.inputFormatDefnFor(JsonInputFormat.TYPE_KEY);
     InputFormat inputFormat = defn.convertFromTable(new ResolvedExternalTable(resolved));
-    CsvInputFormat csvFormat = (CsvInputFormat) inputFormat;
-    assertEquals(1, csvFormat.getSkipHeaderRows());
-    assertFalse(csvFormat.isFindColumnsFromHeader());
-    assertEquals(";", csvFormat.getListDelimiter());
-    assertEquals(Arrays.asList("a", "b"), csvFormat.getColumns());
+    JsonInputFormat jsonFormat = (JsonInputFormat) inputFormat;
+    assertNull(jsonFormat.getFlattenSpec());
+    assertTrue(jsonFormat.getFeatureSpec().isEmpty());
+    assertTrue(jsonFormat.isKeepNullColumns());
+    assertTrue(jsonFormat.isAssumeNewlineDelimited());
+    assertFalse(jsonFormat.isUseJsonNodeReader());
   }
 
   @Test
   public void testFunctionParams()
   {
-    InputFormatDefn defn = registry.inputFormatDefnFor(CsvInputFormat.TYPE_KEY);
+    InputFormatDefn defn = registry.inputFormatDefnFor(JsonInputFormat.TYPE_KEY);
     List<ParameterDefn> params = defn.parameters();
-    assertEquals(2, params.size());
+    assertEquals(1, params.size());
+    assertTrue(hasParam(params, JsonFormatDefn.KEEP_NULLS_PARAMETER));
   }
 
   @Test
   public void testCreateFromArgs()
   {
     Map<String, Object> args = new HashMap<>();
-    args.put(FlatTextFormatDefn.LIST_DELIMITER_PARAMETER, ";");
-    args.put(FlatTextFormatDefn.SKIP_ROWS_PARAMETER, 1);
-    InputFormatDefn defn = registry.inputFormatDefnFor(CsvInputFormat.TYPE_KEY);
+    args.put(JsonFormatDefn.KEEP_NULLS_PARAMETER, true);
+    InputFormatDefn defn = registry.inputFormatDefnFor(JsonInputFormat.TYPE_KEY);
     List<ColumnSpec> columns = Collections.singletonList(new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "a", null, null));
     InputFormat inputFormat = defn.convertFromArgs(args, columns, mapper);
-    CsvInputFormat csvFormat = (CsvInputFormat) inputFormat;
-    assertEquals(1, csvFormat.getSkipHeaderRows());
-    assertFalse(csvFormat.isFindColumnsFromHeader());
-    assertEquals(";", csvFormat.getListDelimiter());
-    assertEquals(Collections.singletonList("a"), csvFormat.getColumns());
+    JsonInputFormat jsonFormat = (JsonInputFormat) inputFormat;
+    assertNull(jsonFormat.getFlattenSpec());
+    assertTrue(jsonFormat.getFeatureSpec().isEmpty());
+    assertTrue(jsonFormat.isKeepNullColumns());
+    assertFalse(jsonFormat.isAssumeNewlineDelimited());
+    assertFalse(jsonFormat.isUseJsonNodeReader());
   }
 }

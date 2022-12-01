@@ -84,7 +84,12 @@ public class BaseExternTableTest
 
   protected boolean hasParam(TableFunction fn, String key)
   {
-    for (ParameterDefn param : fn.parameters()) {
+    return hasParam(fn.parameters(), key);
+  }
+
+  protected boolean hasParam(List<ParameterDefn> params, String key)
+  {
+    for (ParameterDefn param : params) {
       if (param.name().equals(key)) {
         return true;
       }

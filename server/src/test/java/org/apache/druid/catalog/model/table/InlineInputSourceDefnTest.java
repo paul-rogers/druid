@@ -100,7 +100,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
     assertNotNull(fn);
     assertTrue(hasParam(fn, InlineInputSourceDefn.DATA_PROPERTY));
     assertTrue(hasParam(fn, FormattedInputSourceDefn.FORMAT_PARAMETER));
-    assertTrue(hasParam(fn, FlatTextFormatDefn.LIST_DELIMITER_PARAM));
+    assertTrue(hasParam(fn, FlatTextFormatDefn.LIST_DELIMITER_PARAMETER));
   }
 
   @Test
