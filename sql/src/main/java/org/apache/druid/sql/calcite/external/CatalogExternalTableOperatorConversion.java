@@ -31,8 +31,9 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.validate.SqlUserDefinedTableMacro;
 import org.apache.druid.catalog.model.TableDefnRegistry;
-import org.apache.druid.catalog.model.table.OldInputSourceDefn;
 import org.apache.druid.catalog.model.table.ExternalTableSpec;
+import org.apache.druid.catalog.model.table.InputSourceDefn;
+import org.apache.druid.catalog.model.table.TableFunction;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.ResourceAction;
@@ -74,7 +75,7 @@ public abstract class CatalogExternalTableOperatorConversion implements SqlOpera
       final ObjectMapper jsonMapper
   )
   {
-    OldInputSourceDefn tableDefn = (OldInputSourceDefn) registry.tableDefnFor(tableType);
+    InputSourceDefn tableDefn = (InputSourceDefn) registry.tableDefnFor(tableType);
     this.operator = new CatalogExternalTableOperator(
         new CatalogTableMacro(
             name,
@@ -124,19 +125,19 @@ public abstract class CatalogExternalTableOperatorConversion implements SqlOpera
   {
     private final String name;
     private final List<FunctionParameter> parameters;
-    private final OldInputSourceDefn tableDefn;
+    private final TableFunction fn;
     private final ObjectMapper jsonMapper;
 
     public CatalogTableMacro(
         final String name,
-        final OldInputSourceDefn tableDefn,
+        final InputSourceDefn tableDefn,
         final ObjectMapper jsonMapper
     )
     {
       this.name = name;
-      this.tableDefn = tableDefn;
       this.jsonMapper = jsonMapper;
-      this.parameters = Externals.convertParameters(tableDefn);
+      this.fn = tableDefn.adHocTableFn();
+      this.parameters = Externals.convertParameters(fn);
     }
 
     @Override
@@ -151,11 +152,9 @@ public abstract class CatalogExternalTableOperatorConversion implements SqlOpera
     @Override
     public TranslatableTable apply(List<Object> arguments, SqlNodeList schema)
     {
-      final ExternalTableSpec externSpec = Externals.convertArguments(
-          tableDefn,
-          parameters,
-          arguments,
-          schema,
+      final ExternalTableSpec externSpec = fn.apply(
+          Externals.convertArguments(fn, arguments),
+          Externals.convertColumns(schema),
           jsonMapper
       );
       return Externals.buildExternalTable(externSpec, jsonMapper);

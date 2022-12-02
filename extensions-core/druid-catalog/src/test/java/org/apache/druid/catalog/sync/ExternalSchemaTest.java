@@ -29,10 +29,8 @@ import org.apache.calcite.schema.TranslatableTable;
 import org.apache.druid.catalog.CatalogException;
 import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.model.TableMetadata;
-import org.apache.druid.catalog.model.table.OldInputSourceDefn.FormattedInputSourceDefn;
+import org.apache.druid.catalog.model.table.BaseExternTableTest;
 import org.apache.druid.catalog.model.table.HttpInputSourceDefn;
-import org.apache.druid.catalog.model.table.InlineInputSourceDefn;
-import org.apache.druid.catalog.model.table.OldInputFormats;
 import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.sql.ExternalSchema;
 import org.apache.druid.catalog.storage.CatalogStorage;
@@ -52,7 +50,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -126,9 +123,9 @@ public class ExternalSchemaTest
 
   private void populateCatalog() throws CatalogException
   {
-    TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "input1")
-        .property(FormattedInputSourceDefn.FORMAT_PROPERTY, OldInputFormats.CSV_FORMAT_TYPE)
-        .property(InlineInputSourceDefn.DATA_PROPERTY, Arrays.asList("a", "c"))
+    TableMetadata table = TableBuilder.external("input1")
+        .inputSource(storage.jsonMapper(), new InlineInputSource("a\nc"))
+        .inputFormat(BaseExternTableTest.CSV_FORMAT)
         .column("a", "varchar")
         .build();
     storage.tables().create(table);
@@ -160,9 +157,9 @@ public class ExternalSchemaTest
     storage.tables().update(defn, table1.updateTime());
 
     // Create a table 2
-    TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "input2")
-        .property(FormattedInputSourceDefn.FORMAT_PROPERTY, OldInputFormats.CSV_FORMAT_TYPE)
-        .property(InlineInputSourceDefn.DATA_PROPERTY, Arrays.asList("1", "2"))
+    TableMetadata table = TableBuilder.external("input2")
+        .inputSource(storage.jsonMapper(), new InlineInputSource("1\2c"))
+        .inputFormat(BaseExternTableTest.CSV_FORMAT)
         .column("x", "bigint")
         .build();
     storage.tables().create(table);
@@ -186,8 +183,9 @@ public class ExternalSchemaTest
 
   private void createParameterizedTable() throws CatalogException
   {
-    TableMetadata table = TableBuilder.external(HttpInputSourceDefn.TABLE_TYPE, "httpParam")
-        .property(FormattedInputSourceDefn.FORMAT_PROPERTY, OldInputFormats.CSV_FORMAT_TYPE)
+    TableMetadata table = TableBuilder.external("httpParam")
+        .inputSource("{\"type\": \"" + HttpInputSource.TYPE_KEY + "\"}")
+        .inputFormat(BaseExternTableTest.CSV_FORMAT)
         .property(HttpInputSourceDefn.URI_TEMPLATE_PROPERTY, "http://koalas.com/{}.csv")
         .column("a", "varchar")
         .build();
@@ -230,7 +228,7 @@ public class ExternalSchemaTest
       assertTrue(extds.getInputFormat() instanceof CsvInputFormat);
       assertEquals(ImmutableList.of("a"), ((CsvInputFormat) extds.getInputFormat()).getColumns());
       assertTrue(extds.getInputSource() instanceof InlineInputSource);
-      assertEquals("a\nc\n", ((InlineInputSource) extds.getInputSource()).getData());
+      assertEquals("a\nc", ((InlineInputSource) extds.getInputSource()).getData());
 
       Set<ResourceAction> actions = ((AuthorizableOperator) fn).computeResources(null);
       assertEquals(1, actions.size());

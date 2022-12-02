@@ -19,9 +19,10 @@
 
 package org.apache.druid.catalog.model;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.apache.druid.catalog.model.table.AbstractDatasourceDefn;
-import org.apache.druid.catalog.model.table.OldInputSourceDefn;
+import org.apache.druid.catalog.model.table.ExternalTableDefn;
 import org.apache.druid.server.security.ResourceType;
 
 import java.util.Collections;
@@ -115,7 +116,7 @@ public class SchemaRegistryImpl implements SchemaRegistry
     register(new SchemaDefnImpl(
         TableId.EXTERNAL_SCHEMA,
         EXTERNAL_RESOURCE,
-        OldInputSourceDefn.tableTypes()
+        ImmutableSet.of(ExternalTableDefn.TABLE_TYPE)
     ));
     register(new SchemaDefnImpl(
         TableId.VIEW_SCHEMA,

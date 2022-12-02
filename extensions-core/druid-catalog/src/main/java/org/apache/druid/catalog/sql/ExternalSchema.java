@@ -27,11 +27,11 @@ import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.TableMacro;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.sql.SqlCall;
-import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableId;
-import org.apache.druid.catalog.model.table.OldInputSourceDefn;
+import org.apache.druid.catalog.model.table.ExternalTableDefn;
 import org.apache.druid.catalog.model.table.ExternalTableSpec;
+import org.apache.druid.catalog.model.table.TableFunction;
 import org.apache.druid.catalog.sync.MetadataCatalog;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
@@ -39,21 +39,17 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.calcite.expression.AuthorizableOperator;
-import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.external.Externals;
 import org.apache.druid.sql.calcite.schema.AbstractTableSchema;
 import org.apache.druid.sql.calcite.schema.NamedSchema;
 import org.apache.druid.sql.calcite.table.DatasourceTable;
 import org.apache.druid.sql.calcite.table.DruidTable;
-import org.apache.druid.sql.calcite.table.ExternalTable;
 
 import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -127,7 +123,7 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema
     if (table == null || table.spec() == null) {
       return null;
     }
-    if (!OldInputSourceDefn.isExternalTable(table)) {
+    if (!ExternalTableDefn.isExternalTable(table)) {
       throw new IAE(
           StringUtils.format("Table [%s] is not an external table", id.sqlName()));
     }
@@ -136,17 +132,9 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema
 
   public DruidTable toDruidTable(ResolvedTable table)
   {
-    OldInputSourceDefn defn = (OldInputSourceDefn) table.defn();
-    ExternalTableSpec spec = defn.convertToExtern(table);
-    return new ExternalTable(
-        new ExternalDataSource(
-            spec.inputSource,
-            spec.inputFormat,
-            spec.signature
-          ),
-        spec.signature,
-        jsonMapper
-    );
+    ExternalTableDefn defn = (ExternalTableDefn) table.defn();
+    ExternalTableSpec spec = defn.convert(table);
+    return Externals.toExternalTable(spec, jsonMapper);
   }
 
   /**
@@ -187,6 +175,7 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema
   public static class ParameterizedTableMacro implements TableMacro, AuthorizableOperator
   {
     private final String tableName;
+    private final TableFunction fn;
     private final List<FunctionParameter> parameters;
     private final ResolvedTable externalTable;
 
@@ -197,26 +186,20 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema
     {
       this.tableName = tableName;
       this.externalTable = externalTable;
-      this.parameters = Externals.convertTableParameters((OldInputSourceDefn) externalTable.defn());
+      ExternalTableDefn tableDefn = (ExternalTableDefn) externalTable.defn();
+      this.fn = tableDefn.tableFn(externalTable);
+      this.parameters = Externals.convertParameters(fn);
     }
 
     @Override
     public TranslatableTable apply(List<Object> arguments)
     {
-      Map<String, Object> args = new HashMap<>();
-      List<FunctionParameter> parameters = getParameters();
-      OldInputSourceDefn tableDefn = (OldInputSourceDefn) externalTable.defn();
-      ObjectMapper jsonMapper = externalTable.jsonMapper();
-      for (int i = 0; i < parameters.size(); i++) {
-        String name = parameters.get(i).getName();
-        Object value = arguments.get(i);
-        if (value == null) {
-          continue;
-        }
-        PropertyDefn<?> prop = tableDefn.property(name);
-        args.put(name, prop.decodeSqlValue(value, jsonMapper));
-      }
-      final ExternalTableSpec externSpec = tableDefn.applyParameters(externalTable, args);
+      final ObjectMapper jsonMapper = externalTable.jsonMapper();
+      final ExternalTableSpec externSpec = fn.apply(
+          Externals.convertArguments(fn, arguments),
+          null,
+          jsonMapper
+      );
       return Externals.buildExternalTable(externSpec, jsonMapper);
     }
 

@@ -248,7 +248,7 @@ public abstract class BaseInputSourceDefn implements InputSourceDefn
     final List<ColumnSpec> tableCols = table.resolvedTable().spec().columns();
     if (CollectionUtils.isNullOrEmpty(tableCols)) {
       return columns;
-    } else if (!columns.isEmpty()) {
+    } else if (!CollectionUtils.isNullOrEmpty(columns)) {
         throw new IAE(
             "Catalog definition for the %s input source already contains column definitions",
             typeValue()

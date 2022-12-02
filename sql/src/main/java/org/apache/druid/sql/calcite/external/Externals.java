@@ -21,6 +21,7 @@ package org.apache.druid.sql.calcite.external;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.calcite.avatica.SqlType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.schema.FunctionParameter;
@@ -34,13 +35,10 @@ import org.apache.calcite.sql.SqlTypeNameSpec;
 import org.apache.calcite.sql.type.SqlOperandCountRanges;
 import org.apache.calcite.sql.type.SqlOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.druid.catalog.model.ModelProperties;
-import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
-import org.apache.druid.catalog.model.PropertyAttributes;
-import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.table.OldInputSourceDefn;
+import org.apache.druid.catalog.model.ColumnSpec;
+import org.apache.druid.catalog.model.table.ExternalTableDefn;
 import org.apache.druid.catalog.model.table.ExternalTableSpec;
-import org.apache.druid.catalog.model.table.TableBuilder;
+import org.apache.druid.catalog.model.table.TableFunction;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
@@ -53,7 +51,9 @@ import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.table.ExternalTable;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -67,33 +67,24 @@ public class Externals
    * Convert parameters from Catalog external table definition form to the SQL form
    * used for a table macro and its function.
    */
-  public static List<FunctionParameter> convertParameters(final OldInputSourceDefn tableDefn)
+  public static List<FunctionParameter> convertParameters(TableFunction fn)
   {
-    return convertToCalciteParameters(tableDefn.tableFunctionParameters());
+    return convertToCalciteParameters(fn.parameters());
   }
 
-  private static List<FunctionParameter> convertToCalciteParameters(List<ModelProperties.PropertyDefn<?>> props)
+  private static List<FunctionParameter> convertToCalciteParameters(List<TableFunction.ParameterDefn> paramDefns)
   {
     ImmutableList.Builder<FunctionParameter> params = ImmutableList.builder();
-    for (int i = 0; i < props.size(); i++) {
-      ModelProperties.PropertyDefn<?> prop = props.get(i);
+    for (int i = 0; i < paramDefns.size(); i++) {
+      TableFunction.ParameterDefn paramDefn = paramDefns.get(i);
       params.add(new FunctionParameterImpl(
           i,
-          prop.name(),
-          DruidTypeSystem.TYPE_FACTORY.createJavaType(PropertyAttributes.sqlParameterType(prop)),
-          PropertyAttributes.isOptional(prop)
+          paramDefn.name(),
+          DruidTypeSystem.TYPE_FACTORY.createJavaType(paramDefn.type()),
+          paramDefn.isOptional()
       ));
     }
     return params.build();
-  }
-
-  /**
-   * Convert parameters from Catalog external table definition form to the SQL form
-   * used for a table macro and its function.
-   */
-  public static List<FunctionParameter> convertTableParameters(final OldInputSourceDefn tableDefn)
-  {
-    return convertToCalciteParameters(tableDefn.parameters());
   }
 
   /**
@@ -161,47 +152,31 @@ public class Externals
     };
   }
 
-  /**
-   * Convert the actual arguments to SQL external table function into a catalog
-   * resolved table, then convert that to an external table spec usable by MSQ.
-   *
-   * @param tableDefn catalog definition of the kind of external table
-   * @param parameters the parameters to the SQL table macro
-   * @param arguments the arguments that match the parameters. Optional arguments
-   *                  may be null
-   * @param schema    the external table schema provided by the EXTEND clause
-   * @param jsonMapper the JSON mapper to use for value conversions
-   * @return a spec with the three values that MSQ needs to create an external table
-   */
-  public static ExternalTableSpec convertArguments(
-      final OldInputSourceDefn tableDefn,
-      final List<FunctionParameter> parameters,
-      final List<Object> arguments,
-      final SqlNodeList schema,
-      final ObjectMapper jsonMapper
+  public static Map<String, Object> convertArguments(
+      final TableFunction fn,
+      final List<Object> arguments
   )
   {
-    final TableBuilder builder = TableBuilder.of(null, tableDefn);
-    for (int i = 0; i < parameters.size(); i++) {
-      String name = parameters.get(i).getName();
-      Object value = arguments.get(i);
-      if (value == null) {
-        continue;
-      }
-      PropertyDefn<?> prop = tableDefn.property(name);
-      builder.property(name, prop.decodeSqlValue(value, jsonMapper));
+    List<TableFunction.ParameterDefn> params = fn.parameters();
+    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+    for (int i = 0; i < arguments.size(); i++) {
+      builder.put(params.get(i).name(), arguments.get(i));
     }
+    return builder.build();
+  }
 
-    // Converts from a list of (identifier, type, ...) pairs to
-    // a Druid row signature. The schema itself comes from the
-    // Druid-specific EXTEND syntax added to the parser.
+  // Converts from a list of (identifier, type, ...) pairs to
+  // list of column specs. The schema itself comes from the
+  // Druid-specific EXTEND syntax added to the parser.
+  public static List<ColumnSpec> convertColumns(SqlNodeList schema)
+  {
+    List<ColumnSpec> columns = new ArrayList<>();
     for (int i = 0; i < schema.size(); i += 2) {
       final String name = convertName((SqlIdentifier) schema.get(i));
       String sqlType = convertType(name, (SqlDataTypeSpec) schema.get(i + 1));
-      builder.column(name, sqlType);
+      columns.add(new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, name, sqlType, null));
     }
-    ResolvedTable table = builder.buildResolved(jsonMapper);
-    return tableDefn.convertToExtern(table);
+    return columns;
   }
 
   /**
@@ -285,15 +260,24 @@ public class Externals
                     + "Please change the column name to something other than __time");
     }
 
-    return new ExternalTable(
-          new ExternalDataSource(spec.inputSource, spec.inputFormat, spec.signature),
-          spec.signature,
-          jsonMapper
-    );
+    return toExternalTable(spec, jsonMapper);
   }
 
   public static ResourceAction externalRead(String name)
   {
     return new ResourceAction(new Resource(name, ResourceType.EXTERNAL), Action.READ);
+  }
+
+  public static ExternalTable toExternalTable(ExternalTableSpec spec, ObjectMapper jsonMapper)
+  {
+    return new ExternalTable(
+        new ExternalDataSource(
+            spec.inputSource,
+            spec.inputFormat,
+            spec.signature
+          ),
+        spec.signature,
+        jsonMapper
+    );
   }
 }

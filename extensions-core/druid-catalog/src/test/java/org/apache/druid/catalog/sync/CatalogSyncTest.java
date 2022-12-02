@@ -30,14 +30,14 @@ import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.model.facade.DatasourceFacade;
+import org.apache.druid.catalog.model.table.BaseExternTableTest;
 import org.apache.druid.catalog.model.table.DatasourceDefn;
 import org.apache.druid.catalog.model.table.DatasourceDefn.DatasourceColumnDefn;
-import org.apache.druid.catalog.model.table.OldInputSourceDefn;
-import org.apache.druid.catalog.model.table.InlineInputSourceDefn;
-import org.apache.druid.catalog.model.table.OldInputFormats;
+import org.apache.druid.catalog.model.table.ExternalTableDefn;
 import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.storage.CatalogStorage;
 import org.apache.druid.catalog.storage.CatalogTests;
+import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.metadata.TestDerbyConnector;
 import org.junit.After;
@@ -93,9 +93,9 @@ public class CatalogSyncTest
   {
     // Valid definition
     {
-      TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "externTable")
-          .format(OldInputFormats.CSV_FORMAT_TYPE)
-          .data("a", "c")
+      TableMetadata table = TableBuilder.external("externTable")
+          .inputSource(storage.jsonMapper(), new InlineInputSource("a\nc"))
+          .inputFormat(BaseExternTableTest.CSV_FORMAT)
           .column("a", Columns.VARCHAR)
           .build();
       storage.validate(table);
@@ -103,18 +103,18 @@ public class CatalogSyncTest
 
     // No columns
     {
-      TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "externTable")
-          .format(OldInputFormats.CSV_FORMAT_TYPE)
-          .data("a", "c")
+      TableMetadata table = TableBuilder.external("externTable")
+          .inputSource(storage.jsonMapper(), new InlineInputSource("a\nc"))
+          .inputFormat(BaseExternTableTest.CSV_FORMAT)
           .build();
       assertThrows(IAE.class, () -> storage.validate(table));
     }
 
     // No format
     {
-      TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "externTable")
-          .data("a", "c")
-          .column("a", Columns.VARCHAR)
+      TableMetadata table = TableBuilder.external("externTable")
+          .inputSource(storage.jsonMapper(), new InlineInputSource("a\nc"))
+           .column("a", Columns.VARCHAR)
           .build();
       assertThrows(IAE.class, () -> storage.validate(table));
     }
@@ -198,9 +198,9 @@ public class CatalogSyncTest
     storage.validate(table2);
     storage.tables().create(table2);
 
-    TableMetadata table3 = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "table3")
-        .format(OldInputFormats.CSV_FORMAT_TYPE)
-        .data("a", "c")
+    TableMetadata table3 = TableBuilder.external("table3")
+        .inputFormat(BaseExternTableTest.CSV_FORMAT)
+        .inputSource(storage.jsonMapper(), new InlineInputSource("a\nc"))
         .column("a", Columns.VARCHAR)
         .build();
     storage.validate(table3);
@@ -263,12 +263,12 @@ public class CatalogSyncTest
       assertTrue(table.updateTime() > 0);
 
       TableSpec inputSpec = table.spec();
-      assertEquals(InlineInputSourceDefn.TABLE_TYPE, inputSpec.type());
+      assertEquals(ExternalTableDefn.TABLE_TYPE, inputSpec.type());
       List<ColumnSpec> cols = inputSpec.columns();
       assertEquals(1, cols.size());
       assertEquals("a", cols.get(0).name());
       assertEquals(Columns.VARCHAR, cols.get(0).sqlType());
-      assertEquals(OldInputSourceDefn.EXTERNAL_COLUMN_TYPE, cols.get(0).type());
+      assertEquals(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, cols.get(0).type());
 
       assertNotNull(inputSpec.properties());
     }

@@ -320,4 +320,9 @@ public class ExternalTableDefn extends TableDefn
   {
     return new ResolvedExternalTable(table).resolve(registry).convert();
   }
+
+  public static boolean isExternalTable(ResolvedTable table)
+  {
+    return TABLE_TYPE.equals(table.spec().type());
+  }
 }

@@ -112,7 +112,7 @@ public class InlineInputSourceDefn extends FormattedInputSourceDefn
     if (!args.isEmpty()) {
       throw new ISE("Cannot provide arguments for an inline table");
     }
-    if (!columns.isEmpty()) {
+    if (!CollectionUtils.isNullOrEmpty(columns)) {
       throw new IAE("Cannot provide columns for an inline table");
     }
     return convertTable(table);

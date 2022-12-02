@@ -25,15 +25,14 @@ import org.apache.druid.catalog.CatalogException;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.model.table.AbstractDatasourceDefn;
+import org.apache.druid.catalog.model.table.BaseExternTableTest;
 import org.apache.druid.catalog.model.table.ClusterKeySpec;
-import org.apache.druid.catalog.model.table.OldInputSourceDefn.FormattedInputSourceDefn;
-import org.apache.druid.catalog.model.table.InlineInputSourceDefn;
-import org.apache.druid.catalog.model.table.OldInputFormats;
 import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.storage.CatalogStorage;
 import org.apache.druid.catalog.storage.CatalogTests;
 import org.apache.druid.catalog.sync.CachedMetadataCatalog;
 import org.apache.druid.catalog.sync.MetadataCatalog;
+import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.guice.DruidInjectorBuilder;
 import org.apache.druid.initialization.DruidModule;
 import org.apache.druid.java.util.common.ISE;
@@ -349,9 +348,9 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
 
   private void buildInlineTable() throws CatalogException
   {
-    TableMetadata table = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "inline")
-        .property(FormattedInputSourceDefn.FORMAT_PROPERTY, OldInputFormats.CSV_FORMAT_TYPE)
-        .property(InlineInputSourceDefn.DATA_PROPERTY, Arrays.asList("a,b,1", "c,d,2"))
+    TableMetadata table = TableBuilder.external("inline")
+        .inputSource(storage.jsonMapper(), new InlineInputSource("a,b,1\nc,d,2"))
+        .inputFormat(BaseExternTableTest.CSV_FORMAT)
         .column("x", "VARCHAR")
         .column("y", "VARCHAR")
         .column("z", "BIGINT")
