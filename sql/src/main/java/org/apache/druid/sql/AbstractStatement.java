@@ -117,6 +117,15 @@ public abstract class AbstractStatement implements Closeable
   }
 
   /**
+   * Set the hook which can capture planner artifacts during planning. Primarily used
+   * for testing. Defaults to a "no op" hook that does nothing.
+   */
+  public void setHook(PlannerHook hook)
+  {
+    this.hook = hook;
+  }
+
+  /**
    * Validate SQL query and authorize against any datasources or views which
    * will take part in the query. Must be called by the API methods, not
    * directly.

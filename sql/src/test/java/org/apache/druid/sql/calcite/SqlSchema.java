@@ -73,7 +73,8 @@ public class SqlSchema
           && Objects.equals(type, other.type);
     }
 
-    public int hash()
+    @Override
+    public int hashCode()
     {
       return Objects.hash(name, type);
     }
@@ -109,11 +110,9 @@ public class SqlSchema
 
   public static SqlSchema of(RelDataType rowType)
   {
-    Builder builder = new Builder();
+    final Builder builder = new Builder();
     List<RelDataTypeField> fields = rowType.getFieldList();
-    String[] actual = new String[fields.size()];
-    for (int i = 0; i < actual.length; i++) {
-      RelDataTypeField field = fields.get(i);
+    for (RelDataTypeField field : fields) {
       builder.column(field.getName(), field.getType().getFullTypeString());
     }
     return builder.build();
@@ -123,10 +122,8 @@ public class SqlSchema
   public String toString()
   {
     return "(" +
-        String.join(
-            ", ",
-            columns.stream().map(c -> c.toString()).collect(Collectors.toList())
-        ) +
+        columns.stream().map(
+            c -> c.toString()).collect(Collectors.joining(", ")) +
         ")";
   }
 
@@ -136,11 +133,12 @@ public class SqlSchema
     if (o == null || o.getClass() != getClass()) {
       return false;
     }
-    SqlSchema other = (SqlSchema) o;
+    final SqlSchema other = (SqlSchema) o;
     return Objects.equals(columns, other.columns);
   }
 
-  public int hash()
+  @Override
+  public int hashCode()
   {
     return Objects.hash(columns);
   }

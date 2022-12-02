@@ -125,7 +125,7 @@ public class PlannerFactory
         catalog
     );
 
-    return new DruidPlanner(buildFrameworkConfig(context), context, engine);
+    return new DruidPlanner(buildFrameworkConfig(context), context, engine, hook);
   }
 
   /**

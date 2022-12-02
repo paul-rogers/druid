@@ -63,6 +63,8 @@ import org.apache.druid.sql.calcite.view.InProcessViewManager;
 import org.apache.druid.sql.calcite.view.ViewManager;
 import org.apache.druid.timeline.DataSegment;
 
+import javax.inject.Singleton;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Properties;
@@ -490,13 +492,13 @@ public class SqlTestFramework
       binder.bind(DataSegment.PruneSpecsHolder.class).toInstance(DataSegment.PruneSpecsHolder.DEFAULT);
     }
 
-    @Provides
+    @Provides @Singleton
     public QueryRunnerFactoryConglomerate conglomerate()
     {
       return componentSupplier.createCongolmerate(builder, resourceCloser);
     }
 
-    @Provides
+    @Provides @Singleton
     public JoinableFactoryWrapper joinableFactoryWrapper(final Injector injector)
     {
       return builder.componentSupplier.createJoinableFactoryWrapper(
@@ -504,7 +506,7 @@ public class SqlTestFramework
       );
     }
 
-    @Provides
+    @Provides @Singleton
     public SpecificSegmentsQuerySegmentWalker segmentsQuerySegmentWalker(final Injector injector)
     {
       try {
@@ -521,7 +523,7 @@ public class SqlTestFramework
       }
     }
 
-    @Provides
+    @Provides @Singleton
     public QueryLifecycleFactory queryLifecycleFactory(final Injector injector)
     {
       return QueryFrameworkUtils.createMockQueryLifecycleFactory(

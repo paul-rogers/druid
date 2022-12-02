@@ -20,7 +20,6 @@
 package org.apache.druid.msq.test;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.NamedType;
 import com.fasterxml.jackson.databind.module.SimpleModule;
@@ -29,10 +28,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.io.ByteStreams;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
+import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 import com.google.inject.util.Modules;
 import com.google.inject.util.Providers;
@@ -48,6 +47,7 @@ import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.IndexingServiceTuningConfigModule;
 import org.apache.druid.guice.JoinableFactoryModule;
 import org.apache.druid.guice.JsonConfigProvider;
+import org.apache.druid.guice.StartupInjectorBuilder;
 import org.apache.druid.guice.annotations.EscalatedGlobal;
 import org.apache.druid.guice.annotations.MSQ;
 import org.apache.druid.guice.annotations.Self;
@@ -56,8 +56,8 @@ import org.apache.druid.indexing.common.SegmentCacheManagerFactory;
 import org.apache.druid.indexing.common.task.CompactionTask;
 import org.apache.druid.indexing.common.task.IndexTask;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexTuningConfig;
+import org.apache.druid.initialization.CoreInjectorBuilder;
 import org.apache.druid.initialization.DruidModule;
-import org.apache.druid.java.util.common.IOE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.StringUtils;
@@ -169,11 +169,10 @@ import org.mockito.Mockito;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -232,6 +231,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
   private static final Logger log = new Logger(MSQTestBase.class);
   private ObjectMapper objectMapper;
   private MSQTestOverlordServiceClient indexingServiceClient;
+  protected MSQTestTaskActionClient testTaskActionClient;
   private SqlStatementFactory sqlStatementFactory;
   private IndexIO indexIO;
 
@@ -268,7 +268,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
       }
 
       @Override
-      public List<? extends Module> getJacksonModules()
+      public List<? extends com.fasterxml.jackson.databind.Module> getJacksonModules()
       {
         // We want this module to bring input sources along for the ride.
         return new InputSourceModule().getJacksonModules();
@@ -328,7 +328,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
 
     segmentManager = new MSQTestSegmentManager(segmentCacheManager, indexIO);
 
-    Injector injector = GuiceInjectors.makeStartupInjectorWithModules(ImmutableList.of(
+    List<Module> modules = ImmutableList.of(
         binder -> {
           DruidProcessingConfig druidProcessingConfig = new DruidProcessingConfig()
           {
@@ -426,15 +426,20 @@ public class MSQTestBase extends BaseCalciteQueryTest
             }
         ),
         new MSQExternalDataSourceModule()
-    ));
+    );
+    // adding node role injection to the modules, since CliPeon would also do that through run method
+    Injector injector = new CoreInjectorBuilder(new StartupInjectorBuilder().build(), ImmutableSet.of(NodeRole.PEON))
+        .addAll(modules)
+        .build();
 
     objectMapper = setupObjectMapper(injector);
     objectMapper.registerModules(sqlModule.getJacksonModules());
 
+    testTaskActionClient = Mockito.spy(new MSQTestTaskActionClient(objectMapper));
     indexingServiceClient = new MSQTestOverlordServiceClient(
         objectMapper,
         injector,
-        new MSQTestTaskActionClient(objectMapper),
+        testTaskActionClient,
         workerMemoryParameters
     );
     final InProcessViewManager viewManager = new InProcessViewManager(SqlTestFramework.DRUID_VIEW_MACRO_FACTORY);
@@ -489,22 +494,6 @@ public class MSQTestBase extends BaseCalciteQueryTest
     catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  /**
-   * Helper method that copies a resource to a temporary file, then returns it.
-   */
-  protected File getResourceAsTemporaryFile(final String resource) throws IOException
-  {
-    final File file = temporaryFolder.newFile();
-    final InputStream stream = getClass().getResourceAsStream(resource);
-
-    if (stream == null) {
-      throw new IOE("No such resource [%s]", resource);
-    }
-
-    ByteStreams.copy(stream, Files.newOutputStream(file.toPath()));
-    return file;
   }
 
   @Nonnull
