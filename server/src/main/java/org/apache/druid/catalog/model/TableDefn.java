@@ -60,7 +60,7 @@ public class TableDefn extends ObjectDefn
         typeValue,
         CatalogUtils.concatLists(
             Collections.singletonList(
-                new ModelProperties.StringPropertyDefn(DESCRIPTION_PROPERTY, null)
+                new ModelProperties.StringPropertyDefn(DESCRIPTION_PROPERTY)
             ),
             properties
         )

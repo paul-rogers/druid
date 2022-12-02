@@ -29,6 +29,7 @@ import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.model.table.AbstractDatasourceDefn;
+import org.apache.druid.catalog.model.table.DatasourceDefn;
 import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.testsEx.categories.Catalog;
@@ -71,8 +72,10 @@ public class ITCatalogRestTest
 
     // Bogus schema
     {
-      final TableMetadata table = new TableBuilder()
-          .id(TableId.of("bogus", "foo"))
+      final TableMetadata table = new TableBuilder(
+            TableId.of("bogus", "foo"),
+            DatasourceDefn.TABLE_TYPE
+           )
           .build();
 
       assertThrows(
@@ -83,8 +86,10 @@ public class ITCatalogRestTest
 
     // Read-only schema
     {
-      final TableMetadata table = new TableBuilder()
-          .id(TableId.of(TableId.SYSTEM_SCHEMA, "foo"))
+      final TableMetadata table = new TableBuilder(
+              TableId.of(TableId.SYSTEM_SCHEMA, "foo"),
+              DatasourceDefn.TABLE_TYPE
+           )
           .property(AbstractDatasourceDefn.SEGMENT_GRANULARITY_PROPERTY, "P1D")
           .build();
       assertThrows(

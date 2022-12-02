@@ -40,6 +40,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Catalog definitions for the Druid input formats. Maps from catalog and SQL
+ * functions to the Druid input format implementations.
+ */
 public class InputFormats
 {
   /**
@@ -229,7 +233,7 @@ public class InputFormats
     @Override
     protected Class<? extends InputFormat> inputFormatClass()
     {
-       return CsvInputFormat.class;
+      return CsvInputFormat.class;
     }
 
     @Override
@@ -271,7 +275,7 @@ public class InputFormats
     @Override
     protected Class<? extends InputFormat> inputFormatClass()
     {
-       return DelimitedInputFormat.class;
+      return DelimitedInputFormat.class;
     }
 
     @Override
@@ -303,7 +307,7 @@ public class InputFormats
     {
       super(
           Collections.singletonList(
-                  new Parameter(KEEP_NULLS_PARAMETER, Boolean.class, false)
+                  new Parameter(KEEP_NULLS_PARAMETER, Boolean.class, true)
           )
       );
     }
@@ -317,7 +321,7 @@ public class InputFormats
     @Override
     protected Class<? extends InputFormat> inputFormatClass()
     {
-       return JsonInputFormat.class;
+      return JsonInputFormat.class;
     }
 
     @Override

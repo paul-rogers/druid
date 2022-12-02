@@ -75,7 +75,7 @@ public abstract class CatalogExternalTableOperatorConversion implements SqlOpera
       final ObjectMapper jsonMapper
   )
   {
-    InputSourceDefn tableDefn = (InputSourceDefn) registry.tableDefnFor(tableType);
+    InputSourceDefn tableDefn = (InputSourceDefn) registry.inputSourceDefnFor(tableType);
     this.operator = new CatalogExternalTableOperator(
         new CatalogTableMacro(
             name,

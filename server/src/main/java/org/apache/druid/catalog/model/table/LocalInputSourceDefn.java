@@ -123,7 +123,7 @@ public class LocalInputSourceDefn extends FormattedInputSourceDefn
           FILES_PARAMETER
       );
     }
-    if (Strings.isNullOrEmpty(baseDirParam) && ! Strings.isNullOrEmpty(filterParam)) {
+    if (Strings.isNullOrEmpty(baseDirParam) && !Strings.isNullOrEmpty(filterParam)) {
       throw new IAE(
           "If a local input source sets property %s, it must also set property %s",
           FILTER_PARAMETER,

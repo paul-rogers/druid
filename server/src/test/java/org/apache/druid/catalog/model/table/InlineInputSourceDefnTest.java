@@ -139,7 +139,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
 
     assertTrue(extern.inputSource instanceof InlineInputSource);
     InlineInputSource inputSource = (InlineInputSource) extern.inputSource;
-    assertEquals("a,b\nc,d", inputSource.getData());
+    assertEquals("a,b\nc,d\n", inputSource.getData());
     assertTrue(extern.inputFormat instanceof CsvInputFormat);
     CsvInputFormat format = (CsvInputFormat) extern.inputFormat;
     assertEquals(Arrays.asList("a", "b"), format.getColumns());
@@ -173,7 +173,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
 
     assertTrue(extern.inputSource instanceof InlineInputSource);
     InlineInputSource inputSource = (InlineInputSource) extern.inputSource;
-    assertEquals("a,b\nc,d", inputSource.getData());
+    assertEquals("a,b\nc,d\n", inputSource.getData());
     assertTrue(extern.inputFormat instanceof CsvInputFormat);
     CsvInputFormat actualFormat = (CsvInputFormat) extern.inputFormat;
     assertEquals(Arrays.asList("a", "b"), actualFormat.getColumns());
@@ -208,7 +208,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
     // Verify the conversion
     assertTrue(extern.inputSource instanceof InlineInputSource);
     InlineInputSource inputSource = (InlineInputSource) extern.inputSource;
-    assertEquals("a,b\nc,d", inputSource.getData());
+    assertEquals("a,b\nc,d\n", inputSource.getData());
     assertTrue(extern.inputFormat instanceof CsvInputFormat);
     CsvInputFormat actualFormat = (CsvInputFormat) extern.inputFormat;
     assertEquals(Arrays.asList("a", "b"), actualFormat.getColumns());

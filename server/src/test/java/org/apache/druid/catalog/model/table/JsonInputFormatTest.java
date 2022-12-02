@@ -66,8 +66,7 @@ public class JsonInputFormatTest extends BaseExternTableTest
   @Test
   public void testConversion()
   {
-    JsonInputFormat format = new JsonInputFormat(
-        null, null, true, true, false);
+    JsonInputFormat format = new JsonInputFormat(null, null, true, true, false);
     TableMetadata table = TableBuilder.external("foo")
         .inputSource(mapper, new InlineInputSource("a\n"))
         .inputFormat(mapper, format)

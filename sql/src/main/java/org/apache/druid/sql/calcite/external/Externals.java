@@ -21,7 +21,6 @@ package org.apache.druid.sql.calcite.external;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.apache.calcite.avatica.SqlType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.schema.FunctionParameter;
@@ -52,6 +51,7 @@ import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.table.ExternalTable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -152,28 +152,37 @@ public class Externals
     };
   }
 
+  /**
+   * Convert the list of Calcite function arguments to a map of non-null arguments.
+   * The resulting map must be mutable as processing may rewrite values.
+   */
   public static Map<String, Object> convertArguments(
       final TableFunction fn,
       final List<Object> arguments
   )
   {
-    List<TableFunction.ParameterDefn> params = fn.parameters();
-    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+    final List<TableFunction.ParameterDefn> params = fn.parameters();
+    final Map<String, Object> argMap = new HashMap<>();
     for (int i = 0; i < arguments.size(); i++) {
-      builder.put(params.get(i).name(), arguments.get(i));
+      final Object value = arguments.get(i);
+      if (value != null) {
+        argMap.put(params.get(i).name(), value);
+      }
     }
-    return builder.build();
+    return argMap;
   }
 
-  // Converts from a list of (identifier, type, ...) pairs to
-  // list of column specs. The schema itself comes from the
-  // Druid-specific EXTEND syntax added to the parser.
+  /**
+   * Converts from a list of (identifier, type, ...) pairs to
+   * list of column specs. The schema itself comes from the
+   * Druid-specific EXTEND syntax added to the parser.
+   */
   public static List<ColumnSpec> convertColumns(SqlNodeList schema)
   {
-    List<ColumnSpec> columns = new ArrayList<>();
+    final List<ColumnSpec> columns = new ArrayList<>();
     for (int i = 0; i < schema.size(); i += 2) {
       final String name = convertName((SqlIdentifier) schema.get(i));
-      String sqlType = convertType(name, (SqlDataTypeSpec) schema.get(i + 1));
+      final String sqlType = convertType(name, (SqlDataTypeSpec) schema.get(i + 1));
       columns.add(new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, name, sqlType, null));
     }
     return columns;

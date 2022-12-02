@@ -31,11 +31,11 @@ import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.model.TableSpec;
 import org.apache.druid.catalog.model.table.AbstractDatasourceDefn;
+import org.apache.druid.catalog.model.table.BaseExternTableTest;
 import org.apache.druid.catalog.model.table.DatasourceDefn;
-import org.apache.druid.catalog.model.table.InlineInputSourceDefn;
-import org.apache.druid.catalog.model.table.OldInputFormats;
 import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.storage.CatalogTests;
+import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.metadata.TestDerbyConnector;
 import org.apache.druid.server.security.ForbiddenException;
 import org.junit.After;
@@ -142,9 +142,9 @@ public class CatalogResourceTest
     assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), resp.getStatus());
 
     // Inline input source
-    TableSpec inputSpec = TableBuilder.external(InlineInputSourceDefn.TABLE_TYPE, "inline")
-        .format(OldInputFormats.CSV_FORMAT_TYPE)
-        .data("a,b,1", "c,d,2")
+    TableSpec inputSpec = TableBuilder.external("inline")
+        .inputSource(dbFixture.storage.jsonMapper(), new InlineInputSource("a,b,1\nc,d,2\n"))
+        .inputFormat(BaseExternTableTest.CSV_FORMAT)
         .column("a", Columns.VARCHAR)
         .column("b", Columns.VARCHAR)
         .column("c", Columns.BIGINT)

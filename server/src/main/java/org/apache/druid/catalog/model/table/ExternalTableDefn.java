@@ -26,7 +26,6 @@ import org.apache.druid.catalog.model.ColumnDefn;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
 import org.apache.druid.catalog.model.ModelProperties.SimplePropertyDefn;
-import org.apache.druid.catalog.model.PropertyAttributes;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefn;
 import org.apache.druid.catalog.model.TableDefnRegistry;
@@ -228,13 +227,13 @@ public class ExternalTableDefn extends TableDefn
    * Definition of the input source property.
    */
   private static final SimplePropertyDefn<InputSource> SOURCE_PROPERTY_DEFN =
-      new SimplePropertyDefn<InputSource>(SOURCE_PROPERTY, InputSource.class, PropertyAttributes.SQL_AND_TABLE_PARAM);
+      new SimplePropertyDefn<InputSource>(SOURCE_PROPERTY, InputSource.class);
 
   /**
    * Definition of the input format property.
    */
   private static final SimplePropertyDefn<InputFormat> FORMAT_PROPERTY_DEFN =
-      new SimplePropertyDefn<InputFormat>(FORMAT_PROPERTY, InputFormat.class, PropertyAttributes.OPTIONAL_SQL_FN_PARAM);
+      new SimplePropertyDefn<InputFormat>(FORMAT_PROPERTY, InputFormat.class);
 
   /**
    * Type reference used to deserialize JSON to a generic map.

@@ -126,8 +126,8 @@ public class InlineInputSourceDefn extends FormattedInputSourceDefn
     // not be interpreted as an empty data row. That is, if the data ends with
     // a newline, the inline input source will interpret that as a blank line, oddly.
     String data = CatalogUtils.getString(jsonMap, "data");
-     if (data != null && data.endsWith("\n")) {
-      jsonMap.put("data", data.trim());
+    if (data != null && !data.endsWith("\n")) {
+      jsonMap.put("data", data + "\n");
     }
   }
 }

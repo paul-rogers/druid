@@ -53,7 +53,11 @@ public abstract class BaseInputSourceDefn implements InputSourceDefn
     }
 
     @Override
-    public ExternalTableSpec apply(Map<String, Object> args, List<ColumnSpec> columns, ObjectMapper jsonMapper)
+    public ExternalTableSpec apply(
+        final Map<String, Object> args,
+        final List<ColumnSpec> columns,
+        final ObjectMapper jsonMapper
+    )
     {
       return convertArgsToTable(args, columns, jsonMapper);
     }
@@ -125,7 +129,11 @@ public abstract class BaseInputSourceDefn implements InputSourceDefn
   /**
    * Define a table "from scratch" using SQL function arguments.
    */
-  protected ExternalTableSpec convertArgsToTable(Map<String, Object> args, List<ColumnSpec> columns, ObjectMapper jsonMapper)
+  protected ExternalTableSpec convertArgsToTable(
+      final Map<String, Object> args,
+      final List<ColumnSpec> columns,
+      final ObjectMapper jsonMapper
+  )
   {
     auditInputSource(args);
     return new ExternalTableSpec(
@@ -140,7 +148,7 @@ public abstract class BaseInputSourceDefn implements InputSourceDefn
    */
   protected InputSource convertArgsToSource(Map<String, Object> args, ObjectMapper jsonMapper)
   {
-    Map<String, Object> jsonMap = new HashMap<>();
+    final Map<String, Object> jsonMap = new HashMap<>();
     convertArgsToSourceMap(jsonMap, args);
     return convertSource(jsonMap, jsonMapper);
   }
@@ -249,10 +257,10 @@ public abstract class BaseInputSourceDefn implements InputSourceDefn
     if (CollectionUtils.isNullOrEmpty(tableCols)) {
       return columns;
     } else if (!CollectionUtils.isNullOrEmpty(columns)) {
-        throw new IAE(
-            "Catalog definition for the %s input source already contains column definitions",
-            typeValue()
-        );
+      throw new IAE(
+          "Catalog definition for the %s input source already contains column definitions",
+          typeValue()
+      );
     } else {
       return tableCols;
     }

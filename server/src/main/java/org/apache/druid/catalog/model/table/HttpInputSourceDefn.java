@@ -211,8 +211,7 @@ public class HttpInputSourceDefn extends FormattedInputSourceDefn
     }
 
     // Does the table define a user or password?
-    if (!sourceMap.containsKey(USERNAME_FIELD) && !sourceMap.containsKey(PASSWORD_FIELD))
-    {
+    if (!sourceMap.containsKey(USERNAME_FIELD) && !sourceMap.containsKey(PASSWORD_FIELD)) {
       params = CatalogUtils.concatLists(params, USER_PWD_PARAMS);
     }
 
@@ -240,8 +239,7 @@ public class HttpInputSourceDefn extends FormattedInputSourceDefn
     }
 
     // Get user and password from the table if defined, else from arguments.
-    if (!sourceMap.containsKey(USERNAME_FIELD) && !sourceMap.containsKey(PASSWORD_FIELD))
-    {
+    if (!sourceMap.containsKey(USERNAME_FIELD) && !sourceMap.containsKey(PASSWORD_FIELD)) {
       convertUserPasswordArgs(sourceMap, args);
     }
     return convertPartialFormattedTable(table, args, columns, sourceMap);

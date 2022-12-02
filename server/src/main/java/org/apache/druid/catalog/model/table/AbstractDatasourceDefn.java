@@ -75,7 +75,7 @@ public class AbstractDatasourceDefn extends TableDefn
   {
     public SegmentGranularityFieldDefn()
     {
-      super(SEGMENT_GRANULARITY_PROPERTY, null);
+      super(SEGMENT_GRANULARITY_PROPERTY);
     }
 
     @Override
@@ -93,7 +93,7 @@ public class AbstractDatasourceDefn extends TableDefn
   {
     public HiddenColumnsDefn()
     {
-      super(HIDDEN_COLUMNS_PROPERTY, null);
+      super(HIDDEN_COLUMNS_PROPERTY);
     }
 
     @Override
@@ -126,12 +126,11 @@ public class AbstractDatasourceDefn extends TableDefn
         CatalogUtils.concatLists(
             Arrays.asList(
                 new SegmentGranularityFieldDefn(),
-                new ModelProperties.IntPropertyDefn(TARGET_SEGMENT_ROWS_PROPERTY, null),
+                new ModelProperties.IntPropertyDefn(TARGET_SEGMENT_ROWS_PROPERTY),
                 new ModelProperties.ListPropertyDefn<ClusterKeySpec>(
                     CLUSTER_KEYS_PROPERTY,
                     "cluster keys",
-                    new TypeReference<List<ClusterKeySpec>>() { },
-                    null
+                    new TypeReference<List<ClusterKeySpec>>() { }
                 ),
                 new HiddenColumnsDefn()
             ),

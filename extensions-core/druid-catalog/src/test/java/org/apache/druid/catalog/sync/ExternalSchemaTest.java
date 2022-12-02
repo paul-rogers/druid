@@ -228,7 +228,7 @@ public class ExternalSchemaTest
       assertTrue(extds.getInputFormat() instanceof CsvInputFormat);
       assertEquals(ImmutableList.of("a"), ((CsvInputFormat) extds.getInputFormat()).getColumns());
       assertTrue(extds.getInputSource() instanceof InlineInputSource);
-      assertEquals("a\nc", ((InlineInputSource) extds.getInputSource()).getData());
+      assertEquals("a\nc\n", ((InlineInputSource) extds.getInputSource()).getData());
 
       Set<ResourceAction> actions = ((AuthorizableOperator) fn).computeResources(null);
       assertEquals(1, actions.size());
