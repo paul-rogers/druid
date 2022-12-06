@@ -29,7 +29,6 @@ import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefn;
 import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.TableSpec;
-import org.apache.druid.catalog.model.table.DatasourceDefn.DatasourceColumnDefn;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.IAE;
 import org.junit.Test;
@@ -64,7 +63,7 @@ public class DatasourceTableTest
   {
     // Minimum possible definition
     Map<String, Object> props = ImmutableMap.of(
-        AbstractDatasourceDefn.SEGMENT_GRANULARITY_PROPERTY, "P1D"
+        DatasourceDefn.SEGMENT_GRANULARITY_PROPERTY, "P1D"
     );
     {
       TableSpec spec = new TableSpec(DatasourceDefn.TABLE_TYPE, props, null);
@@ -125,9 +124,9 @@ public class DatasourceTableTest
   {
     Map<String, Object> props = ImmutableMap.<String, Object>builder()
         .put(TableDefn.DESCRIPTION_PROPERTY, "My table")
-        .put(AbstractDatasourceDefn.SEGMENT_GRANULARITY_PROPERTY, "P1D")
-        .put(AbstractDatasourceDefn.TARGET_SEGMENT_ROWS_PROPERTY, 1_000_000)
-        .put(AbstractDatasourceDefn.HIDDEN_COLUMNS_PROPERTY, Arrays.asList("foo", "bar"))
+        .put(DatasourceDefn.SEGMENT_GRANULARITY_PROPERTY, "P1D")
+        .put(DatasourceDefn.TARGET_SEGMENT_ROWS_PROPERTY, 1_000_000)
+        .put(DatasourceDefn.HIDDEN_COLUMNS_PROPERTY, Arrays.asList("foo", "bar"))
         .build();
 
     {
@@ -163,7 +162,7 @@ public class DatasourceTableTest
     // Target segment rows
     {
       TableSpec spec = TableBuilder.datasource("foo", "P1D")
-          .property(AbstractDatasourceDefn.TARGET_SEGMENT_ROWS_PROPERTY, "bogus")
+          .property(DatasourceDefn.TARGET_SEGMENT_ROWS_PROPERTY, "bogus")
           .buildSpec();
       expectValidationFails(spec);
     }
@@ -171,7 +170,7 @@ public class DatasourceTableTest
     // Hidden columns
     {
       TableSpec spec = TableBuilder.datasource("foo", "P1D")
-          .property(AbstractDatasourceDefn.HIDDEN_COLUMNS_PROPERTY, "bogus")
+          .property(DatasourceDefn.HIDDEN_COLUMNS_PROPERTY, "bogus")
           .buildSpec();
       expectValidationFails(spec);
     }
@@ -196,25 +195,19 @@ public class DatasourceTableTest
   @Test
   public void testColumnSpec()
   {
-    // Type is required
-    {
-      ColumnSpec spec = new ColumnSpec(null, null, null, null);
-      assertThrows(IAE.class, () -> spec.validate());
-    }
-
     // Name is required
     {
-      ColumnSpec spec = new ColumnSpec(DatasourceColumnDefn.COLUMN_TYPE, null, null, null);
+      ColumnSpec spec = new ColumnSpec(null, null, null);
       assertThrows(IAE.class, () -> spec.validate());
     }
     {
-      ColumnSpec spec = new ColumnSpec(DatasourceColumnDefn.COLUMN_TYPE, "foo", null, null);
+      ColumnSpec spec = new ColumnSpec("foo", null, null);
       spec.validate();
     }
 
     // Type is optional
     {
-      ColumnSpec spec = new ColumnSpec(DatasourceColumnDefn.COLUMN_TYPE, "foo", "VARCHAR", null);
+      ColumnSpec spec = new ColumnSpec("foo", "VARCHAR", null);
       spec.validate();
     }
   }
@@ -321,11 +314,11 @@ public class DatasourceTableTest
         .build();
     TableSpec spec = TableBuilder.datasource("foo", "PT1H")
         .description("My table")
-        .property(AbstractDatasourceDefn.TARGET_SEGMENT_ROWS_PROPERTY, 1_000_000)
+        .property(DatasourceDefn.TARGET_SEGMENT_ROWS_PROPERTY, 1_000_000)
         .hiddenColumns("foo", "bar")
         .property("tag1", "some value")
         .property("tag2", "second value")
-        .column(new ColumnSpec(DatasourceColumnDefn.COLUMN_TYPE, "a", null, colProps))
+        .column(new ColumnSpec("a", null, colProps))
         .column("b", Columns.VARCHAR)
         .buildSpec();
 
@@ -382,7 +375,7 @@ public class DatasourceTableTest
     // such values to indicate which properties to remove.
     Map<String, Object> updatedProps = new HashMap<>();
     // Update a property
-    updatedProps.put(AbstractDatasourceDefn.SEGMENT_GRANULARITY_PROPERTY, "P1D");
+    updatedProps.put(DatasourceDefn.SEGMENT_GRANULARITY_PROPERTY, "P1D");
     // Remove a property
     updatedProps.put("tag1", null);
     // Add a property
@@ -397,8 +390,8 @@ public class DatasourceTableTest
     // changed.
     assertNotEquals(spec, merged);
     assertEquals(
-        updatedProps.get(AbstractDatasourceDefn.SEGMENT_GRANULARITY_PROPERTY),
-        merged.properties().get(AbstractDatasourceDefn.SEGMENT_GRANULARITY_PROPERTY)
+        updatedProps.get(DatasourceDefn.SEGMENT_GRANULARITY_PROPERTY),
+        merged.properties().get(DatasourceDefn.SEGMENT_GRANULARITY_PROPERTY)
     );
     assertFalse(merged.properties().containsKey("tag1"));
     assertEquals(
@@ -414,24 +407,24 @@ public class DatasourceTableTest
 
     // Remove all hidden columns
     Map<String, Object> updatedProps = new HashMap<>();
-    updatedProps.put(AbstractDatasourceDefn.HIDDEN_COLUMNS_PROPERTY, null);
+    updatedProps.put(DatasourceDefn.HIDDEN_COLUMNS_PROPERTY, null);
     TableSpec update = new TableSpec(null, updatedProps, null);
     TableSpec merged = mergeTables(spec, update);
     expectValidationSucceeds(merged);
     assertFalse(
-        merged.properties().containsKey(AbstractDatasourceDefn.HIDDEN_COLUMNS_PROPERTY)
+        merged.properties().containsKey(DatasourceDefn.HIDDEN_COLUMNS_PROPERTY)
     );
 
     // Wrong type
     updatedProps = ImmutableMap.of(
-        AbstractDatasourceDefn.HIDDEN_COLUMNS_PROPERTY, "mumble"
+        DatasourceDefn.HIDDEN_COLUMNS_PROPERTY, "mumble"
     );
     update = new TableSpec(null, updatedProps, null);
     assertMergeFails(spec, update);
 
     // Merge
     updatedProps = ImmutableMap.of(
-        AbstractDatasourceDefn.HIDDEN_COLUMNS_PROPERTY, Collections.singletonList("mumble")
+        DatasourceDefn.HIDDEN_COLUMNS_PROPERTY, Collections.singletonList("mumble")
     );
     update = new TableSpec(null, updatedProps, null);
     merged = mergeTables(spec, update);
@@ -439,7 +432,7 @@ public class DatasourceTableTest
 
     assertEquals(
         Arrays.asList("foo", "bar", "mumble"),
-        merged.properties().get(AbstractDatasourceDefn.HIDDEN_COLUMNS_PROPERTY)
+        merged.properties().get(DatasourceDefn.HIDDEN_COLUMNS_PROPERTY)
     );
   }
 
@@ -447,13 +440,12 @@ public class DatasourceTableTest
   public void testMergeColsWithEmptyList()
   {
     Map<String, Object> props = ImmutableMap.of(
-        AbstractDatasourceDefn.SEGMENT_GRANULARITY_PROPERTY, "P1D"
+        DatasourceDefn.SEGMENT_GRANULARITY_PROPERTY, "P1D"
     );
     TableSpec spec = new TableSpec(DatasourceDefn.TABLE_TYPE, props, null);
 
     List<ColumnSpec> colUpdates = Collections.singletonList(
         new ColumnSpec(
-            DatasourceColumnDefn.COLUMN_TYPE,
             "a",
             Columns.BIGINT,
             null
@@ -482,13 +474,11 @@ public class DatasourceTableTest
 
     List<ColumnSpec> colUpdates = Arrays.asList(
         new ColumnSpec(
-            DatasourceColumnDefn.COLUMN_TYPE,
             "a",
             Columns.BIGINT,
             updatedProps
         ),
         new ColumnSpec(
-            DatasourceColumnDefn.COLUMN_TYPE,
             "c",
             Columns.VARCHAR,
             null

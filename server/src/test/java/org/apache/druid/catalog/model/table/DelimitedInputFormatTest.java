@@ -112,7 +112,7 @@ public class DelimitedInputFormatTest extends BaseExternTableTest
     args.put(FlatTextFormatDefn.LIST_DELIMITER_PARAMETER, ";");
     args.put(FlatTextFormatDefn.SKIP_ROWS_PARAMETER, 1);
     InputFormatDefn defn = registry.inputFormatDefnFor(DelimitedInputFormat.TYPE_KEY);
-    List<ColumnSpec> columns = Collections.singletonList(new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "a", null, null));
+    List<ColumnSpec> columns = Collections.singletonList(new ColumnSpec("a", null, null));
     InputFormat inputFormat = defn.convertFromArgs(args, columns, mapper);
     DelimitedInputFormat delmited = (DelimitedInputFormat) inputFormat;
     assertEquals(1, delmited.getSkipHeaderRows());

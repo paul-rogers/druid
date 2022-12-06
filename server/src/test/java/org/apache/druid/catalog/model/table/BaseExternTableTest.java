@@ -38,8 +38,8 @@ public class BaseExternTableTest
 {
   public static final String CSV_FORMAT = "{\"type\": \"" + CsvInputFormat.TYPE_KEY + "\"}";
   protected static final List<ColumnSpec> COLUMNS = Arrays.asList(
-      new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "x", Columns.VARCHAR, null),
-      new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "y", Columns.BIGINT, null)
+      new ColumnSpec("x", Columns.VARCHAR, null),
+      new ColumnSpec("y", Columns.BIGINT, null)
   );
 
   protected final ObjectMapper mapper = DefaultObjectMapper.INSTANCE;
@@ -75,11 +75,11 @@ public class BaseExternTableTest
     }
   }
 
-  protected String formatToJson(InputFormat format)
+  protected Map<String, Object> formatToMap(InputFormat format)
   {
     Map<String, Object> formatMap = toMap(format);
     formatMap.remove("columns");
-    return toJsonString(formatMap);
+    return formatMap;
   }
 
   protected boolean hasParam(TableFunction fn, String key)

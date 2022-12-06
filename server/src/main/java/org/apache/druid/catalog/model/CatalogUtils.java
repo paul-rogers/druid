@@ -20,10 +20,10 @@
 package org.apache.druid.catalog.model;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableMap;
-import org.apache.druid.catalog.model.table.AbstractDatasourceDefn;
+import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
+import org.apache.druid.catalog.model.table.DatasourceDefn;
+import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
@@ -39,6 +39,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -63,7 +64,7 @@ public class CatalogUtils
    */
   public static Granularity asDruidGranularity(String value)
   {
-    if (Strings.isNullOrEmpty(value) || value.equalsIgnoreCase(AbstractDatasourceDefn.ALL_GRANULARITY)) {
+    if (Strings.isNullOrEmpty(value) || value.equalsIgnoreCase(DatasourceDefn.ALL_GRANULARITY)) {
       return Granularities.ALL;
     }
     try {
@@ -128,20 +129,18 @@ public class CatalogUtils
   }
 
   /**
-   * Catalog-specific 1uick & easy implementation of {@code toString()} for objects
+   * Catalog-specific quick & easy implementation of {@code toString()} for objects
    * which are primarily representations of JSON objects. Use only for cases where the
-   * {@code toString()} is for debugging: the cost of creating an object mapper
-   * every time is undesirable for production code. Also, assumes that the
-   * type can serialized using the default mapper: doesn't work for types that
+   * {@code toString()} is for debugging. Also, assumes that the
+   * type can serialized using the default mapper: this trick doesn't work for types that
    * require custom Jackson extensions. The catalog, however, has a simple type
    * hierarchy, which is not extended via extensions, and so the default object mapper is
    * fine.
    */
   public static String toString(Object obj)
   {
-    ObjectMapper jsonMapper = new ObjectMapper();
     try {
-      return jsonMapper.writeValueAsString(obj);
+      return DefaultObjectMapper.INSTANCE.writerWithDefaultPrettyPrinter().writeValueAsString(obj);
     }
     catch (JsonProcessingException e) {
       throw new ISE("Failed to serialize TableDefn");
@@ -158,15 +157,6 @@ public class CatalogUtils
         .filter(Objects::nonNull)
         .flatMap(Collection::stream)
         .collect(Collectors.toList());
-  }
-
-  public static Map<String, ColumnDefn> toColumnMap(final List<ColumnDefn> colTypes)
-  {
-    ImmutableMap.Builder<String, ColumnDefn> builder = ImmutableMap.builder();
-    for (ColumnDefn colType : colTypes) {
-      builder.put(colType.typeValue(), colType);
-    }
-    return builder.build();
   }
 
   /**
@@ -216,5 +206,42 @@ public class CatalogUtils
       }
     }
     return uris;
+  }
+
+  /**
+   * Merge the properties for an object using a set of updates in a map. If the
+   * update value is {@code null}, then remove the property in the revised set. If the
+   * property is known, use the column definition to merge the values. Else, the
+   * update replaces any existing value.
+   * <p>
+   * This method does not validate the properties, except as needed to do a
+   * merge. A separate validation step is done on the final, merged object.
+   */
+  public static Map<String, Object> mergeProperties(
+      final Map<String, PropertyDefn<?>> properties,
+      final Map<String, Object> source,
+      final Map<String, Object> update
+  )
+  {
+    if (update == null) {
+      return source;
+    }
+    if (source == null) {
+      return update;
+    }
+    final Map<String, Object> merged = new HashMap<>(source);
+    for (Map.Entry<String, Object> entry : update.entrySet()) {
+      if (entry.getValue() == null) {
+        merged.remove(entry.getKey());
+      } else {
+        Object value = entry.getValue();
+        final PropertyDefn<?> propDefn = properties.get(entry.getKey());
+        if (propDefn != null) {
+          value = propDefn.merge(merged.get(entry.getKey()), entry.getValue());
+        }
+        merged.put(entry.getKey(), value);
+      }
+    }
+    return merged;
   }
 }

@@ -20,8 +20,8 @@
 package org.apache.druid.catalog.model.facade;
 
 import org.apache.druid.catalog.model.ResolvedTable;
-import org.apache.druid.catalog.model.table.AbstractDatasourceDefn;
 import org.apache.druid.catalog.model.table.ClusterKeySpec;
+import org.apache.druid.catalog.model.table.DatasourceDefn;
 
 import java.util.Collections;
 import java.util.List;
@@ -40,24 +40,29 @@ public class DatasourceFacade extends TableFacade
 
   public String segmentGranularity()
   {
-    return stringProperty(AbstractDatasourceDefn.SEGMENT_GRANULARITY_PROPERTY);
+    return stringProperty(DatasourceDefn.SEGMENT_GRANULARITY_PROPERTY);
   }
 
   public Integer targetSegmentRows()
   {
-    return intProperty(AbstractDatasourceDefn.TARGET_SEGMENT_ROWS_PROPERTY);
+    return intProperty(DatasourceDefn.TARGET_SEGMENT_ROWS_PROPERTY);
   }
 
   @SuppressWarnings("unchecked")
   public List<ClusterKeySpec> clusterKeys()
   {
-    return (List<ClusterKeySpec>) property(AbstractDatasourceDefn.CLUSTER_KEYS_PROPERTY);
+    return (List<ClusterKeySpec>) property(DatasourceDefn.CLUSTER_KEYS_PROPERTY);
   }
 
   @SuppressWarnings("unchecked")
   public List<String> hiddenColumns()
   {
-    Object value = property(AbstractDatasourceDefn.HIDDEN_COLUMNS_PROPERTY);
+    Object value = property(DatasourceDefn.HIDDEN_COLUMNS_PROPERTY);
     return value == null ? Collections.emptyList() : (List<String>) value;
+  }
+
+  public boolean isSealed()
+  {
+    return booleanProperty(DatasourceDefn.SEALED_PROPERTY);
   }
 }

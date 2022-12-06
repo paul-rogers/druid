@@ -20,6 +20,7 @@
 package org.apache.druid.catalog.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.druid.catalog.model.table.ExternalTableDefn;
 
 import java.util.Map;
 

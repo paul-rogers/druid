@@ -102,7 +102,7 @@ public class CsvInputFormatTest extends BaseExternTableTest
     args.put(FlatTextFormatDefn.LIST_DELIMITER_PARAMETER, ";");
     args.put(FlatTextFormatDefn.SKIP_ROWS_PARAMETER, 1);
     InputFormatDefn defn = registry.inputFormatDefnFor(CsvInputFormat.TYPE_KEY);
-    List<ColumnSpec> columns = Collections.singletonList(new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "a", null, null));
+    List<ColumnSpec> columns = Collections.singletonList(new ColumnSpec("a", null, null));
     InputFormat inputFormat = defn.convertFromArgs(args, columns, mapper);
     CsvInputFormat csvFormat = (CsvInputFormat) inputFormat;
     assertEquals(1, csvFormat.getSkipHeaderRows());

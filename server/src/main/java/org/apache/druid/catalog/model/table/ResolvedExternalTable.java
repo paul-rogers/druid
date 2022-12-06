@@ -19,13 +19,13 @@
 
 package org.apache.druid.catalog.model.table;
 
-import com.google.common.base.Strings;
 import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.utils.CollectionUtils;
 
 import java.util.Map;
 
@@ -39,8 +39,6 @@ import java.util.Map;
 public class ResolvedExternalTable
 {
   private final ResolvedTable table;
-  private final String inputSourceValue;
-  private final String inputFormatValue;
   private Map<String, Object> inputSourceMap;
   private Map<String, Object> inputFormatMap;
   private InputSourceDefn inputSourceDefn;
@@ -59,25 +57,11 @@ public class ResolvedExternalTable
   public ResolvedExternalTable(final ResolvedTable table)
   {
     this.table = table;
-    this.inputSourceValue = table.stringProperty(ExternalTableDefn.SOURCE_PROPERTY);
-    this.inputFormatValue = table.stringProperty(ExternalTableDefn.FORMAT_PROPERTY);
-    if (Strings.isNullOrEmpty(inputSourceValue)) {
+    this.inputSourceMap = table.mapProperty(ExternalTableDefn.SOURCE_PROPERTY);
+    if (this.inputSourceMap == null || this.inputSourceMap.isEmpty()) {
       throw new IAE("%s property is required", ExternalTableDefn.SOURCE_PROPERTY);
     }
-    inputSourceMap = convertToMap(inputSourceValue);
-    if (inputFormatValue != null) {
-      inputFormatMap = convertToMap(inputFormatValue);
-    }
-  }
-
-  private Map<String, Object> convertToMap(String json)
-  {
-    try {
-      return table.jsonMapper().readValue(json, ExternalTableDefn.MAP_TYPE_REF);
-    }
-    catch (Exception e) {
-      throw new IAE(e, "Invalid format specification");
-    }
+    this.inputFormatMap = table.mapProperty(ExternalTableDefn.FORMAT_PROPERTY);
   }
 
   public ResolvedTable resolvedTable()

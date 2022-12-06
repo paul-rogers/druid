@@ -136,17 +136,22 @@ public class TableBuilder
 
   public TableBuilder segmentGranularity(String segmentGranularity)
   {
-    return property(AbstractDatasourceDefn.SEGMENT_GRANULARITY_PROPERTY, segmentGranularity);
+    return property(DatasourceDefn.SEGMENT_GRANULARITY_PROPERTY, segmentGranularity);
   }
 
   public TableBuilder clusterColumns(ClusterKeySpec...clusterKeys)
   {
-    return property(AbstractDatasourceDefn.CLUSTER_KEYS_PROPERTY, Arrays.asList(clusterKeys));
+    return property(DatasourceDefn.CLUSTER_KEYS_PROPERTY, Arrays.asList(clusterKeys));
   }
 
   public TableBuilder hiddenColumns(List<String> hiddenColumns)
   {
-    return property(AbstractDatasourceDefn.HIDDEN_COLUMNS_PROPERTY, hiddenColumns);
+    return property(DatasourceDefn.HIDDEN_COLUMNS_PROPERTY, hiddenColumns);
+  }
+
+  public TableBuilder sealed(boolean sealed)
+  {
+    return property(DatasourceDefn.SEALED_PROPERTY, sealed);
   }
 
   public TableBuilder hiddenColumns(String...hiddenColumns)
@@ -154,34 +159,14 @@ public class TableBuilder
     return hiddenColumns(Arrays.asList(hiddenColumns));
   }
 
-  public TableBuilder inputSource(String inputSourceJson)
+  public TableBuilder inputSource(Map<String, Object> inputSource)
   {
-    return property(ExternalTableDefn.SOURCE_PROPERTY, inputSourceJson);
+    return property(ExternalTableDefn.SOURCE_PROPERTY, inputSource);
   }
 
-  public TableBuilder inputSource(ObjectMapper mapper, InputSource inputSource)
+  public TableBuilder inputFormat(Map<String, Object> format)
   {
-    try {
-      return inputSource(mapper.writeValueAsString(inputSource));
-    }
-    catch (Exception e) {
-      throw new ISE(e, "Could not convert input source");
-    }
-  }
-
-  public TableBuilder inputFormat(String inputFormatJson)
-  {
-    return property(ExternalTableDefn.FORMAT_PROPERTY, inputFormatJson);
-  }
-
-  public TableBuilder inputFormat(ObjectMapper mapper, JsonInputFormat format)
-  {
-    try {
-      return inputFormat(mapper.writeValueAsString(format));
-    }
-    catch (Exception e) {
-      throw new ISE(e, "Could not convert input inputFormat");
-    }
+    return property(ExternalTableDefn.FORMAT_PROPERTY, format);
   }
 
   public TableBuilder columns(List<ColumnSpec> columns)
@@ -212,20 +197,7 @@ public class TableBuilder
   public TableBuilder column(String name, String sqlType)
   {
     Preconditions.checkNotNull(tableType);
-    String colType;
-    if (ExternalTableDefn.TABLE_TYPE.equals(tableType)) {
-      colType = ExternalTableDefn.EXTERNAL_COLUMN_TYPE;
-    } else if (DatasourceDefn.TABLE_TYPE.equals(tableType)) {
-      colType = DatasourceDefn.DatasourceColumnDefn.COLUMN_TYPE;
-    } else {
-      throw new ISE("Unknown table type: %s", tableType);
-    }
-    return column(colType, name, sqlType);
-  }
-
-  public TableBuilder column(String colType, String name, String sqlType)
-  {
-    return column(new ColumnSpec(colType, name, sqlType, null));
+    return column(new ColumnSpec(name, sqlType, null));
   }
 
   public TableSpec buildSpec()

@@ -20,12 +20,9 @@
 package org.apache.druid.catalog.model.table;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.druid.catalog.model.ColumnDefn;
-import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
-import org.apache.druid.catalog.model.ModelProperties.SimplePropertyDefn;
+import org.apache.druid.catalog.model.ModelProperties.ObjectPropertyDefn;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefn;
 import org.apache.druid.catalog.model.TableDefnRegistry;
@@ -33,7 +30,6 @@ import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.InputSource;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -226,43 +222,20 @@ public class ExternalTableDefn extends TableDefn
   /**
    * Definition of the input source property.
    */
-  private static final SimplePropertyDefn<InputSource> SOURCE_PROPERTY_DEFN =
-      new SimplePropertyDefn<InputSource>(SOURCE_PROPERTY, InputSource.class);
+  private static final PropertyDefn<InputSource> SOURCE_PROPERTY_DEFN =
+      new ObjectPropertyDefn<InputSource>(SOURCE_PROPERTY, InputSource.class);
 
   /**
    * Definition of the input format property.
    */
-  private static final SimplePropertyDefn<InputFormat> FORMAT_PROPERTY_DEFN =
-      new SimplePropertyDefn<InputFormat>(FORMAT_PROPERTY, InputFormat.class);
+  private static final PropertyDefn<InputFormat> FORMAT_PROPERTY_DEFN =
+      new ObjectPropertyDefn<InputFormat>(FORMAT_PROPERTY, InputFormat.class);
 
   /**
    * Type reference used to deserialize JSON to a generic map.
    */
   @VisibleForTesting
   public static final TypeReference<Map<String, Object>> MAP_TYPE_REF = new TypeReference<Map<String, Object>>() { };
-
-  /**
-   * Definition of an external table column. External tables need only the
-   * name (used by the format) and data type (used for the row signature.)
-   */
-  public static class ExternalColumnDefn extends ColumnDefn
-  {
-    public ExternalColumnDefn()
-    {
-      super(
-          "Column",
-          EXTERNAL_COLUMN_TYPE,
-          null
-      );
-    }
-
-    @Override
-    public void validate(ColumnSpec spec, ObjectMapper jsonMapper)
-    {
-      super.validate(spec, jsonMapper);
-      validateScalarColumn(spec);
-    }
-  }
 
   private TableDefnRegistry registry;
 
@@ -275,7 +248,7 @@ public class ExternalTableDefn extends TableDefn
             SOURCE_PROPERTY_DEFN,
             FORMAT_PROPERTY_DEFN
         ),
-        Collections.singletonList(new ExternalColumnDefn())
+        null
     );
   }
 

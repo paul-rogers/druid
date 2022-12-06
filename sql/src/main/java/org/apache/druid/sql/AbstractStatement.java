@@ -111,11 +111,6 @@ public abstract class AbstractStatement implements Closeable
     return queryContext;
   }
 
-  public void setHook(PlannerHook hook)
-  {
-    this.hook = hook;
-  }
-
   /**
    * Set the hook which can capture planner artifacts during planning. Primarily used
    * for testing. Defaults to a "no op" hook that does nothing.

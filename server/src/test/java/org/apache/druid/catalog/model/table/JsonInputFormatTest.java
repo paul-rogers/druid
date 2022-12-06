@@ -101,7 +101,7 @@ public class JsonInputFormatTest extends BaseExternTableTest
     Map<String, Object> args = new HashMap<>();
     args.put(JsonFormatDefn.KEEP_NULLS_PARAMETER, true);
     InputFormatDefn defn = registry.inputFormatDefnFor(JsonInputFormat.TYPE_KEY);
-    List<ColumnSpec> columns = Collections.singletonList(new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "a", null, null));
+    List<ColumnSpec> columns = Collections.singletonList(new ColumnSpec("a", null, null));
     InputFormat inputFormat = defn.convertFromArgs(args, columns, mapper);
     JsonInputFormat jsonFormat = (JsonInputFormat) inputFormat;
     assertNull(jsonFormat.getFlattenSpec());

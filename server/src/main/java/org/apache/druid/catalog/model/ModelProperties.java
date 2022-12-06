@@ -180,6 +180,48 @@ public interface ModelProperties
     }
   }
 
+
+  public static class ObjectPropertyDefn<T> extends BasePropertyDefn<T>
+  {
+    public final Class<T> valueClass;
+
+    public ObjectPropertyDefn(
+        final String name,
+        final Class<T> valueClass
+    )
+    {
+      super(name);
+      this.valueClass = valueClass;
+    }
+
+    @Override
+    public String typeName()
+    {
+      return valueClass.getSimpleName();
+    }
+
+    /**
+     * Convert the value from the deserialized JSON format to the type
+     * required by this field data type. Also used to decode values from
+     * SQL parameters. As a side effect, verifies that the value is of
+     * the correct type.
+     */
+    @Override
+    public T decode(Object value, ObjectMapper jsonMapper)
+    {
+      return CatalogUtils.safeCast(value, valueClass, "JSON object");
+    }
+
+    /**
+     * Validate that the given value is valid for this property.
+     * By default, does a value conversion and discards the value.
+     */
+    @Override
+    public void validate(Object value, ObjectMapper jsonMapper)
+    {
+    }
+  }
+
   class TypeRefPropertyDefn<T> extends BasePropertyDefn<T>
   {
     public final String typeName;

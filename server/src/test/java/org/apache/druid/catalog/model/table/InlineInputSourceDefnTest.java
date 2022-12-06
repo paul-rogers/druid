@@ -19,6 +19,7 @@
 
 package org.apache.druid.catalog.model.table;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
@@ -49,7 +50,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
   {
     // No data property: not valid
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource("{\"type\": \"" + InlineInputSource.TYPE_KEY + "\"}")
+        .inputSource(ImmutableMap.of("type", InlineInputSource.TYPE_KEY))
         .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .build();
@@ -62,7 +63,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
   {
     // No format: not valid. For inline, format must be provided to match data
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
+        .inputSource(new InlineInputSource("a\n"))
         .column("x", Columns.VARCHAR)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
@@ -73,7 +74,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
   public void testValidateNoColumns() throws URISyntaxException
   {
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
+        .inputSource(new InlineInputSource("a\n"))
         .inputFormat(CSV_FORMAT)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
@@ -84,7 +85,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
   public void testValidateGood()
   {
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
+        .inputSource(new InlineInputSource("a\n"))
         .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .build();
@@ -130,8 +131,8 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
     args.put(InlineInputSourceDefn.DATA_PROPERTY, "a,b\nc,d");
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
     final List<ColumnSpec> columns = Arrays.asList(
-        new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "a", Columns.VARCHAR, null),
-        new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "b", Columns.VARCHAR, null)
+        new ColumnSpec("a", Columns.VARCHAR, null),
+        new ColumnSpec("b", Columns.VARCHAR, null)
     );
 
     final TableFunction fn = defn.adHocTableFn();
@@ -154,7 +155,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
   {
     // Define an inline table
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a,b\nc,d\n"))
+        .inputSource(new InlineInputSource("a,b\nc,d\n"))
         .inputFormat(CSV_FORMAT)
         .column("a", Columns.VARCHAR)
         .column("b", Columns.VARCHAR)
@@ -181,8 +182,8 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
 
     // Cannot supply columns with the function
     List<ColumnSpec> columns = Arrays.asList(
-        new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "a", Columns.VARCHAR, null),
-        new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "b", Columns.VARCHAR, null)
+        new ColumnSpec("a", Columns.VARCHAR, null),
+        new ColumnSpec("b", Columns.VARCHAR, null)
     );
     assertThrows(IAE.class, () -> fn.apply(new HashMap<>(), columns, mapper));
   }
@@ -194,7 +195,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
     CsvInputFormat format = new CsvInputFormat(
         Collections.singletonList("a"), ";", false, false, 0);
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a,b\nc,d"))
+        .inputSource(new InlineInputSource("a,b\nc,d"))
         .inputFormat(formatToJson(format))
         .column("a", Columns.VARCHAR)
         .column("b", Columns.VARCHAR)

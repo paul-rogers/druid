@@ -19,12 +19,15 @@
 
 package org.apache.druid.catalog.model.table;
 
+import com.google.common.collect.ImmutableMap;
+import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.java.util.common.logger.Logger;
 import org.junit.Test;
 
 import java.util.Collections;
@@ -33,6 +36,8 @@ import static org.junit.Assert.assertThrows;
 
 public class ExternalTableTest extends BaseExternTableTest
 {
+  private static final Logger LOG = new Logger(ExternalTableTest.class);
+
   private final TableDefnRegistry registry = new TableDefnRegistry(mapper);
 
   @Test
@@ -45,22 +50,11 @@ public class ExternalTableTest extends BaseExternTableTest
   }
 
   @Test
-  public void testValidateBlankSource()
-  {
-    // Empty table: not valid
-    TableMetadata table = TableBuilder.external("foo")
-        .inputSource("")
-        .build();
-    ResolvedTable resolved = registry.resolve(table.spec());
-    assertThrows(IAE.class, () -> resolved.validate());
-  }
-
-  @Test
   public void testValidateMissingSourceType()
   {
     // Empty table: not valid
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource("{}")
+        .inputSource(ImmutableMap.of())
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     assertThrows(IAE.class, () -> resolved.validate());
@@ -71,7 +65,7 @@ public class ExternalTableTest extends BaseExternTableTest
   {
     // Empty table: not valid
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource("{\"type\": \"unknown\"}")
+        .inputSource(ImmutableMap.of("type", "unknown"))
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     assertThrows(IAE.class, () -> resolved.validate());
@@ -82,22 +76,11 @@ public class ExternalTableTest extends BaseExternTableTest
   {
     // Input source only: valid, assumes the format is given later
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
+        .inputSource(toMap(new InlineInputSource("a\n")))
+        .column("a", Columns.VARCHAR)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     resolved.validate();
-  }
-
-  @Test
-  public void testValidateBlankFormat()
-  {
-    // Input source only: valid, assumes the format is given later
-    TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
-        .inputFormat("")
-        .build();
-    ResolvedTable resolved = registry.resolve(table.spec());
-    assertThrows(IAE.class, () -> resolved.validate());
   }
 
   @Test
@@ -105,8 +88,8 @@ public class ExternalTableTest extends BaseExternTableTest
   {
     // Input source only: valid, assumes the format is given later
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
-        .inputFormat("{}")
+        .inputSource(toMap(new InlineInputSource("a\n")))
+        .inputFormat(ImmutableMap.of())
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     assertThrows(IAE.class, () -> resolved.validate());
@@ -117,8 +100,8 @@ public class ExternalTableTest extends BaseExternTableTest
   {
     // Input source only: valid, assumes the format is given later
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
-        .inputFormat("{\"type\": \"unknown\"}")
+        .inputSource(toMap(new InlineInputSource("a\n")))
+        .inputFormat(ImmutableMap.of("type", "unknown"))
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     assertThrows(IAE.class, () -> resolved.validate());
@@ -131,10 +114,26 @@ public class ExternalTableTest extends BaseExternTableTest
     CsvInputFormat format = new CsvInputFormat(
         Collections.singletonList("a"), ";", false, false, 0);
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
-        .inputFormat(formatToJson(format))
+        .inputSource(toMap(new InlineInputSource("a\n")))
+        .inputFormat(formatToMap(format))
+        .column("a", Columns.VARCHAR)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     resolved.validate();
+  }
+
+  @Test
+  public void docExample()
+  {
+    CsvInputFormat format = new CsvInputFormat(
+        Collections.singletonList("a"), ";", false, false, 0);
+    TableMetadata table = TableBuilder.external("foo")
+        .inputSource(toMap(new InlineInputSource("a\n")))
+        .inputFormat(formatToMap(format))
+        .description("Logs from Apache web servers")
+        .column("timetamp", Columns.VARCHAR)
+        .column("sendBytes", Columns.BIGINT)
+        .build();
+    LOG.info(table.spec().toString());
   }
 }

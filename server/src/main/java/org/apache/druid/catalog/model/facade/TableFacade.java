@@ -20,9 +20,11 @@
 package org.apache.druid.catalog.model.facade;
 
 import org.apache.druid.catalog.model.ColumnSpec;
+import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ObjectFacade;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableSpec;
+import org.apache.druid.segment.column.ColumnType;
 
 import java.util.List;
 import java.util.Map;
@@ -54,5 +56,14 @@ public class TableFacade extends ObjectFacade
   public List<ColumnSpec> columns()
   {
     return spec().columns();
+  }
+
+  public ColumnType druidType(ColumnSpec col)
+  {
+    if (Columns.isTimeColumn(col.name())) {
+      return ColumnType.LONG;
+    }
+    final String sqlType = col.sqlType();
+    return sqlType == null ? null : Columns.druidType(sqlType);
   }
 }
