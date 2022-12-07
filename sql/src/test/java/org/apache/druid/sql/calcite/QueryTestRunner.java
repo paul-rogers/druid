@@ -71,7 +71,7 @@ public class QueryTestRunner
 {
   public interface QueryVerifyStepFactory
   {
-    QueryVerifyStep make(ExecuteQuery execStep);
+    QueryVerifyStep make(BaseExecuteQuery execStep);
   }
 
   /**
@@ -192,16 +192,12 @@ public class QueryTestRunner
     }
   }
 
-  /**
-   * Runs a query up to three times with different vectorization options.
-   * Captures the results, signature and native queries for each run.
-   */
-  public static class ExecuteQuery extends QueryRunStep
+  public abstract static class BaseExecuteQuery extends QueryRunStep
   {
-    private final List<QueryResults> results = new ArrayList<>();
-    private final boolean doCapture;
+    protected final List<QueryResults> results = new ArrayList<>();
+    protected final boolean doCapture;
 
-    public ExecuteQuery(QueryTestBuilder builder)
+    public BaseExecuteQuery(QueryTestBuilder builder)
     {
       super(builder);
       doCapture = builder.expectedLogicalPlan != null;
@@ -210,6 +206,18 @@ public class QueryTestRunner
     public List<QueryResults> results()
     {
       return results;
+    }
+  }
+
+  /**
+   * Runs a query up to three times with different vectorization options.
+   * Captures the results, signature and native queries for each run.
+   */
+  public static class ExecuteQuery extends BaseExecuteQuery
+  {
+    public ExecuteQuery(QueryTestBuilder builder)
+    {
+      super(builder);
     }
 
     @Override
@@ -300,9 +308,9 @@ public class QueryTestRunner
    */
   public static class VerifyResults implements QueryVerifyStep
   {
-    protected final ExecuteQuery execStep;
+    protected final BaseExecuteQuery execStep;
 
-    public VerifyResults(ExecuteQuery execStep)
+    public VerifyResults(BaseExecuteQuery execStep)
     {
       this.execStep = execStep;
     }
@@ -337,9 +345,9 @@ public class QueryTestRunner
    */
   public static class VerifyNativeQueries implements QueryVerifyStep
   {
-    protected final ExecuteQuery execStep;
+    protected final BaseExecuteQuery execStep;
 
-    public VerifyNativeQueries(ExecuteQuery execStep)
+    public VerifyNativeQueries(BaseExecuteQuery execStep)
     {
       this.execStep = execStep;
     }
@@ -451,16 +459,24 @@ public class QueryTestRunner
     }
   }
 
+  public abstract static class BaseVerifyExecStep implements QueryVerifyStep
+  {
+    protected final BaseExecuteQuery execStep;
+
+    public BaseVerifyExecStep(BaseExecuteQuery execStep)
+    {
+      this.execStep = execStep;
+    }
+  }
+
   /**
    * Verify resources for a prepared query against the expected list.
    */
-  public static class VerifyExecuteSignature implements QueryVerifyStep
+  public static class VerifyExecuteSignature extends BaseVerifyExecStep
   {
-    private final ExecuteQuery execStep;
-
-    public VerifyExecuteSignature(ExecuteQuery execStep)
+    public VerifyExecuteSignature(BaseExecuteQuery execStep)
     {
-      this.execStep = execStep;
+      super(execStep);
     }
 
     @Override
@@ -476,13 +492,11 @@ public class QueryTestRunner
     }
   }
 
-  public static class VerifyLogicalPlan implements QueryVerifyStep
+  public static class VerifyLogicalPlan extends BaseVerifyExecStep
   {
-    private final ExecuteQuery execStep;
-
-    public VerifyLogicalPlan(ExecuteQuery execStep)
+    public VerifyLogicalPlan(BaseExecuteQuery execStep)
     {
-      this.execStep = execStep;
+      super(execStep);
     }
 
     @Override
@@ -542,13 +556,11 @@ public class QueryTestRunner
    * after the first failure. It would be better to check all three
    * runs, but that's an exercise for later.
    */
-  public static class VerifyExpectedException implements QueryVerifyStep
+  public static class VerifyExpectedException extends BaseVerifyExecStep
   {
-    protected final ExecuteQuery execStep;
-
-    public VerifyExpectedException(ExecuteQuery execStep)
+    public VerifyExpectedException(BaseExecuteQuery execStep)
     {
-      this.execStep = execStep;
+      super(execStep);
     }
 
     @Override
@@ -583,8 +595,8 @@ public class QueryTestRunner
     }
   }
 
-  private final List<QueryTestRunner.QueryRunStep> runSteps = new ArrayList<>();
-  private final List<QueryTestRunner.QueryVerifyStep> verifySteps = new ArrayList<>();
+  private final List<QueryRunStep> runSteps = new ArrayList<>();
+  private final List<QueryVerifyStep> verifySteps = new ArrayList<>();
 
   /**
    * Create a test runner based on the options set in the builder.
@@ -607,19 +619,19 @@ public class QueryTestRunner
           builder.expectedResultsVerifier == null,
           "Cannot check both results and resources"
       );
-      QueryTestRunner.PrepareQuery execStep = new QueryTestRunner.PrepareQuery(builder);
+      PrepareQuery execStep = new PrepareQuery(builder);
       runSteps.add(execStep);
-      verifySteps.add(new QueryTestRunner.VerifyResources(execStep));
+      verifySteps.add(new VerifyResources(execStep));
       if (builder.expectedSqlSchema != null) {
         verifySteps.add(new VerifyPrepareSignature(execStep));
       }
     } else {
-      QueryTestRunner.ExecuteQuery execStep = new QueryTestRunner.ExecuteQuery(builder);
+      BaseExecuteQuery execStep = new ExecuteQuery(builder);
       runSteps.add(execStep);
 
       // Verify the logical plan, if requested.
       if (builder.expectedLogicalPlan != null) {
-        verifySteps.add(new QueryTestRunner.VerifyLogicalPlan(execStep));
+        verifySteps.add(new VerifyLogicalPlan(execStep));
       }
 
       if (builder.expectedSqlSchema != null) {
@@ -629,21 +641,21 @@ public class QueryTestRunner
       // Verify native queries before results. (Note: change from prior pattern
       // that reversed the steps.
       if (builder.expectedQueries != null) {
-        verifySteps.add(new QueryTestRunner.VerifyNativeQueries(execStep));
+        verifySteps.add(new VerifyNativeQueries(execStep));
       }
       if (builder.expectedResultsVerifier != null) {
-        verifySteps.add(new QueryTestRunner.VerifyResults(execStep));
+        verifySteps.add(new VerifyResults(execStep));
       }
 
       if (!builder.customVerifications.isEmpty()) {
-        for (QueryTestRunner.QueryVerifyStepFactory customVerification : builder.customVerifications) {
+        for (QueryVerifyStepFactory customVerification : builder.customVerifications) {
           verifySteps.add(customVerification.make(execStep));
         }
       }
 
       // The exception is always verified: either there should be no exception
       // (the other steps ran), or there should be the defined exception.
-      verifySteps.add(new QueryTestRunner.VerifyExpectedException(execStep));
+      verifySteps.add(new VerifyExpectedException(execStep));
     }
   }
 
@@ -652,10 +664,10 @@ public class QueryTestRunner
    */
   public void run()
   {
-    for (QueryTestRunner.QueryRunStep runStep : runSteps) {
+    for (QueryRunStep runStep : runSteps) {
       runStep.run();
     }
-    for (QueryTestRunner.QueryVerifyStep verifyStep : verifySteps) {
+    for (QueryVerifyStep verifyStep : verifySteps) {
       verifyStep.verify();
     }
   }
