@@ -28,19 +28,19 @@ sidebar_label: Intro
 Datasources are collections of segments. The Druid catalog (also called the
 Druid metadata store) provides both _physical_ and _logical_ infrormation about
 datasources. The physical information describes existing segments: their columns,
-there load status and so on. The logical information describes how you'd like the
-data source to be shaped, even if no segment yet exist for that datasource.
+load status and so on. The logical information describes how you'd like the
+data source to be shaped, even if no segments yet exist for that datasource.
 
 With logical table metadata, you can define a table (datasource) before any data
-is loaded. Once the logical table definition exist, you can immediately query your
-datasource, though, of course, it will contain zero rows. Further, with a logical
-definition, the table will appear in Druid's system tables so that applications can
+is loaded. Once the logical table definition exists, you can immediately query your
+datasource, though, of course, it will contain zero rows. Further,
+the table will appear in Druid's system tables so that applications can
 learn about the table.
 
 ## Creating a New Datasource
 
 You can create a datasource directly via ingestion even if no metadata already
-exist for that datasource. As described in the introduction, this can be handy
+exists for that datasource. As described in the introduction, this can be handy
 to learn Druid, or to prototype a new application.
 
 When you create a datasource for a production system, it is best to start by
@@ -57,27 +57,27 @@ queries use the schema of the most recently created column. You can add metadata
 an existing datasource. Likely you will define a _partial schema_: you'll specify
 metadata for some columns, but not others. The rules are:
 
-* A datasource with no metadata follows the exsting physical schema rules.
-* A datasource with an empty table definition works the same as one with no table
-  definition at all.
+* A datasource with no metadata follows the existing physical schema rules.
+* A datasource with an empty table specification works the same as one with no table
+  specification at all.
 * A datasource with some properties or columns set enforces those settings, but not
   others.
 * A datasource with complete metadata works like an RDBMS table: new ingestions must
   comply with the rules set in metadata, and queries use the types defined in metadata.
 
-You can use any of the above as you start with no metadata for an existing datasource,
-then incrementally add metadata as you find the need.
+When adding metadata to an existing data source, you will move through these various
+states, stopping when you have defined enough metadata to solve the problem at hand.
 
 ## MSQ Ingestion
 
 The Druid Multi-Stage Query (MSQ) ingestion engine uses SQL to drive the ingestion of new data.
-The MSQ SQL follow the standard SQL rules, with a few exceptions unique to Druid.
+MSQ SQL follows standard SQL rules, with a few exceptions unique to Druid.
 
 * If a column is defined in the logical metadata, then that column in a new segment will be
-  of the type declared for that column.
+  of the type declared in the table metadata.
 * The column definition and type are optional. If not specified, then MSQ will determine the
   column type based on the type of the column in the input, along with any expressions that
-  you provide.
+  you provide in SQL.
 * The table can specify a time partition option. If provided, then MSQ will use that option
   and you should not include a `PARTITIONED BY` clause in your MSQ `INSERT` statement.
 * Similarly, the table can specify a clustering option. If provided, then MSQ will use that
@@ -99,7 +99,7 @@ query output.
   you list the columns in the logical metadata. This means that the metadata lets you control
   column ordering.
 * If the datasource contains columns other than those that appear in the logical metadata,
-  then those appear in a `SELECT *` after those defined in the logical metadata. These "extra"
+  then those columns appear in a `SELECT *` after those defined in the logical metadata. These "extra"
   columns appear in the same order that they appear when no metadata exists.
 * If the logical metadata defines a column which exists in no segments, then you can still
   query the column. The column will return `NULL` (or default) values for every row.
