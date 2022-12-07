@@ -25,8 +25,8 @@ import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.java.util.common.IAE;
-import org.apache.druid.utils.CollectionUtils;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -57,11 +57,16 @@ public class ResolvedExternalTable
   public ResolvedExternalTable(final ResolvedTable table)
   {
     this.table = table;
-    this.inputSourceMap = table.mapProperty(ExternalTableDefn.SOURCE_PROPERTY);
+    Map<String, Object> map = table.mapProperty(ExternalTableDefn.SOURCE_PROPERTY);
+    if (map == null || map.isEmpty()) {
+      throw new IAE("%s property is required", ExternalTableDefn.SOURCE_PROPERTY);
+    }
+    this.inputSourceMap = new HashMap<>(map);
     if (this.inputSourceMap == null || this.inputSourceMap.isEmpty()) {
       throw new IAE("%s property is required", ExternalTableDefn.SOURCE_PROPERTY);
     }
-    this.inputFormatMap = table.mapProperty(ExternalTableDefn.FORMAT_PROPERTY);
+    map = table.mapProperty(ExternalTableDefn.FORMAT_PROPERTY);
+    this.inputFormatMap = map == null ? null : new HashMap<>(map);
   }
 
   public ResolvedTable resolvedTable()

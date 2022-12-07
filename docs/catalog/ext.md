@@ -92,26 +92,7 @@ object as described on the [data formats page](../ingestion/data-formats.md).
 The JSON here is identical to that
 you would use as the first argument to an MSQ `extern` function. As explained
 below, you will often leave off some of the properties in order to define
-a partial table for ingestion.
-
-Example of a complete HTTP input source specification:
-
-```json
-{
-  "type" : "extern",
-  "properties" : {
-    "source" : {
-      "type" : "inline",
-      "data" : "a\n"
-    }
-    ...
-}
-```
-
-Example of a partial HTTP input source, with the specific files provided
-later:
-
-(EXAMPLE NEEDED)
+a partial table for ingestion. See the sections on each input source for examples.
 
 ### `format` (InputFormat object)
 
@@ -135,6 +116,7 @@ Example:
     },
     ...
 }
+```
 
 You can also omit the format, which case you must provide it at ingest time.
 Use this option if you want to define a _connection_: say the properties of
@@ -164,7 +146,6 @@ specification, provide both a name and a SQL type:
     "sqlType" : "BIGINT"
   } ]
 }
-
 ```
 
 External tables cannot use Druid aggregate types.
@@ -172,23 +153,75 @@ External tables cannot use Druid aggregate types.
 ### Using a Complete Table Specification
 
 Suppose we wish to define an external table for the Wikipedia data, which
-is available on our local system at `$DRUID_HOME/path/needed`. The data uses
-an external table format. The complete table specification looks like this:
+is available on our local system at `$DRUID_HOME/quickstart/tutorial`. Let us assume
+Druid is installed at `/Users/bob/druid`. The data uses
+is compressed JSON. The complete table specification looks like this:
 
 ```json
-(Example needed)
+{
+  "type" : "extern",
+  "properties" : {
+    "format" : {
+      "type" : "json",
+      "keepNullColumns" : true,
+      "assumeNewlineDelimited" : true,
+      "useJsonNodeReader" : false
+    },
+    "description" : "Sample Wikipedia data",
+    "source" : {
+      "type" : "local",
+      "baseDir" : "/Users/bob/druid/quickstart/tutorial",
+      "filter" : "wikiticker-*-sampled.json"
+    }
+  },
+  "columns" : [ {
+    "name" : "timetamp",
+    "sqlType" : "VARCHAR"
+  }, {
+    "name" : "page",
+    "sqlType" : "VARCHAR"
+  }, {
+    "name" : "language",
+    "sqlType" : "VARCHAR"
+  }, {
+    "name" : "unpatrolled",
+    "sqlType" : "VARCHAR"
+  }, {
+    "name" : "newPage",
+    "sqlType" : "VARCHAR"
+  }, {
+    "name" : "robot",
+    "sqlType" : "VARCHAR"
+  }, {
+    "name" : "namespace",
+    "sqlType" : "BIGINT"
+  }, ... {
+    "name" : "added",
+    "sqlType" : "VARCHAR"
+  }, {
+    "name" : "deleted",
+    "sqlType" : "BIGINT"
+  }, {
+    "name" : "delta",
+    "sqlType" : "BIGINT"
+  } ]
+}
 ```
 
 Let us call the table `wikipedia`. As noted above, the table resides in
 the `ext` schema.
 
-Then, we can query this table (using only MSQ) as follows:
+Then, we can ingest the data, into a datasource also named `wikipedia`, using MSQ as follows:
 
 ```sql
+INSERT INTO wikipedia
 SELECT *
 FROM ext.wikipedia
-LIMIT 10
 ```
+
+The real intestion would do some data transforms such as converting the "TRUE"/"FALSE" fields
+into 1/0 values, parse the date-time field and so on. Here we just focus on the table
+metadata aspect.
 
 ### Using a Partial Table Specication
 
@@ -198,28 +231,72 @@ that provides a set of files: the file contents differ each day, but all have
 the same format and schema. We define our `koala` catalog table as follows:
 
 ```json
-(Example needed)
+{
+  "type" : "extern",
+  "properties" : {
+    "uriTemplate" : "https://example.com/{}",
+    "format" : {
+      "type" : "csv"
+    },
+    "description" : "Example parameterized external table",
+    "source" : {
+      "type" : "http",
+      "httpAuthenticationUsername" : "bob",
+      "httpAuthenticationPassword" : {
+        "type" : "default",
+        "password" : "secret"
+      }
+    }
+  },
+  "columns" : [ {
+    "name" : "timetamp",
+    "sqlType" : "VARCHAR"
+  }, {
+    "name" : "metric",
+    "sqlType" : "VARCHAR"
+  }, {
+    "name" : "value",
+    "sqlType" : "BIGINT"
+  } ]
+}
 ```
 
-We query the table using the table name as if it were a function. We provide
+We ingest table using the table name as if it were a function. We provide
 the missing inforation:
 
 ```sql
+INSERT INTO koalaMetrics
 SELECT *
 FROM ext.koalas(uris => 'Dec05.json, Dec06.json')
 ```
 
 On the other hand, suppose we wanted to define something more like a
 connection: we provide the location of a web server, and credentials, but
-the web server hosts a variety of files.
+the web server hosts a variety of files. Suppose we have a `dataHub`
+web site that holds a variety of files.
 
 ```json
-(Example needed)
+{
+  "type" : "extern",
+  "properties" : {
+    "description" : "Example connection",
+    "source" : {
+      "type" : "http",
+      "uris" : [ "https://example.com/" ],
+      "httpAuthenticationUsername" : "bob",
+      "httpAuthenticationPassword" : {
+        "type" : "default",
+        "password" : "secret"
+      }
+    }
+  },
+  "columns" : [ ]
+}
 ```
 
-We'd query by providing the file names plus the format and schema:
+Providing the file names plus the format and schema in the ingest query:
 
-```
+```sql
 SELECT *
 FROM ext.dataHub(
   uris => 'DecLogs.csv',
@@ -231,14 +308,14 @@ FROM ext.dataHub(
 
 An external table can use any of Druid's input sources, including any that extensions
 provide. Druid's own input sources have a few extra features to allow parameterized
-tables.
+tables; extensions may provide such functions or not, depending on the extension.
 
 ### Inline Input Source
 
-The inline input source is normally used interally by the Druid SQL planner. It is
+The [inline input source](../ingestion/native-batch-input-sources.md#inline-input-source)
+ is normally used interally by the Druid SQL planner. It is
 primarly useful with ingest as a simple way to experiment with the catalog and MSQ.
 You can use the inline input source ad-hoc by using the `inline` table function.
-(LINK NEEDED).
 
 You can also define an inline input source in the Druid catalog.
 The inline input source cannot be parameterized: you must provide the complete input
@@ -246,7 +323,7 @@ specificataion, format specfication and schema as part of the catlog definition.
 
 ### Local Input Source
 
-Use the local input source to read files from the local file system. This form works
+Use the [local input source](../ingestion/native-batch-input-sources.md#local-input-source) to read files from the local file system. This form works
 best for a simple, single-server setup. See (LINK NEEDED) for the available properties.
 
 A local input source can be parameterized in one of two ways. In both, you provide only
@@ -261,39 +338,114 @@ Then, provide either a file list, or a file pattern, at run time using these two
 For example:
 
 ```json
-(Example needed)
+{
+  "type" : "extern",
+  "properties" : {
+    "source" : {
+      "type" : "local",
+      "baseDir" : "/var/data"
+    }
+  },
+  "columns" : [ ]
+}
 ```
 
 Then, to read a set of files:
 
 ```sql
+INSERT INTO myTable
 SELECT *
 FROM ext.dataDir(files => 'a.csv, b.csv')
 ```
 
+Or:
+
+```sql
+INSERT INTO myTable
+SELECT *
+FROM ext.dataDir(filter => 'Dec*.csv')
+```
+
+Again, in a real intestion, we'd insert expessions to parse the date, etc.
+
 ### HTTP Input Source
 
-Use the HTTP input source to access data on a web server. Consult the HTTP input source
-documentation (LINK NEEDED) for details.
+Use the [HTTP input source](../ingestion/native-batch-input-sources.md#local-input-source)
+to access data on a web server.
 
 HTTP input sources can be parameterized. The external table specification provides an
 additional property to assist. `uriTemplate` is a top-level property. (That is, it is not
 inside the HTTP input source JSON.) It contains a string that holds a URI, with a `{}`
-placeholder. You provide the missing values at runtime. Example table spec:
+placeholder. You provide the missing values at runtime. You can define the format and
+schema, leaving only the details of the URI to be given at runtime:
 
 ```json
-(Example needed)
+{
+  "type" : "extern",
+  "properties" : {
+    "uriTemplate" : "https://example.com/{}",
+    "format" : {
+      "type" : "csv"
+    },
+    "description" : "Example parameterized external table",
+    "source" : {
+      "type" : "http",
+      "httpAuthenticationUsername" : "bob",
+      "httpAuthenticationPassword" : {
+        "type" : "default",
+        "password" : "secret"
+      }
+    }
+  },
+  "columns" : [ {
+    "name" : "timetamp",
+    "sqlType" : "VARCHAR"
+  }, {
+    "name" : "metric",
+    "sqlType" : "VARCHAR"
+  }, {
+    "name" : "value",
+    "sqlType" : "BIGINT"
+  } ]
+}
 ```
 
 Then, to read multiple resources using the template:
 
 ```sql
+INSERT INTO myTable
 SELECT *
 FROM ext.dataHub(uris => 'a.csv, b.csv')
 ```
 
-As with the local input source, you can provide the format and columns either as part of
-the table spec, or at run time.
+Or, you can provide just the URI template, with the format and columns given at run time:
+
+```json
+{
+  "type" : "extern",
+  "properties" : {
+    "uriTemplate" : "https://example.com/{}",
+    "source" : {
+      "type" : "http",
+      "httpAuthenticationUsername" : "bob",
+      "httpAuthenticationPassword" : {
+        "type" : "default",
+        "password" : "secret"
+      }
+    }
+  },
+  "columns" : [ ]
+}
+```
+
+Insert query:
+
+```sql
+INSERT INTO myTable
+SELECT *
+FROM ext.dataHub(uris => 'a.csv, b.csv', format => 'csv')
+     (timestamp VARCHAR, metric VARCHAR, value BIGINT)
+```
 
 Credentials, if needed, must be part of the table specification. When using the catalog,
 you cannot provide credentials at run time.
@@ -302,20 +454,38 @@ you cannot provide credentials at run time.
 
 ## Input Formats
 
-An external table can use any supported Druid format, See (LINK NEEDED) for details.
+An external table can use any supported Druid format, See
+[Data formats](../ingestion/data-formats.md) for details.
 Provide the format as the serialized JSON form.
 
 Example:
 
 ```json
-(Example needed)
+  "type" : "extern",
+  "properties" : {
+    "format" : {
+      "type" : "csv"
+    },
+    ...
 ```
 
+The JSON is the same as you would use with the
+[MSQ `extern` function](../multi-stage-query/reference.md#extern).
+
 When the format is to be provided at runtime, use the same function arguments
-as described for the ad-hoc table functions. (LINK NEEDED).
+as described for the [ad-hoc table functions](../multi-stage-query/reference.md#HTTP-INLINE-and-LOCALFILES).
 
 Example:
 
 ```sql
-(Example needed)
+INSERT INTO myTable
+SELECT ...
+FROM TABLE(
+  http(
+    userName => 'bob',
+    password => 'secret',
+    uris => 'http:foo.com/bar.csv',
+    format => 'csv'
+    )
+  ) EXTEND (x VARCHAR, y VARCHAR, z BIGINT)
 ```

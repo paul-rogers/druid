@@ -25,12 +25,22 @@ import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.data.input.impl.CsvInputFormat;
+import org.apache.druid.data.input.impl.HttpInputSource;
+import org.apache.druid.data.input.impl.HttpInputSourceConfig;
 import org.apache.druid.data.input.impl.InlineInputSource;
+import org.apache.druid.data.input.impl.JsonInputFormat;
+import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.metadata.DefaultPasswordProvider;
+import org.junit.Ignore;
 import org.junit.Test;
 
+import java.io.File;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.Map;
 
 import static org.junit.Assert.assertThrows;
 
@@ -75,9 +85,9 @@ public class ExternalTableTest extends BaseExternTableTest
   public void testValidateSourceOnly()
   {
     // Input source only: valid, assumes the format is given later
+    LocalInputSource inputSource = new LocalInputSource(new File("/tmp"), "*");
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(toMap(new InlineInputSource("a\n")))
-        .column("a", Columns.VARCHAR)
+        .inputSource(toMap(inputSource))
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     resolved.validate();
@@ -122,17 +132,82 @@ public class ExternalTableTest extends BaseExternTableTest
     resolved.validate();
   }
 
+  /**
+   * Test case for multiple of the {@code ext.md} examples. To use this, enable the
+   * test, run it, then copy the JSON from the console. The examples pull out bits
+   * and pieces in multiple places.
+   */
   @Test
-  public void docExample()
+  public void wikipediaDocExample()
   {
-    CsvInputFormat format = new CsvInputFormat(
-        Collections.singletonList("a"), ";", false, false, 0);
+    JsonInputFormat format = new JsonInputFormat(null, null, true, true, false);
+    LocalInputSource inputSource = new LocalInputSource(new File("/Users/bob/druid/quickstart/tutorial"), "wikiticker-*-sampled.json");
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(toMap(new InlineInputSource("a\n")))
+        .inputSource(toMap(inputSource))
         .inputFormat(formatToMap(format))
-        .description("Logs from Apache web servers")
+        .description("Sample Wikipedia data")
         .column("timetamp", Columns.VARCHAR)
-        .column("sendBytes", Columns.BIGINT)
+        .column("page", Columns.VARCHAR)
+        .column("language", Columns.VARCHAR)
+        .column("unpatrolled", Columns.VARCHAR)
+        .column("newPage", Columns.VARCHAR)
+        .column("robot", Columns.VARCHAR)
+        .column("added", Columns.VARCHAR)
+        .column("namespace", Columns.BIGINT)
+        .column("deleted", Columns.BIGINT)
+        .column("delta", Columns.BIGINT)
+        .build();
+    LOG.info(table.spec().toString());
+  }
+
+  @Test
+  public void httpDocExample() throws URISyntaxException
+  {
+    HttpInputSource inputSource = new HttpInputSource(
+        Collections.singletonList(new URI("https://example.com/my.csv")), // removed
+        "bob",
+        new DefaultPasswordProvider("secret"),
+        new HttpInputSourceConfig(null)
+    );
+    Map<String, Object> sourceMap = toMap(inputSource);
+    sourceMap.remove("uris");
+    TableMetadata table = TableBuilder.external("koala")
+        .inputSource(sourceMap)
+        .inputFormat(CSV_FORMAT)
+        .property(HttpInputSourceDefn.URI_TEMPLATE_PROPERTY, "https://example.com/{}")
+        .description("Example parameterized external table")
+        .column("timetamp", Columns.VARCHAR)
+        .column("metric", Columns.VARCHAR)
+        .column("value", Columns.BIGINT)
+        .build();
+    LOG.info(table.spec().toString());
+  }
+
+  @Test
+  public void httpConnDocExample() throws URISyntaxException
+  {
+    HttpInputSource inputSource = new HttpInputSource(
+        Collections.singletonList(new URI("https://example.com/")),
+        "bob",
+        new DefaultPasswordProvider("secret"),
+        new HttpInputSourceConfig(null)
+    );
+    TableMetadata table = TableBuilder.external("koala")
+        .inputSource(toMap(inputSource))
+        .description("Example connection")
+        .build();
+    LOG.info(table.spec().toString());
+  }
+
+  @Test
+  public void localDocExample() throws URISyntaxException
+  {
+    Map<String, Object> sourceMap = ImmutableMap.of(
+        "type", LocalInputSource.TYPE_KEY,
+        "baseDir", "/var/data"
+    );
+    TableMetadata table = TableBuilder.external("koala")
+        .inputSource(sourceMap)
         .build();
     LOG.info(table.spec().toString());
   }

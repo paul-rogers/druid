@@ -63,7 +63,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
   {
     // No format: not valid. For inline, format must be provided to match data
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(new InlineInputSource("a\n"))
+        .inputSource(toMap(new InlineInputSource("a\n")))
         .column("x", Columns.VARCHAR)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
@@ -74,7 +74,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
   public void testValidateNoColumns() throws URISyntaxException
   {
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(new InlineInputSource("a\n"))
+        .inputSource(toMap(new InlineInputSource("a\n")))
         .inputFormat(CSV_FORMAT)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
@@ -85,7 +85,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
   public void testValidateGood()
   {
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(new InlineInputSource("a\n"))
+        .inputSource(toMap(new InlineInputSource("a\n")))
         .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .build();
@@ -155,7 +155,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
   {
     // Define an inline table
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(new InlineInputSource("a,b\nc,d\n"))
+        .inputSource(toMap(new InlineInputSource("a,b\nc,d\n")))
         .inputFormat(CSV_FORMAT)
         .column("a", Columns.VARCHAR)
         .column("b", Columns.VARCHAR)
@@ -195,8 +195,8 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
     CsvInputFormat format = new CsvInputFormat(
         Collections.singletonList("a"), ";", false, false, 0);
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(new InlineInputSource("a,b\nc,d"))
-        .inputFormat(formatToJson(format))
+        .inputSource(toMap(new InlineInputSource("a,b\nc,d")))
+        .inputFormat(formatToMap(format))
         .column("a", Columns.VARCHAR)
         .column("b", Columns.VARCHAR)
         .build();

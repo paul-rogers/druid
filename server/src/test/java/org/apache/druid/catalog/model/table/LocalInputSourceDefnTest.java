@@ -19,6 +19,7 @@
 
 package org.apache.druid.catalog.model.table;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefnRegistry;
@@ -46,8 +47,8 @@ import static org.junit.Assert.assertTrue;
 
 public class LocalInputSourceDefnTest extends BaseExternTableTest
 {
-  private static final String BASE_DIR_ONLY =
-      "{\"type\": \"" + LocalInputSource.TYPE_KEY + "\", \"baseDir\": \"/tmp\"}";
+  private static final Map<String, Object> BASE_DIR_ONLY =
+      ImmutableMap.of("type", LocalInputSource.TYPE_KEY, "baseDir", "/tmp");
 
   private final InputSourceDefn localDefn = registry.inputSourceDefnFor(LocalInputSourceDefn.TYPE_KEY);
 
@@ -56,7 +57,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
   {
     // No data property: not valid
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource("{\"type\": \"" + LocalInputSource.TYPE_KEY + "\"}")
+        .inputSource(ImmutableMap.of("type", LocalInputSource.TYPE_KEY))
         .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
@@ -71,7 +72,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     // No format: Not valid. If columns are given, a format is required.
     LocalInputSource inputSource = new LocalInputSource(new File("/tmp"), "*");
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, inputSource)
+        .inputSource(toMap(inputSource))
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
         .build();
@@ -85,7 +86,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     // No columns: Not valid. If a format is given, then columns required.
     LocalInputSource inputSource = new LocalInputSource(new File("/tmp"), "*");
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, inputSource)
+        .inputSource(toMap(inputSource))
         .inputFormat(CSV_FORMAT)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
@@ -99,7 +100,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     // to some local directory.
     LocalInputSource inputSource = new LocalInputSource(new File("/tmp"), "*");
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, inputSource)
+        .inputSource(toMap(inputSource))
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     resolved.validate();
@@ -124,7 +125,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     // to some local directory.
     LocalInputSource inputSource = new LocalInputSource(new File("/tmp"), "*");
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, inputSource)
+        .inputSource(toMap(inputSource))
         .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
@@ -144,7 +145,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
         Collections.singletonList(new File("/tmp/myFile.csv"))
     );
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, inputSource)
+        .inputSource(toMap(inputSource))
         .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
@@ -275,7 +276,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
         Collections.singletonList(new File("my.csv"))
     );
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, inputSource)
+        .inputSource(toMap(inputSource))
         .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)

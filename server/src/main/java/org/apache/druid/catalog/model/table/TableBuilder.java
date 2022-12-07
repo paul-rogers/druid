@@ -29,10 +29,7 @@ import org.apache.druid.catalog.model.TableDefn;
 import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.model.TableSpec;
-import org.apache.druid.data.input.InputSource;
-import org.apache.druid.data.input.impl.JsonInputFormat;
 import org.apache.druid.java.util.common.IAE;
-import org.apache.druid.java.util.common.ISE;
 
 import java.util.ArrayList;
 import java.util.Arrays;

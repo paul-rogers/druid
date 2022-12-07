@@ -127,6 +127,7 @@ public class DatasourceTableTest
         .put(DatasourceDefn.SEGMENT_GRANULARITY_PROPERTY, "P1D")
         .put(DatasourceDefn.TARGET_SEGMENT_ROWS_PROPERTY, 1_000_000)
         .put(DatasourceDefn.HIDDEN_COLUMNS_PROPERTY, Arrays.asList("foo", "bar"))
+        .put(DatasourceDefn.SEALED_PROPERTY, true)
         .build();
 
     {
@@ -177,6 +178,14 @@ public class DatasourceTableTest
     {
       TableSpec spec = TableBuilder.datasource("foo", "P1D")
           .hiddenColumns("a", Columns.TIME_COLUMN)
+          .buildSpec();
+      expectValidationFails(spec);
+    }
+
+    // Sealed
+    {
+      TableSpec spec = TableBuilder.datasource("foo", "P1D")
+          .property(DatasourceDefn.SEALED_PROPERTY, "bogus")
           .buildSpec();
       expectValidationFails(spec);
     }
@@ -499,5 +508,25 @@ public class DatasourceTableTest
 
     assertEquals("c", columns.get(2).name());
     assertEquals(Columns.VARCHAR, columns.get(2).sqlType());
+  }
+
+  /**
+   * Test case for multiple of the {@code ext.md} examples. To use this, enable the
+   * test, run it, then copy the JSON from the console. The examples pull out bits
+   * and pieces in multiple places.
+   */
+  @Test
+  public void docExample()
+  {
+    TableSpec spec = TableBuilder.datasource("foo", "PT1H")
+        .description("My table")
+        .property(DatasourceDefn.TARGET_SEGMENT_ROWS_PROPERTY, 1_000_000)
+        .hiddenColumns("foo", "bar")
+        .property("tag1", "some value")
+        .property("tag2", "second value")
+        .column(new ColumnSpec("a", null, colProps))
+        .column("b", Columns.VARCHAR)
+        .buildSpec();
+
   }
 }

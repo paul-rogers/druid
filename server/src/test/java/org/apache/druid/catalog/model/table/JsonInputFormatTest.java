@@ -19,6 +19,7 @@
 
 package org.apache.druid.catalog.model.table;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
@@ -46,8 +47,8 @@ public class JsonInputFormatTest extends BaseExternTableTest
   public void testDefaults()
   {
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
-        .inputFormat("{\"type\": \"" + JsonInputFormat.TYPE_KEY + "\"}")
+        .inputSource(toMap(new InlineInputSource("a\n")))
+        .inputFormat(ImmutableMap.of("type", JsonInputFormat.TYPE_KEY))
         .column("a", Columns.VARCHAR)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
@@ -68,8 +69,8 @@ public class JsonInputFormatTest extends BaseExternTableTest
   {
     JsonInputFormat format = new JsonInputFormat(null, null, true, true, false);
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
-        .inputFormat(mapper, format)
+        .inputSource(toMap(new InlineInputSource("a\n")))
+        .inputFormat(formatToMap(format))
         .column("a", Columns.VARCHAR)
         .column("b", Columns.BIGINT)
         .build();

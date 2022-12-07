@@ -614,7 +614,7 @@ public class QueryTestRunner
       }
 
       // Verify native queries before results. (Note: change from prior pattern
-      // that reversed the steps.
+      // that reversed the steps.)
       if (builder.expectedQueries != null) {
         verifySteps.add(new QueryTestRunner.VerifyNativeQueries(execStep));
       }

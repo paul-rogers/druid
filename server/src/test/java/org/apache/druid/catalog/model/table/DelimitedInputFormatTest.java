@@ -19,6 +19,7 @@
 
 package org.apache.druid.catalog.model.table;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
@@ -29,7 +30,6 @@ import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.DelimitedInputFormat;
 import org.apache.druid.data.input.impl.InlineInputSource;
-import org.apache.druid.java.util.common.StringUtils;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -49,11 +49,12 @@ public class DelimitedInputFormatTest extends BaseExternTableTest
   public void testDefaults()
   {
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
-        .inputFormat(StringUtils.format("{\"type\": \"%s\", \"%s\": \"|\"}",
-            DelimitedInputFormat.TYPE_KEY,
-            DelimitedFormatDefn.DELIMITER_FIELD
-            ))
+        .inputSource(toMap(new InlineInputSource("a\n")))
+        .inputFormat(ImmutableMap.of(
+            "type", DelimitedInputFormat.TYPE_KEY,
+            DelimitedFormatDefn.DELIMITER_FIELD, "|"
+            )
+         )
         .column("a", Columns.VARCHAR)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
@@ -74,11 +75,9 @@ public class DelimitedInputFormatTest extends BaseExternTableTest
   {
     DelimitedInputFormat format = new DelimitedInputFormat(
         Collections.singletonList("a"), ";", "|", false, false, 1);
-    Map<String, Object> formatMap = toMap(format);
-    formatMap.remove("columns");
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
-        .inputFormat(toJsonString(formatMap))
+        .inputSource(toMap(new InlineInputSource("a\n")))
+        .inputFormat(formatToMap(format))
         .column("a", Columns.VARCHAR)
         .column("b", Columns.BIGINT)
         .build();

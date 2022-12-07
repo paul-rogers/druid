@@ -20,6 +20,7 @@
 package org.apache.druid.catalog.model.table;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
@@ -36,7 +37,7 @@ import java.util.Map;
 
 public class BaseExternTableTest
 {
-  public static final String CSV_FORMAT = "{\"type\": \"" + CsvInputFormat.TYPE_KEY + "\"}";
+  public static final Map<String, Object> CSV_FORMAT = ImmutableMap.of("type", CsvInputFormat.TYPE_KEY);
   protected static final List<ColumnSpec> COLUMNS = Arrays.asList(
       new ColumnSpec("x", Columns.VARCHAR, null),
       new ColumnSpec("y", Columns.BIGINT, null)

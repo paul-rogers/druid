@@ -63,8 +63,6 @@ import org.apache.druid.sql.calcite.view.InProcessViewManager;
 import org.apache.druid.sql.calcite.view.ViewManager;
 import org.apache.druid.timeline.DataSegment;
 
-import javax.inject.Singleton;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.Properties;

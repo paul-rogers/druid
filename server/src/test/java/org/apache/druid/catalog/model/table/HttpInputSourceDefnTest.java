@@ -66,7 +66,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
   {
     // No URIs property or template: not valid. Need at least a URI or template
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource("{\"type\": \"" + HttpInputSource.TYPE_KEY + "\"}")
+        .inputSource(ImmutableMap.of("type", HttpInputSource.TYPE_KEY))
         .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
@@ -80,7 +80,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
   {
     // No format: valid. Format can be provided via a table function
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource("{\"type\": \"" + HttpInputSource.TYPE_KEY + "\"}")
+        .inputSource(ImmutableMap.of("type", HttpInputSource.TYPE_KEY))
         .property(HttpInputSourceDefn.URI_TEMPLATE_PROPERTY, "http://example.com/")
         .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
@@ -101,7 +101,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
         new HttpInputSourceConfig(null)
     );
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, inputSource)
+        .inputSource(toMap(inputSource))
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
         .build();
@@ -120,7 +120,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
         new HttpInputSourceConfig(null)
     );
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, inputSource)
+        .inputSource(toMap(inputSource))
         .inputFormat(CSV_FORMAT)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
@@ -132,7 +132,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
   {
     // No format: valid. Format can be provided via a table function
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource("{\"type\": \"" + HttpInputSource.TYPE_KEY + "\"}")
+        .inputSource(ImmutableMap.of("type", HttpInputSource.TYPE_KEY))
         .property(HttpInputSourceDefn.URI_TEMPLATE_PROPERTY, "http://example.com/{}")
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
@@ -150,7 +150,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
         new HttpInputSourceConfig(null)
     );
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, inputSource)
+        .inputSource(toMap(inputSource))
         .inputFormat(CSV_FORMAT)
         .property(HttpInputSourceDefn.URI_TEMPLATE_PROPERTY, "http://example.com/{}")
         .build();
@@ -215,7 +215,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
         new HttpInputSourceConfig(null)
     );
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, inputSource)
+        .inputSource(toMap(inputSource))
         .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
@@ -255,8 +255,8 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
         new HttpInputSourceConfig(null)
     );
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(httpToJson(inputSource))
-        .inputFormat("{\"type\": \"" + CsvInputFormat.TYPE_KEY + "\"}")
+        .inputSource(httpToMap(inputSource))
+        .inputFormat(CSV_FORMAT)
         .property(HttpInputSourceDefn.URI_TEMPLATE_PROPERTY, "http://foo.com/{}")
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
@@ -294,7 +294,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
         new HttpInputSourceConfig(null)
     );
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(httpToJson(inputSource))
+        .inputSource(httpToMap(inputSource))
         .property(HttpInputSourceDefn.URI_TEMPLATE_PROPERTY, "http://foo.com/{}")
         .build();
 
@@ -331,8 +331,8 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
         new HttpInputSourceConfig(null)
     );
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, inputSource)
-        .inputFormat("{\"type\": \"" + CsvInputFormat.TYPE_KEY + "\"}")
+        .inputSource(toMap(inputSource))
+        .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
         .build();
@@ -362,8 +362,8 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
         new HttpInputSourceConfig(null)
     );
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(httpToJson(inputSource))
-        .inputFormat("{\"type\": \"" + CsvInputFormat.TYPE_KEY + "\"}")
+        .inputSource(httpToMap(inputSource))
+        .inputFormat(CSV_FORMAT)
         .property(HttpInputSourceDefn.URI_TEMPLATE_PROPERTY, "http://foo.com/{}")
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
@@ -427,8 +427,8 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
         new HttpInputSourceConfig(null)
     );
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, inputSource)
-        .inputFormat("{\"type\": \"" + CsvInputFormat.TYPE_KEY + "\"}")
+        .inputSource(toMap(inputSource))
+        .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
         .build();
@@ -463,10 +463,10 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
     assertEquals(ColumnType.LONG, sig.getColumnType(1).get());
   }
 
-  private String httpToJson(HttpInputSource source)
+  private Map<String, Object> httpToMap(HttpInputSource source)
   {
     Map<String, Object> sourceMap = toMap(source);
     sourceMap.remove("uris");
-    return toJsonString(sourceMap);
+    return sourceMap;
   }
 }

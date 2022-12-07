@@ -46,8 +46,8 @@ public class CsvInputFormatTest extends BaseExternTableTest
   public void testDefaults()
   {
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
-        .inputFormat("{\"type\": \"" + CsvInputFormat.TYPE_KEY + "\"}")
+        .inputSource(toMap(new InlineInputSource("a\n")))
+        .inputFormat(CSV_FORMAT)
         .column("a", Columns.VARCHAR)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
@@ -67,11 +67,9 @@ public class CsvInputFormatTest extends BaseExternTableTest
   {
     CsvInputFormat format = new CsvInputFormat(
         Collections.singletonList("a"), ";", false, false, 1);
-    Map<String, Object> formatMap = toMap(format);
-    formatMap.remove("columns");
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, new InlineInputSource("a\n"))
-        .inputFormat(toJsonString(formatMap))
+        .inputSource(toMap(new InlineInputSource("a\n")))
+        .inputFormat(formatToMap(format))
         .column("a", Columns.VARCHAR)
         .column("b", Columns.BIGINT)
         .build();
