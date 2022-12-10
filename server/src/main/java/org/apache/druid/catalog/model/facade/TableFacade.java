@@ -19,6 +19,7 @@
 
 package org.apache.druid.catalog.model.facade;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ObjectFacade;
@@ -65,5 +66,10 @@ public class TableFacade extends ObjectFacade
     }
     final String sqlType = col.sqlType();
     return sqlType == null ? null : Columns.druidType(sqlType);
+  }
+
+  public ObjectMapper jsonMapper()
+  {
+    return resolved.jsonMapper();
   }
 }

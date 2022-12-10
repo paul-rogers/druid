@@ -110,6 +110,21 @@ public class CatalogUtils
     return safeCast(map.get(key), type, key);
   }
 
+  public static long getLong(Map<String, Object> map, String key)
+  {
+    Object value = map.get(key);
+    if (value == null) {
+      return 0;
+    }
+
+    // Jackson may deserialize the value as either Integer or Long.
+    if (value instanceof Integer) {
+      return (Integer) value;
+    }
+    return (Long) value;
+  }
+
+
   public static String getString(Map<String, Object> map, String key)
   {
     return safeGet(map, key, String.class);
@@ -243,5 +258,29 @@ public class CatalogUtils
       }
     }
     return merged;
+  }
+
+  public static void validateGranularity(String value)
+  {
+    if (value == null) {
+      return;
+    }
+    try {
+      //noinspection ResultOfObjectAllocationIgnored
+      new PeriodGranularity(new Period(value), null, null);
+    }
+    catch (IllegalArgumentException e) {
+      throw new IAE(StringUtils.format("[%s] is an invalid granularity string", value));
+    }
+  }
+
+  public static int findColumn(List<ColumnSpec> columns, String colName)
+  {
+    for (int i = 0; i < columns.size(); i++) {
+      if (columns.get(i).name().equals(colName)) {
+        return i;
+      }
+    }
+    return -1;
   }
 }

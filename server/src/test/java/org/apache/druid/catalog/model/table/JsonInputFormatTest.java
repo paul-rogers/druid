@@ -24,7 +24,6 @@ import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableMetadata;
-import org.apache.druid.catalog.model.table.InputFormats.JsonFormatDefn;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.InlineInputSource;
@@ -92,22 +91,20 @@ public class JsonInputFormatTest extends BaseExternTableTest
   {
     InputFormatDefn defn = registry.inputFormatDefnFor(JsonInputFormat.TYPE_KEY);
     List<ParameterDefn> params = defn.parameters();
-    assertEquals(1, params.size());
-    assertTrue(hasParam(params, JsonFormatDefn.KEEP_NULLS_PARAMETER));
+    assertEquals(0, params.size());
   }
 
   @Test
   public void testCreateFromArgs()
   {
     Map<String, Object> args = new HashMap<>();
-    args.put(JsonFormatDefn.KEEP_NULLS_PARAMETER, true);
     InputFormatDefn defn = registry.inputFormatDefnFor(JsonInputFormat.TYPE_KEY);
     List<ColumnSpec> columns = Collections.singletonList(new ColumnSpec("a", null, null));
     InputFormat inputFormat = defn.convertFromArgs(args, columns, mapper);
     JsonInputFormat jsonFormat = (JsonInputFormat) inputFormat;
     assertNull(jsonFormat.getFlattenSpec());
     assertTrue(jsonFormat.getFeatureSpec().isEmpty());
-    assertTrue(jsonFormat.isKeepNullColumns());
+    assertFalse(jsonFormat.isKeepNullColumns());
     assertFalse(jsonFormat.isAssumeNewlineDelimited());
     assertFalse(jsonFormat.isUseJsonNodeReader());
   }

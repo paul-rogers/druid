@@ -119,9 +119,12 @@ yet use this property, though the intent is that the Druid Console will display 
 in some useful way.
 
 ```json
-  "properties": {
-    "description": "Web server performance metrics"
+{
+  "type" : "datasource",
+  "properties" : {
+     "description" : "Web server performance metrics"
   }
+}
 ```
 
 ### `segmentGranularity` (String)
@@ -137,8 +140,9 @@ Example:
 
 ```json
 {
-  "properties": {
-    "segmentGranularity": "PT1H"
+  "type" : "datasource",
+  "properties" : {
+     "segmentGranularity" : "PT1H"
   }
 }
 ```
@@ -153,11 +157,14 @@ Example:
 
 ```json
 {
-  "properties": {
-    "clusterKeys": [
-        {"column": "x"},
-        {"column": "y", "desc": true} ]
-    }
+  "type" : "datasource",
+  "properties" : {
+    "clusterKeys" : [ {
+      "column" : "a"
+    }, {
+      "column" : "b",
+      "desc" : true
+    } ]
   }
 }
 ```
@@ -181,8 +188,9 @@ Example:
 
 ```json
 {
-  "properties": {
-    "targetSegmentRows": 4000000
+  "type" : "datasource",
+  "properties" : {
+     "segmentGranularity" : "PT1H"
   }
 }
 ```
@@ -201,7 +209,7 @@ Example:
 ```json
 {
   "properties": {
-    "hiddenColumns": [ "bogus", "serverVersion" ]
+    "targetSegmentRows" : 1000000
   }
 }
 ```
@@ -212,24 +220,25 @@ As noted above, columns are optional. When provided, they appear as a list under
 `columns` property of a datasource. Not all columns need be declared. Each column is a JSON
 object with three fields: `name`, `sqlType` and `properties`. Example:
 
-
 ```json
 {
-  "columns": [
-    { "name": "__time",
-      "sqlType": "TIMESTAMP" }
-    { "name": "metric",
-      "sqlType": "VARCHAR",
-      "properties": {
-        "description": "The type of the metric reported in this row"
-      } }
-    { "name": "value",
-      "sqlType": "SUM(BIGINT)",
-      "properties": {
-        "description": "The metric value summed over one second of time"
-      } }
-    ]
-  }
+  "type" : "datasource",
+  "columns" : [ {
+    "name" : "__time",
+    "sqlType" : "TIMESTAMP"
+  }, {
+    "name" : "host",
+    "sqlType" : "VARCHAR",
+    "properties" : {
+      "description" : "The web server host"
+    }
+  }, {
+    "name" : "bytesSent",
+    "sqlType" : "BIGINT",
+    "properties" : {
+      "description" : "Number of response bytes sent"
+    }
+  } ]
 }
 ```
 
@@ -250,7 +259,8 @@ type.
 
 Future versions will define measure types (as suggesed in the example above.)
 
-If you define the `__time` column, it must be of type `TIMESTAMP`.
+If you define the `__time` column, it must be of type `TIMESTAMP`. (The time column always
+exists in segments. The metadata definition is optional.)
 
 ## Changing Properties or Columns
 
@@ -283,4 +293,3 @@ both physically drop the datasource and delete the metadata for that datasource.
 if you simply want to "truncate" the table (remove all existing data), but keep the table
 definition, then just delete the segments. The table itself will continue to exist as long
 as the table metadata exists. (That is, Druid works as if you had just created a new table.)
-

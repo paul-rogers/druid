@@ -70,8 +70,8 @@ SELECT
  <column>
 FROM TABLE(
   http(
-    userName => 'bob',
-    password => 'secret',
+    httpAuthenticationUsername => 'bob',
+    httpAuthenticationPassword => 'secret',
     uris => 'http:foo.com/bar.csv',
     format => 'csv'
     )
@@ -86,99 +86,79 @@ SELECT
  <column>
 FROM TABLE(
   http(
-    userName => 'bob',
-    password => 'secret',
+    httpAuthenticationUsername => 'bob',
+    httpAuthenticationPassword => 'secret',
     uris => 'http:foo.com/bar.csv',
     format => 'csv'
     )
   ) (x VARCHAR, y VARCHAR, z BIGINT)
 ```
 
-
 The set of table functions and formats is preliminary in this release.
+
+Function argument names are generally the same as the JSON field names, except
+as noted below.
 
 #### `HTTP`
 
-The `HTTP` table function represents the `HttpInputSource` class in Druid which allows you to
-read from an HTTP server. The function accepts the following arguments:
+The `HTTP` table function represents the
+[HTTP input source](../ingestion/native-batch-input-sources.md#http-input-source)
+to read from an HTTP server. The function accepts the following arguments:
 
-| Name | Description | JSON equivalent | Required |
-| ---- | ----------- | --------------- | -------- |
-| `userName` | Basic authentication user name | `httpAuthenticationUsername` | No |
-| `password` | Basic authentication password | `httpAuthenticationPassword` | No |
-| `passwordEnvVar` | Environment variable that contains the basic authentication password| `httpAuthenticationPassword` | No |
-| `uris` | Comma-separated list of URIs to read. | `uris` | Yes |
+* `httpAuthenticationUsername`
+* `httpAuthenticationPassword`
+* `httpAuthenticationPasswordEnvVar` (same as the HTTP `httpAuthenticationPassword` when used with
+  the `"type": "environment"` option.)
+* `uris`
 
 #### `INLINE`
 
-The `INLINE` table function represents the `InlineInputSource` class in Druid which provides
-data directly in the table function. The function accepts the following arguments:
-
-| Name | Description | JSON equivalent | Required |
-| ---- | ----------- | --------------- | -------- |
-| `data` | Text lines of inline data. Separate lines with a newline. | `data` | Yes |
+The `INLINE` table function represents the
+[Inline input source](../ingestion/native-batch-input-sources.md#inline-input-source)
+which provides data directly in the table function. The function accepts the `data` parameter.
 
 #### `LOCALFILES`
 
-The `LOCALFILES` table function represents the `LocalInputSource` class in Druid which reads
+The `LOCALFILES` table function represents the
+[Local input source](../ingestion/native-batch-input-sources.md#local-input-source) which reads
 files from the file system of the node running Druid. This is most useful for single-node
-installations. The function accepts the following arguments:
+installations. The function accepts the following parameters:
 
-| Name | Description | JSON equivalent | Required |
-| ---- | ----------- | --------------- | -------- |
-| `baseDir` | Directory to read from. | `baseDir` | No |
-| `filter` | Filter pattern to read. Example: `*.csv`. | `filter` | No |
-| `files` | Comma-separated list of files to read. | `files` | No |
+* `baseDir`
+* `filter`
+* `files`
 
-You must either provide the `baseDir` or the list of `files`. You can provide both, in which case
-the files are assumed relative to the `baseDir`. If you provide a `filter`, you must provide the
-`baseDir`.
-
-Note that, due to [Issue #13359](https://github.com/apache/druid/issues/13359), the functionality
-described above is broken. Until that issue is resolved, you must provide one or more absolute
-file paths in the `files` property and the other two properties are unavailable.
+Note that you can provide either `baseDir` and `filter` or `files` but not both.. The file list is always
+either absolute, or relative to Druid's working directory (usually the Druid install directory.)
 
 #### Table Function Format
 
-Each of the table functions above requires that you specify a format.
-
-| Name | Description | JSON equivalent | Required |
-| ---- | ----------- | --------------- | -------- |
-| `format` | The input format, using the same names as for `EXTERN`. | `inputFormat.type` | Yes |
+Each of the table functions above requires that you specify a format using the `format`
+parameter which accepts a value the same as the format names used for `EXTERN` and described
+for [each input source](../ingestion/native-batch-input-sources.md).
 
 #### CSV Format
 
-Use the `csv` format to read from CSV. This choice selects the Druid `CsvInputFormat` class.
+The `csv` format selects the [CSV input format](../ingestion/data-formats.md#csv).
+Parameters:
 
-| Name | Description | JSON equivalent | Required |
-| ---- | ----------- | --------------- | -------- |
-| `listDelimiter` | The delimiter to use for fields that represent a list of strings. | `listDelimiter` | No |
-| `skipRows` | The number of rows to skip at the start of the file. Default is 0. | `skipHeaderRows` | No |
-
-MSQ does not have the ability to infer schema from a CSV, file, so the `findColumnsFromHeader` property
-is unavailable. Instead, Columns are given using the `EXTEND` syntax described above.
+* `listDelimiter`
+* `skipHeaderRows`
 
 #### Delimited Text Format
 
-Use the `tsv` format to read from an arbitrary delimited (CSV-like) file such as tab-delimited,
-pipe-delimited, etc. This choice selects the Druid `DelimitedInputFormat` class.
+The `tsv` format selects the [TSV (Delimited) input format](../ingestion/data-formats.md#tsv-delimited).
+Parameters:
 
-| Name | Description | JSON equivalent | Required |
-| ---- | ----------- | --------------- | -------- |
-| `delimiter` | The delimiter which separates fields. | `delimiter` | Yes |
-| `listDelimiter` | The delimiter to use for fields that represent a list of strings. | `listDelimiter` | No |
-| `skipRows` | The number of rows to skip at the start of the file. Default is 0. | `skipHeaderRows` | No |
-
-As noted above, MSQ cannot infer schema using headers. Use `EXTEND` instead.
+* `delimiter`
+* `listDelimiter`
+* `skipHeaderRows`
 
 #### JSON Format
 
-Use the `json` format to read from a JSON input source. This choice selects the Druid `JsonInputFormat` class.
-
-| Name | Description | JSON equivalent | Required |
-| ---- | ----------- | --------------- | -------- |
-| `keepNulls` | Whether to keep null values. Defaults to `false`. | `keepNullColumns` | No |
-
+The `json` format selects the
+[JSON input format](../ingestion/data-formats.html#json).
+The JSON format accepts no additional parameters.
 
 ### `INSERT`
 

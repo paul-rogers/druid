@@ -23,9 +23,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.IAE;
-import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.java.util.common.granularity.PeriodGranularity;
-import org.joda.time.Period;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -295,21 +292,7 @@ public interface ModelProperties
     public void validate(Object value, ObjectMapper jsonMapper)
     {
       String gran = decode(value, jsonMapper);
-      validateGranularity(gran);
-    }
-
-    public void validateGranularity(String value)
-    {
-      if (value == null) {
-        return;
-      }
-      try {
-        //noinspection ResultOfObjectAllocationIgnored
-        new PeriodGranularity(new Period(value), null, null);
-      }
-      catch (IllegalArgumentException e) {
-        throw new IAE(StringUtils.format("[%s] is an invalid granularity string", value));
-      }
+      CatalogUtils.validateGranularity(gran);
     }
   }
 

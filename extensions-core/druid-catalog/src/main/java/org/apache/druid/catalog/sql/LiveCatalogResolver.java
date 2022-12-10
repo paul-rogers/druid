@@ -19,9 +19,13 @@
 
 package org.apache.druid.catalog.sql;
 
+import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlOperator;
+import org.apache.calcite.sql.SqlOperatorTable;
+import org.apache.calcite.sql.SqlPostfixOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.druid.catalog.model.CatalogUtils;
@@ -33,7 +37,11 @@ import org.apache.druid.catalog.model.facade.DatasourceFacade;
 import org.apache.druid.catalog.model.table.ClusterKeySpec;
 import org.apache.druid.catalog.model.table.DatasourceDefn;
 import org.apache.druid.catalog.sync.MetadataCatalog;
+import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.java.util.common.granularity.Granularity;
+import org.apache.druid.java.util.common.granularity.PeriodGranularity;
 import org.apache.druid.query.TableDataSource;
+import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.parser.DruidSqlIngest;
@@ -61,6 +69,7 @@ public class LiveCatalogResolver implements CatalogResolver
 
   // Copied here from MSQE since that extension is not visible here.
   public static final String CTX_ROWS_PER_SEGMENT = "msqRowsPerSegment";
+  public static final String CTX_FINALIZE_AGGREGATIONS = "finalizeAggregations";
 
   private final MetadataCatalog catalog;
 
@@ -81,45 +90,135 @@ public class LiveCatalogResolver implements CatalogResolver
     }
 
     // Segment granularity
-    String definedGranularity = table.segmentGranularity();
-    if (insert.getPartitionedBy() == null && definedGranularity != null) {
-      insert.updateParitionedBy(
-          CatalogUtils.asDruidGranularity(definedGranularity),
-          definedGranularity
-      );
-    }
+    applySegmentGranularity(insert, table);
 
     // Cluster keys
-    SqlNodeList clusterKeys = insert.getClusteredBy();
-    if (clusterKeys == null || clusterKeys.getList().isEmpty()) {
-      List<ClusterKeySpec> keyCols = table.clusterKeys();
-      if (keyCols != null) {
-        SqlNodeList keyNodes = new SqlNodeList(SqlParserPos.ZERO);
-        for (ClusterKeySpec keyCol : keyCols) {
-          // For now, we implicitly only support named columns as we're
-          // not in a position to parse expressions here.
-          SqlIdentifier colIdent = new SqlIdentifier(
-              Collections.singletonList(keyCol.expr()),
-              null, SqlParserPos.ZERO,
-              Collections.singletonList(SqlParserPos.ZERO)
-              );
-          SqlNode keyNode;
-          if (keyCol.desc()) {
-            keyNode = SqlStdOperatorTable.DESC.createCall(SqlParserPos.ZERO, colIdent);
-          } else {
-            keyNode = colIdent;
-          }
-          keyNodes.add(keyNode);
-        }
-        insert.updateClusteredBy(keyNodes);
-      }
-    }
+    applyClusterKeys(insert, table);
 
     // Segment size
     Integer targetSegmentRows = table.targetSegmentRows();
     if (targetSegmentRows != null) {
       context.put(CTX_ROWS_PER_SEGMENT, targetSegmentRows);
     }
+
+    // Rollup grain
+    if (table.hasRollup()) {
+      // See https://druid.apache.org/docs/latest/multi-stage-query/concepts.html#rollup
+      context.put(CTX_FINALIZE_AGGREGATIONS, false);
+      context.put(GroupByQueryConfig.CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING, false);
+    }
+  }
+
+  private void applySegmentGranularity(DruidSqlIngest insert, DatasourceFacade table)
+  {
+    // Catalog has no granularity. Accept whatever the query provides.
+    String definedGranularity = table.segmentGranularity();
+    if (definedGranularity == null) {
+      return;
+    }
+
+    // The query has no granularity: just apply the catalog granulrity.
+    if (insert.getPartitionedBy() == null) {
+      insert.updateParitionedBy(
+          CatalogUtils.asDruidGranularity(definedGranularity),
+          definedGranularity
+      );
+      return;
+    }
+
+    // Both have a setting. They have to be the same.
+    Granularity actual = insert.getPartitionedBy();
+    if (!(actual instanceof PeriodGranularity)) {
+      throw partitionByMismatchException(definedGranularity, actual.toString());
+    }
+    String actualGranularity = ((PeriodGranularity) actual).getPeriod().toString();
+    if (!definedGranularity.equals(actualGranularity)) {
+      throw partitionByMismatchException(definedGranularity, actualGranularity);
+    }
+  }
+
+  private RuntimeException partitionByMismatchException(String catalogValue, String actualValue)
+  {
+    throw new IAE(
+        "PARTITIONED BY mismatch. Catalog: [%s], query: [%s]",
+        catalogValue,
+        actualValue
+    );
+  }
+
+  private void applyClusterKeys(DruidSqlIngest insert, DatasourceFacade table)
+  {
+    // Catalog has no keys. Accept whatever the query provides.
+    List<ClusterKeySpec> keyCols = table.clusterKeys();
+    if (keyCols == null) {
+      return;
+    }
+
+    // Catalog has keys, query doesn't: just apply the catalog keys
+    SqlNodeList clusterKeys = insert.getClusteredBy();
+    if (clusterKeys == null || clusterKeys.getList().isEmpty()) {
+      SqlNodeList keyNodes = new SqlNodeList(SqlParserPos.ZERO);
+      for (ClusterKeySpec keyCol : keyCols) {
+        // For now, we implicitly only support named columns as we're
+        // not in a position to parse expressions here.
+        SqlIdentifier colIdent = new SqlIdentifier(
+            Collections.singletonList(keyCol.expr()),
+            null, SqlParserPos.ZERO,
+            Collections.singletonList(SqlParserPos.ZERO)
+            );
+        SqlNode keyNode;
+        if (keyCol.desc()) {
+          keyNode = SqlStdOperatorTable.DESC.createCall(SqlParserPos.ZERO, colIdent);
+        } else {
+          keyNode = colIdent;
+        }
+        keyNodes.add(keyNode);
+      }
+      insert.updateClusteredBy(keyNodes);
+      return;
+    }
+
+    // Both the query and catalog have keys.
+    if (clusterKeys.size() != keyCols.size()) {
+      throw clusterKeyMismatchException(keyCols, clusterKeys);
+    }
+    for (int i = 0; i < clusterKeys.size(); i++) {
+      ClusterKeySpec catalogKey = keyCols.get(i);
+      SqlNode queryKey = clusterKeys.get(i);
+      String queryKeyName;
+      boolean desc;
+      if (queryKey instanceof SqlIdentifier) {
+        queryKeyName = ((SqlIdentifier) queryKey).getSimple();
+        desc = false;
+      } else if (queryKey instanceof SqlBasicCall) {
+        SqlBasicCall call = (SqlBasicCall) queryKey;
+        if (call.getOperands().length != 1) {
+          throw clusterKeyMismatchException(keyCols, clusterKeys);
+        }
+        SqlNode arg1 = call.getOperands()[0];
+        if (!(arg1 instanceof SqlIdentifier)) {
+          throw clusterKeyMismatchException(keyCols, clusterKeys);
+        }
+        queryKeyName = ((SqlIdentifier) arg1).getSimple();
+        desc = call.getOperator() == SqlStdOperatorTable.DESC;
+      } else {
+        throw clusterKeyMismatchException(keyCols, clusterKeys);
+      }
+      if (!catalogKey.expr().equals(queryKeyName) || catalogKey.desc() != desc) {
+        throw clusterKeyMismatchException(keyCols, clusterKeys);
+      }
+    }
+  }
+
+  private RuntimeException clusterKeyMismatchException(List<ClusterKeySpec> keyCols, SqlNodeList clusterKeys)
+  {
+    // Note the format: keyCols will covert to string with brackets, clusterKeys
+    // without, so we add brackets in the format only for clusterKeys
+    throw new IAE(
+        "CLUSTER BY mismatch. Catalog: %s, query: [%s]",
+        keyCols,
+        clusterKeys
+    );
   }
 
   private DatasourceFacade datasourceSpec(String name)

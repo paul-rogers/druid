@@ -35,7 +35,6 @@ import org.apache.calcite.sql.type.SqlOperandCountRanges;
 import org.apache.calcite.sql.type.SqlOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.druid.catalog.model.ColumnSpec;
-import org.apache.druid.catalog.model.table.ExternalTableDefn;
 import org.apache.druid.catalog.model.table.ExternalTableSpec;
 import org.apache.druid.catalog.model.table.TableFunction;
 import org.apache.druid.java.util.common.IAE;
@@ -183,7 +182,7 @@ public class Externals
     for (int i = 0; i < schema.size(); i += 2) {
       final String name = convertName((SqlIdentifier) schema.get(i));
       final String sqlType = convertType(name, (SqlDataTypeSpec) schema.get(i + 1));
-      columns.add(new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, name, sqlType, null));
+      columns.add(new ColumnSpec(name, sqlType, null));
     }
     return columns;
   }

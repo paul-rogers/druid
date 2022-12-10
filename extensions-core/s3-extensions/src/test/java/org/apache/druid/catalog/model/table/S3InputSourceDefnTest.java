@@ -20,6 +20,7 @@
 package org.apache.druid.catalog.model.table;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
@@ -34,6 +35,7 @@ import org.apache.druid.data.input.s3.S3InputSource;
 import org.apache.druid.data.input.s3.S3InputSourceDruidModule;
 import org.apache.druid.data.input.s3.S3InputSourceTest;
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.storage.s3.S3StorageDruidModule;
 import org.junit.Before;
 import org.junit.Test;
@@ -66,14 +68,14 @@ import static org.junit.Assert.assertTrue;
 public class S3InputSourceDefnTest
 {
   private static final List<ColumnSpec> COLUMNS = Arrays.asList(
-      new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "x", Columns.VARCHAR, null),
-      new ColumnSpec(ExternalTableDefn.EXTERNAL_COLUMN_TYPE, "y", Columns.BIGINT, null)
+      new ColumnSpec("x", Columns.VARCHAR, null),
+      new ColumnSpec("y", Columns.BIGINT, null)
   );
 
   /**
    * Minimum JSON input source format.
    */
-  private static final String CSV_FORMAT = "{\"type\": \"" + CsvInputFormat.TYPE_KEY + "\"}";
+  public static final Map<String, Object> CSV_FORMAT = ImmutableMap.of("type", CsvInputFormat.TYPE_KEY);
 
   /**
    * Object mapper created using the {@link S3InputSourceTest} version, which registers
@@ -106,7 +108,7 @@ public class S3InputSourceDefnTest
   {
     // No data property: not valid
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource("{\"type\": \"" + S3StorageDruidModule.SCHEME + "\"}")
+        .inputSource(ImmutableMap.of("type", S3StorageDruidModule.SCHEME))
         .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .build();
@@ -148,11 +150,21 @@ public class S3InputSourceDefnTest
     S3InputSource s3InputSource = s3InputSource(
         Collections.singletonList("s3://foo/bar/file.csv"), null, null, null);
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, s3InputSource)
+        .inputSource(toMap(s3InputSource))
         .column("x", Columns.VARCHAR)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     resolved.validate();
+  }
+
+  private Map<String, Object> toMap(Object obj)
+  {
+    try {
+      return mapper.convertValue(obj, ExternalTableDefn.MAP_TYPE_REF);
+    }
+    catch (Exception e) {
+      throw new ISE(e, "bad conversion");
+    }
   }
 
   @Test
@@ -162,7 +174,7 @@ public class S3InputSourceDefnTest
     S3InputSource s3InputSource = s3InputSource(
         Collections.singletonList("s3://foo/bar/file.csv"), null, null, null);
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, s3InputSource)
+        .inputSource(toMap(s3InputSource))
         .inputFormat(CSV_FORMAT)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
@@ -176,7 +188,7 @@ public class S3InputSourceDefnTest
     S3InputSource s3InputSource = s3InputSource(
         Collections.singletonList("s3://foo/bar/file.csv"), null, null, null);
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, s3InputSource)
+        .inputSource(toMap(s3InputSource))
         .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .build();
@@ -188,7 +200,7 @@ public class S3InputSourceDefnTest
   public void testBucketOnly()
   {
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource("{\"type\": \"" + S3StorageDruidModule.SCHEME + "\"}")
+        .inputSource(ImmutableMap.of("type", S3StorageDruidModule.SCHEME))
         .inputFormat(CSV_FORMAT)
         .property(S3InputSourceDefn.BUCKET_PROPERTY, "foo.com")
         .column("x", Columns.VARCHAR)
@@ -203,7 +215,7 @@ public class S3InputSourceDefnTest
     S3InputSource s3InputSource = s3InputSource(
         Collections.singletonList("s3://foo/bar/file.csv"), null, null, null);
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, s3InputSource)
+        .inputSource(toMap(s3InputSource))
         .inputFormat(CSV_FORMAT)
         .property(S3InputSourceDefn.BUCKET_PROPERTY, "foo.com")
         .column("x", Columns.VARCHAR)
@@ -222,7 +234,7 @@ public class S3InputSourceDefnTest
         null
     );
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, s3InputSource)
+        .inputSource(toMap(s3InputSource))
         .inputFormat(CSV_FORMAT)
         .property(S3InputSourceDefn.BUCKET_PROPERTY, "foo.com")
         .column("x", Columns.VARCHAR)
@@ -241,7 +253,7 @@ public class S3InputSourceDefnTest
         null
     );
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, s3InputSource)
+        .inputSource(toMap(s3InputSource))
         .inputFormat(CSV_FORMAT)
         .property(S3InputSourceDefn.BUCKET_PROPERTY, "foo.com")
         .column("x", Columns.VARCHAR)
@@ -254,8 +266,11 @@ public class S3InputSourceDefnTest
   public void testBucketAndGlob()
   {
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource("{\"type\": \"" + S3StorageDruidModule.SCHEME
-            + "\"objectGlob\": \"*.csv\"\"}")
+        .inputSource(
+            ImmutableMap.of(
+                "type", S3StorageDruidModule.SCHEME,
+                "objectGlob", "*.csv")
+            )
         .inputFormat(CSV_FORMAT)
         .property(S3InputSourceDefn.BUCKET_PROPERTY, "foo.com")
         .column("x", Columns.VARCHAR)
@@ -471,7 +486,7 @@ public class S3InputSourceDefnTest
     S3InputSource s3InputSource = s3InputSource(
         Arrays.asList("s3://foo/bar/", "s3://mumble/"), null, null, "*.csv");
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource(mapper, s3InputSource)
+        .inputSource(toMap(s3InputSource))
         .inputFormat(CSV_FORMAT)
         .column("x", Columns.VARCHAR)
         .column("y", Columns.BIGINT)
@@ -505,7 +520,7 @@ public class S3InputSourceDefnTest
   public void testTableSpecWithBucketAndFormat() throws URISyntaxException
   {
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource("{\"type\": \"" + S3StorageDruidModule.SCHEME + "\"}")
+        .inputSource(ImmutableMap.of("type", S3StorageDruidModule.SCHEME))
         .inputFormat(CSV_FORMAT)
         .property(S3InputSourceDefn.BUCKET_PROPERTY, "foo.com")
         .column("x", Columns.VARCHAR)
@@ -547,7 +562,7 @@ public class S3InputSourceDefnTest
   public void testTableSpecAsConnection() throws URISyntaxException
   {
     TableMetadata table = TableBuilder.external("foo")
-        .inputSource("{\"type\": \"" + S3StorageDruidModule.SCHEME + "\"}")
+        .inputSource(ImmutableMap.of("type", S3StorageDruidModule.SCHEME))
         .property(S3InputSourceDefn.BUCKET_PROPERTY, "foo.com")
         .build();
 

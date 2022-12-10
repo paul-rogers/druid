@@ -66,16 +66,6 @@ public class BaseExternTableTest
     }
   }
 
-  protected String toJsonString(Map<String, Object> formatMap)
-  {
-    try {
-      return mapper.writeValueAsString(formatMap);
-    }
-    catch (Exception e) {
-      throw new ISE(e, "bad conversion");
-    }
-  }
-
   protected Map<String, Object> formatToMap(InputFormat format)
   {
     Map<String, Object> formatMap = toMap(format);

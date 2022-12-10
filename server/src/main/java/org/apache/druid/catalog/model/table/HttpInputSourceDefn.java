@@ -88,9 +88,9 @@ public class HttpInputSourceDefn extends FormattedInputSourceDefn
 
   // Note, cannot be the simpler "user" since USER is a reserved word in SQL
   // and we don't want to require users to quote "user" each time it is used.
-  public static final String USER_PARAMETER = "userName";
-  public static final String PASSWORD_PARAMETER = "password";
-  public static final String PASSWORD_ENV_VAR_PARAMETER = "passwordEnvVar";
+  public static final String USER_PARAMETER = "httpAuthenticationUsername";
+  public static final String PASSWORD_PARAMETER = "httpAuthenticationPassword";
+  public static final String PASSWORD_ENV_VAR_PARAMETER = "httpAuthenticationPasswordEnvVar";
 
   private static final List<ParameterDefn> URI_PARAMS = Arrays.asList(
       new Parameter(URIS_PARAMETER, String.class, true)

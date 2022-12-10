@@ -193,8 +193,13 @@ public class TableBuilder
 
   public TableBuilder column(String name, String sqlType)
   {
+    return column(name, sqlType, null);
+  }
+
+  public TableBuilder column(String name, String sqlType, Map<String, Object> properties)
+  {
     Preconditions.checkNotNull(tableType);
-    return column(new ColumnSpec(name, sqlType, null));
+    return column(new ColumnSpec(name, sqlType, properties));
   }
 
   public TableSpec buildSpec()

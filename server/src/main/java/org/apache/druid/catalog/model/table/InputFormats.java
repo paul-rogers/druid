@@ -62,7 +62,7 @@ public class InputFormats
 
     public BaseFormatDefn(List<ParameterDefn> parameters)
     {
-      this.parameters = parameters;
+      this.parameters = parameters == null ? Collections.emptyList() : parameters;
     }
 
     @Override
@@ -139,7 +139,7 @@ public class InputFormats
   public abstract static class FlatTextFormatDefn extends BaseFormatDefn
   {
     public static final String LIST_DELIMITER_PARAMETER = "listDelimiter";
-    public static final String SKIP_ROWS_PARAMETER = "skipRows";
+    public static final String SKIP_ROWS_PARAMETER = "skipHeaderRows";
 
     private static final String COLUMNS_FIELD = "columns";
     private static final String FIND_COLUMNS_FIELD = "findColumnsFromHeader";
@@ -300,16 +300,9 @@ public class InputFormats
   {
     public static final String TYPE_KEY = JsonInputFormat.TYPE_KEY;
 
-    public static final String KEEP_NULLS_PARAMETER = "keepNulls";
-    public static final String KEEP_NULLS_FIELD = "keepNullColumns";
-
     public JsonFormatDefn()
     {
-      super(
-          Collections.singletonList(
-                  new Parameter(KEEP_NULLS_PARAMETER, Boolean.class, true)
-          )
-      );
+      super(null);
     }
 
     @Override
@@ -333,10 +326,6 @@ public class InputFormats
     {
       Map<String, Object> jsonMap = new HashMap<>();
       jsonMap.put(InputFormat.TYPE_PROPERTY, JsonInputFormat.TYPE_KEY);
-      Boolean keepNulls = CatalogUtils.safeGet(args, KEEP_NULLS_PARAMETER, Boolean.class);
-      if (keepNulls != null) {
-        jsonMap.put(KEEP_NULLS_FIELD, keepNulls);
-      }
       return convert(jsonMap, jsonMapper);
     }
   }

@@ -21,13 +21,17 @@ package org.apache.druid.catalog.model.table;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
 import org.apache.druid.catalog.model.ModelProperties.ObjectPropertyDefn;
+import org.apache.druid.catalog.model.ModelProperties.PropertyDefn;
+import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefn;
 import org.apache.druid.catalog.model.TableDefnRegistry;
+import org.apache.druid.catalog.model.TypeParser;
+import org.apache.druid.catalog.model.TypeParser.ParsedType;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.InputSource;
+import org.apache.druid.java.util.common.IAE;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -279,6 +283,19 @@ public class ExternalTableDefn extends TableDefn
   public TableFunction tableFn(ResolvedTable table)
   {
     return new ResolvedExternalTable(table).resolve(registry).tableFn();
+  }
+
+  @Override
+  protected void validateColumn(ColumnSpec colSpec)
+  {
+    ParsedType type = TypeParser.parse(colSpec.sqlType());
+    if (type.kind() == ParsedType.Kind.MEASURE) {
+      throw new IAE(
+          "External column %s cannot use measure SQL type %s",
+          colSpec.name(),
+          colSpec.sqlType()
+      );
+    }
   }
 
   /**

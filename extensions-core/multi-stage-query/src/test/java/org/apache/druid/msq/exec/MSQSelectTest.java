@@ -32,7 +32,6 @@ import org.apache.druid.msq.indexing.ColumnMappings;
 import org.apache.druid.msq.indexing.MSQSpec;
 import org.apache.druid.msq.indexing.MSQTuningConfig;
 import org.apache.druid.msq.indexing.error.CannotParseExternalDataFault;
-import org.apache.druid.msq.shuffle.DurableStorageUtils;
 import org.apache.druid.msq.test.MSQTestBase;
 import org.apache.druid.msq.test.MSQTestFileUtils;
 import org.apache.druid.query.InlineDataSource;
@@ -49,6 +48,7 @@ import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.query.filter.NotDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.groupby.GroupByQuery;
+import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.orderby.DefaultLimitSpec;
 import org.apache.druid.query.groupby.orderby.OrderByColumnSpec;
 import org.apache.druid.query.ordering.StringComparators;
@@ -69,6 +69,7 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 import javax.annotation.Nonnull;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -946,7 +947,7 @@ public class MSQSelectTest extends MSQTestBase
   {
     Map<String, Object> context = ImmutableMap.<String, Object>builder()
                                               .putAll(DEFAULT_MSQ_CONTEXT)
-                                              .put("groupByEnableMultiValueUnnesting", true)
+                                              .put(GroupByQueryConfig.CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING, true)
                                               .build();
     RowSignature rowSignature = RowSignature.builder()
                                             .add("dim3", ColumnType.STRING)
@@ -997,7 +998,7 @@ public class MSQSelectTest extends MSQTestBase
   {
     Map<String, Object> context = ImmutableMap.<String, Object>builder()
                                               .putAll(DEFAULT_MSQ_CONTEXT)
-                                              .put("groupByEnableMultiValueUnnesting", false)
+                                              .put(GroupByQueryConfig.CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING, false)
                                               .build();
 
     testSelectQuery()
@@ -1016,7 +1017,7 @@ public class MSQSelectTest extends MSQTestBase
   {
     Map<String, Object> context = ImmutableMap.<String, Object>builder()
                                               .putAll(DEFAULT_MSQ_CONTEXT)
-                                              .put("groupByEnableMultiValueUnnesting", true)
+                                              .put(GroupByQueryConfig.CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING, true)
                                               .build();
 
     RowSignature rowSignature = RowSignature.builder()
@@ -1073,7 +1074,7 @@ public class MSQSelectTest extends MSQTestBase
   {
     Map<String, Object> context = ImmutableMap.<String, Object>builder()
                                               .putAll(DEFAULT_MSQ_CONTEXT)
-                                              .put("groupByEnableMultiValueUnnesting", true)
+                                              .put(GroupByQueryConfig.CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING, true)
                                               .build();
 
     RowSignature rowSignature = RowSignature.builder()
@@ -1141,7 +1142,7 @@ public class MSQSelectTest extends MSQTestBase
   {
     Map<String, Object> context = ImmutableMap.<String, Object>builder()
                                               .putAll(DEFAULT_MSQ_CONTEXT)
-                                              .put("groupByEnableMultiValueUnnesting", false)
+                                              .put(GroupByQueryConfig.CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING, false)
                                               .build();
 
     testSelectQuery()
@@ -1246,10 +1247,6 @@ public class MSQSelectTest extends MSQTestBase
         .setExpectedRowSignature(rowSignature)
         .setExpectedResultRows(ImmutableList.of(new Object[]{1L, 6L}))
         .verifyResults();
-    File successFile = new File(
-        localFileStorageDir,
-        DurableStorageUtils.getSuccessFilePath("query-test-query", 0, 0)
-    );
 
     Mockito.verify(localFileStorageConnector, Mockito.times(2))
                .write(ArgumentMatchers.endsWith("__success"));

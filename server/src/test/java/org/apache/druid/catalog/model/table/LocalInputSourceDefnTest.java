@@ -217,19 +217,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     args.put(LocalInputSourceDefn.BASE_DIR_PARAMETER, "/tmp");
     args.put(LocalInputSourceDefn.FILES_PARAMETER, "foo.csv, bar.csv");
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
-
-    LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
-    assertEquals(new File("/tmp"), sourceSpec.getBaseDir());
-    assertEquals("*", sourceSpec.getFilter());
-    assertEquals(
-        Arrays.asList(new File("foo.csv"), new File("bar.csv")),
-        sourceSpec.getFiles()
-    );
-    validateFormat(externSpec);
-
-    // But, it fails if there are no columns.
-    assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
   }
 
   @Test

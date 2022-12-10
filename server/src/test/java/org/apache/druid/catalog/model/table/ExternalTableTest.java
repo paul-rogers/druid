@@ -132,12 +132,27 @@ public class ExternalTableTest extends BaseExternTableTest
     resolved.validate();
   }
 
+  @Test
+  public void testValidateMeaureColumnType()
+  {
+    CsvInputFormat format = new CsvInputFormat(
+        Collections.singletonList("a"), ";", false, false, 0);
+    TableMetadata table = TableBuilder.external("foo")
+        .inputSource(toMap(new InlineInputSource("a\n")))
+        .inputFormat(formatToMap(format))
+        .column("a", "COUNT()")
+        .build();
+    ResolvedTable resolved = registry.resolve(table.spec());
+    assertThrows(IAE.class, () -> resolved.validate());
+  }
+
   /**
    * Test case for multiple of the {@code ext.md} examples. To use this, enable the
    * test, run it, then copy the JSON from the console. The examples pull out bits
    * and pieces in multiple places.
    */
   @Test
+  @Ignore
   public void wikipediaDocExample()
   {
     JsonInputFormat format = new JsonInputFormat(null, null, true, true, false);
@@ -161,6 +176,7 @@ public class ExternalTableTest extends BaseExternTableTest
   }
 
   @Test
+  @Ignore
   public void httpDocExample() throws URISyntaxException
   {
     HttpInputSource inputSource = new HttpInputSource(
@@ -184,6 +200,7 @@ public class ExternalTableTest extends BaseExternTableTest
   }
 
   @Test
+  @Ignore
   public void httpConnDocExample() throws URISyntaxException
   {
     HttpInputSource inputSource = new HttpInputSource(
@@ -200,6 +217,7 @@ public class ExternalTableTest extends BaseExternTableTest
   }
 
   @Test
+  @Ignore
   public void localDocExample() throws URISyntaxException
   {
     Map<String, Object> sourceMap = ImmutableMap.of(

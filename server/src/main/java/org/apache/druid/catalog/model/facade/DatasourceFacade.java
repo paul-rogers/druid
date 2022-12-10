@@ -19,12 +19,20 @@
 
 package org.apache.druid.catalog.model.facade;
 
+import org.apache.druid.catalog.model.CatalogUtils;
+import org.apache.druid.catalog.model.ColumnSpec;
+import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ResolvedTable;
+import org.apache.druid.catalog.model.TypeParser;
+import org.apache.druid.catalog.model.TypeParser.ParsedType;
 import org.apache.druid.catalog.model.table.ClusterKeySpec;
 import org.apache.druid.catalog.model.table.DatasourceDefn;
+import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.segment.column.ColumnType;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Convenience wrapper on top of a resolved table (a table spec and its corresponding
@@ -33,9 +41,90 @@ import java.util.List;
  */
 public class DatasourceFacade extends TableFacade
 {
+  private static final Logger LOG = new Logger(DatasourceFacade.class);
+
+  public static class ColumnFacade
+  {
+    public enum Kind
+    {
+      ANY,
+      TIME,
+      DIMENSION,
+      MEASURE
+    }
+
+    private final ColumnSpec spec;
+    private final ParsedType type;
+
+    public ColumnFacade(ColumnSpec spec)
+    {
+      this.spec = spec;
+      if (Columns.isTimeColumn(spec.name()) && spec.sqlType() == null) {
+        // For __time only, force a type if type is null.
+        this.type = TypeParser.TIME_TYPE;
+      } else {
+        this.type = TypeParser.parse(spec.sqlType());
+      }
+    }
+
+    public ColumnSpec spec()
+    {
+      return spec;
+    }
+
+    public ParsedType type()
+    {
+      return type;
+    }
+
+    public boolean hasType()
+    {
+      return type.kind() != ParsedType.Kind.ANY;
+    }
+
+    public boolean isTime()
+    {
+      return type.kind() == ParsedType.Kind.TIME;
+    }
+
+    public boolean isMeasure()
+    {
+      return type.kind() == ParsedType.Kind.MEASURE;
+    }
+
+    public ColumnType druidType()
+    {
+      switch (type.kind()) {
+        case DIMENSION:
+          return Columns.druidType(spec.sqlType());
+        case TIME:
+          return ColumnType.LONG;
+        case MEASURE:
+          return type.measure().storageType;
+        default:
+          return null;
+      }
+    }
+  }
+
+  private final List<ColumnFacade> columns;
+  private final boolean hasRollup;
+
   public DatasourceFacade(ResolvedTable resolved)
   {
     super(resolved);
+    this.columns = resolved.spec().columns()
+        .stream()
+        .map(col -> new ColumnFacade(col))
+        .collect(Collectors.toList());
+    boolean hasMeasure = false;
+    for (ColumnFacade col : columns) {
+      if (col.isMeasure()) {
+        hasMeasure = true;
+        break;
+      }
+    }
+    this.hasRollup = hasMeasure;
   }
 
   public String segmentGranularity()
@@ -48,10 +137,22 @@ public class DatasourceFacade extends TableFacade
     return intProperty(DatasourceDefn.TARGET_SEGMENT_ROWS_PROPERTY);
   }
 
-  @SuppressWarnings("unchecked")
   public List<ClusterKeySpec> clusterKeys()
   {
-    return (List<ClusterKeySpec>) property(DatasourceDefn.CLUSTER_KEYS_PROPERTY);
+    Object value = property(DatasourceDefn.CLUSTER_KEYS_PROPERTY);
+    if (value == null) {
+      return Collections.emptyList();
+    }
+    try {
+      return jsonMapper().convertValue(value, ClusterKeySpec.CLUSTER_KEY_LIST_TYPE_REF);
+    }
+    catch (Exception e) {
+      LOG.error("Failed to convert a catalog %s property of value [%s]",
+          DatasourceDefn.CLUSTER_KEYS_PROPERTY,
+          value
+      );
+      return Collections.emptyList();
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -64,5 +165,21 @@ public class DatasourceFacade extends TableFacade
   public boolean isSealed()
   {
     return booleanProperty(DatasourceDefn.SEALED_PROPERTY);
+  }
+
+  public List<ColumnFacade> columnFacades()
+  {
+    return columns;
+  }
+
+  public boolean hasRollup()
+  {
+    return hasRollup;
+  }
+
+  public String rollupGrain()
+  {
+    int posn = CatalogUtils.findColumn(columns(), Columns.TIME_COLUMN);
+    return posn == -1 ? null : columns.get(posn).type().timeGrain();
   }
 }

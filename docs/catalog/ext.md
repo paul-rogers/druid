@@ -267,7 +267,7 @@ the missing inforation:
 ```sql
 INSERT INTO koalaMetrics
 SELECT *
-FROM ext.koalas(uris => 'Dec05.json, Dec06.json')
+FROM TABLE(ext.koalas(uris => 'Dec05.json, Dec06.json'))
 ```
 
 On the other hand, suppose we wanted to define something more like a
@@ -298,9 +298,9 @@ Providing the file names plus the format and schema in the ingest query:
 
 ```sql
 SELECT *
-FROM ext.dataHub(
+FROM TABLE(ext.dataHub(
   uris => 'DecLogs.csv',
-  format => 'csv')
+  format => 'csv'))
   (timestamp VARCHAR, host VARCHAR, requests BIGINT)
 ```
 
@@ -355,7 +355,7 @@ Then, to read a set of files:
 ```sql
 INSERT INTO myTable
 SELECT *
-FROM ext.dataDir(files => 'a.csv, b.csv')
+FROM TABLE(ext.dataDir(files => 'a.csv, b.csv'))
 ```
 
 Or:
@@ -363,7 +363,7 @@ Or:
 ```sql
 INSERT INTO myTable
 SELECT *
-FROM ext.dataDir(filter => 'Dec*.csv')
+FROM TABLE(ext.dataDir(filter => 'Dec*.csv'))
 ```
 
 Again, in a real intestion, we'd insert expessions to parse the date, etc.
@@ -415,7 +415,7 @@ Then, to read multiple resources using the template:
 ```sql
 INSERT INTO myTable
 SELECT *
-FROM ext.dataHub(uris => 'a.csv, b.csv')
+FROM TABLE(ext.dataHub(uris => 'a.csv, b.csv'))
 ```
 
 Or, you can provide just the URI template, with the format and columns given at run time:
@@ -443,7 +443,7 @@ Insert query:
 ```sql
 INSERT INTO myTable
 SELECT *
-FROM ext.dataHub(uris => 'a.csv, b.csv', format => 'csv')
+FROM TABLE(ext.dataHub(uris => 'a.csv, b.csv', format => 'csv'))
      (timestamp VARCHAR, metric VARCHAR, value BIGINT)
 ```
 

@@ -51,7 +51,7 @@ public class LocalInputSourceDefn extends FormattedInputSourceDefn
 
   // Note name "fileFilter", not "filter". These properties mix in with
   // others and "filter" is a bit too generic in that context.
-  public static final String FILTER_PARAMETER = "fileFilter";
+  public static final String FILTER_PARAMETER = "filter";
   public static final String FILES_PARAMETER = "files";
 
   private static final String BASE_DIR_FIELD = "baseDir";
@@ -95,6 +95,13 @@ public class LocalInputSourceDefn extends FormattedInputSourceDefn
           BASE_DIR_FIELD
       );
     }
+    if (hasBaseDir && hasFiles) {
+      throw new IAE(
+          "A local input source accepts only one of %s or %s",
+          BASE_DIR_FIELD,
+          FILES_FIELD
+      );
+    }
     super.validate(table);
   }
 
@@ -116,24 +123,33 @@ public class LocalInputSourceDefn extends FormattedInputSourceDefn
     final String baseDirParam = CatalogUtils.getString(args, BASE_DIR_PARAMETER);
     final String filesParam = CatalogUtils.getString(args, FILES_PARAMETER);
     final String filterParam = CatalogUtils.getString(args, FILTER_PARAMETER);
-    if (Strings.isNullOrEmpty(baseDirParam) && Strings.isNullOrEmpty(filesParam)) {
+    boolean hasBaseDir = !Strings.isNullOrEmpty(baseDirParam);
+    boolean hasFiles = !Strings.isNullOrEmpty(filesParam);
+    if (!hasBaseDir && !hasFiles) {
       throw new IAE(
           "A local input source requires one parameter of %s or %s",
           BASE_DIR_PARAMETER,
           FILES_PARAMETER
       );
     }
-    if (Strings.isNullOrEmpty(baseDirParam) && !Strings.isNullOrEmpty(filterParam)) {
+    if (!hasBaseDir && !Strings.isNullOrEmpty(filterParam)) {
       throw new IAE(
-          "If a local input source sets property %s, it must also set property %s",
+          "If a local input source sets parameter %s, it must also set parameter %s",
           FILTER_PARAMETER,
           BASE_DIR_PARAMETER
       );
     }
-    if (baseDirParam != null) {
+    if (hasBaseDir && hasFiles) {
+      throw new IAE(
+          "A local input source accepts only one of %s or %s",
+          BASE_DIR_PARAMETER,
+          FILTER_PARAMETER
+      );
+    }
+    if (hasBaseDir) {
       jsonMap.put(BASE_DIR_FIELD, baseDirParam);
     }
-    if (filesParam != null) {
+    if (hasFiles) {
       jsonMap.put(FILES_FIELD, CatalogUtils.stringToList(filesParam));
     }
     if (filterParam != null) {

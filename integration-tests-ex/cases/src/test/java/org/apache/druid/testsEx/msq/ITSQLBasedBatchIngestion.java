@@ -23,6 +23,8 @@ import junitparams.Parameters;
 import junitparams.naming.TestCaseName;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.curator.shaded.com.google.common.collect.ImmutableMap;
+import org.apache.druid.msq.util.MultiStageQueryContext;
+import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.testsEx.categories.MultiStageQuery;
 import org.apache.druid.testsEx.config.DruidTestRunner;
 import org.junit.Test;
@@ -61,9 +63,9 @@ public class ITSQLBasedBatchIngestion extends AbstractITSQLBasedIngestion
           MSQ_TASKS_DIR + sqlFileName,
           MSQ_TASKS_DIR + queryFileName,
           FilenameUtils.removeExtension(sqlFileName),
-          ImmutableMap.of("finalizeAggregations", false,
-                          "maxNumTasks", 5,
-                          "groupByEnableMultiValueUnnesting", false));
+          ImmutableMap.of(MultiStageQueryContext.CTX_FINALIZE_AGGREGATIONS, false,
+                          MultiStageQueryContext.CTX_MAX_NUM_TASKS, 5,
+                          GroupByQueryConfig.CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING, false));
     }
     catch (Exception e) {
       LOG.error(e, "Error while testing [%s, %s]", sqlFileName, queryFileName);

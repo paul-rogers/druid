@@ -21,6 +21,7 @@ package org.apache.druid.catalog.sync;
 
 import com.fasterxml.jackson.databind.InjectableValues.Std;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import org.apache.calcite.schema.Function;
 import org.apache.calcite.schema.Table;
@@ -30,6 +31,7 @@ import org.apache.druid.catalog.CatalogException;
 import org.apache.druid.catalog.model.TableId;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.model.table.BaseExternTableTest;
+import org.apache.druid.catalog.model.table.ExternalTableDefn;
 import org.apache.druid.catalog.model.table.HttpInputSourceDefn;
 import org.apache.druid.catalog.model.table.TableBuilder;
 import org.apache.druid.catalog.sql.ExternalSchema;
@@ -39,6 +41,7 @@ import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.data.input.impl.HttpInputSourceConfig;
 import org.apache.druid.data.input.impl.InlineInputSource;
+import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.metadata.TestDerbyConnector;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.calcite.expression.AuthorizableOperator;
@@ -53,6 +56,7 @@ import org.junit.Test;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
@@ -124,11 +128,21 @@ public class ExternalSchemaTest
   private void populateCatalog() throws CatalogException
   {
     TableMetadata table = TableBuilder.external("input1")
-        .inputSource(storage.jsonMapper(), new InlineInputSource("a\nc"))
+        .inputSource(toMap(new InlineInputSource("a\nc")))
         .inputFormat(BaseExternTableTest.CSV_FORMAT)
         .column("a", "varchar")
         .build();
     storage.tables().create(table);
+  }
+
+  private Map<String, Object> toMap(Object obj)
+  {
+    try {
+      return dbFixture.storage.jsonMapper().convertValue(obj, ExternalTableDefn.MAP_TYPE_REF);
+    }
+    catch (Exception e) {
+      throw new ISE(e, "bad conversion");
+    }
   }
 
   private void verifyInitial(ExternalSchema schema)
@@ -158,7 +172,7 @@ public class ExternalSchemaTest
 
     // Create a table 2
     TableMetadata table = TableBuilder.external("input2")
-        .inputSource(storage.jsonMapper(), new InlineInputSource("1\2c"))
+        .inputSource(toMap(new InlineInputSource("1\2c")))
         .inputFormat(BaseExternTableTest.CSV_FORMAT)
         .column("x", "bigint")
         .build();
@@ -184,7 +198,7 @@ public class ExternalSchemaTest
   private void createParameterizedTable() throws CatalogException
   {
     TableMetadata table = TableBuilder.external("httpParam")
-        .inputSource("{\"type\": \"" + HttpInputSource.TYPE_KEY + "\"}")
+        .inputSource(ImmutableMap.of("type", HttpInputSource.TYPE_KEY))
         .inputFormat(BaseExternTableTest.CSV_FORMAT)
         .property(HttpInputSourceDefn.URI_TEMPLATE_PROPERTY, "http://koalas.com/{}.csv")
         .column("a", "varchar")

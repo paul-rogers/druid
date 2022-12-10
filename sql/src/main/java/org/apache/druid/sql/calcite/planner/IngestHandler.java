@@ -79,7 +79,7 @@ public abstract class IngestHandler extends QueryHandler
   {
     SqlNode query = sqlNode.getSource();
 
-    // Check if ORDER BY clause is not provided to the underlying query
+    // Check that an ORDER BY clause is not provided to the underlying query
     if (query instanceof SqlOrderBy) {
       SqlOrderBy sqlOrderBy = (SqlOrderBy) query;
       SqlNodeList orderByList = sqlOrderBy.orderList;
@@ -91,13 +91,6 @@ public abstract class IngestHandler extends QueryHandler
             opName
         ));
       }
-    }
-    if (sqlNode.getClusteredBy() != null) {
-      query = DruidSqlParserUtils.convertClusterByToOrderBy(query, sqlNode.getClusteredBy());
-    }
-
-    if (!query.isA(SqlKind.QUERY)) {
-      throw new ValidationException(StringUtils.format("Cannot execute [%s].", query.getKind()));
     }
     return query;
   }
@@ -122,29 +115,39 @@ public abstract class IngestHandler extends QueryHandler
     // within the Calcite catalog. Since we're rolling our own, we just read from the
     // catalog directly (via a wrapper).
 
-    handlerContext.catalog().resolveInsert(
-        ingestNode(),
-        targetDatasource,
-        handlerContext.queryContextMap()
-    );
-    if (ingestNode().getPartitionedBy() == null) {
+    try {
+      handlerContext.catalog().resolveInsert(
+          ingestNode(),
+          targetDatasource,
+          handlerContext.queryContextMap()
+      );
+    }
+    catch (Exception e) {
+      throw new ValidationException(e.getMessage(), e);
+    }
+    if (ingestNode().getClusteredBy() != null) {
+      queryNode = DruidSqlParserUtils.convertClusterByToOrderBy(queryNode, ingestNode().getClusteredBy());
+    }
+
+    if (!queryNode.isA(SqlKind.QUERY)) {
+      throw new ValidationException(StringUtils.format("Cannot execute [%s].", queryNode.getKind()));
+    }
+    final Granularity ingestionGranularity = ingestNode().getPartitionedBy();
+    if (ingestionGranularity == null) {
       throw new ValidationException(StringUtils.format(
-          "%s statements must specify PARTITIONED BY clause explicitly",
+          "%s statements must specify a PARTITIONED BY clause explicitly",
           operationName()
       ));
     }
     try {
       PlannerContext plannerContext = handlerContext.plannerContext();
-      final Granularity ingestionGranularity = ingestNode().getPartitionedBy();
-      if (ingestionGranularity != null) {
-        plannerContext.queryContextMap().put(
-            DruidSqlInsert.SQL_INSERT_SEGMENT_GRANULARITY,
-            plannerContext.getJsonMapper().writeValueAsString(ingestionGranularity)
-        );
-      }
+      plannerContext.queryContextMap().put(
+          DruidSqlInsert.SQL_INSERT_SEGMENT_GRANULARITY,
+          plannerContext.getJsonMapper().writeValueAsString(ingestionGranularity)
+      );
     }
     catch (JsonProcessingException e) {
-      throw new ValidationException("Unable to serialize partition granularity.");
+      throw new ValidationException("Invalid partition granularity");
     }
     super.validate();
     // Check if CTX_SQL_OUTER_LIMIT is specified and fail the query if it is. CTX_SQL_OUTER_LIMIT being provided causes

@@ -22,6 +22,7 @@ package org.apache.druid.catalog.model.table;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
+import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.ModelProperties;
@@ -29,6 +30,8 @@ import org.apache.druid.catalog.model.ModelProperties.GranularityPropertyDefn;
 import org.apache.druid.catalog.model.ModelProperties.StringListPropertyDefn;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefn;
+import org.apache.druid.catalog.model.TypeParser;
+import org.apache.druid.catalog.model.TypeParser.ParsedType;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
 
@@ -85,7 +88,7 @@ public class DatasourceDefn extends TableDefn
       if (Strings.isNullOrEmpty(gran)) {
         throw new IAE("Segment granularity is required.");
       }
-      validateGranularity(gran);
+      CatalogUtils.validateGranularity(gran);
     }
   }
 
@@ -137,15 +140,16 @@ public class DatasourceDefn extends TableDefn
   protected void validateColumn(ColumnSpec spec)
   {
     super.validateColumn(spec);
-    if (Columns.isTimeColumn(spec.name()) &&
-        spec.sqlType() != null &&
-        !Columns.TIMESTAMP.equalsIgnoreCase(spec.sqlType())) {
-      throw new IAE(StringUtils.format(
-          "%s column must have no SQL type or SQL type %s",
-          Columns.TIME_COLUMN,
-          Columns.TIMESTAMP
-          )
-      );
+    if (Columns.isTimeColumn(spec.name()) && spec.sqlType() != null) {
+      ParsedType type = TypeParser.parse(spec.sqlType());
+      if (type.kind() != ParsedType.Kind.TIME) {
+        throw new IAE(StringUtils.format(
+            "%s column must have no SQL type or SQL type %s",
+            Columns.TIME_COLUMN,
+            Columns.TIMESTAMP
+            )
+        );
+      }
     }
   }
 

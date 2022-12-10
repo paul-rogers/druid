@@ -99,7 +99,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                 .columns("x", "y", "z")
                 .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
                 .build()
-        )
+         )
         .expectLogicalPlanFrom("httpExtern")
         .verify();
   }
@@ -141,7 +141,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                 .columns("x", "y", "z")
                 .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
                 .build()
-        )
+         )
         .expectLogicalPlanFrom("httpExtern")
         .verify();
   }
@@ -169,7 +169,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                 .columns("x", "y", "z")
                 .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
                 .build()
-        )
+         )
         .expectLogicalPlanFrom("httpExtern")
         .verify();
   }
@@ -192,7 +192,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                 .columns("x", "y", "z")
                 .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
                 .build()
-        )
+         )
         .expectLogicalPlanFrom("insertFromExternal")
         .verify();
   }
@@ -220,7 +220,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                 .columns("x", "y", "z")
                 .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
                 .build()
-        )
+         )
         .expectLogicalPlanFrom("insertFromExternal")
         .verify();
   }
@@ -264,7 +264,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                 .columns("x", "y", "z")
                 .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
                 .build()
-        )
+         )
         .expectLogicalPlanFrom("localExtern")
         .verify();
   }
@@ -292,7 +292,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                 .columns("x", "y", "z")
                 .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
                 .build()
-        )
+         )
         .expectLogicalPlanFrom("localExtern")
         .verify();
   }
@@ -320,7 +320,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                 .columns("x", "y", "z")
                 .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
                 .build()
-        )
+         )
         .expectLogicalPlanFrom("localExtern")
         .verify();
   }
@@ -350,7 +350,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                 .columns("x", "y", "z")
                 .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
                 .build()
-        )
+         )
         .expectLogicalPlanFrom("localExtern")
         .verify();
   }
@@ -380,7 +380,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                 .columns("x", "y", "z")
                 .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
                 .build()
-        )
+         )
         .expectLogicalPlanFrom("localExtern")
         .verify();
   }
