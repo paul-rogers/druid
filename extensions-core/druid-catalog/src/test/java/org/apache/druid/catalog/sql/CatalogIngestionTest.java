@@ -22,7 +22,6 @@ package org.apache.druid.catalog.sql;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
-import org.apache.calcite.tools.ValidationException;
 import org.apache.druid.catalog.CatalogException;
 import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.TableMetadata;
@@ -64,7 +63,8 @@ import static org.junit.Assert.fail;
 public class CatalogIngestionTest extends CalciteIngestionDmlTest
 {
   @ClassRule
-  public static final TestDerbyConnector.DerbyConnectorRule derbyConnectorRule = new TestDerbyConnector.DerbyConnectorRule();
+  public static final TestDerbyConnector.DerbyConnectorRule DERBY_CONNECTION_RULE =
+      new TestDerbyConnector.DerbyConnectorRule();
 
   private static CatalogStorage storage;
 
@@ -72,7 +72,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
   protected void configureBuilder(Builder builder)
   {
     super.configureBuilder(builder);
-    CatalogTests.DbFixture dbFixture = new CatalogTests.DbFixture(derbyConnectorRule);
+    CatalogTests.DbFixture dbFixture = new CatalogTests.DbFixture(DERBY_CONNECTION_RULE);
     storage = dbFixture.storage;
     MetadataCatalog catalog = new CachedMetadataCatalog(
         storage,

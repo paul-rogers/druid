@@ -19,12 +19,10 @@
 
 package org.apache.druid.sql.calcite.planner;
 
-import org.apache.calcite.avatica.SqlType;
 import org.apache.calcite.avatica.remote.TypedValue;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -127,7 +125,7 @@ public class SqlParameterizerShuttle extends SqlShuttle
         throw new IAE("An array parameter cannot contain null values");
       }
       SqlNode node;
-      if (element instanceof String) {;
+      if (element instanceof String) {
         node = SqlLiteral.createCharString((String) element, SqlParserPos.ZERO);
       } else if (element instanceof Integer || element instanceof Long) {
         // No direct way to create a literal from an Integer or Long, have

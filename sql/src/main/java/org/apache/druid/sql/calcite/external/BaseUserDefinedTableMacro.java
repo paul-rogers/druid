@@ -73,18 +73,25 @@ public class BaseUserDefinedTableMacro extends SqlUserDefinedTableMacro
 
   // Copy of Calcite method to add array handling
   @Override
-  public TranslatableTable getTable(RelDataTypeFactory typeFactory,
-      List<SqlNode> operandList) {
+  public TranslatableTable getTable(
+      RelDataTypeFactory typeFactory,
+      List<SqlNode> operandList
+  )
+  {
     List<Object> arguments = convertArguments(typeFactory, operandList,
         macro, getNameAsId(), true);
     return macro.apply(arguments);
   }
 
   // Copy of Calcite method to add array handling
-  public static List<Object> convertArguments(RelDataTypeFactory typeFactory,
-      List<SqlNode> operandList, Function function,
+  public static List<Object> convertArguments(
+      RelDataTypeFactory typeFactory,
+      List<SqlNode> operandList,
+      Function function,
       SqlIdentifier opName,
-      boolean failOnNonLiteral) {
+      boolean failOnNonLiteral
+  )
+  {
     List<Object> arguments = new ArrayList<>(operandList.size());
     // Construct a list of arguments, if they are all constants.
     for (Pair<FunctionParameter, SqlNode> pair
@@ -93,7 +100,8 @@ public class BaseUserDefinedTableMacro extends SqlUserDefinedTableMacro
         final Object o = getValue(pair.right);
         final Object o2 = coerce(o, pair.left.getType(typeFactory));
         arguments.add(o2);
-      } catch (NonLiteralException e) {
+      }
+      catch (NonLiteralException e) {
         if (failOnNonLiteral) {
           throw new IllegalArgumentException("All arguments of call to macro "
               + opName + " should be literal of the correct type. Actual argument #"
@@ -114,7 +122,8 @@ public class BaseUserDefinedTableMacro extends SqlUserDefinedTableMacro
   }
 
   // Copy of Calcite method to add array handling
-  private static Object getValue(SqlNode right) throws NonLiteralException {
+  private static Object getValue(SqlNode right) throws NonLiteralException
+  {
     switch (right.getKind()) {
       case ARRAY_VALUE_CONSTRUCTOR:
         final List<Object> list = new ArrayList<>();
@@ -143,11 +152,12 @@ public class BaseUserDefinedTableMacro extends SqlUserDefinedTableMacro
           return null; // currently NULL is the only default value
         }
         throw new NonLiteralException();
-      }
+    }
   }
 
   // Copy of Calcite method with Druid-specific code added
-  private static Object coerce(Object o, RelDataType type) throws NonLiteralException {
+  private static Object coerce(Object o, RelDataType type) throws NonLiteralException
+  {
     if (o == null) {
       return null;
     }
@@ -206,6 +216,7 @@ public class BaseUserDefinedTableMacro extends SqlUserDefinedTableMacro
 
   /** Thrown when a non-literal occurs in an argument to a user-defined
    * table macro. */
-  private static class NonLiteralException extends Exception {
+  private static class NonLiteralException extends Exception
+  {
   }
 }

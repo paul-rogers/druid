@@ -80,23 +80,23 @@ public class Externals
       TableFunction.ParameterDefn paramDefn = paramDefns.get(i);
       RelDataType paramType;
       switch (paramDefn.type()) {
-      case BIGINT:
-        paramType = typeFactory.createJavaType(Long.class);
-        break;
-      case BOOLEAN:
-        paramType = typeFactory.createJavaType(Boolean.class);
-        break;
-      case VARCHAR:
-        paramType = typeFactory.createJavaType(String.class);
-        break;
-      case VARCHAR_ARRAY:
-        paramType = typeFactory.createArrayType(
-            typeFactory.createJavaType(String.class),
-            -1
-        );
-        break;
-      default:
-        throw new ISE("Undefined parameter type: %s", paramDefn.type().sqlName());
+        case BIGINT:
+          paramType = typeFactory.createJavaType(Long.class);
+          break;
+        case BOOLEAN:
+          paramType = typeFactory.createJavaType(Boolean.class);
+          break;
+        case VARCHAR:
+          paramType = typeFactory.createJavaType(String.class);
+          break;
+        case VARCHAR_ARRAY:
+          paramType = typeFactory.createArrayType(
+              typeFactory.createJavaType(String.class),
+              -1
+          );
+          break;
+        default:
+          throw new ISE("Undefined parameter type: %s", paramDefn.type().sqlName());
       }
       params.add(new FunctionParameterImpl(
           i,

@@ -159,7 +159,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
   @Test
   public void testBaseDirAndFiles()
   {
-     Map<String, Object> source = ImmutableMap.of(
+    Map<String, Object> source = ImmutableMap.of(
         InputSource.TYPE_PROPERTY, LocalInputSource.TYPE_KEY,
         LocalInputSourceDefn.BASE_DIR_FIELD, "/tmp",
         LocalInputSourceDefn.FILTER_FIELD, "*.csv",
