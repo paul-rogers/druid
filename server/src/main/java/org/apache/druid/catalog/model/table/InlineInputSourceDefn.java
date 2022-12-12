@@ -19,11 +19,11 @@
 
 package org.apache.druid.catalog.model.table;
 
-import com.google.common.base.Strings;
 import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.table.BaseFunctionDefn.Parameter;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
+import org.apache.druid.catalog.model.table.TableFunction.ParameterType;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.java.util.common.IAE;
@@ -61,7 +61,7 @@ public class InlineInputSourceDefn extends FormattedInputSourceDefn
   protected List<ParameterDefn> adHocTableFnParameters()
   {
     return Collections.singletonList(
-        new Parameter(DATA_PROPERTY, String.class, false)
+        new Parameter(DATA_PROPERTY, ParameterType.VARCHAR_ARRAY, false)
     );
   }
 
@@ -89,17 +89,17 @@ public class InlineInputSourceDefn extends FormattedInputSourceDefn
   protected void convertArgsToSourceMap(Map<String, Object> jsonMap, Map<String, Object> args)
   {
     jsonMap.put(InputSource.TYPE_PROPERTY, InlineInputSource.TYPE_KEY);
-    String data = CatalogUtils.getString(args, DATA_PROPERTY);
+    List<String> data = CatalogUtils.getStringArray(args, DATA_PROPERTY);
 
     // Would be nice, from a completeness perspective, for the inline data
     // source to allow zero rows of data. However, such is not the case.
-    if (Strings.isNullOrEmpty(data)) {
+    if (CollectionUtils.isNullOrEmpty(data)) {
       throw new IAE(
           "An inline table requires one or more rows of data in the '%s' property",
           DATA_PROPERTY
       );
     }
-    jsonMap.put("data", data);
+    jsonMap.put("data", String.join("\n", data));
   }
 
   @Override

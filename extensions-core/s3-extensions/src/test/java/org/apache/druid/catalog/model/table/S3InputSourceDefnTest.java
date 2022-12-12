@@ -32,6 +32,7 @@ import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
 import org.apache.druid.data.input.impl.CloudObjectLocation;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.s3.S3InputSource;
+import org.apache.druid.data.input.s3.S3InputSourceConfig;
 import org.apache.druid.data.input.s3.S3InputSourceDruidModule;
 import org.apache.druid.data.input.s3.S3InputSourceTest;
 import org.apache.druid.java.util.common.IAE;
@@ -127,6 +128,17 @@ public class S3InputSourceDefnTest
       @Nullable String objectGlob
   )
   {
+    return s3InputSource(uris, prefixes, objects, objectGlob, null);
+  }
+
+  private S3InputSource s3InputSource(
+      @Nullable List<String> uris,
+      @Nullable List<String> prefixes,
+      @Nullable List<CloudObjectLocation> objects,
+      @Nullable String objectGlob,
+      @Nullable S3InputSourceConfig config
+  )
+  {
     return new S3InputSource(
         S3InputSourceTest.SERVICE,
         S3InputSourceTest.SERVER_SIDE_ENCRYPTING_AMAZON_S3_BUILDER,
@@ -136,7 +148,7 @@ public class S3InputSourceDefnTest
         CatalogUtils.stringListToUriList(prefixes),
         objects,
         objectGlob,
-        null,
+        config,
         null,
         null,
         null
@@ -151,10 +163,23 @@ public class S3InputSourceDefnTest
         Collections.singletonList("s3://foo/bar/file.csv"), null, null, null);
     TableMetadata table = TableBuilder.external("foo")
         .inputSource(toMap(s3InputSource))
-        .column("x", Columns.VARCHAR)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
     resolved.validate();
+  }
+
+  @Test
+  public void testValidateNoFormatWithColumns()
+  {
+    // No format, but columns: not valid
+    S3InputSource s3InputSource = s3InputSource(
+        Collections.singletonList("s3://foo/bar/file.csv"), null, null, null);
+    TableMetadata table = TableBuilder.external("foo")
+        .inputSource(toMap(s3InputSource))
+        .column("x", Columns.VARCHAR)
+        .build();
+    ResolvedTable resolved = registry.resolve(table.spec());
+    assertThrows(IAE.class, () -> resolved.validate());
   }
 
   private Map<String, Object> toMap(Object obj)
@@ -202,7 +227,7 @@ public class S3InputSourceDefnTest
     TableMetadata table = TableBuilder.external("foo")
         .inputSource(ImmutableMap.of("type", S3StorageDruidModule.SCHEME))
         .inputFormat(CSV_FORMAT)
-        .property(S3InputSourceDefn.BUCKET_PROPERTY, "foo.com")
+        .property(S3InputSourceDefn.BUCKET_PROPERTY, "s3://foo.com")
         .column("x", Columns.VARCHAR)
         .build();
     ResolvedTable resolved = registry.resolve(table.spec());
@@ -249,7 +274,7 @@ public class S3InputSourceDefnTest
     S3InputSource s3InputSource = s3InputSource(
         null,
         null,
-        Collections.singletonList(new CloudObjectLocation("s3://foo", "bar/file.csv")),
+        Collections.singletonList(new CloudObjectLocation("foo.com", "bar/file.csv")),
         null
     );
     TableMetadata table = TableBuilder.external("foo")
@@ -287,7 +312,10 @@ public class S3InputSourceDefnTest
     assertTrue(hasParam(fn, S3InputSourceDefn.OBJECT_GLOB_PARAMETER));
     assertTrue(hasParam(fn, S3InputSourceDefn.PREFIXES_PARAMETER));
     assertTrue(hasParam(fn, S3InputSourceDefn.BUCKET_PARAMETER));
-    assertTrue(hasParam(fn, S3InputSourceDefn.OBJECTS_PARAMETER));
+    assertTrue(hasParam(fn, S3InputSourceDefn.PATHS_PARAMETER));
+    assertTrue(hasParam(fn, S3InputSourceDefn.ACCESS_KEY_ID_PARAMETER));
+    assertTrue(hasParam(fn, S3InputSourceDefn.SECRET_ACCESS_KEY_PARAMETER));
+    assertTrue(hasParam(fn, S3InputSourceDefn.ASSUME_ROLE_ARN_PARAMETER));
     assertTrue(hasParam(fn, FormattedInputSourceDefn.FORMAT_PARAMETER));
   }
 
@@ -308,13 +336,14 @@ public class S3InputSourceDefnTest
 
     // Convert to an external table. Must provide the URIs plus format and columns.
     Map<String, Object> args = new HashMap<>();
-    args.put(S3InputSourceDefn.URIS_PARAMETER, "s3://foo/bar/file.csv");
+    List<String> uris = Collections.singletonList("s3://foo/bar/file.csv");
+    args.put(S3InputSourceDefn.URIS_PARAMETER, uris);
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
     ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(
-        CatalogUtils.stringListToUriList(CatalogUtils.stringToList("s3://foo/bar/file.csv")),
+        CatalogUtils.stringListToUriList(uris),
         s3InputSource.getUris()
     );
 
@@ -327,26 +356,24 @@ public class S3InputSourceDefnTest
   {
     TableFunction fn = s3Defn.adHocTableFn();
     Map<String, Object> args = new HashMap<>();
-    args.put(S3InputSourceDefn.URIS_PARAMETER, "s3://foo/bar/file1.csv, s3://foo/mumble/file2.csv");
+    List<String> uris = Arrays.asList("s3://foo/bar/file1.csv", "s3://foo/mumble/file2.csv");
+    args.put(S3InputSourceDefn.URIS_PARAMETER, uris);
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
     ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(
-        CatalogUtils.stringListToUriList(Arrays.asList(
-            "s3://foo/bar/file1.csv",
-            "s3://foo/mumble/file2.csv"
-        )),
+        CatalogUtils.stringListToUriList(uris),
         s3InputSource.getUris()
     );
   }
 
   @Test
-  public void testAdHocBlankUri()
+  public void testAdHocEmptyUri()
   {
     TableFunction fn = s3Defn.adHocTableFn();
     Map<String, Object> args = new HashMap<>();
-    args.put(S3InputSourceDefn.URIS_PARAMETER, "   ");
+    args.put(S3InputSourceDefn.URIS_PARAMETER, Collections.emptyList());
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
 
     assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
@@ -359,14 +386,15 @@ public class S3InputSourceDefnTest
 
     // Convert to an external table. Must provide the URIs plus format and columns.
     Map<String, Object> args = new HashMap<>();
-    args.put(S3InputSourceDefn.URIS_PARAMETER, "s3://foo/bar/");
+    List<String> uris = Collections.singletonList("s3://foo/bar/");
+    args.put(S3InputSourceDefn.URIS_PARAMETER, uris);
     args.put(S3InputSourceDefn.OBJECT_GLOB_PARAMETER, "*.csv");
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
     ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(
-        CatalogUtils.stringListToUriList(CatalogUtils.stringToList("s3://foo/bar/")),
+        CatalogUtils.stringListToUriList(uris),
         s3InputSource.getUris()
     );
     assertEquals("*.csv", s3InputSource.getObjectGlob());
@@ -379,13 +407,14 @@ public class S3InputSourceDefnTest
 
     // Convert to an external table. Must provide the URIs plus format and columns.
     Map<String, Object> args = new HashMap<>();
-    args.put(S3InputSourceDefn.PREFIXES_PARAMETER, "s3://foo/bar/data");
+    List<String> prefixes = Collections.singletonList("s3://foo/bar/data");
+    args.put(S3InputSourceDefn.PREFIXES_PARAMETER, prefixes);
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
     ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(
-        CatalogUtils.stringListToUriList(CatalogUtils.stringToList("s3://foo/bar/data")),
+        CatalogUtils.stringListToUriList(prefixes),
         s3InputSource.getPrefixes()
     );
 
@@ -400,29 +429,27 @@ public class S3InputSourceDefnTest
 
     // Convert to an external table. Must provide the URIs plus format and columns.
     Map<String, Object> args = new HashMap<>();
-    args.put(S3InputSourceDefn.PREFIXES_PARAMETER, "s3://foo/bar/, s3://foo/mumble/");
+    List<String> prefixes = Arrays.asList("s3://foo/bar/", "s3://foo/mumble/");
+    args.put(S3InputSourceDefn.PREFIXES_PARAMETER, prefixes);
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
     ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(
-        CatalogUtils.stringListToUriList(Arrays.asList(
-            "s3://foo/bar/",
-            "s3://foo/mumble/"
-        )),
+        CatalogUtils.stringListToUriList(prefixes),
         s3InputSource.getPrefixes()
     );
   }
 
   @Test
-  public void testAdHocObject()
+  public void testAdHocBucketAndPaths()
   {
     TableFunction fn = s3Defn.adHocTableFn();
 
     // Convert to an external table. Must provide the URIs plus format and columns.
     Map<String, Object> args = new HashMap<>();
     args.put(S3InputSourceDefn.BUCKET_PARAMETER, "foo.com");
-    args.put(S3InputSourceDefn.OBJECTS_PARAMETER, "bar/file.csv");
+    args.put(S3InputSourceDefn.PATHS_PARAMETER, Collections.singletonList("bar/file.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
     ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
 
@@ -437,18 +464,18 @@ public class S3InputSourceDefnTest
   }
 
   @Test
-  public void testAdHocObjectWithoutBucket()
+  public void testAdHocPathWithoutBucket()
   {
     TableFunction fn = s3Defn.adHocTableFn();
     Map<String, Object> args = new HashMap<>();
-    args.put(S3InputSourceDefn.OBJECTS_PARAMETER, "bar/file.csv");
+    args.put(S3InputSourceDefn.PATHS_PARAMETER, Collections.singletonList("bar/file.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
 
     assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
   }
 
   @Test
-  public void testAdHocBucketWithoutObjects()
+  public void testAdHocBucketWithoutPaths()
   {
     TableFunction fn = s3Defn.adHocTableFn();
     Map<String, Object> args = new HashMap<>();
@@ -466,7 +493,7 @@ public class S3InputSourceDefnTest
     // Convert to an external table. Must provide the URIs plus format and columns.
     Map<String, Object> args = new HashMap<>();
     args.put(S3InputSourceDefn.BUCKET_PARAMETER, "foo.com");
-    args.put(S3InputSourceDefn.OBJECTS_PARAMETER, "bar/file1.csv, mumble/file2.csv");
+    args.put(S3InputSourceDefn.PATHS_PARAMETER, Arrays.asList("bar/file1.csv", "mumble/file2.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
     ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
 
@@ -481,10 +508,52 @@ public class S3InputSourceDefnTest
   }
 
   @Test
+  public void testAdHocUriPrefixConflict()
+  {
+    TableFunction fn = s3Defn.adHocTableFn();
+
+    // Convert to an external table. Must provide the URIs plus format and columns.
+    Map<String, Object> args = new HashMap<>();
+    args.put(S3InputSourceDefn.URIS_PARAMETER, Collections.singletonList("s3://foo/bar/file.csv"));
+    args.put(S3InputSourceDefn.PREFIXES_PARAMETER, Collections.singletonList("s3://foo/bar/data"));
+    args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
+    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+  }
+
+  @Test
+  public void testAdHocUriPathConflict()
+  {
+    TableFunction fn = s3Defn.adHocTableFn();
+
+    // Convert to an external table. Must provide the URIs plus format and columns.
+    Map<String, Object> args = new HashMap<>();
+    args.put(S3InputSourceDefn.URIS_PARAMETER, Collections.singletonList("s3://foo/bar/file.csv"));
+    args.put(S3InputSourceDefn.BUCKET_PARAMETER, "foo.com");
+    args.put(S3InputSourceDefn.PATHS_PARAMETER, Collections.singletonList("bar/file.csv"));
+    args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
+    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+  }
+
+  @Test
+  public void testAdHocPrefixPathConflict()
+  {
+    TableFunction fn = s3Defn.adHocTableFn();
+
+    // Convert to an external table. Must provide the URIs plus format and columns.
+    Map<String, Object> args = new HashMap<>();
+    args.put(S3InputSourceDefn.PREFIXES_PARAMETER, Collections.singletonList("s3://foo/bar/data"));
+    args.put(S3InputSourceDefn.BUCKET_PARAMETER, "foo.com");
+    args.put(S3InputSourceDefn.PATHS_PARAMETER, Collections.singletonList("bar/file.csv"));
+    args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
+    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+  }
+
+  @Test
   public void testFullTableSpecHappyPath() throws URISyntaxException
   {
+    S3InputSourceConfig config = new S3InputSourceConfig(null, null, "foo", null);
     S3InputSource s3InputSource = s3InputSource(
-        Arrays.asList("s3://foo/bar/", "s3://mumble/"), null, null, "*.csv");
+        Arrays.asList("s3://foo/bar/", "s3://mumble/"), null, null, "*.csv", config);
     TableMetadata table = TableBuilder.external("foo")
         .inputSource(toMap(s3InputSource))
         .inputFormat(CSV_FORMAT)
@@ -517,6 +586,50 @@ public class S3InputSourceDefnTest
   }
 
   @Test
+  public void testTableSpecWithoutConfig() throws URISyntaxException
+  {
+    S3InputSource s3InputSource = s3InputSource(
+        Arrays.asList("s3://foo/bar/", "s3://mumble/"), null, null, "*.csv");
+    TableMetadata table = TableBuilder.external("foo")
+        .inputSource(toMap(s3InputSource))
+        .inputFormat(CSV_FORMAT)
+        .column("x", Columns.VARCHAR)
+        .column("y", Columns.BIGINT)
+        .build();
+
+    // Check validation
+    table.validate();
+
+    // Convert to an external spec
+    ResolvedTable resolved = registry.resolve(table.spec());
+    ExternalTableDefn externDefn = (ExternalTableDefn) resolved.defn();
+    ExternalTableSpec externSpec = externDefn.convert(resolved);
+    assertEquals(s3InputSource, externSpec.inputSource);
+
+    // Get the partial table function
+    TableFunction fn = externDefn.tableFn(resolved);
+    assertTrue(hasParam(fn, S3InputSourceDefn.ACCESS_KEY_ID_PARAMETER));
+    assertTrue(hasParam(fn, S3InputSourceDefn.SECRET_ACCESS_KEY_PARAMETER));
+    assertTrue(hasParam(fn, S3InputSourceDefn.ASSUME_ROLE_ARN_PARAMETER));
+
+    // Convert to an external table.
+    Map<String, Object> args = new HashMap<>();
+    String accessKey = "KLJ78979SDFdS2";
+    String secretAccessKey = "KLS89s98sKJHKJKJH8721lljkd";
+    String assumeRoleArn = "arn:aws:iam::2981002874992:role/role-s3";
+    args.put(S3InputSourceDefn.ACCESS_KEY_ID_PARAMETER, accessKey);
+    args.put(S3InputSourceDefn.SECRET_ACCESS_KEY_PARAMETER, secretAccessKey);
+    args.put(S3InputSourceDefn.ASSUME_ROLE_ARN_PARAMETER, assumeRoleArn);
+    externSpec = fn.apply(args, Collections.emptyList(), mapper);
+    S3InputSource actual = (S3InputSource) externSpec.inputSource;
+    S3InputSourceConfig actualConfig = actual.getS3InputSourceConfig();
+    assertNotNull(actualConfig);
+    assertEquals(accessKey, actualConfig.getAccessKeyId().getPassword());
+    assertEquals(secretAccessKey, actualConfig.getSecretAccessKey().getPassword());
+    assertEquals(assumeRoleArn, actualConfig.getAssumeRoleArn());
+  }
+
+  @Test
   public void testTableSpecWithBucketAndFormat() throws URISyntaxException
   {
     TableMetadata table = TableBuilder.external("foo")
@@ -537,12 +650,12 @@ public class S3InputSourceDefnTest
 
     // Get the partial table function
     TableFunction fn = externDefn.tableFn(resolved);
-    assertTrue(hasParam(fn, S3InputSourceDefn.OBJECTS_PARAMETER));
+    assertTrue(hasParam(fn, S3InputSourceDefn.PATHS_PARAMETER));
     assertFalse(hasParam(fn, FormattedInputSourceDefn.FORMAT_PARAMETER));
 
     // Convert to an external table.
     Map<String, Object> args = new HashMap<>();
-    args.put(S3InputSourceDefn.OBJECTS_PARAMETER, "bar/file.csv");
+    args.put(S3InputSourceDefn.PATHS_PARAMETER, Collections.singletonList("bar/file.csv"));
     ExternalTableSpec externSpec = fn.apply(args, Collections.emptyList(), mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
@@ -576,12 +689,12 @@ public class S3InputSourceDefnTest
 
     // Get the partial table function
     TableFunction fn = externDefn.tableFn(resolved);
-    assertTrue(hasParam(fn, S3InputSourceDefn.OBJECTS_PARAMETER));
+    assertTrue(hasParam(fn, S3InputSourceDefn.PATHS_PARAMETER));
     assertTrue(hasParam(fn, FormattedInputSourceDefn.FORMAT_PARAMETER));
 
     // Convert to an external table.
     Map<String, Object> args = new HashMap<>();
-    args.put(S3InputSourceDefn.OBJECTS_PARAMETER, "bar/file.csv");
+    args.put(S3InputSourceDefn.PATHS_PARAMETER, Collections.singletonList("bar/file.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
     ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
 

@@ -128,7 +128,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
     // Simulate the information obtained from an SQL table function
     final InputSourceDefn defn = registry.inputSourceDefnFor(InlineInputSourceDefn.TYPE_KEY);
     final Map<String, Object> args = new HashMap<>();
-    args.put(InlineInputSourceDefn.DATA_PROPERTY, "a,b\nc,d");
+    args.put(InlineInputSourceDefn.DATA_PROPERTY, Arrays.asList("a,b", "c,d"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
     final List<ColumnSpec> columns = Arrays.asList(
         new ColumnSpec("a", Columns.VARCHAR, null),

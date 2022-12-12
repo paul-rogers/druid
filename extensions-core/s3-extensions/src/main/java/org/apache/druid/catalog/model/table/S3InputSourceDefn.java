@@ -23,6 +23,7 @@ import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.table.BaseFunctionDefn.Parameter;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
+import org.apache.druid.catalog.model.table.TableFunction.ParameterType;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.CloudObjectLocation;
 import org.apache.druid.data.input.s3.S3InputSource;
@@ -35,6 +36,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,22 +77,39 @@ public class S3InputSourceDefn extends FormattedInputSourceDefn
   public static final String URIS_PARAMETER = "uris";
   public static final String PREFIXES_PARAMETER = "prefixes";
   public static final String BUCKET_PARAMETER = "bucket";
-  public static final String OBJECTS_PARAMETER = "objects";
-  public static final String OBJECT_GLOB_PARAMETER = "glob";
+  public static final String PATHS_PARAMETER = "paths";
+  public static final String ACCESS_KEY_ID_PARAMETER = "accessKeyId";
+  public static final String SECRET_ACCESS_KEY_PARAMETER = "secretAccessKey";
+  public static final String ASSUME_ROLE_ARN_PARAMETER = "assumeRoleArn";
+
+  /**
+   * The {@code objectGlob} property exists in S3, but is not documented. The corresponding
+   * function parameter also exists, but is not documented.
+   */
+  public static final String OBJECT_GLOB_PARAMETER = "objectGlob";
 
   public static final String BUCKET_PROPERTY = "bucket";
 
-  private static final ParameterDefn URI_PARAM_DEFN = new Parameter(URIS_PARAMETER, String.class, false);
-  private static final ParameterDefn PREFIXES_PARAM_DEFN = new Parameter(PREFIXES_PARAMETER, String.class, false);
-  private static final ParameterDefn BUCKET_PARAM_DEFN = new Parameter(BUCKET_PARAMETER, String.class, false);
-  private static final ParameterDefn OBJECTS_PARAM_DEFN = new Parameter(OBJECTS_PARAMETER, String.class, false);
-  private static final ParameterDefn OBJECTS_GLOB_PARAM_DEFN = new Parameter(OBJECT_GLOB_PARAMETER, String.class, false);
+  private static final ParameterDefn URI_PARAM_DEFN = new Parameter(URIS_PARAMETER, ParameterType.VARCHAR_ARRAY, true);
+  private static final ParameterDefn PREFIXES_PARAM_DEFN = new Parameter(PREFIXES_PARAMETER, ParameterType.VARCHAR_ARRAY, true);
+  private static final ParameterDefn BUCKET_PARAM_DEFN = new Parameter(BUCKET_PARAMETER, ParameterType.VARCHAR, true);
+  private static final ParameterDefn PATHS_PARAM_DEFN = new Parameter(PATHS_PARAMETER, ParameterType.VARCHAR_ARRAY, true);
+  private static final ParameterDefn OBJECTS_GLOB_PARAM_DEFN = new Parameter(OBJECT_GLOB_PARAMETER, ParameterType.VARCHAR, true);
+  private static final List<ParameterDefn> SECURITY_PARAMS = Arrays.asList(
+      new Parameter(ACCESS_KEY_ID_PARAMETER, ParameterType.VARCHAR, true),
+      new Parameter(SECRET_ACCESS_KEY_PARAMETER, ParameterType.VARCHAR, true),
+      new Parameter(ASSUME_ROLE_ARN_PARAMETER, ParameterType.VARCHAR, true)
+  );
 
   // Field names in the S3InputSource
   private static final String URIS_FIELD = "uris";
   private static final String PREFIXES_FIELD = "prefixes";
   private static final String OBJECTS_FIELD = "objects";
   private static final String OBJECT_GLOB_FIELD = "objectGlob";
+  private static final String PROPERTIES_FIELD = "properties";
+  private static final String ACCESS_KEY_ID_FIELD = "accessKeyId";
+  private static final String SECRET_ACCESS_KEY_FIELD = "secretAccessKey";
+  private static final String ASSUME_ROLE_ARN_FIELD = "assumeRoleArn";
 
   @Override
   public String typeValue()
@@ -112,18 +131,18 @@ public class S3InputSourceDefn extends FormattedInputSourceDefn
 
     if (hasFormat && !hasColumns) {
       throw new IAE(
-          "An external S3 tables with a format must also provide the corresponding columns"
+          "An external S3 table with a format must also provide the corresponding columns"
       );
     }
 
     // The user can either provide a bucket, or can provide one of the valid items.
     final String bucket = table.resolvedTable().stringProperty(BUCKET_PROPERTY);
-    boolean hasBucket = bucket != null;
+    final boolean hasBucket = bucket != null;
     final Map<String, Object> sourceMap = table.sourceMap();
-    boolean hasUris = sourceMap.containsKey(URIS_FIELD);
-    boolean hasPrefix = sourceMap.containsKey(PREFIXES_FIELD);
-    boolean hasObjects = sourceMap.containsKey(OBJECTS_FIELD);
-    boolean hasGlob = sourceMap.containsKey(OBJECT_GLOB_FIELD);
+    final boolean hasUris = sourceMap.containsKey(URIS_FIELD);
+    final boolean hasPrefix = sourceMap.containsKey(PREFIXES_FIELD);
+    final boolean hasObjects = sourceMap.containsKey(OBJECTS_FIELD);
+    final boolean hasGlob = sourceMap.containsKey(OBJECT_GLOB_FIELD);
     if (hasBucket) {
       if (hasUris || hasPrefix || hasObjects) {
         throw new IAE(
@@ -144,12 +163,7 @@ public class S3InputSourceDefn extends FormattedInputSourceDefn
 
       // Patch in a dummy URI so that validation of the rest of the fields
       // will pass.
-      try {
-        sourceMap.put(URIS_FIELD, new URI("http://foo.com"));
-      }
-      catch (URISyntaxException e) {
-        throw new ISE(e, "URI parse failed");
-      }
+      sourceMap.put(URIS_FIELD, Collections.singletonList(bucket));
     }
     super.validate(table);
   }
@@ -157,12 +171,15 @@ public class S3InputSourceDefn extends FormattedInputSourceDefn
   @Override
   protected List<ParameterDefn> adHocTableFnParameters()
   {
-    return Arrays.asList(
-        URI_PARAM_DEFN,
-        PREFIXES_PARAM_DEFN,
-        BUCKET_PARAM_DEFN,
-        OBJECTS_PARAM_DEFN,
-        OBJECTS_GLOB_PARAM_DEFN
+    return CatalogUtils.concatLists(
+        Arrays.asList(
+            URI_PARAM_DEFN,
+            PREFIXES_PARAM_DEFN,
+            BUCKET_PARAM_DEFN,
+            PATHS_PARAM_DEFN,
+            OBJECTS_GLOB_PARAM_DEFN
+        ),
+        SECURITY_PARAMS
     );
   }
 
@@ -170,32 +187,77 @@ public class S3InputSourceDefn extends FormattedInputSourceDefn
   protected void convertArgsToSourceMap(Map<String, Object> jsonMap, Map<String, Object> args)
   {
     jsonMap.put(InputSource.TYPE_PROPERTY, S3StorageDruidModule.SCHEME);
-    String urisString = CatalogUtils.getNonBlankString(args, URIS_PARAMETER);
-    String prefixesString = CatalogUtils.getNonBlankString(args, PREFIXES_PARAMETER);
-    String bucketString = CatalogUtils.getNonBlankString(args, BUCKET_PARAMETER);
-    String objectsString = CatalogUtils.getNonBlankString(args, OBJECTS_PARAMETER);
-    String globString = CatalogUtils.getNonBlankString(args, OBJECT_GLOB_PARAMETER);
-    if (urisString != null) {
-      jsonMap.put(URIS_FIELD, CatalogUtils.stringToUriList(urisString));
+    final List<String> uris = CatalogUtils.getStringArray(args, URIS_PARAMETER);
+    final List<String> prefixes = CatalogUtils.getStringArray(args, PREFIXES_PARAMETER);
+    final String bucket = CatalogUtils.getNonBlankString(args, BUCKET_PARAMETER);
+    final List<String> paths = CatalogUtils.getStringArray(args, PATHS_PARAMETER);
+    final String objectGlob = CatalogUtils.getNonBlankString(args, OBJECT_GLOB_PARAMETER);
+    final boolean hasUris = uris != null;
+    final boolean hasPrefixes = prefixes != null;
+    final boolean hasBucket = bucket != null;
+    final boolean hasPaths = !CollectionUtils.isNullOrEmpty(paths);
+    if (hasPaths && !hasBucket) {
+      throw new IAE(
+          "S3 requires the %s parameter if %s is set",
+          BUCKET_PARAMETER,
+          PATHS_PARAMETER
+      );
     }
-    if (prefixesString != null) {
-      jsonMap.put(PREFIXES_FIELD, CatalogUtils.stringToUriList(prefixesString));
+    if ((hasUris && (hasPrefixes || hasBucket)) || (hasPrefixes && hasBucket)) {
+      throw new IAE(
+          "S3 accepts only one of %s, %s or %s",
+          PATHS_PARAMETER,
+          BUCKET_PARAMETER,
+          PREFIXES_PARAMETER
+      );
     }
-    if (bucketString != null || objectsString != null) {
-      if (bucketString == null) {
-        throw new IAE("When using the %s parameter, %s must also be provided", OBJECTS_PARAMETER, BUCKET_PARAMETER);
-      }
-      if (objectsString == null) {
-        throw new IAE("When using the %s parameter, %s must also be provided", BUCKET_PARAMETER, OBJECTS_PARAMETER);
+    if (!hasUris && !hasPrefixes && !hasBucket) {
+      throw new IAE(
+          "S3 requires one of %s, %s or %s",
+          PATHS_PARAMETER,
+          BUCKET_PARAMETER,
+          PREFIXES_PARAMETER
+      );
+    }
+    if (hasUris) {
+      jsonMap.put(URIS_FIELD, CatalogUtils.stringListToUriList(uris));
+    }
+    if (hasPrefixes) {
+      jsonMap.put(PREFIXES_FIELD, prefixes);
+    }
+    if (hasBucket) {
+      if (!hasPaths) {
+        throw new IAE("When using the %s parameter, %s must also be provided", BUCKET_PARAMETER, PATHS_PARAMETER);
       }
       List<CloudObjectLocation> objects = new ArrayList<>();
-      for (String obj : CatalogUtils.stringToList(objectsString)) {
-        objects.add(new CloudObjectLocation(bucketString, obj));
+      for (String obj : paths) {
+        objects.add(new CloudObjectLocation(bucket, obj));
       }
       jsonMap.put(OBJECTS_FIELD, objects);
     }
-    if (globString != null) {
-      jsonMap.put(OBJECT_GLOB_FIELD, globString);
+    if (objectGlob != null) {
+      jsonMap.put(OBJECT_GLOB_FIELD, objectGlob);
+    }
+    applySecurityParams(jsonMap, args);
+  }
+
+  private void applySecurityParams(Map<String, Object> jsonMap, Map<String, Object> args)
+  {
+    final String accessKeyId = CatalogUtils.getNonBlankString(args, ACCESS_KEY_ID_PARAMETER);
+    final String secretAccessKey = CatalogUtils.getNonBlankString(args, SECRET_ACCESS_KEY_PARAMETER);
+    final String assumeRoleArn = CatalogUtils.getNonBlankString(args, ASSUME_ROLE_ARN_PARAMETER);
+    if (accessKeyId != null || secretAccessKey != null || assumeRoleArn != null) {
+      Map<String, Object> properties = new HashMap<>();
+      if (accessKeyId != null) {
+        properties.put(ACCESS_KEY_ID_FIELD, accessKeyId);
+      }
+      if (secretAccessKey != null) {
+        properties.put(SECRET_ACCESS_KEY_FIELD, secretAccessKey);
+      }
+      if (assumeRoleArn != null) {
+        properties.put(ASSUME_ROLE_ARN_FIELD, assumeRoleArn);
+      }
+      jsonMap.put(PROPERTIES_FIELD, properties);
     }
   }
 
@@ -208,11 +270,16 @@ public class S3InputSourceDefn extends FormattedInputSourceDefn
 
     // If a bucket is provided, then the user can specify objects.
     if (table.resolvedTable().spec().properties().containsKey(BUCKET_PROPERTY)) {
-      params.add(OBJECTS_PARAM_DEFN);
+      params.add(PATHS_PARAM_DEFN);
 
     // Else, if no glob is provided, the user can specify the glob.
     } else if (!sourceMap.containsKey(OBJECT_GLOB_FIELD)) {
       params.add(OBJECTS_GLOB_PARAM_DEFN);
+    }
+
+    // Add security arguments if table does not provide them.
+    if (!sourceMap.containsKey(PROPERTIES_FIELD)) {
+      params.addAll(SECURITY_PARAMS);
     }
 
     // Does the table define a format?
@@ -235,21 +302,22 @@ public class S3InputSourceDefn extends FormattedInputSourceDefn
     // catalog input source definition.
     final String bucket = table.resolvedTable().stringProperty(BUCKET_PROPERTY);
     if (bucket != null) {
-      String objectsString = CatalogUtils.getNonBlankString(args, OBJECTS_PARAMETER);
-      if (objectsString == null) {
+      List<String> paths = CatalogUtils.getStringArray(args, PATHS_PARAMETER);
+      if (CollectionUtils.isNullOrEmpty(paths)) {
         throw new IAE(
-            "S3 external table defines the %s property. The table function must provide the %s argument",
+            "S3 external table defines the %s property. The table function must provide the %s parameter",
             BUCKET_PROPERTY,
-            OBJECTS_PARAMETER
+            PATHS_PARAMETER
         );
       }
       List<CloudObjectLocation> objects = new ArrayList<>();
-      for (String obj : CatalogUtils.stringToList(objectsString)) {
+      for (String obj : paths) {
         objects.add(new CloudObjectLocation(bucket, obj));
       }
       sourceMap.put(OBJECTS_FIELD, objects);
     }
 
+    applySecurityParams(sourceMap, args);
     return convertPartialFormattedTable(table, args, columns, sourceMap);
   }
 }

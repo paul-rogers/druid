@@ -56,8 +56,8 @@ import java.util.Set;
  * <code><pre>
  * INSERT INTO myTable SELECT ...
  * FROM TABLE(http(
- *     userName => 'bob',
- *     password => 'secret',
+ *     httpAuthenticationUsername => 'bob',
+ *     httpAuthenticationPassword => 'secret',
  *     uris => 'http:foo.com/bar.csv',
  *     format => 'csv'))
  *   [EXTEND] (x VARCHAR, y VARCHAR, z BIGINT)

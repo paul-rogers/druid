@@ -47,10 +47,29 @@ import java.util.Map;
  */
 public interface TableFunction
 {
+  enum ParameterType
+  {
+    VARCHAR("VARCHAR"),
+    BIGINT("BIGINT"),
+    BOOLEAN("BOOLEAN"),
+    VARCHAR_ARRAY("VARCHAR array");
+
+    private final String name;
+
+    private ParameterType(String name){
+      this.name = name;
+    }
+
+    public String sqlName()
+    {
+      return name;
+    }
+  }
+
   interface ParameterDefn
   {
     String name();
-    Class<?> type();
+    ParameterType type();
     boolean isOptional();
   }
 

@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.avatica.SqlType;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.FunctionParameter;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlDataTypeSpec;
@@ -73,13 +74,34 @@ public class Externals
 
   private static List<FunctionParameter> convertToCalciteParameters(List<TableFunction.ParameterDefn> paramDefns)
   {
+    final RelDataTypeFactory typeFactory = DruidTypeSystem.TYPE_FACTORY;
     ImmutableList.Builder<FunctionParameter> params = ImmutableList.builder();
     for (int i = 0; i < paramDefns.size(); i++) {
       TableFunction.ParameterDefn paramDefn = paramDefns.get(i);
+      RelDataType paramType;
+      switch (paramDefn.type()) {
+      case BIGINT:
+        paramType = typeFactory.createJavaType(Long.class);
+        break;
+      case BOOLEAN:
+        paramType = typeFactory.createJavaType(Boolean.class);
+        break;
+      case VARCHAR:
+        paramType = typeFactory.createJavaType(String.class);
+        break;
+      case VARCHAR_ARRAY:
+        paramType = typeFactory.createArrayType(
+            typeFactory.createJavaType(String.class),
+            -1
+        );
+        break;
+      default:
+        throw new ISE("Undefined parameter type: %s", paramDefn.type().sqlName());
+      }
       params.add(new FunctionParameterImpl(
           i,
           paramDefn.name(),
-          DruidTypeSystem.TYPE_FACTORY.createJavaType(paramDefn.type()),
+          paramType,
           paramDefn.isOptional()
       ));
     }

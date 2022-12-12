@@ -25,6 +25,7 @@ import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.TableMetadata;
 import org.apache.druid.catalog.model.table.InputFormats.CsvFormatDefn;
+import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.java.util.common.IAE;
@@ -36,6 +37,7 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
@@ -155,6 +157,25 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
   }
 
   @Test
+  public void testBaseDirAndFiles()
+  {
+     Map<String, Object> source = ImmutableMap.of(
+        InputSource.TYPE_PROPERTY, LocalInputSource.TYPE_KEY,
+        LocalInputSourceDefn.BASE_DIR_FIELD, "/tmp",
+        LocalInputSourceDefn.FILTER_FIELD, "*.csv",
+        LocalInputSourceDefn.FILES_FIELD, Collections.singletonList("foo.csv")
+    );
+    TableMetadata table = TableBuilder.external("foo")
+        .inputSource(source)
+        .inputFormat(CSV_FORMAT)
+        .column("x", Columns.VARCHAR)
+        .column("y", Columns.BIGINT)
+        .build();
+    ResolvedTable resolved = registry.resolve(table.spec());
+    assertThrows(IAE.class, () -> resolved.validate());
+  }
+
+  @Test
   public void testAdHocParameters()
   {
     TableFunction fn = localDefn.adHocTableFn();
@@ -186,12 +207,32 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
   }
 
   @Test
+  public void testAdHocBaseDirOnly()
+  {
+    TableFunction fn = localDefn.adHocTableFn();
+
+    Map<String, Object> args = new HashMap<>();
+    args.put(LocalInputSourceDefn.BASE_DIR_PARAMETER, "/tmp");
+    args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
+    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+
+    LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
+    assertEquals(new File("/tmp"), sourceSpec.getBaseDir());
+    assertEquals("*", sourceSpec.getFilter());
+    assertTrue(sourceSpec.getFiles().isEmpty());
+    validateFormat(externSpec);
+
+    // But, it fails if there are no columns.
+    assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
+  }
+
+  @Test
   public void testAdHocFiles()
   {
     TableFunction fn = localDefn.adHocTableFn();
 
     Map<String, Object> args = new HashMap<>();
-    args.put(LocalInputSourceDefn.FILES_PARAMETER, "/tmp/foo.csv, /tmp/bar.csv");
+    args.put(LocalInputSourceDefn.FILES_PARAMETER, Arrays.asList("/tmp/foo.csv", "/tmp/bar.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
     ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
 
@@ -215,9 +256,21 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
 
     Map<String, Object> args = new HashMap<>();
     args.put(LocalInputSourceDefn.BASE_DIR_PARAMETER, "/tmp");
-    args.put(LocalInputSourceDefn.FILES_PARAMETER, "foo.csv, bar.csv");
+    args.put(LocalInputSourceDefn.FILES_PARAMETER, Arrays.asList("foo.csv", "bar.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+
+    LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
+    assertNull(sourceSpec.getBaseDir());
+    assertNull(sourceSpec.getFilter());
+    assertEquals(
+        Arrays.asList(new File("/tmp/foo.csv"), new File("/tmp/bar.csv")),
+        sourceSpec.getFiles()
+    );
+    validateFormat(externSpec);
+
+    // But, it fails if there are no columns.
+    assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
   }
 
   @Test
@@ -233,7 +286,6 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
 
     {
       // Base dir without filter: not valid.
-
       Map<String, Object> args = new HashMap<>();
       args.put(LocalInputSourceDefn.BASE_DIR_PARAMETER, "/tmp");
       assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
@@ -247,8 +299,9 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     }
 
     {
-      // Filter without base dir: not valid
+      // Cannot provide both a filter and a list of files.
       Map<String, Object> args = new HashMap<>();
+      args.put(LocalInputSourceDefn.BASE_DIR_PARAMETER, "/tmp");
       args.put(LocalInputSourceDefn.FILES_PARAMETER, "/tmp/foo.csv, /tmp/bar.csv");
       args.put(LocalInputSourceDefn.FILTER_PARAMETER, "*.csv");
       assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
@@ -256,12 +309,12 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
   }
 
   @Test
-  public void testFullyDefined()
+  public void testFullyDefinedBaseDirAndPattern()
   {
     LocalInputSource inputSource = new LocalInputSource(
         new File("/tmp"),
         "*.csv",
-        Collections.singletonList(new File("my.csv"))
+        null
     );
     TableMetadata table = TableBuilder.external("foo")
         .inputSource(toMap(inputSource))
@@ -285,8 +338,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
     assertEquals("/tmp", sourceSpec.getBaseDir().toString());
     assertEquals("*.csv", sourceSpec.getFilter());
-    // Note: Known bug in local file source: path gets converted to absolute.
-    //assertEquals(Collections.singletonList(new File("my.csv")), sourceSpec.getFiles());
+    assertTrue(sourceSpec.getFiles().isEmpty());
     validateFormat(externSpec);
 
     // Get the partial table function. Since table is fully defined,
@@ -299,8 +351,58 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     sourceSpec = (LocalInputSource) externSpec.inputSource;
     assertEquals("/tmp", sourceSpec.getBaseDir().toString());
     assertEquals("*.csv", sourceSpec.getFilter());
-    // Note: Known bug in local file source: path gets converted to absolute.
-    //assertEquals(Collections.singletonList(new File("my.csv")), sourceSpec.getFiles());
+    assertTrue(sourceSpec.getFiles().isEmpty());
+    validateFormat(externSpec);
+
+    // Fails if columns are provided.
+    assertThrows(IAE.class, () -> fn.apply(Collections.emptyMap(), COLUMNS, mapper));
+  }
+
+  @Test
+  public void testFullyDefinedFiles()
+  {
+    List<File> files = Collections.singletonList(new File("/tmp/my.csv"));
+    LocalInputSource inputSource = new LocalInputSource(
+        null,
+        null,
+        files
+    );
+    TableMetadata table = TableBuilder.external("foo")
+        .inputSource(toMap(inputSource))
+        .inputFormat(CSV_FORMAT)
+        .column("x", Columns.VARCHAR)
+        .column("y", Columns.BIGINT)
+        .build();
+
+    // Check validation
+    table.validate();
+
+    // Check registry
+    TableDefnRegistry registry = new TableDefnRegistry(mapper);
+    assertNotNull(registry.resolve(table.spec()));
+
+    // Convert to an external spec
+    ResolvedTable resolved = registry.resolve(table.spec());
+    ExternalTableDefn externDefn = (ExternalTableDefn) resolved.defn();
+    ExternalTableSpec externSpec = externDefn.convert(resolved);
+
+    LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
+    assertNull(sourceSpec.getBaseDir());
+    assertNull(sourceSpec.getFilter());
+    assertEquals(files, sourceSpec.getFiles());
+    validateFormat(externSpec);
+
+    // Get the partial table function. Since table is fully defined,
+    // no parameters available.
+    TableFunction fn = externDefn.tableFn(resolved);
+    assertEquals(0, fn.parameters().size());
+
+    // Apply the function with no arguments and no columns (since columns are already defined.)
+    externSpec = fn.apply(Collections.emptyMap(), Collections.emptyList(), mapper);
+    sourceSpec = (LocalInputSource) externSpec.inputSource;
+    assertNull(sourceSpec.getBaseDir());
+    assertNull(sourceSpec.getFilter());
+    assertEquals(files, sourceSpec.getFiles());
     validateFormat(externSpec);
 
     // Fails if columns are provided.
@@ -350,16 +452,12 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     {
       // Create a table with a file list.
       Map<String, Object> args = new HashMap<>();
-      args.put(LocalInputSourceDefn.FILES_PARAMETER, "foo.csv, bar.csv");
+      args.put(LocalInputSourceDefn.FILES_PARAMETER, Arrays.asList("foo.csv", "bar.csv"));
       ExternalTableSpec externSpec = fn.apply(args, Collections.emptyList(), mapper);
       LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
-      assertEquals("/tmp", sourceSpec.getBaseDir().toString());
-
-      // Note: code fills in the pattern since it is silly to require the user to do so in
-      // this case.
-      assertEquals("*", sourceSpec.getFilter());
-      // Note: Known bug in local file source: path gets converted to absolute.
-      //assertEquals(Arrays.asList(new File("foo.csv"), new File("bar.csv")), sourceSpec.getFiles());
+      assertNull(sourceSpec.getBaseDir());
+      assertNull(sourceSpec.getFilter());
+      assertEquals(Arrays.asList(new File("/tmp/foo.csv"), new File("/tmp/bar.csv")), sourceSpec.getFiles());
       validateFormat(externSpec);
 
       // Fails if columns are provided.
@@ -412,19 +510,18 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     {
       // Create a table with a file list.
       Map<String, Object> args = new HashMap<>();
-      args.put(LocalInputSourceDefn.FILES_PARAMETER, "foo.csv, bar.csv");
+      args.put(LocalInputSourceDefn.FILES_PARAMETER, Arrays.asList("foo.csv", "bar.csv"));
       args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
 
       // Function fails without columns, since the table has none.
       assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
 
-      // Provide format an columns.
+      // Provide format and columns.
       ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
       LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
-      assertEquals("/tmp", sourceSpec.getBaseDir().toString());
-      assertEquals("*", sourceSpec.getFilter());
-      // Note: Known bug in local file source: path gets converted to absolute.
-      //assertEquals(Arrays.asList(new File("foo.csv"), new File("bar.csv")), sourceSpec.getFiles());
+      assertNull(sourceSpec.getBaseDir());
+      assertNull(sourceSpec.getFilter());
+      assertEquals(Arrays.asList(new File("/tmp/foo.csv"), new File("/tmp/bar.csv")), sourceSpec.getFiles());
       validateFormat(externSpec);
     }
   }

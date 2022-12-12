@@ -31,10 +31,10 @@ public abstract class BaseFunctionDefn implements TableFunction
   public static class Parameter implements ParameterDefn
   {
     private final String name;
-    private final Class<?> type;
+    private final ParameterType type;
     private final boolean optional;
 
-    public Parameter(String name, Class<?> type, boolean optional)
+    public Parameter(String name, ParameterType type, boolean optional)
     {
       this.name = name;
       this.type = type;
@@ -48,7 +48,7 @@ public abstract class BaseFunctionDefn implements TableFunction
     }
 
     @Override
-    public Class<?> type()
+    public ParameterType type()
     {
       return type;
     }

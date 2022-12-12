@@ -135,7 +135,6 @@ public abstract class BaseInputSourceDefn implements InputSourceDefn
       final ObjectMapper jsonMapper
   )
   {
-    auditInputSource(args);
     return new ExternalTableSpec(
         convertArgsToSource(args, jsonMapper),
         convertArgsToFormat(args, columns, jsonMapper),
@@ -149,6 +148,7 @@ public abstract class BaseInputSourceDefn implements InputSourceDefn
   protected InputSource convertArgsToSource(Map<String, Object> args, ObjectMapper jsonMapper)
   {
     final Map<String, Object> jsonMap = new HashMap<>();
+    auditInputSource(jsonMap);
     convertArgsToSourceMap(jsonMap, args);
     return convertSource(jsonMap, jsonMapper);
   }

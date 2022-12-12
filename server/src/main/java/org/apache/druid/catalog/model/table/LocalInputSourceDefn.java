@@ -24,16 +24,19 @@ import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.table.BaseFunctionDefn.Parameter;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
+import org.apache.druid.catalog.model.table.TableFunction.ParameterType;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.utils.CollectionUtils;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Definition for a {@link LocalInputSource}.
@@ -54,12 +57,14 @@ public class LocalInputSourceDefn extends FormattedInputSourceDefn
   public static final String FILTER_PARAMETER = "filter";
   public static final String FILES_PARAMETER = "files";
 
-  private static final String BASE_DIR_FIELD = "baseDir";
-  private static final String FILES_FIELD = "files";
-  private static final String FILTER_FIELD = "filter";
+  protected static final String BASE_DIR_FIELD = "baseDir";
+  protected static final String FILES_FIELD = "files";
+  protected static final String FILTER_FIELD = "filter";
 
-  private final ParameterDefn FILTER_PARAM_DEFN = new Parameter(FILTER_PARAMETER, String.class, true);
-  private final ParameterDefn FILES_PARAM_DEFN = new Parameter(FILES_PARAMETER, String.class, true);
+  private static final ParameterDefn FILTER_PARAM_DEFN =
+      new Parameter(FILTER_PARAMETER, ParameterType.VARCHAR, true);
+  private static final ParameterDefn FILES_PARAM_DEFN =
+      new Parameter(FILES_PARAMETER, ParameterType.VARCHAR_ARRAY, true);
 
   @Override
   public String typeValue()
@@ -109,7 +114,7 @@ public class LocalInputSourceDefn extends FormattedInputSourceDefn
   protected List<ParameterDefn> adHocTableFnParameters()
   {
     return Arrays.asList(
-        new Parameter(BASE_DIR_PARAMETER, String.class, true),
+        new Parameter(BASE_DIR_PARAMETER, ParameterType.VARCHAR, true),
         FILTER_PARAM_DEFN,
         FILES_PARAM_DEFN
     );
@@ -121,16 +126,32 @@ public class LocalInputSourceDefn extends FormattedInputSourceDefn
     jsonMap.put(InputSource.TYPE_PROPERTY, LocalInputSource.TYPE_KEY);
 
     final String baseDirParam = CatalogUtils.getString(args, BASE_DIR_PARAMETER);
-    final String filesParam = CatalogUtils.getString(args, FILES_PARAMETER);
+    final List<String> filesParam = CatalogUtils.getStringArray(args, FILES_PARAMETER);
     final String filterParam = CatalogUtils.getString(args, FILTER_PARAMETER);
-    boolean hasBaseDir = !Strings.isNullOrEmpty(baseDirParam);
-    boolean hasFiles = !Strings.isNullOrEmpty(filesParam);
+    final boolean hasBaseDir = !Strings.isNullOrEmpty(baseDirParam);
+    final boolean hasFiles = !CollectionUtils.isNullOrEmpty(filesParam);
+    final boolean hasFilter = !Strings.isNullOrEmpty(filterParam);
     if (!hasBaseDir && !hasFiles) {
       throw new IAE(
           "A local input source requires one parameter of %s or %s",
           BASE_DIR_PARAMETER,
           FILES_PARAMETER
       );
+    }
+    if (hasBaseDir && hasFiles) {
+      if (hasFilter) {
+        throw new IAE(
+            "A local input source can set parameter %s or %s, but not both.",
+            FILES_PARAMETER,
+            FILTER_PARAMETER
+        );
+      }
+      // Special workaround: if the user provides a base dir, and files, convert
+      // the files to be absolute paths relative to the base dir. Then, remove
+      // the baseDir, since the Druid input source does not allow both a baseDir
+      // and a list of files.
+      jsonMap.put(FILES_FIELD, absolutePath(baseDirParam, filesParam));
+      return;
     }
     if (!hasBaseDir && !Strings.isNullOrEmpty(filterParam)) {
       throw new IAE(
@@ -139,22 +160,23 @@ public class LocalInputSourceDefn extends FormattedInputSourceDefn
           BASE_DIR_PARAMETER
       );
     }
-    if (hasBaseDir && hasFiles) {
-      throw new IAE(
-          "A local input source accepts only one of %s or %s",
-          BASE_DIR_PARAMETER,
-          FILTER_PARAMETER
-      );
-    }
     if (hasBaseDir) {
       jsonMap.put(BASE_DIR_FIELD, baseDirParam);
     }
     if (hasFiles) {
-      jsonMap.put(FILES_FIELD, CatalogUtils.stringToList(filesParam));
+      jsonMap.put(FILES_FIELD, filesParam);
     }
     if (filterParam != null) {
       jsonMap.put(FILTER_FIELD, filterParam);
     }
+  }
+
+  private List<String> absolutePath(String baseDirPath, List<String> files)
+  {
+    final File baseDir = new File(baseDirPath);
+    return files.stream()
+        .map(f -> new File(baseDir, f).toString())
+        .collect(Collectors.toList());
   }
 
   @Override
@@ -185,21 +207,41 @@ public class LocalInputSourceDefn extends FormattedInputSourceDefn
   {
     final Map<String, Object> sourceMap = new HashMap<>(table.sourceMap());
     final boolean hasFiles = !CollectionUtils.isNullOrEmpty(CatalogUtils.safeGet(sourceMap, FILES_FIELD, List.class));
-    final boolean hasFilter = !Strings.isNullOrEmpty(CatalogUtils.getString(sourceMap, FILTER_FIELD));
-    final String filesParam = CatalogUtils.getString(args, FILES_PARAMETER);
-    final String filterParam = CatalogUtils.getString(args, FILTER_PARAMETER);
-    if (!hasFiles && !hasFilter && Strings.isNullOrEmpty(filesParam) && Strings.isNullOrEmpty(filterParam)) {
-      throw new IAE(
-          "For a local input source, set either %s or %s",
-          FILES_PARAMETER,
-          FILTER_PARAMETER
-      );
-    }
-    if (filesParam != null) {
-      sourceMap.put(FILES_FIELD, CatalogUtils.stringToList(filesParam));
-    }
-    if (filterParam != null) {
-      sourceMap.put(FILTER_FIELD, filterParam);
+    if (hasFiles) {
+      if (!args.isEmpty()) {
+        throw new IAE("The local input source has a file list: do not provide other arguments");
+      }
+    } else {
+      final String baseDir = CatalogUtils.getString(sourceMap, BASE_DIR_FIELD);
+      if (Strings.isNullOrEmpty(baseDir)) {
+        throw new IAE(
+            "When an inline external table is used with a table function, %s must be set",
+            BASE_DIR_FIELD
+        );
+      }
+      final boolean hasFilter = !Strings.isNullOrEmpty(CatalogUtils.getString(sourceMap, FILTER_FIELD));
+      final List<String> filesParam = CatalogUtils.getStringArray(args, FILES_PARAMETER);
+      final String filterParam = CatalogUtils.getString(args, FILTER_PARAMETER);
+      final boolean hasFilesParam = !CollectionUtils.isNullOrEmpty(filesParam);
+      final boolean hasFilterParam = !Strings.isNullOrEmpty(filterParam);
+      if (!hasFiles && !hasFilter && !hasFilesParam && !hasFilterParam) {
+        throw new IAE(
+            "For a local input source, set either %s or %s",
+            FILES_PARAMETER,
+            FILTER_PARAMETER
+        );
+      }
+      if (hasFilesParam) {
+        // Special workaround: if the user provides a base dir, and files, convert
+        // the files to be absolute paths relative to the base dir. Then, remove
+        // the baseDir, since the Druid input source does not allow both a baseDir
+        // and a list of files.
+        sourceMap.remove(FILTER_FIELD);
+        sourceMap.remove(BASE_DIR_FIELD);
+        sourceMap.put(FILES_FIELD, absolutePath(baseDir, filesParam));
+      } else if (filterParam != null) {
+        sourceMap.put(FILTER_FIELD, filterParam);
+      }
     }
     return convertPartialFormattedTable(table, args, columns, sourceMap);
   }

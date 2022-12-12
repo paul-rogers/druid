@@ -24,6 +24,7 @@ import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.table.BaseFunctionDefn.Parameter;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
+import org.apache.druid.catalog.model.table.TableFunction.ParameterType;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.java.util.common.IAE;
@@ -88,18 +89,18 @@ public class HttpInputSourceDefn extends FormattedInputSourceDefn
 
   // Note, cannot be the simpler "user" since USER is a reserved word in SQL
   // and we don't want to require users to quote "user" each time it is used.
-  public static final String USER_PARAMETER = "httpAuthenticationUsername";
-  public static final String PASSWORD_PARAMETER = "httpAuthenticationPassword";
-  public static final String PASSWORD_ENV_VAR_PARAMETER = "httpAuthenticationPasswordEnvVar";
+  public static final String USER_PARAMETER = "userName";
+  public static final String PASSWORD_PARAMETER = "password";
+  public static final String PASSWORD_ENV_VAR_PARAMETER = "passwordEnvVar";
 
   private static final List<ParameterDefn> URI_PARAMS = Arrays.asList(
-      new Parameter(URIS_PARAMETER, String.class, true)
+      new Parameter(URIS_PARAMETER, ParameterType.VARCHAR_ARRAY, true)
   );
 
   private static final List<ParameterDefn> USER_PWD_PARAMS = Arrays.asList(
-      new Parameter(USER_PARAMETER, String.class, true),
-      new Parameter(PASSWORD_PARAMETER, String.class, true),
-      new Parameter(PASSWORD_ENV_VAR_PARAMETER, String.class, true)
+      new Parameter(USER_PARAMETER, ParameterType.VARCHAR, true),
+      new Parameter(PASSWORD_PARAMETER, ParameterType.VARCHAR, true),
+      new Parameter(PASSWORD_ENV_VAR_PARAMETER, ParameterType.VARCHAR, true)
   );
 
   // Field names in the HttpInputSource
@@ -247,8 +248,9 @@ public class HttpInputSourceDefn extends FormattedInputSourceDefn
 
   private void convertUriTemplateArgs(Map<String, Object> jsonMap, String uriTemplate, Map<String, Object> args)
   {
+    List<String> uriStrings = CatalogUtils.getStringArray(args, URIS_PARAMETER);
     final Matcher m = templateMatcher(uriTemplate);
-    final List<String> uris = getUriListArg(args).stream()
+    final List<String> uris = uriStrings.stream()
         .map(uri -> m.replaceFirst(uri))
         .collect(Collectors.toList());
     jsonMap.put(URIS_FIELD, CatalogUtils.stringListToUriList(uris));
@@ -260,12 +262,10 @@ public class HttpInputSourceDefn extends FormattedInputSourceDefn
    */
   private void convertUriArg(Map<String, Object> jsonMap, Map<String, Object> args)
   {
-    jsonMap.put(URIS_FIELD, CatalogUtils.stringListToUriList(getUriListArg(args)));
-  }
-
-  private List<String> getUriListArg(Map<String, Object> args)
-  {
-    return CatalogUtils.getUriListArg(args, URIS_PARAMETER);
+    List<String> uris = CatalogUtils.getStringArray(args, URIS_PARAMETER);
+    if (uris != null) {
+      jsonMap.put(URIS_FIELD, CatalogUtils.stringListToUriList(uris));
+    }
   }
 
   /**

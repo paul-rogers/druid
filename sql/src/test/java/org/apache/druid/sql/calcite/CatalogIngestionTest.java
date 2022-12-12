@@ -22,6 +22,7 @@ package org.apache.druid.sql.calcite;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import org.apache.calcite.avatica.SqlType;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.data.input.impl.HttpInputSourceConfig;
@@ -36,6 +37,7 @@ import org.apache.druid.sql.calcite.external.ExternalOperatorConversion;
 import org.apache.druid.sql.calcite.filtration.Filtration;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.util.CalciteTests;
+import org.apache.druid.sql.http.SqlParameter;
 import org.junit.Test;
 
 import java.io.File;
@@ -155,11 +157,40 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql("INSERT INTO dst SELECT *\n" +
-             "FROM TABLE(http(userName => 'bob', password => 'secret',\n" +
-             "                uris => 'http:foo.com/bar.csv', format => 'csv'))\n" +
+             "FROM TABLE(http(userName => 'bob',\n" +
+            "                 password => 'secret',\n" +
+             "                uris => ARRAY['http:foo.com/bar.csv'],\n" +
+             "                format => 'csv'))\n" +
              "     EXTEND (x VARCHAR, y VARCHAR, z BIGINT)\n" +
              "PARTITIONED BY ALL TIME")
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+        .expectTarget("dst", httpDataSource.getSignature())
+        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectQuery(
+            newScanQueryBuilder()
+                .dataSource(httpDataSource)
+                .intervals(querySegmentSpec(Filtration.eternity()))
+                .columns("x", "y", "z")
+                .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
+                .build()
+         )
+        .expectLogicalPlanFrom("httpExtern")
+        .verify();
+  }
+
+  @Test
+  public void testHttpFnWithParameters()
+  {
+    testIngestionQuery()
+        .sql("INSERT INTO dst SELECT *\n" +
+             "FROM TABLE(http(userName => 'bob',\n" +
+            "                 password => 'secret',\n" +
+             "                uris => ?,\n" +
+             "                format => 'csv'))\n" +
+             "     EXTEND (x VARCHAR, y VARCHAR, z BIGINT)\n" +
+             "PARTITIONED BY ALL TIME")
+        .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+        .parameters(Collections.singletonList(new SqlParameter(SqlType.ARRAY, new String[] {"http:foo.com/bar.csv"})))
         .expectTarget("dst", httpDataSource.getSignature())
         .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
         .expectQuery(
@@ -206,7 +237,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql("INSERT INTO dst SELECT *\n" +
-             "FROM TABLE(inline(data => 'a,b,1\nc,d,2\n',\n" +
+             "FROM TABLE(inline(data => ARRAY['a,b,1', 'c,d,2'],\n" +
              "                  format => 'csv'))\n" +
              "     EXTEND (x VARCHAR, y VARCHAR, z BIGINT)\n" +
              "PARTITIONED BY ALL TIME")
@@ -247,7 +278,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
   );
 
   /**
-   * Basic use of LOCAL
+   * Basic use of LOCALFILES
    */
   @Test
   public void testLocalExtern()
@@ -270,15 +301,15 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
   }
 
   /**
-   * Local with parameters by name. Logical plan and native query are identical
+   * Localfiles with parameters by name. Logical plan and native query are identical
    * to the basic EXTERN.
    */
   @Test
-  public void testLocalFn()
+  public void testLocalFilesFn()
   {
     testIngestionQuery()
         .sql("INSERT INTO dst SELECT *\n" +
-             "FROM TABLE(localfiles(files => '/tmp/foo.csv, /tmp/bar.csv',\n" +
+             "FROM TABLE(localfiles(files => ARRAY['/tmp/foo.csv', '/tmp/bar.csv'],\n" +
              "                  format => 'csv'))\n" +
              "     EXTEND (x VARCHAR, y VARCHAR, z BIGINT)\n" +
              "PARTITIONED BY ALL TIME")

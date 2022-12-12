@@ -26,6 +26,7 @@ import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.ResolvedTable;
 import org.apache.druid.catalog.model.table.BaseFunctionDefn.Parameter;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
+import org.apache.druid.catalog.model.table.TableFunction.ParameterType;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DelimitedInputFormat;
@@ -151,8 +152,8 @@ public class InputFormats
       super(
           CatalogUtils.concatLists(
               Arrays.asList(
-                  new Parameter(LIST_DELIMITER_PARAMETER, String.class, true),
-                  new Parameter(SKIP_ROWS_PARAMETER, Boolean.class, true)
+                  new Parameter(LIST_DELIMITER_PARAMETER, ParameterType.VARCHAR, true),
+                  new Parameter(SKIP_ROWS_PARAMETER, ParameterType.BOOLEAN, true)
               ),
               parameters
           )
@@ -261,7 +262,7 @@ public class InputFormats
     {
       super(
           Collections.singletonList(
-                  new Parameter(DELIMITER_PARAMETER, String.class, true)
+                  new Parameter(DELIMITER_PARAMETER, ParameterType.VARCHAR, true)
           )
       );
     }

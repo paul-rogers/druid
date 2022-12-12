@@ -26,6 +26,7 @@ import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.catalog.model.TableDefnRegistry;
 import org.apache.druid.catalog.model.table.BaseFunctionDefn.Parameter;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
+import org.apache.druid.catalog.model.table.TableFunction.ParameterType;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
@@ -94,7 +95,7 @@ public abstract class FormattedInputSourceDefn extends BaseInputSourceDefn
   )
   {
     final List<ParameterDefn> toAdd = new ArrayList<>();
-    final ParameterDefn formatProp = new Parameter(FORMAT_PARAMETER, String.class, false);
+    final ParameterDefn formatProp = new Parameter(FORMAT_PARAMETER, ParameterType.VARCHAR, false);
     toAdd.add(formatProp);
     final Map<String, ParameterDefn> formatProps = new HashMap<>();
     for (InputFormatDefn format : formats.values()) {
@@ -107,8 +108,8 @@ public abstract class FormattedInputSourceDefn extends BaseInputSourceDefn
               "Format %s, property %s of class %s conflicts with another format property of class %s",
               format.typeValue(),
               prop.name(),
-              prop.type().getSimpleName(),
-              existing.type().getSimpleName()
+              prop.type().sqlName(),
+              existing.type().sqlName()
           );
         }
       }

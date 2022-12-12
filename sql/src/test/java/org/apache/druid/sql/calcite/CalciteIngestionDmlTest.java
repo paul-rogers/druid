@@ -53,6 +53,7 @@ import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.guice.SqlBindings;
+import org.apache.druid.sql.http.SqlParameter;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.hamcrest.MatcherAssert;
@@ -208,6 +209,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
     private Query<?> expectedQuery;
     private Matcher<Throwable> validationErrorMatcher;
     private String expectedLogicalPlanResource;
+    private List<SqlParameter> parameters;
 
     private IngestionDmlTester()
     {
@@ -240,6 +242,13 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
       this.authenticationResult = authenticationResult;
       return this;
     }
+
+    public IngestionDmlTester parameters(List<SqlParameter> parameters)
+    {
+      this.parameters = parameters;
+      return this;
+    }
+
 
     public IngestionDmlTester expectTarget(
         final String expectedTargetDataSource,
@@ -362,6 +371,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
           .sql(sql)
           .queryContext(queryContext)
           .authResult(authenticationResult)
+          .parameters(parameters)
           .plannerConfig(plannerConfig)
           .expectedResources(expectedResources)
           .run();
@@ -379,6 +389,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
           .sql(sql)
           .queryContext(queryContext)
           .authResult(authenticationResult)
+          .parameters(parameters)
           .plannerConfig(plannerConfig)
           .expectedQuery(expectedQuery)
           .expectedResults(Collections.singletonList(new Object[]{expectedTargetDataSource, expectedTargetSignature}))

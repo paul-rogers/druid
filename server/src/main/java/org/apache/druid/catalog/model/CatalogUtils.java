@@ -124,7 +124,6 @@ public class CatalogUtils
     return (Long) value;
   }
 
-
   public static String getString(Map<String, Object> map, String key)
   {
     return safeGet(map, key, String.class);
@@ -133,6 +132,21 @@ public class CatalogUtils
   public static List<String> getStringList(Map<String, Object> map, String key)
   {
     return stringToList(getString(map, key));
+  }
+
+  /**
+   * Get the value of a {@code VARCHAR ARRAY} parameter. Though the type is
+   * called {@code ARRAY}, Calcite provides the actual value as a {@link List}
+   * of {@code String}s.
+   */
+  @SuppressWarnings("unchecked")
+  public static List<String> getStringArray(Map<String, Object> map, String key)
+  {
+    final Object value = map.get(key);
+    if (value == null) {
+      return null;
+    }
+    return (List<String>) safeCast(value, List.class, key);
   }
 
   public static String stringListToLines(List<String> lines)
