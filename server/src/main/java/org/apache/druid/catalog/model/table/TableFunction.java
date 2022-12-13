@@ -77,6 +77,7 @@ public interface TableFunction
   List<ParameterDefn> parameters();
 
   ExternalTableSpec apply(
+      String fnName,
       Map<String, Object> args,
       List<ColumnSpec> columns,
       ObjectMapper jsonMapper

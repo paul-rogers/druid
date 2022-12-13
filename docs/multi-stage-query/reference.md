@@ -34,9 +34,9 @@ usage, refer to the [Examples](examples.md) page.
 
 ### `EXTERN` Function
 
-Use the `EXTERN` function to read external data.
+Use the `EXTERN` function to read external data. The function has two variations.
 
-Function format:
+Function variation 1, with the input schema expressed as JSON:
 
 ```sql
 SELECT
@@ -55,6 +55,25 @@ FROM TABLE(
 1. Any [Druid input source](../ingestion/native-batch-input-source.md) as a JSON-encoded string.
 2. Any [Druid input format](../ingestion/data-formats.md) as a JSON-encoded string.
 3. A row signature, as a JSON-encoded array of column descriptors. Each column descriptor must have a `name` and a `type`. The type can be `string`, `long`, `double`, or `float`. This row signature is used to map the external data into the SQL layer.
+
+Variation 2, with the input schema expressed in SQL using an `EXTEND` clause. (See the next
+section for more detail on `EXTEND`). This format also uses named arguments to make the
+SQL a bit easier to read:
+
+```sql
+SELECT
+ <column>
+FROM TABLE(
+  EXTERN(
+    inputSource => '<Druid input source>',
+    inputFormat => '<Druid input format>'
+  ) (<columns>)
+)
+```
+
+The input source and format are as above. The columns are expressed as in a SQL `CREATE TABLE`.
+Example: `(timestamp VARCHAR, metric VARCHAR, value BIGINT)`. An optional `EXTEND` keyword
+can precede the column list: `EXTEND (timestamp VARCHAR...)`.
 
 For more information, see [Read external data with EXTERN](concepts.md#extern).
 

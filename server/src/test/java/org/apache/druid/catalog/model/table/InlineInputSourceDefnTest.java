@@ -109,7 +109,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
   {
     InputSourceDefn defn = registry.inputSourceDefnFor(InlineInputSourceDefn.TYPE_KEY);
     TableFunction fn = defn.adHocTableFn();
-    assertThrows(IAE.class, () -> fn.apply(new HashMap<>(), Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", new HashMap<>(), Collections.emptyList(), mapper));
   }
 
   @Test
@@ -119,7 +119,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
     TableFunction fn = defn.adHocTableFn();
     Map<String, Object> args = new HashMap<>();
     args.put(InlineInputSourceDefn.DATA_PROPERTY, "a");
-    assertThrows(IAE.class, () -> fn.apply(new HashMap<>(), Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", new HashMap<>(), Collections.emptyList(), mapper));
   }
 
   @Test
@@ -136,7 +136,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
     );
 
     final TableFunction fn = defn.adHocTableFn();
-    ExternalTableSpec extern = fn.apply(args, columns, mapper);
+    ExternalTableSpec extern = fn.apply("x", args, columns, mapper);
 
     assertTrue(extern.inputSource instanceof InlineInputSource);
     InlineInputSource inputSource = (InlineInputSource) extern.inputSource;
@@ -147,7 +147,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
     assertEquals(2, extern.signature.size());
 
     // Fails if no columns are provided.
-    assertThrows(IAE.class, () -> fn.apply(new HashMap<>(), Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", new HashMap<>(), Collections.emptyList(), mapper));
   }
 
   @Test
@@ -170,7 +170,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
     assertTrue(fn.parameters().isEmpty());
 
     // Verify the conversion
-    ExternalTableSpec extern = fn.apply(new HashMap<>(), Collections.emptyList(), mapper);
+    ExternalTableSpec extern = fn.apply("x", new HashMap<>(), Collections.emptyList(), mapper);
 
     assertTrue(extern.inputSource instanceof InlineInputSource);
     InlineInputSource inputSource = (InlineInputSource) extern.inputSource;
@@ -185,7 +185,7 @@ public class InlineInputSourceDefnTest extends BaseExternTableTest
         new ColumnSpec("a", Columns.VARCHAR, null),
         new ColumnSpec("b", Columns.VARCHAR, null)
     );
-    assertThrows(IAE.class, () -> fn.apply(new HashMap<>(), columns, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", new HashMap<>(), columns, mapper));
   }
 
   @Test

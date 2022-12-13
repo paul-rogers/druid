@@ -221,7 +221,7 @@ public class CalcitePlanner implements Planner, ViewExpander
         planner.addRelTraitDef(RelCollationTraitDef.INSTANCE);
       }
     } else {
-      for (RelTraitDef def : this.traitDefs) {
+      for (RelTraitDef<?> def : this.traitDefs) {
         planner.addRelTraitDef(def);
       }
     }

@@ -21,7 +21,7 @@ package org.apache.druid.catalog.model.table;
 
 import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ColumnSpec;
-import org.apache.druid.catalog.model.table.BaseFunctionDefn.Parameter;
+import org.apache.druid.catalog.model.table.BaseTableFunction.Parameter;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterDefn;
 import org.apache.druid.catalog.model.table.TableFunction.ParameterType;
 import org.apache.druid.data.input.InputSource;

@@ -45,7 +45,7 @@ public abstract class BaseInputSourceDefn implements InputSourceDefn
    * are those defined by the subclass, and the apply simply turns around and
    * asks the input source definition to do the conversion.
    */
-  public class AdHocTableFunction extends BaseFunctionDefn
+  public class AdHocTableFunction extends BaseTableFunction
   {
     public AdHocTableFunction(List<ParameterDefn> parameters)
     {
@@ -54,11 +54,13 @@ public abstract class BaseInputSourceDefn implements InputSourceDefn
 
     @Override
     public ExternalTableSpec apply(
+        final String fnName,
         final Map<String, Object> args,
         final List<ColumnSpec> columns,
         final ObjectMapper jsonMapper
     )
     {
+      requireSchema(fnName, columns);
       return convertArgsToTable(args, columns, jsonMapper);
     }
   }
@@ -72,7 +74,7 @@ public abstract class BaseInputSourceDefn implements InputSourceDefn
    * The set of parameters depends on the input source and on whether or not the catalog
    * spec provides a format.
    */
-  public class PartialTableFunction extends BaseFunctionDefn
+  public class PartialTableFunction extends BaseTableFunction
   {
     private final ResolvedExternalTable table;
 
@@ -83,8 +85,14 @@ public abstract class BaseInputSourceDefn implements InputSourceDefn
     }
 
     @Override
-    public ExternalTableSpec apply(Map<String, Object> args, List<ColumnSpec> columns, ObjectMapper jsonMapper)
+    public ExternalTableSpec apply(
+        final String fnName,
+        final Map<String, Object> args,
+        final List<ColumnSpec> columns,
+        final ObjectMapper jsonMapper
+    )
     {
+      requireSchema(fnName, columns);
       return convertCompletedTable(table, args, columns);
     }
   }

@@ -38,6 +38,7 @@ import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.expression.SqlOperatorConversion;
 import org.apache.druid.sql.calcite.external.ExternalOperatorConversion;
 import org.apache.druid.sql.calcite.external.ExternalTableMacro;
+import org.apache.druid.sql.calcite.external.Externals;
 import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 
@@ -106,7 +107,7 @@ public class InputOperatorConversion implements SqlOperatorConversion
     @Override
     public Set<ResourceAction> computeResources(final SqlCall call)
     {
-      return Collections.singleton(ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION);
+      return Collections.singleton(Externals.EXTERNAL_RESOURCE_ACTION);
     }
   }
 }

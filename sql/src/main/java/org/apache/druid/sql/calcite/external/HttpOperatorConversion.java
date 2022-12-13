@@ -28,9 +28,7 @@ public class HttpOperatorConversion extends CatalogExternalTableOperatorConversi
   public static final String FUNCTION_NAME = "http";
 
   @Inject
-  public HttpOperatorConversion(
-      final TableDefnRegistry registry
-  )
+  public HttpOperatorConversion(final TableDefnRegistry registry)
   {
     super(FUNCTION_NAME, registry, HttpInputSourceDefn.TYPE_KEY, registry.jsonMapper());
   }

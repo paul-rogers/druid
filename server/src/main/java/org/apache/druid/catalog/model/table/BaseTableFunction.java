@@ -19,6 +19,9 @@
 
 package org.apache.druid.catalog.model.table;
 
+import org.apache.druid.catalog.model.ColumnSpec;
+import org.apache.druid.java.util.common.IAE;
+
 import java.util.List;
 
 /**
@@ -26,7 +29,7 @@ import java.util.List;
  *
  * @see {@link TableFunction}
  */
-public abstract class BaseFunctionDefn implements TableFunction
+public abstract class BaseTableFunction implements TableFunction
 {
   public static class Parameter implements ParameterDefn
   {
@@ -62,7 +65,7 @@ public abstract class BaseFunctionDefn implements TableFunction
 
   private final List<ParameterDefn> parameters;
 
-  public BaseFunctionDefn(List<ParameterDefn> parameters)
+  public BaseTableFunction(List<ParameterDefn> parameters)
   {
     this.parameters = parameters;
   }
@@ -71,5 +74,15 @@ public abstract class BaseFunctionDefn implements TableFunction
   public List<ParameterDefn> parameters()
   {
     return parameters;
+  }
+
+  protected void requireSchema(String fnName, List<ColumnSpec> columns)
+  {
+    if (columns == null) {
+      throw new IAE(
+          "The %s table function requires an EXTEND clause with a schema",
+          fnName
+      );
+    }
   }
 }

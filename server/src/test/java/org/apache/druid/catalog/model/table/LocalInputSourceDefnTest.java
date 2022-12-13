@@ -194,7 +194,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     args.put(LocalInputSourceDefn.BASE_DIR_PARAMETER, "/tmp");
     args.put(LocalInputSourceDefn.FILTER_PARAMETER, "*.csv");
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
 
     LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
     assertEquals(new File("/tmp"), sourceSpec.getBaseDir());
@@ -203,7 +203,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     validateFormat(externSpec);
 
     // But, it fails if there are no columns.
-    assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, Collections.emptyList(), mapper));
   }
 
   @Test
@@ -214,7 +214,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     Map<String, Object> args = new HashMap<>();
     args.put(LocalInputSourceDefn.BASE_DIR_PARAMETER, "/tmp");
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
 
     LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
     assertEquals(new File("/tmp"), sourceSpec.getBaseDir());
@@ -223,7 +223,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     validateFormat(externSpec);
 
     // But, it fails if there are no columns.
-    assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, Collections.emptyList(), mapper));
   }
 
   @Test
@@ -234,7 +234,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     Map<String, Object> args = new HashMap<>();
     args.put(LocalInputSourceDefn.FILES_PARAMETER, Arrays.asList("/tmp/foo.csv", "/tmp/bar.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
 
     LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
     assertNull(sourceSpec.getBaseDir());
@@ -246,7 +246,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     validateFormat(externSpec);
 
     // But, it fails if there are no columns.
-    assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, Collections.emptyList(), mapper));
   }
 
   @Test
@@ -258,7 +258,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     args.put(LocalInputSourceDefn.BASE_DIR_PARAMETER, "/tmp");
     args.put(LocalInputSourceDefn.FILES_PARAMETER, Arrays.asList("foo.csv", "bar.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
 
     LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
     assertNull(sourceSpec.getBaseDir());
@@ -270,7 +270,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     validateFormat(externSpec);
 
     // But, it fails if there are no columns.
-    assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, Collections.emptyList(), mapper));
   }
 
   @Test
@@ -281,21 +281,21 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     {
       // Empty arguments: not valid
       Map<String, Object> args = new HashMap<>();
-      assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+      assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
     }
 
     {
       // Base dir without filter: not valid.
       Map<String, Object> args = new HashMap<>();
       args.put(LocalInputSourceDefn.BASE_DIR_PARAMETER, "/tmp");
-      assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+      assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
     }
 
     {
       // Filter without base dir: not valid
       Map<String, Object> args = new HashMap<>();
       args.put(LocalInputSourceDefn.FILTER_PARAMETER, "*.csv");
-      assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+      assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
     }
 
     {
@@ -304,7 +304,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
       args.put(LocalInputSourceDefn.BASE_DIR_PARAMETER, "/tmp");
       args.put(LocalInputSourceDefn.FILES_PARAMETER, "/tmp/foo.csv, /tmp/bar.csv");
       args.put(LocalInputSourceDefn.FILTER_PARAMETER, "*.csv");
-      assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+      assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
     }
   }
 
@@ -347,7 +347,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     assertEquals(0, fn.parameters().size());
 
     // Apply the function with no arguments and no columns (since columns are already defined.)
-    externSpec = fn.apply(Collections.emptyMap(), Collections.emptyList(), mapper);
+    externSpec = fn.apply("x", Collections.emptyMap(), Collections.emptyList(), mapper);
     sourceSpec = (LocalInputSource) externSpec.inputSource;
     assertEquals("/tmp", sourceSpec.getBaseDir().toString());
     assertEquals("*.csv", sourceSpec.getFilter());
@@ -355,7 +355,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     validateFormat(externSpec);
 
     // Fails if columns are provided.
-    assertThrows(IAE.class, () -> fn.apply(Collections.emptyMap(), COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", Collections.emptyMap(), COLUMNS, mapper));
   }
 
   @Test
@@ -398,7 +398,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     assertEquals(0, fn.parameters().size());
 
     // Apply the function with no arguments and no columns (since columns are already defined.)
-    externSpec = fn.apply(Collections.emptyMap(), Collections.emptyList(), mapper);
+    externSpec = fn.apply("x", Collections.emptyMap(), Collections.emptyList(), mapper);
     sourceSpec = (LocalInputSource) externSpec.inputSource;
     assertNull(sourceSpec.getBaseDir());
     assertNull(sourceSpec.getFilter());
@@ -406,7 +406,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     validateFormat(externSpec);
 
     // Fails if columns are provided.
-    assertThrows(IAE.class, () -> fn.apply(Collections.emptyMap(), COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", Collections.emptyMap(), COLUMNS, mapper));
   }
 
   @Test
@@ -435,14 +435,14 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     assertFalse(hasParam(fn, FormattedInputSourceDefn.FORMAT_PARAMETER));
 
     // Must provide an additional parameter.
-    assertThrows(IAE.class, () -> fn.apply(Collections.emptyMap(), Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", Collections.emptyMap(), Collections.emptyList(), mapper));
 
     {
       // Create a table with a file pattern.
       Map<String, Object> args = new HashMap<>();
       args.put(LocalInputSourceDefn.FILTER_PARAMETER, "*.csv");
       // Apply the function with no arguments and no columns (since columns are already defined.)
-      ExternalTableSpec externSpec = fn.apply(args, Collections.emptyList(), mapper);
+      ExternalTableSpec externSpec = fn.apply("x", args, Collections.emptyList(), mapper);
       LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
       assertEquals("/tmp", sourceSpec.getBaseDir().toString());
       assertEquals("*.csv", sourceSpec.getFilter());
@@ -453,7 +453,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
       // Create a table with a file list.
       Map<String, Object> args = new HashMap<>();
       args.put(LocalInputSourceDefn.FILES_PARAMETER, Arrays.asList("foo.csv", "bar.csv"));
-      ExternalTableSpec externSpec = fn.apply(args, Collections.emptyList(), mapper);
+      ExternalTableSpec externSpec = fn.apply("x", args, Collections.emptyList(), mapper);
       LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
       assertNull(sourceSpec.getBaseDir());
       assertNull(sourceSpec.getFilter());
@@ -461,7 +461,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
       validateFormat(externSpec);
 
       // Fails if columns are provided.
-      assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+      assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
     }
   }
 
@@ -488,7 +488,7 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
     assertTrue(hasParam(fn, FormattedInputSourceDefn.FORMAT_PARAMETER));
 
     // Must provide an additional parameter.
-    assertThrows(IAE.class, () -> fn.apply(Collections.emptyMap(), Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", Collections.emptyMap(), Collections.emptyList(), mapper));
 
     {
       // Create a table with a file pattern and format.
@@ -497,10 +497,10 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
       args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
 
       // Function fails without columns, since the table has none.
-      assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
+      assertThrows(IAE.class, () -> fn.apply("x", args, Collections.emptyList(), mapper));
 
       // Apply the function with no arguments and columns
-      ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+      ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
       LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
       assertEquals("/tmp", sourceSpec.getBaseDir().toString());
       assertEquals("*.csv", sourceSpec.getFilter());
@@ -514,10 +514,10 @@ public class LocalInputSourceDefnTest extends BaseExternTableTest
       args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
 
       // Function fails without columns, since the table has none.
-      assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
+      assertThrows(IAE.class, () -> fn.apply("x", args, Collections.emptyList(), mapper));
 
       // Provide format and columns.
-      ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+      ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
       LocalInputSource sourceSpec = (LocalInputSource) externSpec.inputSource;
       assertNull(sourceSpec.getBaseDir());
       assertNull(sourceSpec.getFilter());

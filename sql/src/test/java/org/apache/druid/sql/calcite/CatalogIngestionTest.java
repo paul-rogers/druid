@@ -29,11 +29,12 @@ import org.apache.druid.data.input.impl.HttpInputSourceConfig;
 import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.metadata.DefaultPasswordProvider;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
-import org.apache.druid.sql.calcite.external.ExternalOperatorConversion;
+import org.apache.druid.sql.calcite.external.Externals;
 import org.apache.druid.sql.calcite.filtration.Filtration;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.util.CalciteTests;
@@ -93,7 +94,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
         .sql("INSERT INTO dst SELECT * FROM %s PARTITIONED BY ALL TIME", externSql(httpDataSource))
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .expectTarget("dst", httpDataSource.getSignature())
-        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectResources(dataSourceWrite("dst"), Externals.EXTERNAL_RESOURCE_ACTION)
         .expectQuery(
             newScanQueryBuilder()
                 .dataSource(httpDataSource)
@@ -135,7 +136,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
         .sql("INSERT INTO dst SELECT *\nFROM %s\nPARTITIONED BY ALL TIME", externSqlByName(httpDataSource))
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .expectTarget("dst", httpDataSource.getSignature())
-        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectResources(dataSourceWrite("dst"), Externals.EXTERNAL_RESOURCE_ACTION)
         .expectQuery(
             newScanQueryBuilder()
                 .dataSource(httpDataSource)
@@ -165,7 +166,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
              "PARTITIONED BY ALL TIME")
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .expectTarget("dst", httpDataSource.getSignature())
-        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectResources(dataSourceWrite("dst"), Externals.EXTERNAL_RESOURCE_ACTION)
         .expectQuery(
             newScanQueryBuilder()
                 .dataSource(httpDataSource)
@@ -192,7 +193,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .parameters(Collections.singletonList(new SqlParameter(SqlType.ARRAY, new String[] {"http:foo.com/bar.csv"})))
         .expectTarget("dst", httpDataSource.getSignature())
-        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectResources(dataSourceWrite("dst"), Externals.EXTERNAL_RESOURCE_ACTION)
         .expectQuery(
             newScanQueryBuilder()
                 .dataSource(httpDataSource)
@@ -206,7 +207,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
   }
 
   /**
-   * Basic use of INLINE
+   * Basic use of an inline input source via EXTERN
    */
   @Test
   public void testInlineExtern()
@@ -215,7 +216,75 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
         .sql("INSERT INTO dst SELECT * FROM %s PARTITIONED BY ALL TIME", externSql(externalDataSource))
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .expectTarget("dst", externalDataSource.getSignature())
-        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectResources(dataSourceWrite("dst"), Externals.EXTERNAL_RESOURCE_ACTION)
+        .expectQuery(
+            newScanQueryBuilder()
+                .dataSource(externalDataSource)
+                .intervals(querySegmentSpec(Filtration.eternity()))
+                .columns("x", "y", "z")
+                .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
+                .build()
+         )
+        .expectLogicalPlanFrom("insertFromExternal")
+        .verify();
+  }
+
+  protected String externSqlByNameNoSig(final ExternalDataSource externalDataSource)
+  {
+    ObjectMapper queryJsonMapper = queryFramework().queryJsonMapper();
+    try {
+      return StringUtils.format(
+          "TABLE(extern(inputSource => %s, inputFormat => %s))",
+          Calcites.escapeStringLiteral(queryJsonMapper.writeValueAsString(externalDataSource.getInputSource())),
+          Calcites.escapeStringLiteral(queryJsonMapper.writeValueAsString(externalDataSource.getInputFormat()))
+      );
+    }
+    catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  protected String externClauseFromSig(final ExternalDataSource externalDataSource)
+  {
+    RowSignature sig = externalDataSource.getSignature();
+    StringBuilder buf = new StringBuilder("(");
+    for (int i = 0; i < sig.size(); i++) {
+      if (i > 0) {
+        buf.append(", ");
+      }
+      buf.append(sig.getColumnName(i)).append(" ");
+      ColumnType type = sig.getColumnType(i).get();
+      if (type == ColumnType.STRING) {
+        buf.append("VARCHAR");
+      } else if (type == ColumnType.LONG) {
+        buf.append("BIGINT");
+      } else if (type == ColumnType.DOUBLE) {
+        buf.append("DOUBLE");
+      } else if (type == ColumnType.FLOAT) {
+        buf.append("FLOAT");
+      } else {
+        throw new UOE("Unsupported native type %s", type);
+      }
+    }
+    return buf.append(")").toString();
+  }
+
+  /**
+   * Use an inline input source with EXTERN and EXTEND
+   */
+  @Test
+  public void testInlineExternWithExtend()
+  {
+    testIngestionQuery()
+        .sql("INSERT INTO dst SELECT *\n" +
+             "  FROM %s\n" +
+             "  %s\n" +
+             "  PARTITIONED BY ALL TIME",
+             externSqlByNameNoSig(externalDataSource),
+             externClauseFromSig(externalDataSource))
+        .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+        .expectTarget("dst", externalDataSource.getSignature())
+        .expectResources(dataSourceWrite("dst"), Externals.EXTERNAL_RESOURCE_ACTION)
         .expectQuery(
             newScanQueryBuilder()
                 .dataSource(externalDataSource)
@@ -243,7 +312,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
              "PARTITIONED BY ALL TIME")
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .expectTarget("dst", externalDataSource.getSignature())
-        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectResources(dataSourceWrite("dst"), Externals.EXTERNAL_RESOURCE_ACTION)
         .expectQuery(
             newScanQueryBuilder()
                 .dataSource(externalDataSource)
@@ -287,7 +356,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
         .sql("INSERT INTO dst SELECT * FROM %s PARTITIONED BY ALL TIME", externSql(localDataSource))
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .expectTarget("dst", localDataSource.getSignature())
-        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectResources(dataSourceWrite("dst"), Externals.EXTERNAL_RESOURCE_ACTION)
         .expectQuery(
             newScanQueryBuilder()
                 .dataSource(localDataSource)
@@ -315,7 +384,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
              "PARTITIONED BY ALL TIME")
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .expectTarget("dst", localDataSource.getSignature())
-        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectResources(dataSourceWrite("dst"), Externals.EXTERNAL_RESOURCE_ACTION)
         .expectQuery(
             newScanQueryBuilder()
                 .dataSource(localDataSource)
@@ -337,13 +406,13 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql("INSERT INTO dst SELECT *\n" +
-             "FROM TABLE(localfiles(files => '/tmp/foo.csv, /tmp/bar.csv',\n" +
+             "FROM TABLE(localfiles(files => ARRAY['/tmp/foo.csv', '/tmp/bar.csv'],\n" +
              "                  format => 'csv'))\n" +
              "     (x VARCHAR, y VARCHAR, z BIGINT)\n" +
              "PARTITIONED BY ALL TIME")
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .expectTarget("dst", localDataSource.getSignature())
-        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectResources(dataSourceWrite("dst"), Externals.EXTERNAL_RESOURCE_ACTION)
         .expectQuery(
             newScanQueryBuilder()
                 .dataSource(localDataSource)
@@ -365,7 +434,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
     testIngestionQuery()
         .sql("INSERT INTO dst\n" +
              "SELECT myTable.x, myTable.y, myTable.z\n" +
-             "FROM TABLE(localfiles(files => '/tmp/foo.csv, /tmp/bar.csv',\n" +
+             "FROM TABLE(localfiles(files => ARRAY['/tmp/foo.csv', '/tmp/bar.csv'],\n" +
              "                  format => 'csv'))\n" +
              "     (x VARCHAR, y VARCHAR, z BIGINT)\n" +
              "     As myTable\n" +
@@ -373,7 +442,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
          )
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .expectTarget("dst", localDataSource.getSignature())
-        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectResources(dataSourceWrite("dst"), Externals.EXTERNAL_RESOURCE_ACTION)
         .expectQuery(
             newScanQueryBuilder()
                 .dataSource(localDataSource)
@@ -395,7 +464,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
     testIngestionQuery()
         .sql("INSERT INTO dst\n" +
              "SELECT myTable.x, myTable.y, myTable.z\n" +
-             "FROM TABLE(localfiles(files => '/tmp/foo.csv, /tmp/bar.csv',\n" +
+             "FROM TABLE(localfiles(files => ARRAY['/tmp/foo.csv', '/tmp/bar.csv'],\n" +
              "                  format => 'csv'))\n" +
              "     (x VARCHAR NOT NULL, y VARCHAR NOT NULL, z BIGINT NOT NULL)\n" +
              "     As myTable\n" +
@@ -403,7 +472,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
          )
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .expectTarget("dst", localDataSource.getSignature())
-        .expectResources(dataSourceWrite("dst"), ExternalOperatorConversion.EXTERNAL_RESOURCE_ACTION)
+        .expectResources(dataSourceWrite("dst"), Externals.EXTERNAL_RESOURCE_ACTION)
         .expectQuery(
             newScanQueryBuilder()
                 .dataSource(localDataSource)

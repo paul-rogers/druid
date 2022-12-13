@@ -326,7 +326,7 @@ public class S3InputSourceDefnTest
     Map<String, Object> args = new HashMap<>();
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
 
-    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
   }
 
   @Test
@@ -339,7 +339,7 @@ public class S3InputSourceDefnTest
     List<String> uris = Collections.singletonList("s3://foo/bar/file.csv");
     args.put(S3InputSourceDefn.URIS_PARAMETER, uris);
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(
@@ -348,7 +348,7 @@ public class S3InputSourceDefnTest
     );
 
     // But, it fails if there are no columns.
-    assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, Collections.emptyList(), mapper));
   }
 
   @Test
@@ -359,7 +359,7 @@ public class S3InputSourceDefnTest
     List<String> uris = Arrays.asList("s3://foo/bar/file1.csv", "s3://foo/mumble/file2.csv");
     args.put(S3InputSourceDefn.URIS_PARAMETER, uris);
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(
@@ -376,7 +376,7 @@ public class S3InputSourceDefnTest
     args.put(S3InputSourceDefn.URIS_PARAMETER, Collections.emptyList());
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
 
-    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
   }
 
   @Test
@@ -390,7 +390,7 @@ public class S3InputSourceDefnTest
     args.put(S3InputSourceDefn.URIS_PARAMETER, uris);
     args.put(S3InputSourceDefn.OBJECT_GLOB_PARAMETER, "*.csv");
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(
@@ -410,7 +410,7 @@ public class S3InputSourceDefnTest
     List<String> prefixes = Collections.singletonList("s3://foo/bar/data");
     args.put(S3InputSourceDefn.PREFIXES_PARAMETER, prefixes);
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(
@@ -419,7 +419,7 @@ public class S3InputSourceDefnTest
     );
 
     // But, it fails if there are no columns.
-    assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, Collections.emptyList(), mapper));
   }
 
   @Test
@@ -432,7 +432,7 @@ public class S3InputSourceDefnTest
     List<String> prefixes = Arrays.asList("s3://foo/bar/", "s3://foo/mumble/");
     args.put(S3InputSourceDefn.PREFIXES_PARAMETER, prefixes);
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(
@@ -451,7 +451,7 @@ public class S3InputSourceDefnTest
     args.put(S3InputSourceDefn.BUCKET_PARAMETER, "foo.com");
     args.put(S3InputSourceDefn.PATHS_PARAMETER, Collections.singletonList("bar/file.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(1, s3InputSource.getObjects().size());
@@ -460,7 +460,7 @@ public class S3InputSourceDefnTest
     assertEquals("bar/file.csv", obj.getPath());
 
     // But, it fails if there are no columns.
-    assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, Collections.emptyList(), mapper));
   }
 
   @Test
@@ -471,7 +471,7 @@ public class S3InputSourceDefnTest
     args.put(S3InputSourceDefn.PATHS_PARAMETER, Collections.singletonList("bar/file.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
 
-    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
   }
 
   @Test
@@ -482,7 +482,7 @@ public class S3InputSourceDefnTest
     args.put(S3InputSourceDefn.BUCKET_PARAMETER, "foo.com");
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
 
-    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
   }
 
   @Test
@@ -495,7 +495,7 @@ public class S3InputSourceDefnTest
     args.put(S3InputSourceDefn.BUCKET_PARAMETER, "foo.com");
     args.put(S3InputSourceDefn.PATHS_PARAMETER, Arrays.asList("bar/file1.csv", "mumble/file2.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(2, s3InputSource.getObjects().size());
@@ -517,7 +517,7 @@ public class S3InputSourceDefnTest
     args.put(S3InputSourceDefn.URIS_PARAMETER, Collections.singletonList("s3://foo/bar/file.csv"));
     args.put(S3InputSourceDefn.PREFIXES_PARAMETER, Collections.singletonList("s3://foo/bar/data"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
   }
 
   @Test
@@ -531,7 +531,7 @@ public class S3InputSourceDefnTest
     args.put(S3InputSourceDefn.BUCKET_PARAMETER, "foo.com");
     args.put(S3InputSourceDefn.PATHS_PARAMETER, Collections.singletonList("bar/file.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
   }
 
   @Test
@@ -545,7 +545,7 @@ public class S3InputSourceDefnTest
     args.put(S3InputSourceDefn.BUCKET_PARAMETER, "foo.com");
     args.put(S3InputSourceDefn.PATHS_PARAMETER, Collections.singletonList("bar/file.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
   }
 
   @Test
@@ -578,11 +578,11 @@ public class S3InputSourceDefnTest
     assertTrue(fn.parameters().isEmpty());
 
     // Convert to an external table.
-    externSpec = fn.apply(Collections.emptyMap(), Collections.emptyList(), mapper);
+    externSpec = fn.apply("x", Collections.emptyMap(), Collections.emptyList(), mapper);
     assertEquals(s3InputSource, externSpec.inputSource);
 
     // But, it fails columns are provided since the table already has them.
-    assertThrows(IAE.class, () -> fn.apply(Collections.emptyMap(), COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", Collections.emptyMap(), COLUMNS, mapper));
   }
 
   @Test
@@ -620,7 +620,7 @@ public class S3InputSourceDefnTest
     args.put(S3InputSourceDefn.ACCESS_KEY_ID_PARAMETER, accessKey);
     args.put(S3InputSourceDefn.SECRET_ACCESS_KEY_PARAMETER, secretAccessKey);
     args.put(S3InputSourceDefn.ASSUME_ROLE_ARN_PARAMETER, assumeRoleArn);
-    externSpec = fn.apply(args, Collections.emptyList(), mapper);
+    externSpec = fn.apply("x", args, Collections.emptyList(), mapper);
     S3InputSource actual = (S3InputSource) externSpec.inputSource;
     S3InputSourceConfig actualConfig = actual.getS3InputSourceConfig();
     assertNotNull(actualConfig);
@@ -656,7 +656,7 @@ public class S3InputSourceDefnTest
     // Convert to an external table.
     Map<String, Object> args = new HashMap<>();
     args.put(S3InputSourceDefn.PATHS_PARAMETER, Collections.singletonList("bar/file.csv"));
-    ExternalTableSpec externSpec = fn.apply(args, Collections.emptyList(), mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, Collections.emptyList(), mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(1, s3InputSource.getObjects().size());
@@ -665,10 +665,10 @@ public class S3InputSourceDefnTest
     assertEquals("bar/file.csv", obj.getPath());
 
     // But, it fails columns are provided since the table already has them.
-    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
 
     // Also fails if the user omits the objects argument
-    assertThrows(IAE.class, () -> fn.apply(Collections.emptyMap(), Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", Collections.emptyMap(), Collections.emptyList(), mapper));
   }
 
   @Test
@@ -696,7 +696,7 @@ public class S3InputSourceDefnTest
     Map<String, Object> args = new HashMap<>();
     args.put(S3InputSourceDefn.PATHS_PARAMETER, Collections.singletonList("bar/file.csv"));
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
 
     S3InputSource s3InputSource = (S3InputSource) externSpec.inputSource;
     assertEquals(1, s3InputSource.getObjects().size());
@@ -706,14 +706,14 @@ public class S3InputSourceDefnTest
     assertTrue(externSpec.inputFormat instanceof CsvInputFormat);
 
     // But, it fails columns are not provided since the table does not have them.
-    assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, Collections.emptyList(), mapper));
 
     // Also fails if the user omits the objects argument
-    assertThrows(IAE.class, () -> fn.apply(Collections.emptyMap(), Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", Collections.emptyMap(), Collections.emptyList(), mapper));
 
     // Also fails if the user omits the format argument
     args.remove(FormattedInputSourceDefn.FORMAT_PARAMETER);
-    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
   }
 
   protected boolean hasParam(TableFunction fn, String key)

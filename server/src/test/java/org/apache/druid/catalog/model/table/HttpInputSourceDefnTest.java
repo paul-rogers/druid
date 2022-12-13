@@ -167,7 +167,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
     Map<String, Object> args = new HashMap<>();
     args.put(HttpInputSourceDefn.URIS_PARAMETER, new String[] {"http://foo.com/my.csv"});
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, "bogus");
-    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
   }
 
   @Test
@@ -179,7 +179,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
     Map<String, Object> args = new HashMap<>();
     args.put(HttpInputSourceDefn.URIS_PARAMETER, new String[] {"bogus"});
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    assertThrows(IAE.class, () -> fn.apply(args, COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, COLUMNS, mapper));
   }
 
   @Test
@@ -198,11 +198,11 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
     args.put(HttpInputSourceDefn.USER_PARAMETER, "bob");
     args.put(HttpInputSourceDefn.PASSWORD_PARAMETER, "secret");
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
     validateHappyPath(externSpec);
 
     // But, it fails if there are no columns.
-    assertThrows(IAE.class, () -> fn.apply(args, Collections.emptyList(), mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", args, Collections.emptyList(), mapper));
   }
 
   @Test
@@ -238,11 +238,11 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
     assertTrue(fn.parameters().isEmpty());
 
     // Convert to an external table.
-    externSpec = fn.apply(Collections.emptyMap(), Collections.emptyList(), mapper);
+    externSpec = fn.apply("x", Collections.emptyMap(), Collections.emptyList(), mapper);
     validateHappyPath(externSpec);
 
     // But, it fails columns are provided since the table already has them.
-    assertThrows(IAE.class, () -> fn.apply(Collections.emptyMap(), COLUMNS, mapper));
+    assertThrows(IAE.class, () -> fn.apply("x", Collections.emptyMap(), COLUMNS, mapper));
   }
 
   @Test
@@ -281,6 +281,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
 
     // Convert to an external table.
     ExternalTableSpec externSpec = fn.apply(
+        "x",
         ImmutableMap.of(
             HttpInputSourceDefn.URIS_PARAMETER,
             new String[] {"my.csv"}
@@ -324,7 +325,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
     Map<String, Object> args = new HashMap<>();
     args.put(HttpInputSourceDefn.URIS_PARAMETER, new String[] {"my.csv"});
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
     validateHappyPath(externSpec);
   }
 
@@ -388,6 +389,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
 
     // Convert to an external table.
     ExternalTableSpec externSpec = fn.apply(
+        "x",
         ImmutableMap.of(
             HttpInputSourceDefn.URIS_PARAMETER, new String[] {"my.csv", "bar.csv"}),
         Collections.emptyList(),
@@ -415,7 +417,7 @@ public class HttpInputSourceDefnTest extends BaseExternTableTest
     Map<String, Object> args = new HashMap<>();
     args.put(HttpInputSourceDefn.URIS_PARAMETER, new String[] {"http://foo.com/foo.csv", "http://foo.com/bar.csv"});
     args.put(FormattedInputSourceDefn.FORMAT_PARAMETER, CsvFormatDefn.TYPE_KEY);
-    ExternalTableSpec externSpec = fn.apply(args, COLUMNS, mapper);
+    ExternalTableSpec externSpec = fn.apply("x", args, COLUMNS, mapper);
 
     HttpInputSource sourceSpec = (HttpInputSource) externSpec.inputSource;
     assertEquals(
