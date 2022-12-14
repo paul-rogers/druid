@@ -109,7 +109,7 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
   public void validate() throws ValidationException
   {
     CalcitePlanner planner = handlerContext.planner();
-    validatedQueryNode = planner.validate(rewriteParameters());
+    validatedQueryNode = planner.validate(rewriteParameters(queryNode));
 
     final SqlValidator validator = planner.getValidator();
     SqlResourceCollectorShuttle resourceCollectorShuttle = new SqlResourceCollectorShuttle(
@@ -120,7 +120,7 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
     resourceActions = resourceCollectorShuttle.getResourceActions();
   }
 
-  private SqlNode rewriteParameters()
+  private SqlNode rewriteParameters(SqlNode original)
   {
     // Uses {@link SqlParameterizerShuttle} to rewrite {@link SqlNode} to swap out any
     // {@link org.apache.calcite.sql.SqlDynamicParam} early for their {@link SqlLiteral}
@@ -132,9 +132,9 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
     // contains parameters, but no values were provided.
     PlannerContext plannerContext = handlerContext.plannerContext();
     if (plannerContext.getParameters().isEmpty()) {
-      return queryNode;
+      return original;
     } else {
-      return queryNode.accept(new SqlParameterizerShuttle(plannerContext));
+      return original.accept(new SqlParameterizerShuttle(plannerContext));
     }
   }
 
@@ -308,12 +308,12 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
         final Enumerator<?> enumerator = enumerable.enumerator();
         return QueryResponse.withEmptyContext(
             Sequences.withBaggage(new BaseSequence<>(
-              new BaseSequence.IteratorMaker<Object[], QueryHandler.EnumeratorIterator<Object[]>>()
+              new BaseSequence.IteratorMaker<Object[], Iterator<Object[]>>()
               {
                 @Override
-                public QueryHandler.EnumeratorIterator<Object[]> make()
+                public Iterator<Object[]> make()
                 {
-                  return new QueryHandler.EnumeratorIterator<>(new Iterator<Object[]>()
+                  return new Iterator<Object[]>()
                   {
                     @Override
                     public boolean hasNext()
@@ -326,16 +326,17 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
                     {
                       return (Object[]) enumerator.current();
                     }
-                  });
+                  };
                 }
 
                 @Override
-                public void cleanup(QueryHandler.EnumeratorIterator<Object[]> iterFromMake)
+                public void cleanup(Iterator<Object[]> iterFromMake)
                 {
 
                 }
               }
-          ), enumerator::close)
+          ), enumerator::close
+        )
       );
       };
       return new PlannerResult(resultsSupplier, rootQueryRel.validatedRowType);
@@ -651,28 +652,6 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
       return handlerContext.engine().buildQueryMakerForSelect(
           rootQueryRel,
           handlerContext.plannerContext());
-    }
-  }
-
-  private static class EnumeratorIterator<T> implements Iterator<T>
-  {
-    private final Iterator<T> it;
-
-    EnumeratorIterator(Iterator<T> it)
-    {
-      this.it = it;
-    }
-
-    @Override
-    public boolean hasNext()
-    {
-      return it.hasNext();
-    }
-
-    @Override
-    public T next()
-    {
-      return it.next();
     }
   }
 }

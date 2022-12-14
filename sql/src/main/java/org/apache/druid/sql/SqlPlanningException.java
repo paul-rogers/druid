@@ -78,6 +78,16 @@ public class SqlPlanningException extends BadQueryException
     this(planningError.errorCode, errorMessage, planningError.errorClass);
   }
 
+  private SqlPlanningException(
+      Exception e,
+      String errorCode,
+      String errorMessage,
+      String errorClass
+  )
+  {
+    super(e, errorCode, errorMessage, errorClass);
+  }
+
   @JsonCreator
   private SqlPlanningException(
       @JsonProperty("error") String errorCode,
