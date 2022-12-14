@@ -353,8 +353,12 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
   }
 
   /**
-   * Ensure that the user can provide a redundant PARTITION BY and CLUSTER BY,
-   * as long as they agree with the catalog.
+   * Ensure that the user can provide a redundant {@code PARTITION BY}
+   * and {@code CLUSTER BY}, as long as they agree with the catalog.
+   * <p>
+   * This test shows another reason why {@code PARTITION BY} is optional: the
+   * user might specify partitioning in the catalog, but leave clustering to be
+   * per-query.
    */
   @Test
   public void testInsertWithClusteredByFromCatalogAndExplicit()
@@ -370,7 +374,6 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
         .sql(
             "INSERT INTO druid.clusterBy\n"
             + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
-            + "PARTITIONED BY FLOOR(__time TO DAY)\n"
             + "CLUSTERED BY floor_m1, dim1 DESC"
          )
         .expectTarget("clusterBy", targetRowSignature)

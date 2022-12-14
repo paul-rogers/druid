@@ -53,6 +53,10 @@ import java.util.function.Function;
  * lifecycle defined as:
  * <p>
  * start --> validate [--> prepare] --> plan
+ * <p>
+ * Druid supports a variety of statements. Each statement (or statement family)
+ * has a "handler" for that statement type. To add a new statement, add a new
+ * handler (which might reuse one of the existing base handlers.)
  */
 public class DruidPlanner implements Closeable
 {
