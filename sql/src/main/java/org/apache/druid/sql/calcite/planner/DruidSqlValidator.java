@@ -36,6 +36,8 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
+import org.apache.calcite.tools.ValidationException;
+import org.apache.druid.java.util.common.IAE;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -61,11 +63,35 @@ class DruidSqlValidator extends BaseDruidSqlValidator
    * types are set by the catalog, where available, else by the query.
    */
   @Override
-  public void validateInsert(SqlInsert insert) {
+  public void validateInsert(SqlInsert insert)
+  {
+    // The target namespace is both the target table ID and the row type for that table.
     final SqlValidatorNamespace targetNamespace = getNamespace(insert);
+    // Preliminary validation that says we don't know the type of the target table.
     validateNamespace(targetNamespace, unknownType);
+
+    // For now, skip table validation.
+
+    // Validate the query: but we only know how to do SELECT
+    final SqlNode source = insert.getSource();
+    if (source instanceof SqlSelect) {
+      final SqlSelect sqlSelect = (SqlSelect) source;
+      validateSelect(sqlSelect, unknownType);
+    } else {
+      throw new IAE("Druid supports only INSERT ... SELECT");
+    }
+  }
+
+  public void validateInsert2(SqlInsert insert)
+  {
+    // The target namespace is both the target table ID and the row type for that table.
+    final SqlValidatorNamespace targetNamespace = getNamespace(insert);
+    // Preliminary validation that says we don't know the type of the target table.
+    validateNamespace(targetNamespace, unknownType);
+    // Resolve the table name against the catalog reader.
     final RelOptTable relOptTable = SqlValidatorUtil.getRelOptTable(
         targetNamespace, getCatalogReader().unwrap(Prepare.CatalogReader.class), null, null);
+    // Get the table from the above resolution result.
     final SqlValidatorTable table = relOptTable == null
         ? targetNamespace.getTable()
         : relOptTable.unwrap(SqlValidatorTable.class);

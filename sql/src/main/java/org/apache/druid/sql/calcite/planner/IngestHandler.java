@@ -62,37 +62,15 @@ public abstract class IngestHandler extends QueryHandler
           + "E.g. if you are ingesting \"func(X)\", then you can rewrite it as "
           + "\"func(X) as myColumn\"";
 
+  private SqlNode validatedQueryNode;
   protected String targetDatasource;
 
   IngestHandler(
-      HandlerContext handlerContext,
-      DruidSqlIngest ingestNode,
-      SqlNode queryNode,
-      SqlExplain explain
+      final HandlerContext handlerContext,
+      final SqlExplain explain
   )
   {
-    super(handlerContext, queryNode, explain);
-    handlerContext.hook().captureInsert(ingestNode);
-  }
-
-  protected static SqlNode convertQuery(DruidSqlIngest sqlNode) throws ValidationException
-  {
-    SqlNode query = sqlNode.getSource();
-
-    // Check that an ORDER BY clause is not provided to the underlying query
-    if (query instanceof SqlOrderBy) {
-      SqlOrderBy sqlOrderBy = (SqlOrderBy) query;
-      SqlNodeList orderByList = sqlOrderBy.orderList;
-      if (!(orderByList == null || orderByList.equals(SqlNodeList.EMPTY))) {
-        String opName = sqlNode.getOperator().getName();
-        throw new ValidationException(StringUtils.format(
-            "Cannot have ORDER BY on %s %s statement, use CLUSTERED BY instead.",
-            "INSERT".equals(opName) ? "an" : "a",
-            opName
-        ));
-      }
-    }
-    return query;
+    super(handlerContext, explain);
   }
 
   protected String operationName()
@@ -106,6 +84,7 @@ public abstract class IngestHandler extends QueryHandler
   public void validate() throws ValidationException
   {
     targetDatasource = validateAndGetDataSourceForIngest();
+    DruidSqlIngest ingestNode = ingestNode();
 
     // Resolve the datasource against the catalog, and fill in information from the catalog
     // where present.
@@ -117,7 +96,7 @@ public abstract class IngestHandler extends QueryHandler
 
     try {
       handlerContext.catalog().resolveInsert(
-          ingestNode(),
+          ingestNode,
           targetDatasource,
           handlerContext.queryContextMap()
       );
@@ -125,14 +104,30 @@ public abstract class IngestHandler extends QueryHandler
     catch (Exception e) {
       throw new ValidationException(e.getMessage(), e);
     }
-    if (ingestNode().getClusteredBy() != null) {
-      queryNode = DruidSqlParserUtils.convertClusterByToOrderBy(queryNode, ingestNode().getClusteredBy());
+    final Granularity ingestionGranularity = ingestNode.getPartitionedBy();
+    final SqlNodeList clusteredBy = ingestNode.getClusteredBy();
+    SqlNode rewrittenQuery = ingestNode.getSource();
+
+    // Check that an ORDER BY clause is not provided to the underlying query
+    if (rewrittenQuery instanceof SqlOrderBy) {
+      SqlOrderBy sqlOrderBy = (SqlOrderBy) rewrittenQuery;
+      SqlNodeList orderByList = sqlOrderBy.orderList;
+      if (!(orderByList == null || orderByList.equals(SqlNodeList.EMPTY))) {
+        String opName = operationName();
+        throw new ValidationException(StringUtils.format(
+            "Cannot have ORDER BY on %s %s statement, use CLUSTERED BY instead.",
+            "INSERT".equals(opName) ? "an" : "a",
+            opName
+        ));
+      }
+    }
+    if (clusteredBy != null) {
+      rewrittenQuery = DruidSqlParserUtils.convertClusterByToOrderBy(rewrittenQuery, ingestNode().getClusteredBy());
     }
 
-    if (!queryNode.isA(SqlKind.QUERY)) {
-      throw new ValidationException(StringUtils.format("Cannot execute [%s].", queryNode.getKind()));
+    if (!rewrittenQuery.isA(SqlKind.QUERY)) {
+      throw new ValidationException(StringUtils.format("Cannot execute [%s].", rewrittenQuery.getKind()));
     }
-    final Granularity ingestionGranularity = ingestNode().getPartitionedBy();
     if (ingestionGranularity == null) {
       throw new ValidationException(StringUtils.format(
           "%s statements must specify a PARTITIONED BY clause explicitly",
@@ -149,7 +144,7 @@ public abstract class IngestHandler extends QueryHandler
     catch (JsonProcessingException e) {
       throw new ValidationException("Invalid partition granularity");
     }
-    super.validate();
+    validatedQueryNode = validate(rewrittenQuery);
     // Check if CTX_SQL_OUTER_LIMIT is specified and fail the query if it is. CTX_SQL_OUTER_LIMIT being provided causes
     // the number of rows inserted to be limited which is likely to be confusing and unintended.
     if (handlerContext.queryContextMap().get(PlannerContext.CTX_SQL_OUTER_LIMIT) != null) {
@@ -162,6 +157,12 @@ public abstract class IngestHandler extends QueryHandler
       );
     }
     resourceActions.add(new ResourceAction(new Resource(targetDatasource, ResourceType.DATASOURCE), Action.WRITE));
+  }
+
+  @Override
+  protected SqlNode validatedQueryNode()
+  {
+    return validatedQueryNode;
   }
 
   @Override
@@ -259,23 +260,14 @@ public abstract class IngestHandler extends QueryHandler
     private final DruidSqlInsert sqlNode;
 
     public InsertHandler(
-        SqlStatementHandler.HandlerContext handlerContext,
-        DruidSqlInsert sqlNode,
+        HandlerContext handlerContext,
+        DruidSqlInsert insertNode,
         SqlExplain explain
     ) throws ValidationException
     {
-      super(
-          handlerContext,
-          sqlNode,
-          convertQuery(sqlNode),
-          explain);
-      this.sqlNode = sqlNode;
-    }
-
-    @Override
-    public SqlNode sqlNode()
-    {
-      return sqlNode;
+      super(handlerContext, explain);
+      this.sqlNode = insertNode;
+      handlerContext.hook().captureInsert(insertNode);
     }
 
     @Override
@@ -307,23 +299,13 @@ public abstract class IngestHandler extends QueryHandler
 
     public ReplaceHandler(
         SqlStatementHandler.HandlerContext handlerContext,
-        DruidSqlReplace sqlNode,
+        DruidSqlReplace replaceNode,
         SqlExplain explain
     ) throws ValidationException
     {
-      super(
-          handlerContext,
-          sqlNode,
-          convertQuery(sqlNode),
-          explain
-      );
-      this.sqlNode = sqlNode;
-    }
-
-    @Override
-    public SqlNode sqlNode()
-    {
-      return sqlNode;
+      super(handlerContext, explain);
+      this.sqlNode = replaceNode;
+      handlerContext.hook().captureInsert(replaceNode);
     }
 
     @Override

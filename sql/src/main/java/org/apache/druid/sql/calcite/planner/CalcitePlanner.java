@@ -48,12 +48,17 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexExecutor;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.sql.SqlFunctionCategory;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorTable;
+import org.apache.calcite.sql.SqlSyntax;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.util.ChainedSqlOperatorTable;
 import org.apache.calcite.sql.validate.SqlConformance;
+import org.apache.calcite.sql.validate.SqlNameMatcher;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.RelDecorrelator;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
@@ -135,7 +140,27 @@ public class CalcitePlanner implements Planner, ViewExpander
                 CalciteSchema.from(defaultSchema).path(null),
                 DruidTypeSystem.TYPE_FACTORY,
                 connectionConfig
-            )));
+            )
+       )
+    )
+    {
+      @Override
+      public void lookupOperatorOverloads(final SqlIdentifier opName,
+          SqlFunctionCategory category,
+          SqlSyntax syntax,
+          List<SqlOperator> operatorList,
+          SqlNameMatcher nameMatcher
+      ) {
+        // Workaround for a Calcite bug. Built-in operators have no name: opName
+        // is null. The "standard" operator table special-cases null names. The
+        // chained one just goes ahead and dereferences the (null) opName. This
+        // hack makes the chained version work like the base version.
+        if (opName == null) {
+          return;
+        }
+        super.lookupOperatorOverloads(opName, category, syntax, operatorList, nameMatcher);
+      }
+    };
     reset();
   }
 

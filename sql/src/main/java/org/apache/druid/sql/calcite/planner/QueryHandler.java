@@ -90,26 +90,22 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
 {
   static final EmittingLogger log = new EmittingLogger(QueryHandler.class);
 
-  protected SqlNode queryNode;
   protected SqlExplain explain;
-  protected SqlNode validatedQueryNode;
   private boolean isPrepared;
   protected RelRoot rootQueryRel;
   private PrepareResult prepareResult;
   protected RexBuilder rexBuilder;
 
-  public QueryHandler(SqlStatementHandler.HandlerContext handlerContext, SqlNode sqlNode, SqlExplain explain)
+  public QueryHandler(HandlerContext handlerContext, SqlExplain explain)
   {
     super(handlerContext);
-    this.queryNode = sqlNode;
     this.explain = explain;
   }
 
-  @Override
-  public void validate() throws ValidationException
+  protected SqlNode validate(SqlNode root) throws ValidationException
   {
     CalcitePlanner planner = handlerContext.planner();
-    validatedQueryNode = planner.validate(rewriteParameters(queryNode));
+    SqlNode validatedQueryNode = planner.validate(rewriteParameters(root));
 
     final SqlValidator validator = planner.getValidator();
     SqlResourceCollectorShuttle resourceCollectorShuttle = new SqlResourceCollectorShuttle(
@@ -118,7 +114,10 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
     );
     validatedQueryNode.accept(resourceCollectorShuttle);
     resourceActions = resourceCollectorShuttle.getResourceActions();
+    return validatedQueryNode;
   }
+
+  protected abstract SqlNode validatedQueryNode();
 
   private SqlNode rewriteParameters(SqlNode original)
   {
@@ -145,6 +144,7 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
       return;
     }
     isPrepared = true;
+    SqlNode validatedQueryNode = validatedQueryNode();
     rootQueryRel = handlerContext.planner().rel(validatedQueryNode);
     handlerContext.hook().captureQueryRel(rootQueryRel);
     final RelDataTypeFactory typeFactory = rootQueryRel.rel.getCluster().getTypeFactory();
@@ -597,61 +597,5 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
         "Query not supported. %s SQL was: %s", errorMessage,
         handlerContext.plannerContext().getSql()
     );
-  }
-
-  public static class SelectHandler extends QueryHandler
-  {
-    private final SqlNode sqlNode;
-
-    public SelectHandler(
-        HandlerContext handlerContext,
-        SqlNode sqlNode,
-        SqlExplain explain)
-    {
-      super(handlerContext, sqlNode, explain);
-      this.sqlNode = sqlNode;
-    }
-
-    @Override
-    public SqlNode sqlNode()
-    {
-      return sqlNode;
-    }
-
-    @Override
-    public void validate() throws ValidationException
-    {
-      if (!handlerContext.plannerContext().engineHasFeature(EngineFeature.CAN_SELECT)) {
-        throw new ValidationException(StringUtils.format(
-            "Cannot execute SELECT with SQL engine '%s'.",
-            handlerContext.engine().name())
-        );
-      }
-      super.validate();
-    }
-
-    @Override
-    protected RelDataType returnedRowType()
-    {
-      final RelDataTypeFactory typeFactory = rootQueryRel.rel.getCluster().getTypeFactory();
-      return handlerContext.engine().resultTypeForSelect(
-          typeFactory,
-          rootQueryRel.validatedRowType
-      );
-    }
-
-    @Override
-    protected PlannerResult planForDruid() throws ValidationException
-    {
-      return planWithDruidConvention();
-    }
-
-    @Override
-    protected QueryMaker buildQueryMaker(final RelRoot rootQueryRel) throws ValidationException
-    {
-      return handlerContext.engine().buildQueryMakerForSelect(
-          rootQueryRel,
-          handlerContext.plannerContext());
-    }
   }
 }

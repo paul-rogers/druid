@@ -60,22 +60,43 @@ public class SqlPlanningException extends BadQueryException
 
   public SqlPlanningException(SqlParseException e)
   {
-    this(PlanningError.SQL_PARSE_ERROR, e.getMessage());
+    this(e, PlanningError.SQL_PARSE_ERROR, e.getMessage());
   }
 
   public SqlPlanningException(ValidationException e)
   {
-    this(PlanningError.VALIDATION_ERROR, e.getMessage());
+    this(e, PlanningError.VALIDATION_ERROR, e.getMessage());
   }
 
   public SqlPlanningException(CalciteContextException e)
   {
-    this(PlanningError.VALIDATION_ERROR, e.getMessage());
+    this(e, PlanningError.VALIDATION_ERROR, e.getMessage());
   }
 
   public SqlPlanningException(PlanningError planningError, String errorMessage)
   {
-    this(planningError.errorCode, errorMessage, planningError.errorClass);
+    this(
+        null,
+        planningError.errorCode,
+        errorMessage,
+        planningError.errorClass
+    );
+  }
+
+  /**
+   * Constructor which preserves the source exception. Essential during debugging
+   * to see what really failed. If we don't want to show the user the underlying
+   * error, then don't serialize it out to the user. We must still preserve the
+   * cause internally to save time and sanity for developers.
+   */
+  public SqlPlanningException(Exception e, PlanningError planningError, String errorMessage)
+  {
+    this(
+        e,
+        planningError.errorCode,
+        errorMessage,
+        planningError.errorClass
+    );
   }
 
   private SqlPlanningException(

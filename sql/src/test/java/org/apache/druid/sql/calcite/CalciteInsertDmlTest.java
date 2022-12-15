@@ -440,7 +440,7 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
         )
         .expectValidationError(
             SqlPlanningException.class,
-            "CLUSTERED BY found before PARTITIONED BY. In Druid, the CLUSTERED BY clause must follow the PARTITIONED BY clause"
+            "INSERT statements must specify a PARTITIONED BY clause explicitly"
         )
         .verify();
   }
@@ -587,7 +587,7 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
                 ImmutableList.of()
             )
     );
-    Assert.assertEquals("INSERT statements must specify PARTITIONED BY clause explicitly", e.getMessage());
+    Assert.assertEquals("INSERT statements must specify a PARTITIONED BY clause explicitly", e.getMessage());
     didTest = true;
   }
 
