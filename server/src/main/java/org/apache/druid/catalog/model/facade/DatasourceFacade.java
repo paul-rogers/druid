@@ -19,6 +19,7 @@
 
 package org.apache.druid.catalog.model.facade;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.catalog.model.ColumnSpec;
 import org.apache.druid.catalog.model.Columns;
@@ -27,11 +28,13 @@ import org.apache.druid.catalog.model.TypeParser;
 import org.apache.druid.catalog.model.TypeParser.ParsedType;
 import org.apache.druid.catalog.model.table.ClusterKeySpec;
 import org.apache.druid.catalog.model.table.DatasourceDefn;
+import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.segment.column.ColumnType;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -105,9 +108,15 @@ public class DatasourceFacade extends TableFacade
           return null;
       }
     }
+
+    public String sqlStorageType()
+    {
+      return Columns.sqlType(druidType());
+    }
   }
 
   private final List<ColumnFacade> columns;
+  private final Map<String, ColumnFacade> columnIndex;
   private final boolean hasRollup;
 
   public DatasourceFacade(ResolvedTable resolved)
@@ -125,11 +134,22 @@ public class DatasourceFacade extends TableFacade
       }
     }
     this.hasRollup = hasMeasure;
+    ImmutableMap.Builder<String, ColumnFacade> builder = ImmutableMap.builder();
+    for (ColumnFacade col : columns) {
+      builder.put(col.spec.name(), col);
+    }
+    columnIndex =  builder.build();
   }
 
-  public String segmentGranularity()
+  public String segmentGranularityString()
   {
     return stringProperty(DatasourceDefn.SEGMENT_GRANULARITY_PROPERTY);
+  }
+
+  public Granularity segmentGranularity()
+  {
+    String definedGranularity = segmentGranularityString();
+    return definedGranularity == null ? null : CatalogUtils.asDruidGranularity(definedGranularity);
   }
 
   public Integer targetSegmentRows()
@@ -172,6 +192,11 @@ public class DatasourceFacade extends TableFacade
     return columns;
   }
 
+  public ColumnFacade column(String name)
+  {
+    return columnIndex.get(name);
+  }
+
   public boolean hasRollup()
   {
     return hasRollup;
@@ -179,7 +204,7 @@ public class DatasourceFacade extends TableFacade
 
   public String rollupGrain()
   {
-    int posn = CatalogUtils.findColumn(columns(), Columns.TIME_COLUMN);
-    return posn == -1 ? null : columns.get(posn).type().timeGrain();
+    ColumnFacade col = columnIndex.get(Columns.TIME_COLUMN);
+    return col == null ? null : col.type().timeGrain();
   }
 }

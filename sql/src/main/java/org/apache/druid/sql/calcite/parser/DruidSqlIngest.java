@@ -59,6 +59,8 @@ public abstract class DruidSqlIngest extends SqlInsert
     this.clusteredBy = clusteredBy;
   }
 
+  public abstract DruidSqlIngest copyWithQuery(SqlNode rewrittenQuery);
+
   public Granularity getPartitionedBy()
   {
     return partitionedBy;

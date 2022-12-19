@@ -20,6 +20,7 @@
 package org.apache.druid.sql.calcite.expression;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -46,9 +47,12 @@ import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.segment.virtual.VirtualizedColumnSelectorFactory;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
+import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
+import org.apache.druid.sql.calcite.planner.PlannerToolbox;
+import org.apache.druid.sql.calcite.planner.SimplePlannerToolbox;
 import org.apache.druid.sql.calcite.rel.VirtualColumnRegistry;
 import org.apache.druid.sql.calcite.schema.DruidSchema;
 import org.apache.druid.sql.calcite.schema.DruidSchemaCatalog;
@@ -76,8 +80,7 @@ import java.util.stream.Collectors;
 class ExpressionTestHelper
 {
   private static final JoinableFactoryWrapper JOINABLE_FACTORY_WRAPPER = CalciteTests.createJoinableFactoryWrapper();
-  private static final PlannerContext PLANNER_CONTEXT = PlannerContext.create(
-      "SELECT 1", // The actual query isn't important for this test
+  private static final PlannerToolbox PLANNER_TOOLBOX = new SimplePlannerToolbox(
       CalciteTests.createOperatorTable(),
       CalciteTests.createExprMacroTable(),
       CalciteTests.getJsonMapper(),
@@ -89,11 +92,15 @@ class ExpressionTestHelper
               NamedViewSchema.NAME, new NamedViewSchema(EasyMock.createMock(ViewSchema.class))
           )
       ),
+      JOINABLE_FACTORY_WRAPPER,
+      CatalogResolver.NULL_RESOLVER
+  );
+  private static final PlannerContext PLANNER_CONTEXT = PlannerContext.create(
+      PLANNER_TOOLBOX,
+      "SELECT 1", // The actual query isn't important for this test
       null, /* Don't need engine */
       Collections.emptyMap(),
-      JOINABLE_FACTORY_WRAPPER,
-      null,
-      CatalogResolver.NULL_RESOLVER
+      null
   );
 
   private final RowSignature rowSignature;

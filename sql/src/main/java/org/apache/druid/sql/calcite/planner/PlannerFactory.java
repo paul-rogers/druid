@@ -52,7 +52,7 @@ import org.apache.druid.sql.calcite.schema.DruidSchemaName;
 import java.util.Map;
 import java.util.Properties;
 
-public class PlannerFactory
+public class PlannerFactory implements PlannerToolbox
 {
   static final SqlParser.Config PARSER_CONFIG = SqlParser
       .configBuilder()
@@ -112,17 +112,11 @@ public class PlannerFactory
   )
   {
     final PlannerContext context = PlannerContext.create(
+        this,
         sql,
-        operatorTable,
-        macroTable,
-        jsonMapper,
-        plannerConfig,
-        rootSchema,
         engine,
         queryContext,
-        joinableFactoryWrapper,
-        hook,
-        catalog
+        hook
     );
 
     return new DruidPlanner(buildFrameworkConfig(context), context, engine, hook);
@@ -205,5 +199,53 @@ public class PlannerFactory
           }
         })
         .build();
+  }
+
+  @Override
+  public DruidOperatorTable operatorTable()
+  {
+    return operatorTable;
+  }
+
+  @Override
+  public ExprMacroTable exprMacroTable()
+  {
+    return macroTable;
+  }
+
+  @Override
+  public ObjectMapper jsonMapper()
+  {
+    return jsonMapper;
+  }
+
+  @Override
+  public PlannerConfig plannerConfig()
+  {
+    return plannerConfig;
+  }
+
+  @Override
+  public JoinableFactoryWrapper joinableFactoryWrapper()
+  {
+    return joinableFactoryWrapper;
+  }
+
+  @Override
+  public CatalogResolver catalogResolver()
+  {
+    return catalog;
+  }
+
+  @Override
+  public String druidSchemaName()
+  {
+    return druidSchemaName;
+  }
+
+  @Override
+  public DruidSchemaCatalog rootSchema()
+  {
+    return rootSchema;
   }
 }

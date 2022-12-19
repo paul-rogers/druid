@@ -73,6 +73,24 @@ public class DruidSqlReplace extends DruidSqlIngest
     this.replaceTimeQuery = replaceTimeQuery;
   }
 
+  public DruidSqlReplace(
+      @Nonnull DruidSqlReplace replaceNode,
+      @Nullable SqlNode source
+  )
+  {
+    super(
+        replaceNode.getParserPosition(),
+        (SqlNodeList) replaceNode.getOperandList().get(0), // No better getter to extract this
+        replaceNode.getTargetTable(),
+        source,
+        replaceNode.getTargetColumnList(),
+        replaceNode.partitionedBy,
+        replaceNode.partitionedByStringForUnparse,
+        replaceNode.clusteredBy
+    );
+    this.replaceTimeQuery = replaceNode.replaceTimeQuery;
+  }
+
   public SqlNode getReplaceTimeQuery()
   {
     return replaceTimeQuery;
@@ -121,5 +139,11 @@ public class DruidSqlReplace extends DruidSqlIngest
       }
       writer.endList(frame);
     }
+  }
+
+  @Override
+  public DruidSqlIngest copyWithQuery(SqlNode rewrittenQuery)
+  {
+    return new DruidSqlReplace(this, rewrittenQuery);
   }
 }

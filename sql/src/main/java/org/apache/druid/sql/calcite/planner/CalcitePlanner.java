@@ -69,8 +69,10 @@ import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.tools.ValidationException;
 import org.apache.calcite.util.Pair;
+import org.apache.druid.sql.calcite.planner.DruidSqlValidator.ValidatorContext;
 
 import javax.annotation.Nullable;
+
 import java.io.Reader;
 import java.util.Arrays;
 import java.util.List;
@@ -79,7 +81,8 @@ import java.util.Properties;
 /**
  * Calcite planner. Clone of Calcite's
  * {@link  org.apache.calcite.prepare.PlannerImpl}, as of version 1.21,
- * but with the validator made accessible, and with the minimum of formatting
+ * but with the validator made accessible, with custom versions of the validator
+ * and SQL-to-rel converter, and with the minimum of formatting
  * changes needed to pass Druid's static checks. Note that the resulting code
  * is more Calcite-like than Druid-like. There seemed no value in restructuring
  * the code just to be more Druid-like any more than necessary to pass checkstyle.
@@ -91,8 +94,10 @@ public class CalcitePlanner implements Planner, ViewExpander
   private final FrameworkConfig frameworkConfig;
   private final Context context;
   private final CalciteConnectionConfig connectionConfig;
+  private final ValidatorContext validatorContext;
 
   /** Holds the trait definitions to be registered with planner. May be null. */
+  @SuppressWarnings("rawtypes")
   private @Nullable final List<RelTraitDef> traitDefs;
 
   private final SqlParser.Config parserConfig;
@@ -114,9 +119,10 @@ public class CalcitePlanner implements Planner, ViewExpander
   // set in STATE_5_CONVERT
   private RelRoot root;
 
-  public CalcitePlanner(FrameworkConfig config)
+  public CalcitePlanner(FrameworkConfig config, ValidatorContext validatorContext)
   {
     this.frameworkConfig = config;
+    this.validatorContext = validatorContext;
     this.defaultSchema = config.getDefaultSchema();
     this.programs = config.getPrograms();
     this.parserConfig = config.getParserConfig();
@@ -275,15 +281,25 @@ public class CalcitePlanner implements Planner, ViewExpander
     ensure(State.STATE_3_PARSED);
     final SqlConformance conformance = conformance();
     final CalciteCatalogReader catalogReader = createCatalogReader();
-    this.validator =
-        new BaseDruidSqlValidator(operatorTable, catalogReader, typeFactory,
-            conformance);
+
+    // Use a DruidSqlValidator to handle Druid extensions such as INSERT and REPLACE
+    this.validator = new DruidSqlValidator(
+        operatorTable,
+        catalogReader,
+        typeFactory,
+        conformance,
+        validatorContext
+    );
     this.validator.setIdentifierExpansion(true);
     try {
       validatedSqlNode = validator.validate(sqlNode);
     }
     catch (RuntimeException e) {
-      throw new ValidationException(e);
+      // Change from Calcite: pass the message explicitly to avoid messages like:
+      // foo.bar.MyException: The real message here
+      // By passing the message, get get the simpler form:
+      // The real message here
+      throw new ValidationException(e.getMessage(), e);
     }
     state = State.STATE_4_VALIDATED;
     return validatedSqlNode;
@@ -327,8 +343,10 @@ public class CalcitePlanner implements Planner, ViewExpander
         .withTrimUnusedFields(false)
         .withConvertTableAccess(false)
         .build();
+
+    // Use the DruidSqlToRelConverter to handle Druid's specialized INSERT/REPLACE semantics
     final SqlToRelConverter sqlToRelConverter =
-        new SqlToRelConverter(this, validator,
+        new DruidSqlToRelConverter(this, validator,
             createCatalogReader(), cluster, convertletTable, config);
     root =
         sqlToRelConverter.convertQuery(validatedSqlNode, false, true);

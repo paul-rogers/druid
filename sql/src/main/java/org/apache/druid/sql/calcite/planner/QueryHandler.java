@@ -369,7 +369,7 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
       }
       final Set<Resource> resources =
           plannerContext.getResourceActions().stream().map(ResourceAction::getResource).collect(Collectors.toSet());
-      resourcesString = plannerContext.getJsonMapper().writeValueAsString(resources);
+      resourcesString = plannerContext.getPlannerToolbox().jsonMapper().writeValueAsString(resources);
     }
     catch (JsonProcessingException jpe) {
       // this should never happen, we create the Resources here, not a user

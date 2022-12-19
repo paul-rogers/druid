@@ -49,7 +49,6 @@ import org.apache.druid.sql.calcite.table.DatasourceTable.EffectiveMetadata;
 import org.apache.druid.sql.calcite.table.DatasourceTable.PhysicalDatasourceMetadata;
 import org.apache.druid.sql.calcite.table.DruidTable;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.Collections;
@@ -109,12 +108,12 @@ public class LiveCatalogResolver implements CatalogResolver
   private void applySegmentGranularity(DruidSqlIngest insert, DatasourceFacade table)
   {
     // Catalog has no granularity. Accept whatever the query provides.
-    String definedGranularity = table.segmentGranularity();
+    String definedGranularity = table.segmentGranularityString();
     if (definedGranularity == null) {
       return;
     }
 
-    // The query has no granularity: just apply the catalog granulrity.
+    // The query has no granularity: just apply the catalog granularity.
     if (insert.getPartitionedBy() == null) {
       insert.updateParitionedBy(
           CatalogUtils.asDruidGranularity(definedGranularity),
@@ -231,35 +230,25 @@ public class LiveCatalogResolver implements CatalogResolver
     return new DatasourceFacade(table);
   }
 
+  /**
+   * Create a {@link DruidTable} based on the physical segments, catalog entry, or both.
+   */
   @Override
   public DruidTable resolveDatasource(String name, PhysicalDatasourceMetadata dsMetadata)
   {
-    DruidTable table = mergeMetadata(name, dsMetadata);
-    if (table != null) {
-      return table;
-    } else if (dsMetadata == null) {
-      return null;
-    } else {
-      return new DatasourceTable(dsMetadata);
-    }
-  }
-
-  private DruidTable mergeMetadata(
-      final String name,
-      @Nullable final PhysicalDatasourceMetadata dsMetadata
-  )
-  {
     DatasourceFacade dsSpec = datasourceSpec(name);
-    if (dsSpec == null) {
-      return null;
-    }
-    if (dsSpec.columns().isEmpty()) {
-      return null;
-    }
 
+    // No catalog metadata. If there is no physical metadata, then the
+    // datasource does not exist. Else, if there is physical metadata, the
+    // datasource is based entirely on the physical information.
+    if (dsSpec == null) {
+      return dsMetadata == null ? null : new DatasourceTable(dsMetadata);
+    }
     if (dsMetadata == null) {
+      // Datasource exists only in the catalog: no physical segments.
       return emptyDatasource(name, dsSpec);
     } else {
+      // Datasource exists as both segments and a catalog entry.
       return mergeDatasource(name, dsMetadata, dsSpec);
     }
   }
@@ -296,7 +285,7 @@ public class LiveCatalogResolver implements CatalogResolver
     return new DatasourceTable(
         mergedMetadata.rowSignature(),
         mergedMetadata,
-        new EffectiveMetadata(columns, true)
+        new EffectiveMetadata(dsSpec, columns, true)
     );
   }
 
@@ -364,7 +353,7 @@ public class LiveCatalogResolver implements CatalogResolver
       builder.add(colName, physicalType);
     }
 
-    EffectiveMetadata effectiveMetadata = EffectiveMetadata.fromPhysical(columns);
+    EffectiveMetadata effectiveMetadata = new EffectiveMetadata(dsSpec, columns, false);
     return new DatasourceTable(builder.build(), dsMetadata, effectiveMetadata);
   }
 }

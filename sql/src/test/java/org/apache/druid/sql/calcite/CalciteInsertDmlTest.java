@@ -430,6 +430,176 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   }
 
   @Test
+  public void testInsertClusteredByWithInvalidOrdinalLow()
+  {
+    testIngestionQuery()
+        .sql(
+            "INSERT INTO druid.dst "
+            + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
+            + "PARTITIONED BY FLOOR(__time TO DAY)\n"
+            + "CLUSTERED BY 0"
+        )
+        .expectValidationError(
+            SqlPlanningException.class,
+            "CLUSTERED BY ordinal 0 is not valid"
+        )
+        .verify();
+  }
+
+  @Test
+  public void testInsertClusteredByWithInvalidOrdinalHigh()
+  {
+    testIngestionQuery()
+        .sql(
+            "INSERT INTO druid.dst "
+            + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
+            + "PARTITIONED BY FLOOR(__time TO DAY)\n"
+            + "CLUSTERED BY 5"
+        )
+        .expectValidationError(
+            SqlPlanningException.class,
+            "CLUSTERED BY ordinal 5 is not valid"
+        )
+        .verify();
+  }
+
+  @Test
+  public void testInsertClusteredByWithTimeOrdinal()
+  {
+    testIngestionQuery()
+        .sql(
+            "INSERT INTO druid.dst "
+            + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
+            + "PARTITIONED BY FLOOR(__time TO DAY)\n"
+            + "CLUSTERED BY 1"
+        )
+        .expectValidationError(
+            SqlPlanningException.class,
+            "Do not include __time in the CLUSTERED BY clause: it is managed by PARTITIONED BY"
+        )
+        .verify();
+  }
+
+  @Test
+  public void testInsertClusteredByWithDuplicateOrdinal()
+  {
+    testIngestionQuery()
+        .sql(
+            "INSERT INTO druid.dst "
+            + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
+            + "PARTITIONED BY FLOOR(__time TO DAY)\n"
+            + "CLUSTERED BY 3, 2, 3"
+        )
+        .expectValidationError(
+            SqlPlanningException.class,
+            "Duplicate CLUSTERED BY key: 3"
+        )
+        .verify();
+  }
+
+  @Test
+  public void testInsertClusteredByWithInvalidName()
+  {
+    testIngestionQuery()
+        .sql(
+            "INSERT INTO druid.dst "
+            + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
+            + "PARTITIONED BY FLOOR(__time TO DAY)\n"
+            + "CLUSTERED BY bogus"
+        )
+        .expectValidationError(
+            SqlPlanningException.class,
+            "CLUSTERED BY key column 'bogus' is not valid"
+        )
+        .verify();
+  }
+
+  @Test
+  public void testInsertClusteredByWithTime()
+  {
+    testIngestionQuery()
+        .sql(
+            "INSERT INTO druid.dst "
+            + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
+            + "PARTITIONED BY FLOOR(__time TO DAY)\n"
+            + "CLUSTERED BY __time"
+        )
+        .expectValidationError(
+            SqlPlanningException.class,
+            "Do not include __time in the CLUSTERED BY clause: it is managed by PARTITIONED BY"
+        )
+        .verify();
+  }
+
+  @Test
+  public void testInsertClusteredByWithCompoundName()
+  {
+    testIngestionQuery()
+        .sql(
+            "INSERT INTO druid.dst "
+            + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
+            + "PARTITIONED BY FLOOR(__time TO DAY)\n"
+            + "CLUSTERED BY foo.dim1"
+        )
+        .expectValidationError(
+            SqlPlanningException.class,
+            "CLUSTERED BY keys must be a simple name: 'foo.dim1'"
+        )
+        .verify();
+  }
+
+  @Test
+  public void testInsertClusteredByWithDuplicateName()
+  {
+    testIngestionQuery()
+        .sql(
+            "INSERT INTO druid.dst "
+            + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
+            + "PARTITIONED BY FLOOR(__time TO DAY)\n"
+            + "CLUSTERED BY dim1, floor_m1, dim1"
+        )
+        .expectValidationError(
+            SqlPlanningException.class,
+            "Duplicate CLUSTERED BY key: 'dim1'"
+        )
+        .verify();
+  }
+
+  @Test
+  public void testInsertClusteredByWithDuplicateOrdinalAndName()
+  {
+    testIngestionQuery()
+        .sql(
+            "INSERT INTO druid.dst "
+            + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
+            + "PARTITIONED BY FLOOR(__time TO DAY)\n"
+            + "CLUSTERED BY 3, 2, dim1"
+        )
+        .expectValidationError(
+            SqlPlanningException.class,
+            "Duplicate CLUSTERED BY key: 'dim1'"
+        )
+        .verify();
+  }
+
+  @Test
+  public void testInsertClusteredByWithDuplicateNameAndOrdinal()
+  {
+    testIngestionQuery()
+        .sql(
+            "INSERT INTO druid.dst "
+            + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
+            + "PARTITIONED BY FLOOR(__time TO DAY)\n"
+            + "CLUSTERED BY dim1, 2, 3"
+        )
+        .expectValidationError(
+            SqlPlanningException.class,
+            "Duplicate CLUSTERED BY key: 3"
+        )
+        .verify();
+  }
+
+  @Test
   public void testInsertWithoutPartitionedByWithClusteredBy()
   {
     testIngestionQuery()

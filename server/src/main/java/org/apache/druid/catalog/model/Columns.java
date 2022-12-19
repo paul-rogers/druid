@@ -20,6 +20,7 @@
 package org.apache.druid.catalog.model;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
@@ -53,6 +54,16 @@ public class Columns
         .put(DOUBLE, ColumnType.DOUBLE)
         .put(VARCHAR, ColumnType.STRING)
         .build();
+
+  public static final Map<ColumnType, String> DRUID_TO_SQL_TYPES;
+
+  static {
+      Builder<ColumnType, String> builder = new ImmutableMap.Builder<ColumnType, String>();
+      for (Map.Entry<String, ColumnType> entry : SQL_TO_DRUID_TYPES.entrySet()) {
+        builder.put(entry.getValue(), entry.getKey());
+      }
+      DRUID_TO_SQL_TYPES = builder.build();
+  }
 
   private Columns()
   {
@@ -105,5 +116,10 @@ public class Columns
       builder.add(col.name(), druidType);
     }
     return builder.build();
+  }
+
+  public static String sqlType(ColumnType druidType)
+  {
+    return DRUID_TO_SQL_TYPES.get(druidType);
   }
 }

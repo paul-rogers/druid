@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalTableScan;
+import org.apache.druid.catalog.model.facade.DatasourceFacade;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.segment.column.ColumnType;
@@ -87,7 +88,7 @@ public class DatasourceTable extends DruidTable
       return broadcast;
     }
 
-    public EffectiveMetadata toEffectiveMetadata()
+    public Map<String, EffectiveColumnMetadata> toEffectiveColumns()
     {
       Map<String, EffectiveColumnMetadata> columns = new HashMap<>();
       for (int i = 0; i < rowSignature.size(); i++) {
@@ -97,7 +98,12 @@ public class DatasourceTable extends DruidTable
         EffectiveColumnMetadata colMetadata = EffectiveColumnMetadata.fromPhysical(colName, colType);
         columns.put(colName, colMetadata);
       }
-      return EffectiveMetadata.fromPhysical(columns);
+      return columns;
+    }
+
+    public EffectiveMetadata toEffectiveMetadata()
+    {
+      return new EffectiveMetadata(null, toEffectiveColumns(), false);
     }
 
     @Override
@@ -174,23 +180,34 @@ public class DatasourceTable extends DruidTable
 
   public static class EffectiveMetadata
   {
+    private final DatasourceFacade catalogMetadata;
     private final boolean isEmpty;
     private final Map<String, EffectiveColumnMetadata> columns;
 
-    public EffectiveMetadata(Map<String, EffectiveColumnMetadata> columns, boolean isEmpty)
+    public EffectiveMetadata(
+        final DatasourceFacade catalogMetadata,
+        final Map<String, EffectiveColumnMetadata> columns,
+        final boolean isEmpty
+    )
     {
+      this.catalogMetadata = catalogMetadata;
       this.isEmpty = isEmpty;
       this.columns = columns;
     }
 
-    public static EffectiveMetadata fromPhysical(Map<String, EffectiveColumnMetadata> columns)
+    public DatasourceFacade catalogMetadata()
     {
-      return new EffectiveMetadata(columns, false);
+      return catalogMetadata;
     }
 
     public EffectiveColumnMetadata column(String name)
     {
       return columns.get(name);
+    }
+
+    public boolean isEmpty()
+    {
+      return isEmpty;
     }
 
     @Override

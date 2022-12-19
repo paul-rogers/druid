@@ -82,7 +82,7 @@ public class DatasourceTableTest
     table.validate();
     DatasourceFacade facade = new DatasourceFacade(registry.resolve(table.spec()));
     assertFalse(facade.hasRollup());
-    assertEquals("P1D", facade.segmentGranularity());
+    assertEquals("P1D", facade.segmentGranularityString());
     assertNull(facade.targetSegmentRows());
     assertTrue(facade.hiddenColumns().isEmpty());
     assertFalse(facade.isSealed());
@@ -139,7 +139,7 @@ public class DatasourceTableTest
     TableSpec spec = new TableSpec(DatasourceDefn.TABLE_TYPE, props, null);
     DatasourceFacade facade = new DatasourceFacade(registry.resolve(spec));
     assertFalse(facade.hasRollup());
-    assertEquals("P1D", facade.segmentGranularity());
+    assertEquals("P1D", facade.segmentGranularityString());
     assertEquals(1_000_000, (int) facade.targetSegmentRows());
     assertEquals(Arrays.asList("foo", "bar"), facade.hiddenColumns());
     assertTrue(facade.isSealed());

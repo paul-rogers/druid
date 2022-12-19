@@ -235,7 +235,7 @@ public class CatalogSyncTest
       assertEquals(Columns.VARCHAR, cols.get(1).sqlType());
 
       DatasourceFacade ds = new DatasourceFacade(catalog.resolveTable(id));
-      assertEquals("P1D", ds.segmentGranularity());
+      assertEquals("P1D", ds.segmentGranularityString());
     }
     {
       TableId id = TableId.datasource("table2");
@@ -256,7 +256,7 @@ public class CatalogSyncTest
       assertEquals("BIGINT", cols.get(2).sqlType());
 
       DatasourceFacade ds = new DatasourceFacade(catalog.resolveTable(id));
-      assertEquals("P1D", ds.segmentGranularity());
+      assertEquals("P1D", ds.segmentGranularityString());
     }
 
     assertNull(catalog.getTable(TableId.datasource("table3")));
@@ -367,7 +367,7 @@ public class CatalogSyncTest
     {
       TableId id = TableId.datasource("table1");
       DatasourceFacade ds = new DatasourceFacade(catalog.resolveTable(id));
-      assertEquals("P1D", ds.segmentGranularity());
+      assertEquals("P1D", ds.segmentGranularityString());
       assertEquals("bar", ds.stringProperty("foo"));
     }
     {

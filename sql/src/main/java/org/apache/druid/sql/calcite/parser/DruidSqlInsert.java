@@ -66,6 +66,23 @@ public class DruidSqlInsert extends DruidSqlIngest
     );
   }
 
+  public DruidSqlInsert(
+      @Nonnull DruidSqlInsert insertNode,
+      @Nullable SqlNode source
+  )
+  {
+    super(
+        insertNode.getParserPosition(),
+        (SqlNodeList) insertNode.getOperandList().get(0), // No better getter to extract this
+        insertNode.getTargetTable(),
+        source,
+        insertNode.getTargetColumnList(),
+        insertNode.partitionedBy,
+        insertNode.partitionedByStringForUnparse,
+        insertNode.clusteredBy
+    );
+  }
+
   @Nonnull
   @Override
   public SqlOperator getOperator()
@@ -87,5 +104,11 @@ public class DruidSqlInsert extends DruidSqlIngest
       }
       writer.endList(frame);
     }
+  }
+
+  @Override
+  public DruidSqlIngest copyWithQuery(SqlNode rewrittenQuery)
+  {
+    return new DruidSqlInsert(this, rewrittenQuery);
   }
 }
