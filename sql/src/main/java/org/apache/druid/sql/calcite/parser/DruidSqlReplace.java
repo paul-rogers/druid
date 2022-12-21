@@ -20,14 +20,13 @@
 package org.apache.druid.sql.calcite.parser;
 
 import org.apache.calcite.sql.SqlInsert;
-import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.druid.java.util.common.granularity.Granularity;
+import org.apache.druid.sql.calcite.planner.DruidSqlIngestOperator;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -40,8 +39,6 @@ import javax.annotation.Nullable;
 public class DruidSqlReplace extends DruidSqlIngest
 {
   public static final String SQL_REPLACE_TIME_CHUNKS = "sqlReplaceTimeChunks";
-
-  public static final SqlOperator OPERATOR = new SqlSpecialOperator("REPLACE", SqlKind.OTHER);
 
   private final SqlNode replaceTimeQuery;
 
@@ -100,7 +97,7 @@ public class DruidSqlReplace extends DruidSqlIngest
   @Override
   public SqlOperator getOperator()
   {
-    return OPERATOR;
+    return DruidSqlIngestOperator.REPLACE_OPERATOR;
   }
 
   @Override
@@ -139,11 +136,5 @@ public class DruidSqlReplace extends DruidSqlIngest
       }
       writer.endList(frame);
     }
-  }
-
-  @Override
-  public DruidSqlIngest copyWithQuery(SqlNode rewrittenQuery)
-  {
-    return new DruidSqlReplace(this, rewrittenQuery);
   }
 }

@@ -19,29 +19,15 @@
 
 package org.apache.druid.sql.calcite.planner;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Iterables;
-import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlIdentifier;
-import org.apache.calcite.sql.SqlInsert;
-import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlOrderBy;
 import org.apache.calcite.tools.ValidationException;
-import org.apache.calcite.util.Pair;
-import org.apache.druid.common.utils.IdUtils;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularity;
-import org.apache.druid.server.security.Action;
-import org.apache.druid.server.security.Resource;
-import org.apache.druid.server.security.ResourceAction;
-import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.calcite.parser.DruidSqlIngest;
 import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
 import org.apache.druid.sql.calcite.parser.DruidSqlParserUtils;
@@ -50,7 +36,6 @@ import org.apache.druid.sql.calcite.run.EngineFeature;
 import org.apache.druid.sql.calcite.run.QueryMaker;
 
 import java.util.List;
-import java.util.regex.Pattern;
 
 public abstract class IngestHandler extends QueryHandler
 {
@@ -85,82 +70,9 @@ public abstract class IngestHandler extends QueryHandler
           )
       );
     }
-//    targetDatasource = validateAndGetDataSourceForIngest();
     DruidSqlIngest ingestNode = ingestNode();
-
-//    // Resolve the datasource against the catalog, and fill in information from the catalog
-//    // where present.
-//    //
-//    // Should be done in the validator, but Druid doesn't use the validator for INSERT/REPLACE
-//    // nodes, so we do it ad-hoc here. The information should come from the Druid table
-//    // within the Calcite catalog. Since we're rolling our own, we just read from the
-//    // catalog directly (via a wrapper).
-//
-//    try {
-//      handlerContext.catalog().resolveInsert(
-//          ingestNode,
-//          targetDatasource,
-//          handlerContext.queryContextMap()
-//      );
-//    }
-//    catch (Exception e) {
-//      throw new ValidationException(e.getMessage(), e);
-//    }
-//    final Granularity ingestionGranularity = ingestNode.getPartitionedBy();
-//    final SqlNodeList clusteredBy = ingestNode.getClusteredBy();
-//    SqlNode rewrittenQuery = ingestNode.getSource();
-
-    // The following is done outside of the validator because it leads to a rewrite
-    // of the ingest node, which the validator was not designed to handle.
-
-//    // Check that an ORDER BY clause is not provided to the underlying query
-//    if (rewrittenQuery instanceof SqlOrderBy) {
-//      SqlOrderBy sqlOrderBy = (SqlOrderBy) rewrittenQuery;
-//      SqlNodeList orderByList = sqlOrderBy.orderList;
-//      if (!(orderByList == null || orderByList.equals(SqlNodeList.EMPTY))) {
-//        String opName = operationName();
-//        throw new ValidationException(StringUtils.format(
-//            "Cannot have ORDER BY on %s %s statement, use CLUSTERED BY instead.",
-//            "INSERT".equals(opName) ? "an" : "a",
-//            opName
-//        ));
-//      }
-//    }
-//    if (clusteredBy != null) {
-//      rewrittenQuery = DruidSqlParserUtils.convertClusterByToOrderBy(rewrittenQuery, ingestNode.getClusteredBy());
-//
-//      // This is ugly. We want to replace the source (which we probably should not do.)
-//      // Although SqlInsert provides a method to do that, it only accepts SqlSelect. So,
-//      // to do the replace, we have to copy the node. We can do that here before validation.
-//      // We CANNOT do it after validation because the validator will hold onto the node
-//      // we give it.
-//      // The right solution is to do the needed work later in processing, such as at conversion
-//      // time, but it will take more work to get there.
-//      ingestNode = ingestNode.copyWithQuery(rewrittenQuery);
-//    }
-
-//    if (!rewrittenQuery.isA(SqlKind.QUERY)) {
-//      throw new ValidationException(StringUtils.format("Cannot execute [%s].", rewrittenQuery.getKind()));
-//    }
-//    if (ingestionGranularity == null) {
-//      throw new ValidationException(StringUtils.format(
-//          "%s statements must specify a PARTITIONED BY clause explicitly",
-//          operationName()
-//      ));
-//    }
-//    try {
-//      PlannerContext plannerContext = handlerContext.plannerContext();
-//      plannerContext.queryContextMap().put(
-//          DruidSqlInsert.SQL_INSERT_SEGMENT_GRANULARITY,
-//          plannerContext.getPlannerToolbox().jsonMapper().writeValueAsString(ingestionGranularity)
-//      );
-//    }
-//    catch (JsonProcessingException e) {
-//      throw new ValidationException("Invalid partition granularity");
-//    }
     validate(ingestNode);
     validatedQueryNode = ingestNode.getSource();
-//    resourceActions.add(new ResourceAction(new Resource(targetDatasource, ResourceType.DATASOURCE), Action.WRITE));
   }
 
   @Override
@@ -177,58 +89,6 @@ public abstract class IngestHandler extends QueryHandler
         typeFactory,
         rootQueryRel.validatedRowType);
   }
-
-//  /**
-//   * Extract target datasource from a {@link SqlInsert}, and also validate that the ingestion is of a form we support.
-//   * Expects the target datasource to be either an unqualified name, or a name qualified by the default schema.
-//   */
-//  private String validateAndGetDataSourceForIngest() throws ValidationException
-//  {
-//    final SqlInsert insert = ingestNode();
-//    if (insert.isUpsert()) {
-//      throw new ValidationException("UPSERT is not supported.");
-//    }
-//
-//    if (insert.getTargetColumnList() != null) {
-//      throw new ValidationException(operationName() + " with a target column list is not supported.");
-//    }
-//
-//    final SqlIdentifier tableIdentifier = (SqlIdentifier) insert.getTargetTable();
-//    final String dataSource;
-//
-//    if (tableIdentifier.names.isEmpty()) {
-//      // I don't think this can happen, but include a branch for it just in case.
-//      throw new ValidationException(operationName() + " requires a target table.");
-//    } else if (tableIdentifier.names.size() == 1) {
-//      // Unqualified name.
-//      dataSource = Iterables.getOnlyElement(tableIdentifier.names);
-//    } else {
-//      // Qualified name.
-//      final String defaultSchemaName =
-//          Iterables.getOnlyElement(CalciteSchema.from(handlerContext.defaultSchema()).path(null));
-//
-//      if (tableIdentifier.names.size() == 2 && defaultSchemaName.equals(tableIdentifier.names.get(0))) {
-//        dataSource = tableIdentifier.names.get(1);
-//      } else {
-//        throw new ValidationException(
-//            StringUtils.format(
-//                "Cannot %s into %s because it is not a Druid datasource.",
-//                operationName(),
-//                tableIdentifier
-//            )
-//        );
-//      }
-//    }
-//
-//    try {
-//      IdUtils.validateId(operationName() + " dataSource", dataSource);
-//    }
-//    catch (IllegalArgumentException e) {
-//      throw new ValidationException(e.getMessage());
-//    }
-//
-//    return dataSource;
-//  }
 
   @Override
   protected PlannerResult planForDruid() throws ValidationException

@@ -390,7 +390,7 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   @Test
   public void testInsertWithClusteredBy()
   {
-    // Test correctness of the query when only CLUSTERED BY clause is present
+    // Test correctness of the query when only the CLUSTERED BY clause is present
     RowSignature targetRowSignature = RowSignature.builder()
                                                   .add("__time", ColumnType.LONG)
                                                   .add("floor_m1", ColumnType.FLOAT)
@@ -433,14 +433,14 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql(
-            "INSERT INTO druid.dst "
+            "INSERT INTO druid.dst\n"
             + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
             + "PARTITIONED BY FLOOR(__time TO DAY)\n"
             + "CLUSTERED BY 0"
         )
         .expectValidationError(
             SqlPlanningException.class,
-            "CLUSTERED BY ordinal 0 is not valid"
+            "At line 4, column 14: Ordinal out of range"
         )
         .verify();
   }
@@ -450,14 +450,14 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql(
-            "INSERT INTO druid.dst "
+            "INSERT INTO druid.dst\n"
             + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
             + "PARTITIONED BY FLOOR(__time TO DAY)\n"
             + "CLUSTERED BY 5"
         )
         .expectValidationError(
             SqlPlanningException.class,
-            "CLUSTERED BY ordinal 5 is not valid"
+            "At line 4, column 14: Ordinal out of range"
         )
         .verify();
   }
@@ -467,7 +467,7 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql(
-            "INSERT INTO druid.dst "
+            "INSERT INTO druid.dst\n"
             + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
             + "PARTITIONED BY FLOOR(__time TO DAY)\n"
             + "CLUSTERED BY 1"
@@ -484,7 +484,7 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql(
-            "INSERT INTO druid.dst "
+            "INSERT INTO druid.dst\n"
             + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
             + "PARTITIONED BY FLOOR(__time TO DAY)\n"
             + "CLUSTERED BY 3, 2, 3"
@@ -501,15 +501,15 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql(
-            "INSERT INTO druid.dst "
+            "INSERT INTO druid.dst\n"
             + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
             + "PARTITIONED BY FLOOR(__time TO DAY)\n"
             + "CLUSTERED BY bogus"
-        )
+         )
         .expectValidationError(
             SqlPlanningException.class,
-            "CLUSTERED BY key column 'bogus' is not valid"
-        )
+            "From line 4, column 14 to line 4, column 18: Column 'bogus' not found in any table"
+         )
         .verify();
   }
 
@@ -518,15 +518,15 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql(
-            "INSERT INTO druid.dst "
+            "INSERT INTO druid.dst\n"
             + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
             + "PARTITIONED BY FLOOR(__time TO DAY)\n"
             + "CLUSTERED BY __time"
-        )
+         )
         .expectValidationError(
             SqlPlanningException.class,
             "Do not include __time in the CLUSTERED BY clause: it is managed by PARTITIONED BY"
-        )
+         )
         .verify();
   }
 
@@ -535,15 +535,15 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql(
-            "INSERT INTO druid.dst "
+            "INSERT INTO druid.dst\n"
             + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
             + "PARTITIONED BY FLOOR(__time TO DAY)\n"
             + "CLUSTERED BY foo.dim1"
-        )
+         )
         .expectValidationError(
             SqlPlanningException.class,
             "CLUSTERED BY keys must be a simple name: 'foo.dim1'"
-        )
+         )
         .verify();
   }
 
@@ -552,14 +552,14 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql(
-            "INSERT INTO druid.dst "
+            "INSERT INTO druid.dst\n"
             + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
             + "PARTITIONED BY FLOOR(__time TO DAY)\n"
             + "CLUSTERED BY dim1, floor_m1, dim1"
         )
         .expectValidationError(
             SqlPlanningException.class,
-            "Duplicate CLUSTERED BY key: 'dim1'"
+            "Duplicate CLUSTERED BY key: dim1"
         )
         .verify();
   }
@@ -569,14 +569,14 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql(
-            "INSERT INTO druid.dst "
+            "INSERT INTO druid.dst\n"
             + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
             + "PARTITIONED BY FLOOR(__time TO DAY)\n"
             + "CLUSTERED BY 3, 2, dim1"
         )
         .expectValidationError(
             SqlPlanningException.class,
-            "Duplicate CLUSTERED BY key: 'dim1'"
+            "Duplicate CLUSTERED BY key: dim1"
         )
         .verify();
   }
@@ -586,7 +586,7 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql(
-            "INSERT INTO druid.dst "
+            "INSERT INTO druid.dst\n"
             + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo\n"
             + "PARTITIONED BY FLOOR(__time TO DAY)\n"
             + "CLUSTERED BY dim1, 2, 3"
@@ -603,7 +603,7 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   {
     testIngestionQuery()
         .sql(
-            "INSERT INTO druid.dst "
+            "INSERT INTO druid.dst\n"
             + "SELECT __time, FLOOR(m1) as floor_m1, dim1, CEIL(m2) as ceil_m2 FROM foo "
             + "CLUSTERED BY 2, dim1 DESC, CEIL(m2)"
         )
@@ -1058,7 +1058,7 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
         .sql("INSERT INTO dst SELECT * FROM foo PARTITIONED BY ALL TIME")
         .expectValidationError(
             SqlPlanningException.class,
-            "sqlOuterLimit cannot be provided with INSERT."
+            "sqlOuterLimit context parameter cannot be provided with INSERT."
         )
         .verify();
   }

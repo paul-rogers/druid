@@ -331,11 +331,19 @@ public class CalcitePlanner implements Planner, ViewExpander
     return rel(sql).rel;
   }
 
+  /**
+   * Convert the given node to a relational operator. Converts the give node
+   * rather than the one given by {@link #validatedSqlNode}. This is a change
+   * from the original Calcite code. (Though, oddly, Calcite accepted an argument
+   * and didn't use it.) We use the passed-in argument because Druid ignores the
+   * INSERT node: using just the SELECT within the INSERT. The {@code validatedQueryNode}
+   * points to the (unwanted) INSERT, the passed in node is the actual query.
+   */
   @Override
   public RelRoot rel(SqlNode sql)
   {
     ensure(State.STATE_4_VALIDATED);
-    assert validatedSqlNode != null;
+    assert sql != null;
     final RexBuilder rexBuilder = createRexBuilder();
     final RelOptCluster cluster = RelOptCluster.create(planner, rexBuilder);
     final SqlToRelConverter.Config config = SqlToRelConverter.configBuilder()
@@ -348,8 +356,7 @@ public class CalcitePlanner implements Planner, ViewExpander
     final SqlToRelConverter sqlToRelConverter =
         new DruidSqlToRelConverter(this, validator,
             createCatalogReader(), cluster, convertletTable, config);
-    root =
-        sqlToRelConverter.convertQuery(validatedSqlNode, false, true);
+    root = sqlToRelConverter.convertQuery(sql, false, true);
     root = root.withRel(sqlToRelConverter.flattenTypes(root.rel, true));
     final RelBuilder relBuilder =
         config.getRelBuilderFactory().create(cluster, null);

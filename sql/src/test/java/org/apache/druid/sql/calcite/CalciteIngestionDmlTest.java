@@ -249,7 +249,6 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
       return this;
     }
 
-
     public IngestionDmlTester expectTarget(
         final String expectedTargetDataSource,
         final RowSignature expectedTargetSignature

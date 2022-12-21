@@ -19,20 +19,12 @@
 
 package org.apache.druid.sql.calcite.planner;
 
-import org.apache.druid.sql.calcite.parser.DruidSqlIngest;
 import org.apache.druid.sql.calcite.table.DatasourceTable;
 import org.apache.druid.sql.calcite.table.DruidTable;
 
-import java.util.Map;
-
 /**
  * Facade onto the (optional) Druid catalog. Configured in Guice to be
- * the {@link CatalogResolver.NullCatalogResolver} or to an actual
- * catalog.
- * <p>
- * This version is pretty crufty because a) the planner doesn't do proper
- * validation of INSERT statements, and b) the catalog is in an extension
- * and the SQL layer doesn't know about the catalog (yet).
+ * the {@link CatalogResolver.NullCatalogResolver} or to an actual catalog.
  */
 public interface CatalogResolver
 {
@@ -44,12 +36,6 @@ public interface CatalogResolver
   class NullCatalogResolver implements CatalogResolver
   {
     public static final String TYPE = "null";
-
-    @Override
-    public void resolveInsert(DruidSqlIngest insert, String dataSource, Map<String, Object> context)
-    {
-    }
-
     @Override
     public DruidTable resolveDatasource(
         final String tableName,
@@ -60,6 +46,5 @@ public interface CatalogResolver
     }
   }
 
-  void resolveInsert(DruidSqlIngest insert, String dataSource, Map<String, Object> context);
   DruidTable resolveDatasource(String tableName, DatasourceTable.PhysicalDatasourceMetadata dsMetadata);
 }
