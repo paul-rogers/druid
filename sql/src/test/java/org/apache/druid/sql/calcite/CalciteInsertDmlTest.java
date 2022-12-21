@@ -44,7 +44,6 @@ import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.external.Externals;
 import org.apache.druid.sql.calcite.filtration.Filtration;
 import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
-import org.apache.druid.sql.calcite.planner.IngestHandler;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.util.CalciteTests;
@@ -965,6 +964,9 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
         .verify();
   }
 
+  private static final String UNNAMED_INGESTION_COLUMN_ERROR =
+      "Expressions must provide an alias to specify the target column: func(X) AS myColumn";
+
   @Test
   public void testInsertWithUnnamedColumnInSelectStatement()
   {
@@ -972,7 +974,7 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
         .sql("INSERT INTO t SELECT dim1, dim2 || '-lol' FROM foo PARTITIONED BY ALL")
         .expectValidationError(
             SqlPlanningException.class,
-            IngestHandler.UNNAMED_INGESTION_COLUMN_ERROR
+            UNNAMED_INGESTION_COLUMN_ERROR
         )
         .verify();
   }
@@ -984,7 +986,7 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
         .sql("INSERT INTO t SELECT __time, dim1 AS EXPR$0 FROM foo PARTITIONED BY ALL")
         .expectValidationError(
             SqlPlanningException.class,
-            IngestHandler.UNNAMED_INGESTION_COLUMN_ERROR
+            UNNAMED_INGESTION_COLUMN_ERROR
         )
         .verify();
   }
@@ -998,7 +1000,7 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
              + "(SELECT __time, LOWER(dim1) FROM foo) PARTITIONED BY ALL TIME")
         .expectValidationError(
             SqlPlanningException.class,
-            IngestHandler.UNNAMED_INGESTION_COLUMN_ERROR
+            UNNAMED_INGESTION_COLUMN_ERROR
         )
         .verify();
   }

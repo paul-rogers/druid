@@ -35,6 +35,7 @@ import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.sql.calcite.expression.AuthorizableCall;
 import org.apache.druid.sql.calcite.expression.AuthorizableOperator;
 
 import java.util.HashSet;
@@ -45,7 +46,7 @@ import java.util.Set;
  * Walks an {@link SqlNode} to collect a set of {@link Resource} for {@link ResourceType#DATASOURCE} and
  * {@link ResourceType#VIEW} to use for authorization during query planning.
  *
- * It works by looking for {@link SqlIdentifier} which corespond to a {@link IdentifierNamespace}, where
+ * It works by looking for {@link SqlIdentifier} which correspond to a {@link IdentifierNamespace}, where
  * {@link SqlValidatorNamespace} is calcite-speak for sources of data and {@link IdentifierNamespace} specifically are
  * namespaces which are identified by a single variable, e.g. table names.
  */
@@ -65,16 +66,20 @@ public class SqlResourceCollectorShuttle extends SqlShuttle
   @Override
   public SqlNode visit(SqlCall call)
   {
-    SqlOperator operator = call.getOperator();
-    if (operator instanceof AuthorizableOperator) {
-      resourceActions.addAll(((AuthorizableOperator) operator).computeResources(call));
-    } else if (operator instanceof SqlUserDefinedTableMacro) {
-      // This case is unfortunate: we have a table macro inside of a Calcite
-      // "user-defined" table macro. The Calcite object won't let us access the Druid
-      // object which could give us permissions. So, we have to reverse-engineer permissions
-      // from all we are allowed to see, which is the identifier.
-      final SqlIdentifier id = ((SqlFunction) operator).getSqlIdentifier();
-      visitIdentifier(id.names);
+    if (call instanceof AuthorizableCall) {
+      resourceActions.addAll(((AuthorizableCall) call).computeResources());
+    } else {
+      SqlOperator operator = call.getOperator();
+      if (operator instanceof AuthorizableOperator) {
+        resourceActions.addAll(((AuthorizableOperator) operator).computeResources(call));
+      } else if (operator instanceof SqlUserDefinedTableMacro) {
+        // This case is unfortunate: we have a table macro inside of a Calcite
+        // "user-defined" table macro. The Calcite object won't let us access the Druid
+        // object which could give us permissions. So, we have to reverse-engineer permissions
+        // from all we are allowed to see, which is the identifier.
+        final SqlIdentifier id = ((SqlFunction) operator).getSqlIdentifier();
+        visitIdentifier(id.names);
+      }
     }
 
     return super.visit(call);

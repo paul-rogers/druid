@@ -19,20 +19,29 @@
 
 package org.apache.druid.sql.calcite.parser;
 
+import com.google.common.collect.ImmutableSet;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.druid.java.util.common.granularity.Granularity;
+import org.apache.druid.server.security.Action;
+import org.apache.druid.server.security.Resource;
+import org.apache.druid.server.security.ResourceAction;
+import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.sql.calcite.expression.AuthorizableCall;
 
 import javax.annotation.Nullable;
+
+import java.util.Set;
 
 /**
  * Common base class to the two Druid "ingest" statements: INSERT and REPLACE.
  * Allows Planner code to work with these two statements generically where they
  * share common clauses.
  */
-public abstract class DruidSqlIngest extends SqlInsert
+public abstract class DruidSqlIngest extends SqlInsert implements AuthorizableCall
 {
   protected Granularity partitionedBy;
 
@@ -83,5 +92,13 @@ public abstract class DruidSqlIngest extends SqlInsert
   public void updateClusteredBy(SqlNodeList clusteredBy)
   {
     this.clusteredBy = clusteredBy;
+  }
+
+  @Override
+  public Set<ResourceAction> computeResources()
+  {
+    final SqlIdentifier tableIdentifier = (SqlIdentifier) getTargetTable();
+    String targetDatasource = tableIdentifier.names.get(tableIdentifier.names.size() - 1);
+    return ImmutableSet.of(new ResourceAction(new Resource(targetDatasource, ResourceType.DATASOURCE), Action.WRITE));
   }
 }

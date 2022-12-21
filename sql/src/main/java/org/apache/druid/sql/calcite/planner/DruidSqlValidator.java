@@ -40,6 +40,7 @@ import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlOrderBy;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.IdentifierNamespace;
@@ -61,7 +62,10 @@ import org.apache.druid.sql.calcite.parser.DruidSqlIngest;
 import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
 import org.apache.druid.sql.calcite.table.DatasourceTable;
 
+import javax.annotation.Nullable;
+
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -72,9 +76,6 @@ import java.util.regex.Pattern;
 class DruidSqlValidator extends BaseDruidSqlValidator
 {
   private static final Pattern UNNAMED_COLUMN_PATTERN = Pattern.compile("^EXPR\\$\\d+$", Pattern.CASE_INSENSITIVE);
-  @VisibleForTesting
-  public static final String UNNAMED_INGESTION_COLUMN_ERROR =
-      "Expressions must provide an alias to specify the target column: func(X) AS myColumn";
 
   public interface ValidatorContext
   {
@@ -168,7 +169,7 @@ class DruidSqlValidator extends BaseDruidSqlValidator
     }
 
     // Validate clustering against the SELECT row type
-    validateClustering(sourceType, timeColumnIndex, ingestNode, tableMetadata, selectScope);
+    validateClustering((SqlSelect) source, sourceType, timeColumnIndex, ingestNode, tableMetadata, selectScope);
 
     // Determine the output (target) schema.
     RelDataType targetType = validateTargetType(insert, sourceType, tableMetadata);
@@ -201,15 +202,12 @@ class DruidSqlValidator extends BaseDruidSqlValidator
     if (!source.isA(SqlKind.QUERY)) {
       throw new IAE("Cannot execute %s.", source.getKind());
     }
-    if (source instanceof SqlSelect) {
-      final SqlSelect sqlSelect = (SqlSelect) source;
-      validateSelect(sqlSelect, unknownType);
-      return getSelectScope(sqlSelect);
-    } else {
-      SqlValidatorScope selectScope = scopes.get(source);
-      validateQuery(source, selectScope, unknownType);
-      return selectScope;
+    if (!(source instanceof SqlSelect)) {
+      throw new IAE("An %s must include a SELECT statement", operationName);
     }
+    final SqlSelect sqlSelect = (SqlSelect) source;
+    validateSelect(sqlSelect, unknownType);
+    return getSelectScope(sqlSelect);
   }
 
   /**
@@ -334,8 +332,10 @@ class DruidSqlValidator extends BaseDruidSqlValidator
    * Verify clustering which can come from the query, the catalog or both. If both,
    * the two must match. In either case, the cluster keys must be present in the SELECT
    * clause. The {@code __time} column cannot be included.
+   * @param source
    */
   private void validateClustering(
+      final SqlSelect source,
       final RelRecordType sourceType,
       final int timeColumnIndex,
       final DruidSqlIngest ingestNode,
@@ -349,50 +349,16 @@ class DruidSqlValidator extends BaseDruidSqlValidator
     // Validate both the catalog and query definitions if present. This ensures
     // that things are sane if we later check that the two are identical.
     if (clusteredBy != null) {
-      validateClusteredBy(sourceType, timeColumnIndex, selectScope, clusteredBy);
+      validateClusteredBy(source, sourceType, timeColumnIndex, selectScope, clusteredBy);
     }
     if (keyCols != null) {
       // Catalog defines the key columns. Verify that they are present in the query.
-      verifyCatalogClusterKeys(sourceType, timeColumnIndex, keyCols);
+      SqlSelect target = clusteredBy == null ? source : null;
+      verifyCatalogClusterKeys(target, sourceType, timeColumnIndex, keyCols);
     }
     if (clusteredBy != null && keyCols != null) {
       // Both the query and catalog have keys.
       verifyQueryClusterByMatchesCatalog(sourceType, keyCols, clusteredBy);
-    }
-  }
-
-  /**
-   * Verify that each of the catalog keys matches a column in the SELECT clause. Also checks
-   * for the {@code __time} column and for duplicates, though these checks should have been
-   * done when writing the spec into the catalog.
-   */
-  private void verifyCatalogClusterKeys(
-      final RelRecordType sourceType,
-      final int timeColumnIndex,
-      final List<ClusterKeySpec> keyCols
-  )
-  {
-    // Keep track of fields which have been referenced.
-    final List<String> fieldNames = sourceType.getFieldNames();
-    final boolean[] refs = new boolean[fieldNames.size()];
-    for (ClusterKeySpec keyCol : keyCols) {
-      final String keyName = keyCol.expr();
-      // Slow linear search. We assume that there are not many cluster keys.
-      final int index = fieldNames.indexOf(keyName);
-      if (index == -1) {
-        throw new IAE("Cluster column '%s' defined in the catalog must be present in the query", keyName);
-      }
-
-      // Can't cluster by __time
-      if (index == timeColumnIndex) {
-        throw new IAE("Do not include %s in the cluster spec: it is managed by PARTITIONED BY", Columns.TIME_COLUMN);
-      }
-
-      // No duplicate references.
-      if (refs[index]) {
-        throw new IAE("Duplicate cluster key: '%s'", keyName);
-      }
-      refs[index] = true;
     }
   }
 
@@ -403,8 +369,12 @@ class DruidSqlValidator extends BaseDruidSqlValidator
    * <p>
    * Ensure that each id exists. Ensure each column is included only once.
    * For an expression, just ensure it is valid; we don't check for duplicates.
+   * <p>
+   * Once the keys are validated, update the underlying {@code SELECT} statement
+   * to include the {@code CLUSTERED BY} as the {@code ORDER BY} clause.
    */
   private void validateClusteredBy(
+      final SqlSelect source,
       final RelRecordType sourceType,
       final int timeColumnIndex,
       final SqlValidatorScope selectScope,
@@ -483,6 +453,72 @@ class DruidSqlValidator extends BaseDruidSqlValidator
         selectScope.validateExpr(clusterKey);
       }
     }
+
+    // Rewrite SELECT in place to make the CLUSTERED BY be the ORDER BY clause
+    source.setOrderBy(clusteredBy);
+  }
+
+  /**
+   * Verify that each of the catalog keys matches a column in the SELECT clause. Also checks
+   * for the {@code __time} column and for duplicates, though these checks should have been
+   * done when writing the spec into the catalog.
+   * <p>
+   * Once the keys are validated, update the underlying {@code SELECT} statement
+   * to include the catalog cluster keys as the {@code ORDER BY} clause, but only if we didn't
+   * already do that with a (duplicate) {@code CLUSTERED BY} clause.
+   */
+  private void verifyCatalogClusterKeys(
+      @Nullable final SqlSelect target,
+      final RelRecordType sourceType,
+      final int timeColumnIndex,
+      final List<ClusterKeySpec> keyCols
+  )
+  {
+    // Keep track of fields which have been referenced.
+    final List<String> fieldNames = sourceType.getFieldNames();
+    final boolean[] refs = new boolean[fieldNames.size()];
+    for (ClusterKeySpec keyCol : keyCols) {
+      // For now, we implicitly only support named columns as we're
+      // not in a position to parse expressions here.
+      final String keyName = keyCol.expr();
+      // Slow linear search. We assume that there are not many cluster keys.
+      final int index = fieldNames.indexOf(keyName);
+      if (index == -1) {
+        throw new IAE("Cluster column '%s' defined in the catalog must be present in the query", keyName);
+      }
+
+      // Can't cluster by __time
+      if (index == timeColumnIndex) {
+        throw new IAE("Do not include %s in the cluster spec: it is managed by PARTITIONED BY", Columns.TIME_COLUMN);
+      }
+
+      // No duplicate references.
+      if (refs[index]) {
+        throw new IAE("Duplicate cluster key: '%s'", keyName);
+      }
+      refs[index] = true;
+    }
+
+    // If we've not yet done so, update the SELECT to include CLUSTERED BY as ORDER BY
+    if (target == null) {
+      return;
+    }
+    SqlNodeList keyNodes = new SqlNodeList(SqlParserPos.ZERO);
+    for (ClusterKeySpec keyCol : keyCols) {
+      SqlIdentifier colIdent = new SqlIdentifier(
+          Collections.singletonList(keyCol.expr()),
+          null, SqlParserPos.ZERO,
+          Collections.singletonList(SqlParserPos.ZERO)
+          );
+      SqlNode keyNode;
+      if (keyCol.desc()) {
+        keyNode = SqlStdOperatorTable.DESC.createCall(SqlParserPos.ZERO, colIdent);
+      } else {
+        keyNode = colIdent;
+      }
+      keyNodes.add(keyNode);
+    }
+    target.setOrderBy(keyNodes);
   }
 
   /**
@@ -557,7 +593,7 @@ class DruidSqlValidator extends BaseDruidSqlValidator
       String colName = sourceField.getName();
       // Check that there are no unnamed columns in the insert.
       if (UNNAMED_COLUMN_PATTERN.matcher(colName).matches()) {
-        throw new IAE(UNNAMED_INGESTION_COLUMN_ERROR);
+        throw new IAE("Expressions must provide an alias to specify the target column: func(X) AS myColumn");
       }
       ColumnFacade definedCol = tableMetadata.column(colName);
       if (definedCol == null) {
