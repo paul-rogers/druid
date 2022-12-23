@@ -21,7 +21,6 @@ package org.apache.druid.sql.calcite.planner;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.prepare.BaseDruidSqlValidator;
 import org.apache.calcite.prepare.CalciteCatalogReader;
@@ -66,10 +65,9 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.sql.calcite.parser.DruidSqlIngest;
 import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
+import org.apache.druid.sql.calcite.parser.DruidSqlParserUtils;
 import org.apache.druid.sql.calcite.table.DatasourceTable;
 import org.apache.druid.utils.CollectionUtils;
-
-import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -166,16 +164,7 @@ class DruidSqlValidator extends BaseDruidSqlValidator
 
     // Convert CLUSTERED BY, or the catalog equivalent, to an ORDER BY clause
     SqlNodeList catalogClustering = convertCatalogClustering(tableMetadata);
-    SqlNodeList clusteredBy = ingestNode.getClusteredBy();
-    if (clusteredBy == null || clusteredBy.getList().isEmpty()) {
-      if (catalogClustering == null || catalogClustering.getList().isEmpty()) {
-        return;
-      }
-      clusteredBy = catalogClustering;
-    }
-    if (select != null) {
-      rewriteClusteringToOrderBy(select, clusteredBy);
-    }
+    rewriteClusteringToOrderBy(select, ingestNode, catalogClustering);
 
     // Validate the source statement. Validates the ORDER BY pushed down in the above step.
     validateSelect(select, unknownType);
@@ -267,7 +256,14 @@ class DruidSqlValidator extends BaseDruidSqlValidator
   )
   {
     final Granularity definedGranularity = tableMetadata == null ? null : tableMetadata.segmentGranularity();
-    final Granularity ingestionGranularity = ingestNode.getPartitionedBy();
+    if (definedGranularity != null) {
+      // Should already have been checked when creating the catalog entry
+      DruidSqlParserUtils.throwIfUnsupportedGranularityInPartitionedBy(definedGranularity);
+    }
+    final Granularity ingestionGranularity = DruidSqlParserUtils.convertSqlNodeToGranularity(ingestNode.getPartitionedBy());
+    if (ingestionGranularity != null) {
+      DruidSqlParserUtils.throwIfUnsupportedGranularityInPartitionedBy(ingestionGranularity);
+    }
     final Granularity finalGranularity;
     if (definedGranularity == null && ingestionGranularity == null) {
       // Neither have a value: error
@@ -331,21 +327,23 @@ class DruidSqlValidator extends BaseDruidSqlValidator
     if (!source.isA(SqlKind.QUERY)) {
       throw new IAE("Cannot execute %s.", source.getKind());
     }
-    if (source instanceof SqlSelect) {
-      SqlSelect select = (SqlSelect) source;
-      orderByList = select.getOrderList();
-      if (orderByList != null && orderByList.size() != 0) {
-        throw new IAE(
-            "Cannot have ORDER BY on %s %s statement, use CLUSTERED BY instead.",
-            "INSERT".equals(operationName) ? "an" : "a",
-            operationName
-        );
-      }
-      return select;
+    if (!(source instanceof SqlSelect)) {
+      throw new IAE(
+          "%s %s must include a SELECT statement",
+          "INSERT".equals(operationName) ? "An" : "A",
+          operationName
+      );
     }
-
-    // The source is a query, but not SELECT.
-    return null;
+    SqlSelect select = (SqlSelect) source;
+    orderByList = select.getOrderList();
+    if (orderByList != null && orderByList.size() != 0) {
+      throw new IAE(
+          "Cannot have ORDER BY on %s %s statement, use CLUSTERED BY instead.",
+          "INSERT".equals(operationName) ? "an" : "a",
+          operationName
+      );
+    }
+    return select;
   }
 
   private SqlNodeList convertCatalogClustering(final DatasourceFacade tableMetadata)
@@ -384,9 +382,17 @@ class DruidSqlValidator extends BaseDruidSqlValidator
    * not possible to add the ORDER by later: doing so requires access to the order by namespace
    * which is not visible to subclasses.
    */
-  private void rewriteClusteringToOrderBy(SqlSelect select, SqlNodeList clusteredBy)
+  private void rewriteClusteringToOrderBy(SqlSelect select, DruidSqlIngest ingestNode, SqlNodeList catalogClustering)
   {
-    // This is a bit sad. By the time we get here, the validator will have created
+    SqlNodeList clusteredBy = ingestNode.getClusteredBy();
+    if (clusteredBy == null || clusteredBy.getList().isEmpty()) {
+      if (catalogClustering == null || catalogClustering.getList().isEmpty()) {
+        return;
+      }
+      clusteredBy = catalogClustering;
+    }
+
+    // This part is a bit sad. By the time we get here, the validator will have created
     // the ORDER BY namespace if we had a real ORDER BY. We have to "catch up" and do the
     // work that registerQuery() should have done. That's kind of OK. But, the orderScopes
     // variable is private, so we have to play dirty tricks to get at it.

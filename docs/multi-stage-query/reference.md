@@ -299,23 +299,6 @@ in an actual query.
            assumeRoleArn => 'arn:aws:iam::2981002874992:role/role-s3'))
 ```
 
-In practice, you will likely ingest from the same bucket and security setup in
-each query; only the specific objects will change. Consider using a query parameter
-to pass the object names:
-
-```sql
-INSERT INTO ...
-SELECT ...
-FROM TABLE(S3(bucket => 's3://foo`,
-              paths => ?,
-              accessKeyId => ?,
-              secretAccessKey => ?,
-              format => JSON))
-     (a VARCHAR, b BIGINT, ...)
-```
-
-This same technique can be used with the `uris` or `prefixes` parameters instead.
-
 #### Input Format
 
 Each of the table functions above requires that you specify a format using the `format`
@@ -344,6 +327,51 @@ Parameters:
 The `json` format selects the
 [JSON input format](../ingestion/data-formats.html#json).
 The JSON format accepts no additional parameters.
+
+### Parameters
+
+Starting with the Druid 26.0 release, you can use query parameters with MSQ queries. You may find
+that you periodically ingest a new set of files into Druid. Often, the bulk of the query is identical
+for each ingestion: only the list of files (or URIs or objects) changes. For example, for the `S3`
+input source, you will likely ingest from the same bucket and security setup in
+each query; only the specific objects will change. Consider using a query parameter
+to pass the object names:
+
+```sql
+INSERT INTO ...
+SELECT ...
+FROM TABLE(S3(bucket => 's3://foo`,
+              accessKeyId => ?,
+              paths => ?,
+              format => JSON))
+     (a VARCHAR, b BIGINT, ...)
+```
+
+This same technique can be used with the `uris` or `prefixes` parameters instead.
+
+Function arguments that take an array parameter require an array function in your JSON request.
+For example:
+
+```json
+{
+  "query" : "INSERT INTO ...
+SELECT ...
+FROM TABLE(S3(bucket => 's3://foo`,
+              accessKeyId => ?,
+              paths => ?,
+              format => JSON))
+     (a VARCHAR, b BIGINT, ...)",
+  "parameters": [
+    { "type": "VARCHAR", "value": "ABCD-EF01"},
+    { "type": "VARCHAR", "value": [
+    	"foo.csv", "bar.csv"
+    ] }
+  ]
+}
+```
+
+The type in the above example is the type of each element. It must be `VARCHAR` for all the array
+parameters for functions described on this page.
 
 ### `INSERT`
 
@@ -426,14 +454,18 @@ The `PARTITIONED BY <time granularity>` clause is required for [INSERT](#insert)
 
 The following granularity arguments are accepted:
 
-- Time unit: `HOUR`, `DAY`, `MONTH`, or `YEAR`. Equivalent to `FLOOR(__time TO TimeUnit)`.
+- Time unit keywords: `HOUR`, `DAY`, `MONTH`, or `YEAR`. Equivalent to `FLOOR(__time TO TimeUnit)`.
+- Time units as ISO 8601 period strings: :`'PT1H'`, '`P1D`, etc. (Druid 26.0 and later.)
 - `TIME_FLOOR(__time, 'granularity_string')`, where granularity_string is one of the ISO 8601 periods listed below. The
   first argument must be `__time`.
 - `FLOOR(__time TO TimeUnit)`, where `TimeUnit` is any unit supported by the [FLOOR function](../querying/sql-scalar.md#date-and-time-functions). The first argument must be `__time`.
 - `ALL` or `ALL TIME`, which effectively disables time partitioning by placing all data in a single time chunk. To use
-  LIMIT or OFFSET at the outer level of your INSERT or REPLACE query, you must set PARTITIONED BY to ALL or ALL TIME.
+  LIMIT or OFFSET at the outer level of your `INSERT` or `REPLACE` query, you must set `PARTITIONED BY` to `ALL` or `ALL TIME`.
 
-The following ISO 8601 periods are supported for `TIME_FLOOR`:
+Earlier versions required the `TIME_FLOOR` notation to specify a granularity other than the keywords.
+In the current version, the string contant provides a simpler equivalent soution.
+
+The following ISO 8601 periods are supported for `TIME_FLOOR` and the string constant:
 
 - PT1S
 - PT1M
@@ -448,6 +480,31 @@ The following ISO 8601 periods are supported for `TIME_FLOOR`:
 - P1M
 - P3M
 - P1Y
+
+The string constant can also include any of the keywords mentioned above:
+
+- `HOUR` - Same as `'PT1H'`
+- `DAY` - Same as `'P1D'`
+- `MONTH` - Same as `'P1M'`
+- `YEAR` - Same as `'P1Y'`
+- `ALL TIME`
+- `ALL` - Alias for `ALL TIME`
+
+Examples:
+
+```SQL
+-- Keyword
+PARTITIONED BY HOUR
+
+-- String constant
+PARTITIONED BY 'HOUR'
+
+-- Or
+PARTITIOND BY 'PT1H'
+
+-- TIME_FLOOR function
+PARTITIONED BY TIME_FLOOR(__time, 'PT1H')
+```
 
 For more information about partitioning, see [Partitioning](concepts.md#partitioning).
 

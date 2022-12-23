@@ -25,11 +25,15 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlWriter;
+import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.util.ImmutableNullableList;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.sql.calcite.planner.DruidSqlIngestOperator;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import java.util.List;
 
 /**
  * Extends the 'replace' call to hold custom parameters specific to Druid i.e. PARTITIONED BY and the PARTITION SPECS
@@ -50,42 +54,45 @@ public class DruidSqlReplace extends DruidSqlIngest
    */
   public DruidSqlReplace(
       @Nonnull SqlInsert insertNode,
-      @Nullable Granularity partitionedBy,
-      @Nullable String partitionedByStringForUnparse,
+      @Nullable SqlNode partitionedBy,
       @Nullable SqlNodeList clusteredBy,
       @Nullable SqlNode replaceTimeQuery
   )
   {
-    super(
+    this(
         insertNode.getParserPosition(),
         (SqlNodeList) insertNode.getOperandList().get(0), // No better getter to extract this
         insertNode.getTargetTable(),
         insertNode.getSource(),
         insertNode.getTargetColumnList(),
         partitionedBy,
-        partitionedByStringForUnparse,
+        clusteredBy,
+        replaceTimeQuery
+    );
+  }
+
+  public DruidSqlReplace(
+      SqlParserPos pos,
+      SqlNodeList keywords,
+      SqlNode targetTable,
+      SqlNode source,
+      SqlNodeList columnList,
+      @Nullable SqlNode partitionedBy,
+      @Nullable SqlNodeList clusteredBy,
+      @Nullable SqlNode replaceTimeQuery
+  )
+  {
+    super(
+        pos,
+        keywords,
+        targetTable,
+        source,
+        columnList,
+        partitionedBy,
         clusteredBy
     );
 
     this.replaceTimeQuery = replaceTimeQuery;
-  }
-
-  public DruidSqlReplace(
-      @Nonnull DruidSqlReplace replaceNode,
-      @Nullable SqlNode source
-  )
-  {
-    super(
-        replaceNode.getParserPosition(),
-        (SqlNodeList) replaceNode.getOperandList().get(0), // No better getter to extract this
-        replaceNode.getTargetTable(),
-        source,
-        replaceNode.getTargetColumnList(),
-        replaceNode.partitionedBy,
-        replaceNode.partitionedByStringForUnparse,
-        replaceNode.clusteredBy
-    );
-    this.replaceTimeQuery = replaceNode.replaceTimeQuery;
   }
 
   public SqlNode getReplaceTimeQuery()
@@ -98,6 +105,14 @@ public class DruidSqlReplace extends DruidSqlIngest
   public SqlOperator getOperator()
   {
     return DruidSqlIngestOperator.REPLACE_OPERATOR;
+  }
+
+  @Override
+  public List<SqlNode> getOperandList() {
+    return ImmutableNullableList.<SqlNode>builder()
+        .addAll(super.getOperandList())
+        .add(replaceTimeQuery)
+        .build();
   }
 
   @Override
@@ -126,7 +141,7 @@ public class DruidSqlReplace extends DruidSqlIngest
     writer.newlineAndIndent();
 
     writer.keyword("PARTITIONED BY");
-    writer.keyword(partitionedByStringForUnparse);
+    writer.keyword(partitionedBy.toString());
 
     if (getClusteredBy() != null) {
       writer.keyword("CLUSTERED BY");

@@ -44,6 +44,7 @@ import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.external.Externals;
 import org.apache.druid.sql.calcite.filtration.Filtration;
 import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
+import org.apache.druid.sql.calcite.parser.DruidSqlParserUtils;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.util.CalciteTests;
@@ -351,6 +352,10 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
                     .put("ALL TIME", Granularities.ALL)
                     .put("FLOOR(__time TO QUARTER)", Granularities.QUARTER)
                     .put("TIME_FLOOR(__time, 'PT1H')", Granularities.HOUR)
+                    .put("'PT1H'", Granularities.HOUR)
+                    .put("'P1D'", Granularities.DAY)
+                    .put("'P1M'", Granularities.MONTH)
+                    .put("'P1Y'", Granularities.YEAR)
                     .build();
 
     ObjectMapper queryJsonMapper = queryFramework().queryJsonMapper();
@@ -712,7 +717,7 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
     }
     catch (SqlPlanningException e) {
       Assert.assertEquals(
-          "Encountered 'invalid_granularity' after PARTITIONED BY. Expected HOUR, DAY, MONTH, YEAR, ALL TIME, FLOOR function or TIME_FLOOR function",
+          StringUtils.format(DruidSqlParserUtils.PARTITION_ERROR_MESSAGE, "'invalid_granularity'"),
           e.getMessage()
       );
     }
@@ -835,10 +840,16 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
   @Test
   public void testSurfaceErrorsWhenInsertingThroughIncorrectSelectStatment()
   {
-    assertQueryIsUnplannable(
-        "INSERT INTO druid.dst SELECT dim2, dim1, m1 FROM foo2 UNION SELECT dim1, dim2, m1 FROM foo PARTITIONED BY ALL TIME",
-        "Possible error: SQL requires 'UNION' but only 'UNION ALL' is supported."
+    SqlPlanningException e = Assert.assertThrows(
+        SqlPlanningException.class,
+        () ->
+            testQuery(
+                "INSERT INTO druid.dst SELECT dim2, dim1, m1 FROM foo2 UNION SELECT dim1, dim2, m1 FROM foo PARTITIONED BY ALL TIME",
+                ImmutableList.of(),
+                ImmutableList.of()
+            )
     );
+    Assert.assertEquals("An INSERT must include a SELECT statement", e.getMessage());
 
     // Not using testIngestionQuery, so must set didTest manually to satisfy the check in tearDown.
     didTest = true;

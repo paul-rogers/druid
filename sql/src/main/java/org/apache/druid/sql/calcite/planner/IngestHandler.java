@@ -71,8 +71,8 @@ public abstract class IngestHandler extends QueryHandler
       );
     }
     DruidSqlIngest ingestNode = ingestNode();
-    validate(ingestNode);
-    validatedQueryNode = ingestNode.getSource();
+    DruidSqlIngest validatedNode = (DruidSqlIngest) validate(ingestNode);
+    validatedQueryNode = validatedNode.getSource();
   }
 
   @Override
@@ -185,7 +185,7 @@ public abstract class IngestHandler extends QueryHandler
             + "OVERWRITE WHERE <__time based condition> or OVERWRITE ALL to overwrite the entire table.");
       }
 
-      final Granularity ingestionGranularity = ingestNode().getPartitionedBy();
+      final Granularity ingestionGranularity = DruidSqlParserUtils.convertSqlNodeToGranularity(ingestNode().getPartitionedBy());
       replaceIntervals = DruidSqlParserUtils.validateQueryAndConvertToIntervals(
           replaceTimeQuery,
           ingestionGranularity,

@@ -55,15 +55,13 @@ public class Columns
         .put(VARCHAR, ColumnType.STRING)
         .build();
 
-  public static final Map<ColumnType, String> DRUID_TO_SQL_TYPES;
-
-  static {
-      Builder<ColumnType, String> builder = new ImmutableMap.Builder<ColumnType, String>();
-      for (Map.Entry<String, ColumnType> entry : SQL_TO_DRUID_TYPES.entrySet()) {
-        builder.put(entry.getValue(), entry.getKey());
-      }
-      DRUID_TO_SQL_TYPES = builder.build();
-  }
+  public static final Map<ColumnType, String> DRUID_TO_SQL_TYPES =
+      new ImmutableMap.Builder<ColumnType, String>()
+      .put(ColumnType.LONG, BIGINT)
+      .put(ColumnType.FLOAT, FLOAT)
+      .put(ColumnType.DOUBLE, DOUBLE)
+      .put(ColumnType.STRING, VARCHAR)
+      .build();
 
   private Columns()
   {

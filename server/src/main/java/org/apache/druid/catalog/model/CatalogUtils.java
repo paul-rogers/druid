@@ -29,6 +29,7 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
+import org.apache.druid.java.util.common.granularity.GranularityType;
 import org.apache.druid.java.util.common.granularity.PeriodGranularity;
 import org.joda.time.Period;
 
@@ -71,7 +72,7 @@ public class CatalogUtils
       return new PeriodGranularity(new Period(value), null, null);
     }
     catch (IllegalArgumentException e) {
-      throw new IAE(StringUtils.format("%s is an invalid period string", value));
+      throw new IAE(StringUtils.format("'%s' is an invalid period string", value));
     }
   }
 
@@ -279,12 +280,23 @@ public class CatalogUtils
     if (value == null) {
       return;
     }
+    Granularity granularity;
     try {
-      //noinspection ResultOfObjectAllocationIgnored
-      new PeriodGranularity(new Period(value), null, null);
+      granularity = new PeriodGranularity(new Period(value), null, null);
     }
     catch (IllegalArgumentException e) {
       throw new IAE(StringUtils.format("[%s] is an invalid granularity string", value));
+    }
+    if (!GranularityType.isStandard(granularity)) {
+      throw new IAE(
+          "Unsupported segment graularity. "
+          + "Please use an equivalent of these granularities: %s.",
+          Arrays.stream(GranularityType.values())
+                .filter(granularityType -> !granularityType.equals(GranularityType.NONE))
+                .map(Enum::name)
+                .map(StringUtils::toLowerCase)
+                .collect(Collectors.joining(", "))
+      );
     }
   }
 

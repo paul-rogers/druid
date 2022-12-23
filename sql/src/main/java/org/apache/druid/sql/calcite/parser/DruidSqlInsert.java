@@ -24,7 +24,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlWriter;
-import org.apache.druid.java.util.common.granularity.Granularity;
+import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.druid.sql.calcite.planner.DruidSqlIngestOperator;
 
 import javax.annotation.Nonnull;
@@ -41,37 +41,39 @@ public class DruidSqlInsert extends DruidSqlIngest
 
   public DruidSqlInsert(
       @Nonnull SqlInsert insertNode,
-      @Nullable Granularity partitionedBy,
-      @Nullable String partitionedByStringForUnparse,
+      @Nullable SqlNode partitionedBy,
       @Nullable SqlNodeList clusteredBy
   )
   {
-    super(
+    this(
         insertNode.getParserPosition(),
         (SqlNodeList) insertNode.getOperandList().get(0), // No better getter to extract this
         insertNode.getTargetTable(),
         insertNode.getSource(),
         insertNode.getTargetColumnList(),
         partitionedBy,
-        partitionedByStringForUnparse,
         clusteredBy
     );
   }
 
   public DruidSqlInsert(
-      @Nonnull DruidSqlInsert insertNode,
-      @Nullable SqlNode source
+      SqlParserPos pos,
+      SqlNodeList keywords,
+      SqlNode targetTable,
+      SqlNode source,
+      SqlNodeList columnList,
+      @Nullable SqlNode partitionedBy,
+      @Nullable SqlNodeList clusteredBy
   )
   {
     super(
-        insertNode.getParserPosition(),
-        (SqlNodeList) insertNode.getOperandList().get(0), // No better getter to extract this
-        insertNode.getTargetTable(),
+        pos,
+        keywords,
+        targetTable,
         source,
-        insertNode.getTargetColumnList(),
-        insertNode.partitionedBy,
-        insertNode.partitionedByStringForUnparse,
-        insertNode.clusteredBy
+        columnList,
+        partitionedBy,
+        clusteredBy
     );
   }
 
@@ -87,7 +89,7 @@ public class DruidSqlInsert extends DruidSqlIngest
   {
     super.unparse(writer, leftPrec, rightPrec);
     writer.keyword("PARTITIONED BY");
-    writer.keyword(partitionedByStringForUnparse);
+    writer.keyword(partitionedBy.toString());
     if (getClusteredBy() != null) {
       writer.keyword("CLUSTERED BY");
       SqlWriter.Frame frame = writer.startList("", "");

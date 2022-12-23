@@ -21,7 +21,7 @@
 SqlNode DruidSqlInsertEof() :
 {
   SqlNode insertNode;
-  org.apache.druid.java.util.common.Pair<Granularity, String> partitionedBy = new org.apache.druid.java.util.common.Pair(null, null);
+  SqlNode partitionedBy = null;
   SqlNodeList clusteredBy = null;
 }
 {
@@ -49,6 +49,6 @@ SqlNode DruidSqlInsertEof() :
       return insertNode;
     }
     SqlInsert sqlInsert = (SqlInsert) insertNode;
-    return new DruidSqlInsert(sqlInsert, partitionedBy.lhs, partitionedBy.rhs, clusteredBy);
+    return new DruidSqlInsert(sqlInsert, partitionedBy, clusteredBy);
   }
 }
