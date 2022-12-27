@@ -73,6 +73,12 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
                   .put(QueryContexts.CTX_SQL_QUERY_ID, DUMMY_SQL_ID)
                   .build();
 
+  public static final Map<String, Object> PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT = ImmutableMap.of(
+      DruidSqlInsert.SQL_INSERT_SEGMENT_GRANULARITY,
+      "{\"type\":\"all\"}"
+  );
+
+
   protected static final RowSignature FOO_TABLE_SIGNATURE =
       RowSignature.builder()
                   .addTimeColumn()

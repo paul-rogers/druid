@@ -156,7 +156,8 @@ public class CalcitePlanner implements Planner, ViewExpander
           SqlSyntax syntax,
           List<SqlOperator> operatorList,
           SqlNameMatcher nameMatcher
-      ) {
+      )
+      {
         // Workaround for a Calcite bug. Built-in operators have no name: opName
         // is null. The "standard" operator table special-cases null names. The
         // chained one just goes ahead and dereferences the (null) opName. This

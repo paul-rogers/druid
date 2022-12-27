@@ -111,7 +111,19 @@ public class DatasourceFacade extends TableFacade
 
     public String sqlStorageType()
     {
-      return Columns.sqlType(druidType());
+      if (isTime()) {
+        // Time is special: its storage type is BIGINT, but SQL requires the
+        // type of TIMESTAMP to allow insertion validation.
+        return Columns.TIMESTAMP;
+      } else {
+        return Columns.sqlType(druidType());
+      }
+    }
+
+    @Override
+    public String toString()
+    {
+      return "{spec=" + spec + ", type=" + type + "}";
     }
   }
 
@@ -138,7 +150,7 @@ public class DatasourceFacade extends TableFacade
     for (ColumnFacade col : columns) {
       builder.put(col.spec.name(), col);
     }
-    columnIndex =  builder.build();
+    columnIndex = builder.build();
   }
 
   public String segmentGranularityString()

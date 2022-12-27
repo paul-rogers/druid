@@ -62,7 +62,9 @@ import org.apache.druid.common.utils.IdUtils;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
+import org.apache.druid.java.util.common.granularity.PeriodGranularity;
 import org.apache.druid.sql.calcite.parser.DruidSqlIngest;
 import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
 import org.apache.druid.sql.calcite.parser.DruidSqlParserUtils;
@@ -235,12 +237,17 @@ class DruidSqlValidator extends BaseDruidSqlValidator
         throw new IAE("Cannot %s into %s: it is not a datasource", operationName, destId);
       }
     }
-    catch (CalciteContextException e)
-    {
+    catch (CalciteContextException e) {
       // Something failed. Let's make sure it was the table lookup.
       // The check is kind of a hack, but its the best we can do given that Calcite
       // didn't expect this non-SQL use case.
       if (e.getCause() instanceof SqlValidatorException && e.getMessage().contains(StringUtils.format("Object '%s' not found", tableName))) {
+        // The catalog implementation may be "strict": and require that the target
+        // table already exists, rather than the default "lenient" mode that can
+        // create a new table.
+        if (validatorContext.catalog().ingestRequiresExistingTable()) {
+          throw new IAE("Cannot %s into %s because it does not exist", operationName, destId);
+        }
         // New table. Validate the shape of the name.
         IdUtils.validateId(operationName + " dataSource", tableName);
         return null;
@@ -283,8 +290,8 @@ class DruidSqlValidator extends BaseDruidSqlValidator
     } else {
       throw new IAE(
           "PARTITIONED BY mismatch. Catalog: [%s], query: [%s]",
-          definedGranularity,
-          ingestionGranularity
+          granularityToSqlString(definedGranularity),
+          granularityToSqlString(ingestionGranularity)
       );
     }
 
@@ -301,6 +308,20 @@ class DruidSqlValidator extends BaseDruidSqlValidator
     catch (JsonProcessingException e) {
       throw new IAE("Invalid PARTITIONED BY granularity");
     }
+  }
+
+  private String granularityToSqlString(Granularity gran)
+  {
+    if (gran == null) {
+      return "NULL";
+    }
+    if (Granularities.ALL == gran) {
+      return "ALL TIME";
+    }
+    if (!(gran instanceof PeriodGranularity)) {
+      return gran.toString();
+    }
+    return ((PeriodGranularity) gran).getPeriod().toString();
   }
 
   private SqlSelect validateInsertSelect(
@@ -402,7 +423,8 @@ class DruidSqlValidator extends BaseDruidSqlValidator
       @SuppressWarnings("unchecked")
       Map<SqlSelect, SqlValidatorScope> orderScopes = (Map<SqlSelect, SqlValidatorScope>) FieldUtils.getDeclaredField(SqlValidatorImpl.class, "orderScopes", true).get(this);
       orderScopes.put(select, orderScope);
-    } catch (Exception e) {
+    }
+    catch (Exception e) {
       throw new ISE(e, "orderScopes is not accessible");
     }
   }
@@ -411,14 +433,18 @@ class DruidSqlValidator extends BaseDruidSqlValidator
   {
     RelDataTypeField timeCol = sourceType.getFieldList().get(timeColumnIndex);
     RelDataType timeColType = timeCol.getType();
-    if (!(timeColType instanceof BasicSqlType)) {
-      throw new IAE("Invalid % column type %s: must be BIGINT or TIMESTAMP", timeCol.getName(), timeColType.toString());
+    if (timeColType instanceof BasicSqlType) {
+      BasicSqlType timeColSqlType = (BasicSqlType) timeColType;
+      SqlTypeName timeColSqlTypeName = timeColSqlType.getSqlTypeName();
+      if (timeColSqlTypeName == SqlTypeName.BIGINT || timeColSqlTypeName == SqlTypeName.TIMESTAMP) {
+        return;
+      }
     }
-    BasicSqlType timeColSqlType = (BasicSqlType) timeColType;
-    SqlTypeName timeColSqlTypeName = timeColSqlType.getSqlTypeName();
-    if (timeColSqlTypeName != SqlTypeName.BIGINT && timeColSqlTypeName != SqlTypeName.TIMESTAMP) {
-      throw new IAE("Invalid % column type %s: must be BIGINT or TIMESTAMP", timeCol.getName(), timeColType.toString());
-    }
+    throw new IAE(
+        "Invalid %s column type %s: must be BIGINT or TIMESTAMP",
+        timeCol.getName(),
+        timeColType.toString()
+    );
   }
 
   /**

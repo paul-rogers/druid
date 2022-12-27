@@ -27,7 +27,6 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
-import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.sql.calcite.planner.DruidSqlIngestOperator;
 
 import javax.annotation.Nonnull;
@@ -108,7 +107,8 @@ public class DruidSqlReplace extends DruidSqlIngest
   }
 
   @Override
-  public List<SqlNode> getOperandList() {
+  public List<SqlNode> getOperandList()
+  {
     return ImmutableNullableList.<SqlNode>builder()
         .addAll(super.getOperandList())
         .add(replaceTimeQuery)

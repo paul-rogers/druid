@@ -20,7 +20,6 @@
 package org.apache.druid.sql.calcite.expression;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -47,7 +46,6 @@ import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.segment.virtual.VirtualizedColumnSelectorFactory;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
@@ -68,6 +66,7 @@ import org.joda.time.DateTimeZone;
 import org.junit.Assert;
 
 import javax.annotation.Nullable;
+
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;

@@ -23,6 +23,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.avatica.SqlType;
+import org.apache.druid.catalog.model.Columns;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.data.input.impl.HttpInputSourceConfig;
@@ -57,7 +58,7 @@ import java.util.Collections;
  * query ensure that the resulting MSQ task is identical regardless of the path
  * taken.
  */
-public class CatalogIngestionTest extends CalciteIngestionDmlTest
+public class IngestTableFunctionTest extends CalciteIngestionDmlTest
 {
   protected static URI toURI(String uri)
   {
@@ -255,13 +256,13 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
       buf.append(sig.getColumnName(i)).append(" ");
       ColumnType type = sig.getColumnType(i).get();
       if (type == ColumnType.STRING) {
-        buf.append("VARCHAR");
+        buf.append(Columns.VARCHAR);
       } else if (type == ColumnType.LONG) {
-        buf.append("BIGINT");
+        buf.append(Columns.BIGINT);
       } else if (type == ColumnType.DOUBLE) {
-        buf.append("DOUBLE");
+        buf.append(Columns.DOUBLE);
       } else if (type == ColumnType.FLOAT) {
-        buf.append("FLOAT");
+        buf.append(Columns.FLOAT);
       } else {
         throw new UOE("Unsupported native type %s", type);
       }
@@ -326,13 +327,6 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
   }
 
   protected final ExternalDataSource localDataSource = new ExternalDataSource(
-      // The preferred form for this test. But, does not work.
-      // See Apache Druid issue #13359.
-      //new LocalInputSource(
-      //    new File("/tmp"),
-      //    "*.csv",
-      //    Arrays.asList(new File("foo.csv"), new File("bar.csv"))
-      //),
       new LocalInputSource(
           null,
           null,

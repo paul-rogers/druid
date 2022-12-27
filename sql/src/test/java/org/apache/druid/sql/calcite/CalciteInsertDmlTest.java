@@ -60,11 +60,6 @@ import java.util.Map;
 
 public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
 {
-  public static final Map<String, Object> PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT = ImmutableMap.of(
-      DruidSqlInsert.SQL_INSERT_SEGMENT_GRANULARITY,
-      "{\"type\":\"all\"}"
-  );
-
   @Test
   public void testInsertFromTable()
   {
@@ -352,10 +347,17 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
                     .put("ALL TIME", Granularities.ALL)
                     .put("FLOOR(__time TO QUARTER)", Granularities.QUARTER)
                     .put("TIME_FLOOR(__time, 'PT1H')", Granularities.HOUR)
+                    .put("'PT5M'", Granularities.FIVE_MINUTE)
                     .put("'PT1H'", Granularities.HOUR)
                     .put("'P1D'", Granularities.DAY)
                     .put("'P1M'", Granularities.MONTH)
                     .put("'P1Y'", Granularities.YEAR)
+                    .put("'hour'", Granularities.HOUR)
+                    .put("'day'", Granularities.DAY)
+                    .put("'week'", Granularities.WEEK)
+                    .put("'month'", Granularities.MONTH)
+                    .put("'quarter'", Granularities.QUARTER)
+                    .put("'year'", Granularities.YEAR)
                     .build();
 
     ObjectMapper queryJsonMapper = queryFramework().queryJsonMapper();
@@ -1012,6 +1014,19 @@ public class CalciteInsertDmlTest extends CalciteIngestionDmlTest
         .expectValidationError(
             SqlPlanningException.class,
             UNNAMED_INGESTION_COLUMN_ERROR
+        )
+        .verify();
+  }
+
+  @Test
+  public void testInsertWithWrongTimeType()
+  {
+    testIngestionQuery()
+        .sql("INSERT INTO test "
+             + "SELECT dim1 AS __time, dim1 FROM foo PARTITIONED BY ALL TIME")
+        .expectValidationError(
+            SqlPlanningException.class,
+            "Invalid __time column type VARCHAR: must be BIGINT or TIMESTAMP"
         )
         .verify();
   }

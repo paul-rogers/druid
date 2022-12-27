@@ -35,7 +35,6 @@ import org.apache.calcite.sql.SqlOrderBy;
 import org.apache.calcite.sql.SqlTimestampLiteral;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.ValidationException;
-import org.apache.druid.catalog.model.CatalogUtils;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
@@ -74,7 +73,9 @@ public class DruidSqlParserUtils
 
   public static final String HOUR_GRAIN = "HOUR";
   public static final String DAY_GRAIN = "DAY";
+  public static final String WEEK_GRAIN = "WEEK";
   public static final String MONTH_GRAIN = "MONTH";
+  public static final String QUARTER_GRAIN = "QUARTER";
   public static final String YEAR_GRAIN = "YEAR";
   public static final String ALL_GRAIN = "ALL";
   public static final String ALL_TIME_GRAIN = "ALL TIME";
@@ -147,8 +148,12 @@ public class DruidSqlParserUtils
           return Granularities.HOUR;
         case DAY_GRAIN:
           return Granularities.DAY;
+        case WEEK_GRAIN:
+          return Granularities.WEEK;
         case MONTH_GRAIN:
           return Granularities.MONTH;
+        case QUARTER_GRAIN:
+          return Granularities.QUARTER;
         case YEAR_GRAIN:
           return Granularities.YEAR;
         case ALL_GRAIN:

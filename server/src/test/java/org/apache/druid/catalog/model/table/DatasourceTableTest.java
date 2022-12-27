@@ -635,6 +635,7 @@ public class DatasourceTableTest
         .column("host", Columns.VARCHAR, ImmutableMap.of(TableDefn.DESCRIPTION_PROPERTY, "The web server host"))
         .column("bytesSent", Columns.BIGINT, ImmutableMap.of(TableDefn.DESCRIPTION_PROPERTY, "Number of response bytes sent"))
         .clusterColumns(new ClusterKeySpec("a", false), new ClusterKeySpec("b", true))
+        .sealed(true)
         .buildSpec();
     LOG.info(spec.toString());
   }

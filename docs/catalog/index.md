@@ -237,7 +237,7 @@ INSERT INTO webMetrics
 SELECT
   TIME_PARSE(timestamp) AS __time,
   host,
-  status AS httpStatus,
+  CAST(status AS VARCHAR) AS httpStatus,
   SUM("request-size") AS bytesIn,
   SUM("response-size") AS bytesOut
 FROM ext.webInput(filePattern => '2202-12-02/*.csv')
@@ -251,9 +251,9 @@ which matches by position, Druid SQL matches by name. Thus, we must use `AS` cla
 to ensure our data has the same name as the column in our datasource.
 * We do not include a `TIME_FLOOR` function because Druid inserts that automatically
 based on the `TIMESTAMP('PT5M')` data type.
-* We don't have to insert a `CAST` to convert `status` (a number) to `httpStatus`
-(as string). Druid inserts that for us based on the table metadata.
-* We _do_ however have to repeat the aggregations for the two aggregated fields.
+* We include a `CAST` to convert `status` (a number) to `httpStatus`
+(as string). Druid will validate the type based on the table metadata.
+* We include the aggregations for the two aggregated fields.
 The aggregations must match those defined in table metadata.
 * We also must explicitly spell out the `GROUP BY` clause which must include all
 non-aggregated columns.
@@ -271,11 +271,8 @@ is also guided by table metadata. To see this, suppose that we soon discover tha
 actually needs the `bytesIn` field: our server doesn't accept `POST` requets and so all
 request are pretty small. To avoid confusing users, we want to remove that column. But,
 we've already ingested data. We could throw away the data and start over. Or, we could
-simply "hide" the unwanted column using this JSON request:
-
-```json
-TO DO
-```
+simply "hide" the unwanted column using the
+[hide columns](api.md) API.
 
 If we now do a `SELECT *` query we find that `bytesIn` is no longer available and we
 no longer have to explain to our users to ignore that column. While hiding a column is
@@ -288,11 +285,7 @@ now-unused column. This can happen at any time: MSQ ingest won't fail if we try 
 into a hidden column.
 
 In a similar way, if we realize that we actually want `httpStatus` to be `BIGINT`, we
-can change the type:
-
-```json
-TODO
-```
+can change the type, again using the [REST API](api.md).
 
 New ingestions will use the new type. Again, it may be costly to change existing data.
 Drill will, however, automatically `CAST` the old `VARCHAR` (string) data to the
@@ -302,3 +295,20 @@ new `BIGINT` type, allow us to make the change immediately.
 
 Now that we understand what table metadata is, and how we might use it, we are ready
 to dive into the technical reference material which follows.
+
+## Limitations
+
+This is the first version of the catalog feature. A number of limitations are known:
+
+* When using the catalog to specify column types for a table ingested via MSQ, the
+  resulting types are determined by the `SELECT` list, not the table schema. Druid will
+  ensure that the actual type is compatible with the declared type, the the actual type
+  may still differ from the declared type. Use a `CAST` to ensure the types are as
+  desiried.
+* The present version supports only the S3 cloud data source.
+* Catalog information is used only for MSQ ingestion, but not for classic batch or
+  Druid streaming ingestion. Catalog column types are reflected in queries.
+* Catalog store is in an extension. Enable that extension as described above to try
+  the catalog feature.
+* Support for roll-up tables and metrics is limited.
+

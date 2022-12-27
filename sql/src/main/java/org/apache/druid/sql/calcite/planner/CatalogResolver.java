@@ -36,6 +36,13 @@ public interface CatalogResolver
   class NullCatalogResolver implements CatalogResolver
   {
     public static final String TYPE = "null";
+
+    @Override
+    public boolean ingestRequiresExistingTable()
+    {
+      return false;
+    }
+
     @Override
     public DruidTable resolveDatasource(
         final String tableName,
@@ -46,5 +53,14 @@ public interface CatalogResolver
     }
   }
 
-  DruidTable resolveDatasource(String tableName, DatasourceTable.PhysicalDatasourceMetadata dsMetadata);
+  /**
+   * Global option to determine whether ingest requires an existing datasource, or
+   * can automatically create a new datasource.
+   */
+  boolean ingestRequiresExistingTable();
+
+  DruidTable resolveDatasource(
+      String tableName,
+      DatasourceTable.PhysicalDatasourceMetadata dsMetadata
+  );
 }

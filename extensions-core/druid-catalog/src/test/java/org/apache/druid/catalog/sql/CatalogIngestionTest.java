@@ -34,6 +34,7 @@ import org.apache.druid.catalog.storage.CatalogStorage;
 import org.apache.druid.catalog.storage.CatalogTests;
 import org.apache.druid.catalog.sync.CachedMetadataCatalog;
 import org.apache.druid.catalog.sync.MetadataCatalog;
+import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.guice.DruidInjectorBuilder;
 import org.apache.druid.initialization.DruidModule;
@@ -46,6 +47,7 @@ import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.SqlPlanningException;
 import org.apache.druid.sql.calcite.CalciteIngestionDmlTest;
 import org.apache.druid.sql.calcite.CalciteInsertDmlTest;
+import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.external.Externals;
 import org.apache.druid.sql.calcite.filtration.Filtration;
 import org.apache.druid.sql.calcite.util.CalciteTests;
@@ -60,6 +62,9 @@ import java.util.Map;
 
 import static org.junit.Assert.fail;
 
+/**
+ * Test the use of catalog specs to drive MSQ ingestion.
+ */
 public class CatalogIngestionTest extends CalciteIngestionDmlTest
 {
   @ClassRule
@@ -136,11 +141,10 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
         .expectLogicalPlanFrom("insertFromExternal")
         .verify();
   }
-
   /**
    * Signature for the foo datasource after applying catalog metadata.
    */
-  private final RowSignature FOO_SIGNATURE = RowSignature.builder()
+  private static final RowSignature FOO_SIGNATURE = RowSignature.builder()
       .add("__time", ColumnType.LONG)
       .add("extra1", ColumnType.STRING)
       .add("dim2", ColumnType.STRING)
@@ -151,6 +155,68 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
       .add("extra3", ColumnType.STRING)
       .add("m2", ColumnType.DOUBLE)
       .build();
+
+  /**
+   * Attempt to verify that types specified in the catalog are pushed down to
+   * MSQ. At present, Druid does not have the tools needed to do a full push-down.
+   * We have to accept a good-enough push-down: that the produced type is at least
+   * compatible with the desired type.
+   */
+  @Test
+  public void testInsertIntoCatalogTable()
+  {
+    ExternalDataSource externalDataSource = new ExternalDataSource(
+        new InlineInputSource("2022-12-26T12:34:56,extra,10,\"20\",foo\n"),
+        new CsvInputFormat(ImmutableList.of("a", "b", "c", "d", "e"), null, false, false, 0),
+        RowSignature.builder()
+                    .add("a", ColumnType.STRING)
+                    .add("b", ColumnType.STRING)
+                    .add("c", ColumnType.LONG)
+                    .add("d", ColumnType.STRING)
+                    .add("e", ColumnType.STRING)
+                    .build()
+    );
+    final RowSignature signature = RowSignature.builder()
+        .add("__time", ColumnType.LONG)
+        .add("dim1", ColumnType.STRING)
+        .add("cnt", ColumnType.LONG)
+        // Druid has no good way to project desired types down to segments.
+        // Instead, all we can do at the SQL layer at present is to
+        // make sure the types are compatible.
+        .add("m1", ColumnType.LONG) // Should be ColumnType.DOUBLE
+        .add("extra2", ColumnType.LONG)
+        .add("extra3", ColumnType.STRING)
+        .build();
+    testIngestionQuery()
+    .sql("INSERT INTO foo\n" +
+         "SELECT TIME_PARSE(a) AS __time, b AS dim1, 1 AS cnt,\n" +
+        "        c AS m1, CAST(d AS INTEGER) AS extra2, e AS extra3\n" +
+         "FROM TABLE(inline(\n" +
+         "  data => ARRAY['2022-12-26T12:34:56,extra,10,\"20\",foo'],\n" +
+         "  format => 'csv'))\n" +
+         "  (a VARCHAR, b VARCHAR, c BIGINT, d VARCHAR, e VARCHAR)\n" +
+         "PARTITIONED BY ALL TIME")
+    .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+    .expectTarget("foo", signature)
+    .expectResources(dataSourceWrite("foo"), Externals.externalRead("EXTERNAL"))
+    .expectQuery(
+        newScanQueryBuilder()
+            .dataSource(externalDataSource)
+            .intervals(querySegmentSpec(Filtration.eternity()))
+            .virtualColumns(
+                expressionVirtualColumn("v0", "timestamp_parse(\"a\",null,'UTC')", ColumnType.LONG),
+                expressionVirtualColumn("v1", "1", ColumnType.LONG),
+                expressionVirtualColumn("v2", "CAST(\"d\", 'LONG')", ColumnType.LONG)
+             )
+            // Scan query lists columns in alphabetical order independent of the
+            // SQL project list or the defined schema. Here we just check that the
+            // set of columns is correct, but not their order.
+            .columns("b", "c", "e", "v0", "v1", "v2")
+            .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
+            .build()
+     )
+    .verify();
+  }
 
   /**
    * Insert from a table with a schema defined in the catalog.
@@ -225,6 +291,65 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                 .columns("__time", "cnt", "dim1", "dim2", "extra1", "extra2", "extra3", "m1", "m2")
                 .context(queryContextWithGranularity(Granularities.HOUR))
                 .build()
+         )
+        .verify();
+  }
+
+  /**
+   * Partition grain comes from both the catalog and redundant query
+   * PARITIONED BY. The two sources agree, which is odd, but legal.
+   */
+  @Test
+  public void testInsertHourGrainRedundant()
+  {
+    testIngestionQuery()
+        .sql("INSERT INTO hourDs\n" +
+             "SELECT * FROM foo\n" +
+             "PARTITIONED BY hour")
+        .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+        .expectTarget("hourDs", FOO_SIGNATURE)
+        .expectResources(dataSourceWrite("hourDs"), dataSourceRead("foo"))
+        .expectQuery(
+            newScanQueryBuilder()
+                .dataSource("foo")
+                .intervals(querySegmentSpec(Filtration.eternity()))
+                .columns("__time", "cnt", "dim1", "dim2", "extra1", "extra2", "extra3", "m1", "m2")
+                .context(queryContextWithGranularity(Granularities.HOUR))
+                .build()
+         )
+        .verify();
+  }
+
+  /**
+   * If the segment grain is given in the catalog, and also by PARTITIONED BY, then
+   * the query value must be the same as the catalog value.
+   */
+  @Test
+  public void testInsertHourGrainConflict()
+  {
+    testIngestionQuery()
+        .sql("INSERT INTO hourDs\n" +
+             "SELECT * FROM foo\n" +
+             "PARTITIONED BY day")
+        .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+        .expectValidationError(
+            SqlPlanningException.class,
+            "PARTITIONED BY mismatch. Catalog: [PT1H], query: [P1D]"
+         )
+        .verify();
+  }
+
+  @Test
+  public void testInsertHourGrainConflictAll()
+  {
+    testIngestionQuery()
+        .sql("INSERT INTO hourDs\n" +
+             "SELECT * FROM foo\n" +
+             "PARTITIONED BY ALL")
+        .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+        .expectValidationError(
+            SqlPlanningException.class,
+            "PARTITIONED BY mismatch. Catalog: [PT1H], query: [ALL TIME]"
          )
         .verify();
   }
@@ -538,6 +663,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
         .column("extra2", Columns.BIGINT)
         .column("extra3", Columns.VARCHAR)
         .hiddenColumns(Arrays.asList("dim3", "unique_dim1"))
+        .sealed(true)
         .build();
     createTableMetadata(spec);
   }

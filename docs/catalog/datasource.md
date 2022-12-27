@@ -214,6 +214,28 @@ Example:
 }
 ```
 
+### `sealed` (Boolean)
+
+In many databases, one can insert data only into columns that are already defined in the
+table schema. Druid is unique in that each ingestion can define new columns not already
+in any existing segment. The `sealed` property, when set to `true`, makes a Druid
+datasource work like an RDBMS table: insertion can only occur into columns defined in
+the table schema. Use this option when the schema has been curated, and the goal is for
+ingestion queries to map to an existing set of columns. The default is `false`, meaning
+that MSQ will add new columns as they occur.
+
+This property prevents MSQ form accidentally creating new columns not in the schema.
+Use column properties below to ensure that, for existing columns, MSQ uses the desired
+column type.
+
+Example:
+
+```json
+  "properties" : {
+    "sealed" : true,
+  }
+```
+
 ## Datasource Columns
 
 As noted above, columns are optional. When provided, they appear as a list under the

@@ -24,7 +24,6 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
-import org.apache.druid.java.util.common.granularity.Granularity;
 
 import javax.annotation.Nullable;
 
@@ -70,7 +69,8 @@ public abstract class DruidSqlIngest extends SqlInsert
   }
 
   @Override
-  public List<SqlNode> getOperandList() {
+  public List<SqlNode> getOperandList()
+  {
     return ImmutableNullableList.<SqlNode>builder()
         .addAll(super.getOperandList())
         .add(partitionedBy)
