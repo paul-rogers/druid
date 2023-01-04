@@ -19,11 +19,11 @@
 
 package org.apache.druid.sql.calcite;
 
-import org.apache.druid.sql.calcite.util.SqlTestFramework.Builder;
-import org.junit.Test;
 import org.apache.druid.sql.SqlPlanningException;
 import org.apache.druid.sql.calcite.filtration.Filtration;
 import org.apache.druid.sql.calcite.planner.CatalogResolver.NullCatalogResolver;
+import org.apache.druid.sql.calcite.util.SqlTestFramework.Builder;
+import org.junit.Test;
 
 /**
  * Test for the "strict" feature of the catalog which can restrict INSERT statements
@@ -58,18 +58,17 @@ public class CalciteStrictInsertTest extends CalciteIngestionDmlTest
   public void testInsertIntoExisting()
   {
     testIngestionQuery()
-    .sql("INSERT INTO druid.numfoo SELECT * FROM foo PARTITIONED BY ALL TIME")
-    .expectTarget("numfoo", FOO_TABLE_SIGNATURE)
-    .expectResources(dataSourceRead("foo"), dataSourceWrite("numfoo"))
-    .expectQuery(
-        newScanQueryBuilder()
-            .dataSource("foo")
-            .intervals(querySegmentSpec(Filtration.eternity()))
-            .columns("__time", "cnt", "dim1", "dim2", "dim3", "m1", "m2", "unique_dim1")
-            .context(PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
-            .build()
-    )
-    .verify();
+        .sql("INSERT INTO druid.numfoo SELECT * FROM foo PARTITIONED BY ALL TIME")
+        .expectTarget("numfoo", FOO_TABLE_SIGNATURE)
+        .expectResources(dataSourceRead("foo"), dataSourceWrite("numfoo"))
+        .expectQuery(
+            newScanQueryBuilder()
+                .dataSource("foo")
+                .intervals(querySegmentSpec(Filtration.eternity()))
+                .columns("__time", "cnt", "dim1", "dim2", "dim3", "m1", "m2", "unique_dim1")
+                .context(PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
+                .build()
+        )
+        .verify();
   }
-
 }

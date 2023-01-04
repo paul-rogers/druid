@@ -48,10 +48,6 @@ public class LiveCatalogResolver implements CatalogResolver
 {
   public static final String TYPE = "catalog";
 
-  // Copied here from MSQE since that extension is not visible here.
-  public static final String CTX_ROWS_PER_SEGMENT = "msqRowsPerSegment";
-  public static final String CTX_FINALIZE_AGGREGATIONS = "finalizeAggregations";
-
   private final MetadataCatalog catalog;
 
   @Inject
@@ -198,5 +194,11 @@ public class LiveCatalogResolver implements CatalogResolver
 
     EffectiveMetadata effectiveMetadata = new EffectiveMetadata(dsSpec, columns, false);
     return new DatasourceTable(builder.build(), dsMetadata, effectiveMetadata);
+  }
+
+  @Override
+  public boolean ingestRequiresExistingTable()
+  {
+    return false;
   }
 }

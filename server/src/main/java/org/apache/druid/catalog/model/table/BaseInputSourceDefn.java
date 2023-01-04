@@ -92,7 +92,9 @@ public abstract class BaseInputSourceDefn implements InputSourceDefn
         final ObjectMapper jsonMapper
     )
     {
-      requireSchema(fnName, columns);
+      if (CollectionUtils.isNullOrEmpty(table.resolvedTable().spec().columns())) {
+        requireSchema(fnName, columns);
+      }
       return convertCompletedTable(table, args, columns);
     }
   }

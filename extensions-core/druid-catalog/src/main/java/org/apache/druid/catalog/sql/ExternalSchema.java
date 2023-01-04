@@ -196,7 +196,7 @@ public class ExternalSchema extends AbstractTableSchema implements NamedSchema
     {
       final ObjectMapper jsonMapper = externalTable.jsonMapper();
       final ExternalTableSpec externSpec = fn.apply(
-          "x",
+          tableName,
           Externals.convertArguments(fn, arguments),
           null,
           jsonMapper

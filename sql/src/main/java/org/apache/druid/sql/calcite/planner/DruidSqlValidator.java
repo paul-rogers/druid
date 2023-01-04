@@ -84,6 +84,9 @@ class DruidSqlValidator extends BaseDruidSqlValidator
 {
   private static final Pattern UNNAMED_COLUMN_PATTERN = Pattern.compile("^EXPR\\$\\d+$", Pattern.CASE_INSENSITIVE);
 
+  // Copied here from MSQE since that extension is not visible here.
+  public static final String CTX_ROWS_PER_SEGMENT = "msqRowsPerSegment";
+
   public interface ValidatorContext
   {
     Map<String, Object> queryContextMap();
@@ -192,6 +195,14 @@ class DruidSqlValidator extends BaseDruidSqlValidator
 
     // Set the type for the INSERT/REPLACE node
     setValidatedNodeType(insert, targetType);
+
+    // Segment size
+    if (tableMetadata != null) {
+      Integer targetSegmentRows = tableMetadata.targetSegmentRows();
+      if (targetSegmentRows != null) {
+        validatorContext.queryContextMap().put(CTX_ROWS_PER_SEGMENT, targetSegmentRows);
+      }
+    }
   }
 
   /**
@@ -505,10 +516,11 @@ class DruidSqlValidator extends BaseDruidSqlValidator
 
     // Process cluster keys
     for (SqlNode clusterKey : clusteredBy) {
-      Integer index = resolveKeyToIndex(clusterKey, fieldNames);
+      Pair<Integer, Boolean> key = resolveClusterKey(clusterKey, fieldNames);
       // If an expression, index is null. Validation was done in the ORDER BY check.
       // Else, do additional MSQ-specific checks.
-      if (index != null) {
+      if (key != null) {
+        int index = key.left;
         // Can't cluster by __time
         if (index == timeColumnIndex) {
           throw new IAE("Do not include %s in the CLUSTERED BY clause: it is managed by PARTITIONED BY", Columns.TIME_COLUMN);
@@ -522,8 +534,10 @@ class DruidSqlValidator extends BaseDruidSqlValidator
     }
   }
 
-  private Integer resolveKeyToIndex(SqlNode clusterKey, final List<String> fieldNames)
+  private Pair<Integer, Boolean> resolveClusterKey(SqlNode clusterKey, final List<String> fieldNames)
   {
+    boolean desc = false;
+
     // Check if the key is compound: only occurs for DESC. The ASC
     // case is abstracted away by the parser.
     if (clusterKey instanceof SqlBasicCall) {
@@ -532,6 +546,7 @@ class DruidSqlValidator extends BaseDruidSqlValidator
         // Cluster key is compound: CLUSTERED BY foo DESC
         // We check only the first element
         clusterKey = ((SqlBasicCall) clusterKey).getOperandList().get(0);
+        desc = true;
       }
     }
 
@@ -546,7 +561,7 @@ class DruidSqlValidator extends BaseDruidSqlValidator
       if (index < 0 || fieldNames.size() <= index) {
         throw new IAE("CLUSTERED BY ordinal %d is not valid", ord);
       }
-      return index;
+      return new Pair<>(index, desc);
     } else if (clusterKey instanceof SqlIdentifier) {
       // Key is an identifier: CLUSTERED BY foo
       SqlIdentifier key = (SqlIdentifier) clusterKey;
@@ -563,7 +578,7 @@ class DruidSqlValidator extends BaseDruidSqlValidator
       if (index == -1) {
         throw new IAE("CLUSTERED BY key column '%s' is not valid", keyName);
       }
-      return index;
+      return new Pair<>(index, desc);
     } else {
       // Key is an expression: CLUSTERED BY CEIL(m2)
       return null;
@@ -587,15 +602,15 @@ class DruidSqlValidator extends BaseDruidSqlValidator
     for (int i = 0; i < clusteredBy.size(); i++) {
       SqlNode catalogKey = catalogClustering.get(i);
       SqlNode clusterKey = clusteredBy.get(i);
-      Integer catalogIndex = resolveKeyToIndex(catalogKey, fieldNames);
-      Integer clusterIndex = resolveKeyToIndex(clusterKey, fieldNames);
+      Pair<Integer, Boolean> catalogPair = resolveClusterKey(catalogKey, fieldNames);
+      Pair<Integer, Boolean> queryPair = resolveClusterKey(clusterKey, fieldNames);
 
       // Cluster keys in the catalog must be field references. If unresolved,
       // we would have gotten an error above. Here we make sure that both
       // indexes are the same. Since the catalog index can't be null, we're
       // essentially checking that the indexes are the same: they name the same
       // column.
-      if (!Objects.equal(catalogIndex, clusterIndex)) {
+      if (!Objects.equal(catalogPair, queryPair)) {
         throw clusterKeyMismatchException(catalogClustering, clusteredBy);
       }
     }
@@ -610,6 +625,21 @@ class DruidSqlValidator extends BaseDruidSqlValidator
     );
   }
 
+  /**
+   * Compute and validate the target type. In normal SQL, the engine would insert
+   * a project operator after the SELECT before the write to cast columns from the
+   * input type to the (compatible) defined output type. Druid doesn't work that way.
+   * In MSQ, the output the just is the input type. If the user wants to control the
+   * output type, then the user must manually insert any required CAST: Druid is not
+   * in the business of changing the type to suit the catalog.
+   * <p>
+   * As a result, we first propagate column names and types using Druid rules: the
+   * output is exactly what SELECT says it is. We then apply restrictions from the
+   * catalog. If the table is strict, only column names from the catalog can be
+   * used. If a type is provided, then the <i>user</i> (not the planner) is responsible
+   * for adding a CAST as needed so that the SELECT column type exactly matches the
+   * catalog column type, if given.
+   */
   private RelDataType validateTargetType(SqlInsert insert, RelRecordType sourceType, DatasourceFacade tableMetadata)
   {
     final List<RelDataTypeField> sourceFields = sourceType.getFieldList();
@@ -629,25 +659,60 @@ class DruidSqlValidator extends BaseDruidSqlValidator
       String colName = sourceField.getName();
       ColumnFacade definedCol = tableMetadata.column(colName);
       if (definedCol == null) {
+        // No catalog definition for this column.
         if (isStrict) {
+          // Table is strict: cannot add new columns at ingest time.
           throw new IAE(
               "Target column \"%s\".\"%s\" is not defined",
               insert.getTargetTable(),
               colName
           );
         }
+
+        // Table is not strict: add a new column based on the SELECT column.
         fields.add(Pair.of(colName, sourceField.getType()));
         continue;
       }
+
+      // If the column name is defined, but no type is given then, use the
+      // column type from SELECT.
       if (!definedCol.hasType()) {
         fields.add(Pair.of(colName, sourceField.getType()));
         continue;
       }
+
+      // Both the column name and type are provided. Use the name and type
+      // from the catalog.
       // TODO: Handle error if type not found
       String sqlTypeName = definedCol.sqlStorageType();
+      if (sqlTypeName == null) {
+        // Don't know the storage type. Just skip this one: Druid types are
+        // fluid so let Druid sort out what to store.
+        fields.add(Pair.of(colName, sourceField.getType()));
+        continue;
+      }
       SqlTypeName sqlType = SqlTypeName.get(sqlTypeName);
-      fields.add(Pair.of(colName, typeFactory.createSqlType(sqlType)));
+      RelDataType targetType = typeFactory.createSqlType(sqlType);
+
+      // Druid-specific check: the user, not Druid, is responsible for casting
+      // the column to the correct type. Druid ignores nullability and precision.
+      // Focus only on type type name. This also handle the fact that strings and
+      // string arrays are the same, and the complex types are all treated the same
+      // independent of underlying type.
+      if (!sourceField.getType().getSqlTypeName().equals(targetType.getSqlTypeName())) {
+        throw new IAE("Type %s of column %s does not match the defined type of %s: add a CAST",
+            sourceField.getType().getSqlTypeName(),
+            colName,
+            targetType.getSqlTypeName()
+        );
+      }
+      fields.add(Pair.of(colName, targetType));
     }
+
+    // Perform the SQL-standard check: that the SELECT column can be
+    // converted to the target type. This check is retained to mimic SQL
+    // behavior, but doesn't do anything because we enforced exact type
+    // matches above.
     RelDataType targetType = typeFactory.createStructType(fields);
     checkTypeAssignment(sourceType, targetType, insert);
     return targetType;

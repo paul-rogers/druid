@@ -190,35 +190,35 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
         .add("extra3", ColumnType.STRING)
         .build();
     testIngestionQuery()
-        .sql("INSERT INTO foo\n" +
-             "SELECT TIME_PARSE(a) AS __time, b AS dim1, 1 AS cnt,\n" +
-            "        CAST(c AS DOUBLE) AS m1, CAST(d AS BIGINT) AS extra2, e AS extra3\n" +
-             "FROM TABLE(inline(\n" +
-             "  data => ARRAY['2022-12-26T12:34:56,extra,10,\"20\",foo'],\n" +
-             "  format => 'csv'))\n" +
-             "  (a VARCHAR, b VARCHAR, c BIGINT, d VARCHAR, e VARCHAR)\n" +
-             "PARTITIONED BY ALL TIME")
-        .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
-        .expectTarget("foo", signature)
-        .expectResources(dataSourceWrite("foo"), Externals.externalRead("EXTERNAL"))
-        .expectQuery(
-            newScanQueryBuilder()
-                .dataSource(externalDataSource)
-                .intervals(querySegmentSpec(Filtration.eternity()))
-                .virtualColumns(
-                    expressionVirtualColumn("v0", "timestamp_parse(\"a\",null,'UTC')", ColumnType.LONG),
-                    expressionVirtualColumn("v1", "1", ColumnType.LONG),
-                    expressionVirtualColumn("v2", "CAST(\"c\", 'DOUBLE')", ColumnType.DOUBLE),
-                    expressionVirtualColumn("v3", "CAST(\"d\", 'LONG')", ColumnType.LONG)
-                 )
-                // Scan query lists columns in alphabetical order independent of the
-                // SQL project list or the defined schema. Here we just check that the
-                // set of columns is correct, but not their order.
-                .columns("b", "e", "v0", "v1", "v2", "v3")
-                .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
-                .build()
-         )
-        .verify();
+    .sql("INSERT INTO foo\n" +
+         "SELECT TIME_PARSE(a) AS __time, b AS dim1, 1 AS cnt,\n" +
+        "        CAST(c AS DOUBLE) AS m1, CAST(d AS BIGINT) AS extra2, e AS extra3\n" +
+         "FROM TABLE(inline(\n" +
+         "  data => ARRAY['2022-12-26T12:34:56,extra,10,\"20\",foo'],\n" +
+         "  format => 'csv'))\n" +
+         "  (a VARCHAR, b VARCHAR, c BIGINT, d VARCHAR, e VARCHAR)\n" +
+         "PARTITIONED BY ALL TIME")
+    .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
+    .expectTarget("foo", signature)
+    .expectResources(dataSourceWrite("foo"), Externals.externalRead("EXTERNAL"))
+    .expectQuery(
+        newScanQueryBuilder()
+            .dataSource(externalDataSource)
+            .intervals(querySegmentSpec(Filtration.eternity()))
+            .virtualColumns(
+                expressionVirtualColumn("v0", "timestamp_parse(\"a\",null,'UTC')", ColumnType.LONG),
+                expressionVirtualColumn("v1", "1", ColumnType.LONG),
+                expressionVirtualColumn("v2", "CAST(\"c\", 'DOUBLE')", ColumnType.DOUBLE),
+                expressionVirtualColumn("v3", "CAST(\"d\", 'LONG')", ColumnType.LONG)
+             )
+            // Scan query lists columns in alphabetical order independent of the
+            // SQL project list or the defined schema. Here we just check that the
+            // set of columns is correct, but not their order.
+            .columns("b", "e", "v0", "v1", "v2", "v3")
+            .context(CalciteInsertDmlTest.PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT)
+            .build()
+     )
+    .verify();
   }
 
   @Test
@@ -467,7 +467,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                 .context(queryContextWithGranularity(Granularities.DAY))
                 .build()
          )
-        .expectLogicalPlanFrom("insertWithClusteredBy2")
+        .expectLogicalPlanFrom("insertWithClusteredBy")
         .verify();
   }
 
@@ -516,8 +516,6 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
                 .context(queryContextWithGranularity(Granularities.DAY))
                 .build()
          )
-        // Note that the logical plan represents that which is in the SQL parse
-        // tree: it does not include info from the catalog, unfortunately.
         .expectLogicalPlanFrom("insertWithCatalogClusteredBy")
         .verify();
   }

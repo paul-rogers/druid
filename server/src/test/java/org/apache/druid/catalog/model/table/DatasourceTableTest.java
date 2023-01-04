@@ -38,6 +38,7 @@ import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.segment.column.ColumnType;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -620,11 +621,12 @@ public class DatasourceTableTest
   }
 
   /**
-   * Test case for multiple of the {@code ext.md} examples. To use this, enable the
+   * Test case for multiple of the {@code datasource.md} examples. To use this, enable the
    * test, run it, then copy the JSON from the console. The examples pull out bits
    * and pieces in multiple places.
    */
   @Test
+  @Ignore
   public void docExample()
   {
     TableSpec spec = TableBuilder.datasource("foo", "PT1H")
