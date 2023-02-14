@@ -138,7 +138,9 @@ public class LongFirstAggregatorFactory extends AggregatorFactory
     if (rhs == null) {
       return lhs;
     }
+    @SuppressWarnings("unchecked")
     Long leftTime = ((SerializablePair<Long, Long>) lhs).lhs;
+    @SuppressWarnings("unchecked")
     Long rightTime = ((SerializablePair<Long, Long>) rhs).lhs;
     if (leftTime <= rightTime) {
       return lhs;
@@ -227,13 +229,15 @@ public class LongFirstAggregatorFactory extends AggregatorFactory
   @Override
   public Object deserialize(Object object)
   {
-    Map map = (Map) object;
+    @SuppressWarnings("unchecked")
+    Map<String, Object> map = (Map<String, Object>) object;
     if (map.get("rhs") == null) {
       return new SerializablePair<>(((Number) map.get("lhs")).longValue(), null);
     }
     return new SerializablePair<>(((Number) map.get("lhs")).longValue(), ((Number) map.get("rhs")).longValue());
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   @Nullable
   public Object finalizeComputation(@Nullable Object object)

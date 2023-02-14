@@ -23,6 +23,7 @@ SqlNode DruidSqlInsertEof() :
   SqlNode insertNode;
   SqlNode partitionedBy = null;
   SqlNodeList clusteredBy = null;
+  SqlNode rollup = null;
 }
 {
   insertNode = SqlInsert()
@@ -37,6 +38,18 @@ SqlNode DruidSqlInsertEof() :
     <CLUSTERED> <BY>
     clusteredBy = ClusterItems()
   ]
+  [
+    ( <WITH>
+    {
+      rollup = SqlLiteral.createBoolean(true, SqlParserPos.ZERO);
+    }
+    | <WITHOUT>
+    {
+      rollup = SqlLiteral.createBoolean(false, SqlParserPos.ZERO);
+    }
+    ) <ROLLUP>
+  ]
+
   // EOF is also present in SqlStmtEof but EOF is a special case and a single EOF can be consumed multiple times.
   // The reason for adding EOF here is to ensure that we create a DruidSqlInsert node after the syntax has been
   // validated and throw SQL syntax errors before performing validations in the DruidSqlInsert which can overshadow the
@@ -49,6 +62,6 @@ SqlNode DruidSqlInsertEof() :
       return insertNode;
     }
     SqlInsert sqlInsert = (SqlInsert) insertNode;
-    return new DruidSqlInsert(sqlInsert, partitionedBy, clusteredBy);
+    return new DruidSqlInsert(sqlInsert, partitionedBy, clusteredBy, rollup);
   }
 }

@@ -69,7 +69,8 @@ public class DruidSqlIngestOperator extends SqlSpecialOperator implements Author
           (SqlNodeList) operands[3],
           // Must match DruidSqlIngest.getOperandList()
           operands[4],
-          (SqlNodeList) operands[5]
+          (SqlNodeList) operands[5],
+          operands[6]
       );
     }
   }
@@ -98,8 +99,9 @@ public class DruidSqlIngestOperator extends SqlSpecialOperator implements Author
           // Must match DruidSqlIngest.getOperandList()
           operands[4],
           (SqlNodeList) operands[5],
+          operands[6],
           // Must match DruidSqlReplace.getOperandList()
-          operands[6]
+          operands[7]
       );
     }
   }

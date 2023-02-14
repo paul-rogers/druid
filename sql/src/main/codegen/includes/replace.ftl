@@ -27,6 +27,7 @@ SqlNode DruidSqlReplaceEof() :
     SqlInsert sqlInsert;
     SqlNode partitionedBy = null;
     SqlNodeList clusteredBy = null;
+    SqlNode rollup = null;
     final Pair<SqlNodeList, SqlNodeList> p;
     SqlNode replaceTimeQuery = null;
 }
@@ -55,6 +56,17 @@ SqlNode DruidSqlReplaceEof() :
       <CLUSTERED> <BY>
       clusteredBy = ClusterItems()
     ]
+    [
+      ( <WITH>
+      {
+        rollup = SqlLiteral.createBoolean(true, SqlParserPos.ZERO);
+      }
+      | <WITHOUT>
+      {
+        rollup = SqlLiteral.createBoolean(false, SqlParserPos.ZERO);
+      }
+      ) <ROLLUP>
+    ]
     // EOF is also present in SqlStmtEof but EOF is a special case and a single EOF can be consumed multiple times.
     // The reason for adding EOF here is to ensure that we create a DruidSqlReplace node after the syntax has been
     // validated and throw SQL syntax errors before performing validations in the DruidSqlReplace which can overshadow the
@@ -62,7 +74,7 @@ SqlNode DruidSqlReplaceEof() :
     <EOF>
     {
         sqlInsert = new SqlInsert(s.end(source), SqlNodeList.EMPTY, table, source, columnList);
-        return new DruidSqlReplace(sqlInsert, partitionedBy, clusteredBy, replaceTimeQuery);
+        return new DruidSqlReplace(sqlInsert, partitionedBy, clusteredBy, rollup, replaceTimeQuery);
     }
 }
 

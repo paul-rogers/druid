@@ -42,7 +42,8 @@ public class DruidSqlInsert extends DruidSqlIngest
   public DruidSqlInsert(
       @Nonnull SqlInsert insertNode,
       @Nullable SqlNode partitionedBy,
-      @Nullable SqlNodeList clusteredBy
+      @Nullable SqlNodeList clusteredBy,
+      @Nullable SqlNode rollup
   )
   {
     this(
@@ -52,7 +53,8 @@ public class DruidSqlInsert extends DruidSqlIngest
         insertNode.getSource(),
         insertNode.getTargetColumnList(),
         partitionedBy,
-        clusteredBy
+        clusteredBy,
+        rollup
     );
   }
 
@@ -63,7 +65,8 @@ public class DruidSqlInsert extends DruidSqlIngest
       SqlNode source,
       SqlNodeList columnList,
       @Nullable SqlNode partitionedBy,
-      @Nullable SqlNodeList clusteredBy
+      @Nullable SqlNodeList clusteredBy,
+      @Nullable SqlNode rollup
   )
   {
     super(
@@ -73,7 +76,8 @@ public class DruidSqlInsert extends DruidSqlIngest
         source,
         columnList,
         partitionedBy,
-        clusteredBy
+        clusteredBy,
+        rollup
     );
   }
 
@@ -88,15 +92,6 @@ public class DruidSqlInsert extends DruidSqlIngest
   public void unparse(SqlWriter writer, int leftPrec, int rightPrec)
   {
     super.unparse(writer, leftPrec, rightPrec);
-    writer.keyword("PARTITIONED BY");
-    writer.keyword(partitionedBy.toString());
-    if (getClusteredBy() != null) {
-      writer.keyword("CLUSTERED BY");
-      SqlWriter.Frame frame = writer.startList("", "");
-      for (SqlNode clusterByOpts : getClusteredBy().getList()) {
-        clusterByOpts.unparse(writer, leftPrec, rightPrec);
-      }
-      writer.endList(frame);
-    }
+    unparseTail(writer, leftPrec, rightPrec);
   }
 }

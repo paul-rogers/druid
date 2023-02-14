@@ -20,8 +20,10 @@
 package org.apache.druid.sql.calcite.parser;
 
 import org.apache.calcite.sql.SqlInsert;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
 
@@ -42,19 +44,32 @@ public abstract class DruidSqlIngest extends SqlInsert
   @Nullable
   protected final SqlNodeList clusteredBy;
 
+  /**
+   * One of three values.
+   * <ul>
+   * <li>{@code null} - No option set. Obtain from catalog or default.</li>
+   * <li>Literal {@code true} - Segments include rollup.</li>
+   * <li>Literal {@code false} - Segments are detail (no rollup).</li>
+   * </ul>
+   */
+  @Nullable
+  final SqlNode rollup;
+
   public DruidSqlIngest(SqlParserPos pos,
       SqlNodeList keywords,
       SqlNode targetTable,
       SqlNode source,
       SqlNodeList columnList,
       @Nullable SqlNode partitionedBy,
-      @Nullable SqlNodeList clusteredBy
+      @Nullable SqlNodeList clusteredBy,
+      @Nullable SqlNode rollup
   )
   {
     super(pos, keywords, targetTable, source, columnList);
 
     this.partitionedBy = partitionedBy;
     this.clusteredBy = clusteredBy;
+    this.rollup = rollup;
   }
 
   public SqlNode getPartitionedBy()
@@ -68,6 +83,19 @@ public abstract class DruidSqlIngest extends SqlInsert
     return clusteredBy;
   }
 
+  @Nullable SqlNode getRollup()
+  {
+    return rollup;
+  }
+
+  @Nullable Boolean getRollupOption()
+  {
+    if (rollup == null) {
+      return null;
+    }
+    return (Boolean) ((SqlLiteral) rollup).getValue();
+  }
+
   @Override
   public List<SqlNode> getOperandList()
   {
@@ -75,6 +103,26 @@ public abstract class DruidSqlIngest extends SqlInsert
         .addAll(super.getOperandList())
         .add(partitionedBy)
         .add(clusteredBy)
+        .add(rollup)
         .build();
+  }
+
+  public void unparseTail(SqlWriter writer, int leftPrec, int rightPrec)
+  {
+    writer.keyword("PARTITIONED BY");
+    writer.keyword(partitionedBy.toString());
+    if (getClusteredBy() != null) {
+      writer.keyword("CLUSTERED BY");
+      SqlWriter.Frame frame = writer.startList("", "");
+      for (SqlNode clusterByOpts : getClusteredBy().getList()) {
+        clusterByOpts.unparse(writer, leftPrec, rightPrec);
+      }
+      writer.endList(frame);
+    }
+    Boolean rollupOption = getRollupOption();
+    if (rollupOption != null) {
+      writer.keyword(rollupOption ? "WITH" : "WITHOUT");
+      writer.keyword("ROLLUP");
+    }
   }
 }

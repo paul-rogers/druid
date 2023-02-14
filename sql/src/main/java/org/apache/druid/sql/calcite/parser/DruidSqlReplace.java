@@ -55,6 +55,7 @@ public class DruidSqlReplace extends DruidSqlIngest
       @Nonnull SqlInsert insertNode,
       @Nullable SqlNode partitionedBy,
       @Nullable SqlNodeList clusteredBy,
+      @Nullable SqlNode rollup,
       @Nullable SqlNode replaceTimeQuery
   )
   {
@@ -66,6 +67,7 @@ public class DruidSqlReplace extends DruidSqlIngest
         insertNode.getTargetColumnList(),
         partitionedBy,
         clusteredBy,
+        rollup,
         replaceTimeQuery
     );
   }
@@ -78,6 +80,7 @@ public class DruidSqlReplace extends DruidSqlIngest
       SqlNodeList columnList,
       @Nullable SqlNode partitionedBy,
       @Nullable SqlNodeList clusteredBy,
+      @Nullable SqlNode rollup,
       @Nullable SqlNode replaceTimeQuery
   )
   {
@@ -88,7 +91,8 @@ public class DruidSqlReplace extends DruidSqlIngest
         source,
         columnList,
         partitionedBy,
-        clusteredBy
+        clusteredBy,
+        rollup
     );
 
     this.replaceTimeQuery = replaceTimeQuery;
@@ -139,17 +143,6 @@ public class DruidSqlReplace extends DruidSqlIngest
 
     getSource().unparse(writer, 0, 0);
     writer.newlineAndIndent();
-
-    writer.keyword("PARTITIONED BY");
-    writer.keyword(partitionedBy.toString());
-
-    if (getClusteredBy() != null) {
-      writer.keyword("CLUSTERED BY");
-      SqlWriter.Frame frame = writer.startList("", "");
-      for (SqlNode clusterByOpts : getClusteredBy().getList()) {
-        clusterByOpts.unparse(writer, leftPrec, rightPrec);
-      }
-      writer.endList(frame);
-    }
+    unparseTail(writer, leftPrec, rightPrec);
   }
 }

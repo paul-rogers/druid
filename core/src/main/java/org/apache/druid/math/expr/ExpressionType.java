@@ -105,7 +105,6 @@ public class ExpressionType extends BaseTypeSignature<ExprType>
     return elementType;
   }
 
-
   /**
    * The expression system does not distinguish between {@link ValueType#FLOAT} and {@link ValueType#DOUBLE}, so,
    * this method will convert {@link ValueType#FLOAT} to {@link #DOUBLE}. Null values are not allowed in this method,
@@ -143,7 +142,6 @@ public class ExpressionType extends BaseTypeSignature<ExprType>
         throw new ISE("Unsupported value type[%s]", valueType);
     }
   }
-
 
   /**
    * The expression system does not distinguish between {@link ValueType#FLOAT} and {@link ValueType#DOUBLE}, so this
