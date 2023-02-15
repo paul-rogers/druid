@@ -51,7 +51,7 @@ import org.apache.druid.sql.calcite.expression.SqlOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.QueryLookupOperatorConversion;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
+import org.apache.druid.sql.calcite.planner.DruidOperatorRegistry;
 import org.apache.druid.sql.calcite.planner.DruidPlanner;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
@@ -78,6 +78,7 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 
 import javax.annotation.Nullable;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -520,7 +521,7 @@ public class SqlBenchmark
     }
   }
 
-  private static DruidOperatorTable createOperatorTable()
+  private static DruidOperatorRegistry createOperatorTable()
   {
     try {
       final Set<SqlOperatorConversion> extractionOperators = new HashSet<>();
@@ -532,7 +533,7 @@ public class SqlBenchmark
           new ApproxCountDistinctSqlAggregator(new HllSketchApproxCountDistinctSqlAggregator());
       aggregators.add(new CountSqlAggregator(countDistinctSqlAggregator));
       aggregators.add(countDistinctSqlAggregator);
-      return new DruidOperatorTable(aggregators, extractionOperators);
+      return new DruidOperatorRegistry(aggregators, extractionOperators);
     }
     catch (Exception e) {
       throw new RuntimeException(e);

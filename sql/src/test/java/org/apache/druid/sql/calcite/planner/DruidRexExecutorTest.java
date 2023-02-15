@@ -80,7 +80,7 @@ public class DruidRexExecutorTest extends InitializedNullHandlingTest
       .build();
 
   private static final PlannerToolbox PLANNER_TOOLBOX = new SimplePlannerToolbox(
-      new DruidOperatorTable(
+      new DruidOperatorRegistry(
           Collections.emptySet(),
           ImmutableSet.of(new DirectOperatorConversion(OPERATOR, "hyper_unique"))
       ),

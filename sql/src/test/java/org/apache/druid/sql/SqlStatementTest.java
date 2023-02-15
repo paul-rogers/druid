@@ -50,7 +50,7 @@ import org.apache.druid.sql.DirectStatement.ResultSet;
 import org.apache.druid.sql.SqlPlanningException.PlanningError;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
+import org.apache.druid.sql.calcite.planner.DruidOperatorRegistry;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
 import org.apache.druid.sql.calcite.planner.PrepareResult;
@@ -70,6 +70,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import javax.servlet.http.HttpServletRequest;
+
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -142,7 +143,7 @@ public class SqlStatementTest
         plannerConfig,
         CalciteTests.TEST_AUTHORIZER_MAPPER
     );
-    final DruidOperatorTable operatorTable = CalciteTests.createOperatorTable();
+    final DruidOperatorRegistry operatorTable = CalciteTests.createOperatorTable();
     final ExprMacroTable macroTable = CalciteTests.createExprMacroTable();
 
     testRequestLogger = new TestRequestLogger();

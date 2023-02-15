@@ -48,7 +48,7 @@ import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.calcite.aggregation.SqlAggregationModule;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
+import org.apache.druid.sql.calcite.planner.DruidOperatorRegistry;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
 import org.apache.druid.sql.calcite.rule.ExtensionCalciteRuleProvider;
@@ -491,7 +491,7 @@ public class SqlTestFramework
     @Override
     public void configure(Binder binder)
     {
-      binder.bind(DruidOperatorTable.class).in(LazySingleton.class);
+      binder.bind(DruidOperatorRegistry.class).in(LazySingleton.class);
       binder.bind(DataSegment.PruneSpecsHolder.class).toInstance(DataSegment.PruneSpecsHolder.DEFAULT);
     }
 
@@ -604,9 +604,9 @@ public class SqlTestFramework
     return injector.getInstance(ExprMacroTable.class);
   }
 
-  public DruidOperatorTable operatorTable()
+  public DruidOperatorRegistry operatorTable()
   {
-    return injector.getInstance(DruidOperatorTable.class);
+    return injector.getInstance(DruidOperatorRegistry.class);
   }
 
   public SpecificSegmentsQuerySegmentWalker walker()

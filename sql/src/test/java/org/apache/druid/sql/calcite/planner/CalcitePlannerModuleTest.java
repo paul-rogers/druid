@@ -141,11 +141,11 @@ public class CalcitePlannerModuleTest extends CalciteTestBase
   @Test
   public void testDruidOperatorTableIsInjectable()
   {
-    DruidOperatorTable operatorTable = injector.getInstance(DruidOperatorTable.class);
+    DruidOperatorRegistry operatorTable = injector.getInstance(DruidOperatorRegistry.class);
     Assert.assertNotNull(operatorTable);
 
     // Should be a singleton.
-    DruidOperatorTable other = injector.getInstance(DruidOperatorTable.class);
+    DruidOperatorRegistry other = injector.getInstance(DruidOperatorRegistry.class);
     Assert.assertSame(other, operatorTable);
   }
 
@@ -171,7 +171,7 @@ public class CalcitePlannerModuleTest extends CalciteTestBase
   public void testExtensionCalciteRule()
   {
     PlannerToolbox toolbox = new SimplePlannerToolbox(
-        injector.getInstance(DruidOperatorTable.class),
+        injector.getInstance(DruidOperatorRegistry.class),
         macroTable,
         new DefaultObjectMapper(),
         injector.getInstance(PlannerConfig.class),

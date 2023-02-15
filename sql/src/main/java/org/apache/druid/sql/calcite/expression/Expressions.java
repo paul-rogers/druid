@@ -256,7 +256,7 @@ public class Expressions
           rowSignature
       ));
     }
-    
+
     final Optional<ColumnType> columnType = rowSignature.getColumnType(index);
 
     return DruidExpression.ofColumn(columnType.get(), columnName);
@@ -287,7 +287,9 @@ public class Expressions
   {
     final SqlOperator operator = ((RexCall) rexNode).getOperator();
 
-    final SqlOperatorConversion conversion = plannerContext.getPlannerToolbox().operatorTable()
+    final SqlOperatorConversion conversion = plannerContext.getPlannerToolbox()
+                                                           .operatorTable()
+                                                           .finalizedAggTable()
                                                            .lookupOperatorConversion(operator);
 
     if (conversion == null) {
@@ -703,7 +705,11 @@ public class Expressions
       return filter;
     } else if (rexNode instanceof RexCall) {
       final SqlOperator operator = ((RexCall) rexNode).getOperator();
-      final SqlOperatorConversion conversion = plannerContext.getPlannerToolbox().operatorTable().lookupOperatorConversion(operator);
+      final SqlOperatorConversion conversion = plannerContext
+          .getPlannerToolbox()
+          .operatorTable()
+          .finalizedAggTable()
+          .lookupOperatorConversion(operator);
 
       if (conversion == null) {
         return null;

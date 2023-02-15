@@ -63,7 +63,7 @@ import org.apache.druid.server.security.Escalator;
 import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.SqlStatementFactory;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
+import org.apache.druid.sql.calcite.planner.DruidOperatorRegistry;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
 import org.apache.druid.sql.calcite.planner.SegmentMetadataCacheConfig;
@@ -290,7 +290,7 @@ public class CalciteTests
     return new JoinableFactoryWrapper(QueryFrameworkUtils.createDefaultJoinableFactory(INJECTOR));
   }
 
-  public static DruidOperatorTable createOperatorTable()
+  public static DruidOperatorRegistry createOperatorTable()
   {
     return QueryFrameworkUtils.createOperatorTable(INJECTOR);
   }

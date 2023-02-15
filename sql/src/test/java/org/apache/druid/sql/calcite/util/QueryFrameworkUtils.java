@@ -53,7 +53,7 @@ import org.apache.druid.sql.SqlLifecycleManager;
 import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.SqlToolbox;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
+import org.apache.druid.sql.calcite.planner.DruidOperatorRegistry;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
 import org.apache.druid.sql.calcite.planner.SegmentMetadataCacheConfig;
@@ -273,10 +273,10 @@ public class QueryFrameworkUtils
     return new ExprMacroTable(exprMacros);
   }
 
-  public static DruidOperatorTable createOperatorTable(final Injector injector)
+  public static DruidOperatorRegistry createOperatorTable(final Injector injector)
   {
     try {
-      return injector.getInstance(DruidOperatorTable.class);
+      return injector.getInstance(DruidOperatorRegistry.class);
     }
     catch (Exception e) {
       throw new RuntimeException(e);

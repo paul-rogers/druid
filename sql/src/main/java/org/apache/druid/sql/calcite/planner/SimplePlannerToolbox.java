@@ -27,7 +27,7 @@ import org.apache.druid.sql.calcite.schema.DruidSchemaCatalog;
 
 public class SimplePlannerToolbox implements PlannerToolbox
 {
-  private final DruidOperatorTable operatorTable;
+  private final DruidOperatorRegistry operatorTable;
   private final ExprMacroTable macroTable;
   private final JoinableFactoryWrapper joinableFactoryWrapper;
   private final ObjectMapper jsonMapper;
@@ -36,7 +36,7 @@ public class SimplePlannerToolbox implements PlannerToolbox
   private final CatalogResolver catalog;
 
   public SimplePlannerToolbox(
-      final DruidOperatorTable operatorTable,
+      final DruidOperatorRegistry operatorTable,
       final ExprMacroTable macroTable,
       final ObjectMapper jsonMapper,
       final PlannerConfig plannerConfig,
@@ -55,7 +55,7 @@ public class SimplePlannerToolbox implements PlannerToolbox
   }
 
   @Override
-  public DruidOperatorTable operatorTable()
+  public DruidOperatorRegistry operatorTable()
   {
     return operatorTable;
   }

@@ -39,7 +39,7 @@ import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.avatica.DruidJdbcResultSet.ResultFetcherFactory;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
+import org.apache.druid.sql.calcite.planner.DruidOperatorRegistry;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
 import org.apache.druid.sql.calcite.schema.DruidSchemaCatalog;
@@ -101,7 +101,7 @@ public class DruidStatementTest extends CalciteTestBase
   {
     walker = CalciteTests.createMockWalker(conglomerate, temporaryFolder.newFolder());
     final PlannerConfig plannerConfig = new PlannerConfig();
-    final DruidOperatorTable operatorTable = CalciteTests.createOperatorTable();
+    final DruidOperatorRegistry operatorTable = CalciteTests.createOperatorTable();
     final ExprMacroTable macroTable = CalciteTests.createExprMacroTable();
     DruidSchemaCatalog rootSchema =
         CalciteTests.createMockRootSchema(conglomerate, walker, plannerConfig, AuthTestUtils.TEST_AUTHORIZER_MAPPER);

@@ -43,7 +43,7 @@ public class CalcitePlannerModule implements Module
     JsonConfigProvider.bind(binder, "druid.sql.planner", PlannerConfig.class);
     JsonConfigProvider.bind(binder, "druid.sql.planner", SegmentMetadataCacheConfig.class);
     binder.bind(PlannerFactory.class).in(LazySingleton.class);
-    binder.bind(DruidOperatorTable.class).in(LazySingleton.class);
+    binder.bind(DruidOperatorRegistry.class).in(LazySingleton.class);
     Multibinder.newSetBinder(binder, ExtensionCalciteRuleProvider.class);
 
     // Catalog resolver: the planner's interface into the (optional) catalog.

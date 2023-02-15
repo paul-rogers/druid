@@ -76,7 +76,7 @@ import org.apache.druid.sql.avatica.DruidJdbcResultSet.ResultFetcherFactory;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
+import org.apache.druid.sql.calcite.planner.DruidOperatorRegistry;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
 import org.apache.druid.sql.calcite.schema.DruidSchemaCatalog;
@@ -173,7 +173,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
   public QueryLogHook queryLogHook = QueryLogHook.create();
 
   private final PlannerConfig plannerConfig = new PlannerConfig();
-  private final DruidOperatorTable operatorTable = CalciteTests.createOperatorTable();
+  private final DruidOperatorRegistry operatorTable = CalciteTests.createOperatorTable();
   private final ExprMacroTable macroTable = CalciteTests.createExprMacroTable();
   private SpecificSegmentsQuerySegmentWalker walker;
   private ServerWrapper server;
@@ -276,7 +276,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
             }
             binder.bind(QueryLifecycleFactory.class)
                   .toInstance(CalciteTests.createMockQueryLifecycleFactory(walker, conglomerate));
-            binder.bind(DruidOperatorTable.class).toInstance(operatorTable);
+            binder.bind(DruidOperatorRegistry.class).toInstance(operatorTable);
             binder.bind(ExprMacroTable.class).toInstance(macroTable);
             binder.bind(PlannerConfig.class).toInstance(plannerConfig);
             binder.bind(String.class)

@@ -22,14 +22,9 @@ package org.apache.druid.sql.calcite.planner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import org.apache.calcite.sql.SqlAggFunction;
-import org.apache.calcite.sql.SqlFunctionCategory;
-import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSyntax;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
-import org.apache.calcite.sql.validate.SqlNameMatcher;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.sql.calcite.aggregation.SqlAggregator;
@@ -121,8 +116,6 @@ import org.apache.druid.sql.calcite.expression.builtin.TrimOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.TruncateOperatorConversion;
 import org.apache.druid.sql.calcite.planner.convertlet.DruidConvertletTable;
 
-import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -131,7 +124,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class DruidOperatorTable implements SqlOperatorTable
+public class DruidOperatorRegistry
 {
   // COUNT and APPROX_COUNT_DISTINCT are not here because they are added by SqlAggregationModule.
   private static final List<SqlAggregator> STANDARD_AGGREGATORS =
@@ -404,26 +397,26 @@ public class DruidOperatorTable implements SqlOperatorTable
                    .build();
 
   // Operators that have no conversion, but are handled in the convertlet table, so they still need to exist.
-  private static final Map<OperatorKey, SqlOperator> CONVERTLET_OPERATORS =
+  protected static final Map<OperatorKey, SqlOperator> CONVERTLET_OPERATORS =
       DruidConvertletTable.knownOperators()
                           .stream()
                           .collect(Collectors.toMap(OperatorKey::of, Function.identity()));
 
-  private final Map<OperatorKey, SqlAggregator> aggregators;
-  private final Map<OperatorKey, SqlOperatorConversion> operatorConversions;
+  private final BaseOperatorTable baseTable;
+  private final OverlayOperatorTable overlayTable;
 
   @Inject
-  public DruidOperatorTable(
+  public DruidOperatorRegistry(
       final Set<SqlAggregator> aggregators,
       final Set<SqlOperatorConversion> operatorConversions
   )
   {
-    this.aggregators = new HashMap<>();
-    this.operatorConversions = new HashMap<>();
+    final Map<OperatorKey, SqlAggregator> aggregatorMap = new HashMap<>();
+    final Map<OperatorKey, SqlOperatorConversion> operatorConversionMap = new HashMap<>();
 
     for (SqlAggregator aggregator : aggregators) {
       final OperatorKey operatorKey = OperatorKey.of(aggregator.calciteFunction());
-      if (this.aggregators.put(operatorKey, aggregator) != null) {
+      if (aggregatorMap.put(operatorKey, aggregator) != null) {
         throw new ISE("Cannot have two operators with key [%s]", operatorKey);
       }
     }
@@ -432,94 +425,36 @@ public class DruidOperatorTable implements SqlOperatorTable
       final OperatorKey operatorKey = OperatorKey.of(aggregator.calciteFunction());
 
       // Don't complain if the name already exists; we allow standard operators to be overridden.
-      this.aggregators.putIfAbsent(operatorKey, aggregator);
+      aggregatorMap.putIfAbsent(operatorKey, aggregator);
     }
 
     for (SqlOperatorConversion operatorConversion : operatorConversions) {
       final OperatorKey operatorKey = OperatorKey.of(operatorConversion.calciteOperator());
-      if (this.aggregators.containsKey(operatorKey)
-          || this.operatorConversions.put(operatorKey, operatorConversion) != null) {
+      if (aggregatorMap.containsKey(operatorKey)
+          || operatorConversionMap.put(operatorKey, operatorConversion) != null) {
         throw new ISE("Cannot have two operators with key [%s]", operatorKey);
       }
     }
+
 
     for (SqlOperatorConversion operatorConversion : STANDARD_OPERATOR_CONVERSIONS) {
       final OperatorKey operatorKey = OperatorKey.of(operatorConversion.calciteOperator());
 
       // Don't complain if the name already exists; we allow standard operators to be overridden.
-      if (this.aggregators.containsKey(operatorKey)) {
+      if (aggregatorMap.containsKey(operatorKey)) {
         continue;
       }
 
-      this.operatorConversions.putIfAbsent(operatorKey, operatorConversion);
+      operatorConversionMap.putIfAbsent(operatorKey, operatorConversion);
     }
+
+    this.baseTable = new BaseOperatorTable(operatorConversionMap);
+    this.overlayTable = new OverlayOperatorTable(this.baseTable, aggregatorMap);
   }
 
-  @Nullable
-  public SqlAggregator lookupAggregator(final SqlAggFunction aggFunction)
+  public OverlayOperatorTable finalizedAggTable()
   {
-    final SqlAggregator sqlAggregator = aggregators.get(OperatorKey.of(aggFunction));
-    if (sqlAggregator != null && sqlAggregator.calciteFunction().equals(aggFunction)) {
-      return sqlAggregator;
-    } else {
-      return null;
-    }
-  }
-
-  @Nullable
-  public SqlOperatorConversion lookupOperatorConversion(final SqlOperator operator)
-  {
-    final SqlOperatorConversion operatorConversion = operatorConversions.get(OperatorKey.of(operator));
-    if (operatorConversion != null && operatorConversion.calciteOperator().equals(operator)) {
-      return operatorConversion;
-    } else {
-      return null;
-    }
-  }
-
-  @Override
-  public void lookupOperatorOverloads(
-      final SqlIdentifier opName,
-      final SqlFunctionCategory category,
-      final SqlSyntax syntax,
-      final List<SqlOperator> operatorList,
-      final SqlNameMatcher nameMatcher
-  )
-  {
-    if (opName == null || opName.names.size() != 1) {
-      return;
-    }
-
-    final OperatorKey operatorKey = OperatorKey.of(opName.getSimple(), syntax);
-
-    final SqlAggregator aggregator = aggregators.get(operatorKey);
-    if (aggregator != null) {
-      operatorList.add(aggregator.calciteFunction());
-    }
-
-    final SqlOperatorConversion operatorConversion = operatorConversions.get(operatorKey);
-    if (operatorConversion != null) {
-      operatorList.add(operatorConversion.calciteOperator());
-    }
-
-    final SqlOperator convertletOperator = CONVERTLET_OPERATORS.get(operatorKey);
-    if (convertletOperator != null) {
-      operatorList.add(convertletOperator);
-    }
-  }
-
-  @Override
-  public List<SqlOperator> getOperatorList()
-  {
-    final List<SqlOperator> retVal = new ArrayList<>();
-    for (SqlAggregator aggregator : aggregators.values()) {
-      retVal.add(aggregator.calciteFunction());
-    }
-    for (SqlOperatorConversion operatorConversion : operatorConversions.values()) {
-      retVal.add(operatorConversion.calciteOperator());
-    }
-    retVal.addAll(DruidConvertletTable.knownOperators());
-    return retVal;
+    return overlayTable;
   }
 
   private static SqlSyntax normalizeSyntax(final SqlSyntax syntax)
@@ -532,7 +467,7 @@ public class DruidOperatorTable implements SqlOperatorTable
     }
   }
 
-  private static class OperatorKey
+  protected static class OperatorKey
   {
     private final String name;
     private final SqlSyntax syntax;
