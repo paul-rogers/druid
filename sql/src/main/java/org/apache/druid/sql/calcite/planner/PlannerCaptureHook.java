@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.calcite.interpreter.BindableRel;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.druid.sql.calcite.rel.DruidRel;
 
@@ -33,6 +34,8 @@ public class PlannerCaptureHook implements PlannerHook
   private SqlInsert insertNode;
   private DruidRel<?> druidRel;
   private Object execPlan;
+  private RelRecordType inputType;
+  private RelDataType outputType;
 
   @Override
   public void captureSql(String sql)
@@ -71,6 +74,18 @@ public class PlannerCaptureHook implements PlannerHook
     this.insertNode = insert;
   }
 
+  @Override
+  public void captureInputSchema(RelRecordType sourceType)
+  {
+    this.inputType = sourceType;
+  }
+
+  @Override
+  public void captureOutputType(RelDataType targetType)
+  {
+    this.outputType = targetType;
+  }
+
   public RelRoot relRoot()
   {
     return relRoot;
@@ -89,6 +104,16 @@ public class PlannerCaptureHook implements PlannerHook
   public Object execPlan()
   {
     return execPlan;
+  }
+
+  public RelDataType inputType()
+  {
+    return inputType;
+  }
+
+  public RelDataType outputType()
+  {
+    return outputType;
   }
 
   public String visualizePlan(ObjectMapper objectMapper)

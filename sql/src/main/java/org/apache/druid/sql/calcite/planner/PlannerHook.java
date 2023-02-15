@@ -22,6 +22,7 @@ package org.apache.druid.sql.calcite.planner;
 import org.apache.calcite.interpreter.BindableRel;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.druid.sql.calcite.rel.DruidRel;
 
@@ -40,4 +41,6 @@ public interface PlannerHook
   void captureBindableRel(BindableRel bindableRel);
   void captureParameterTypes(RelDataType parameterTypes);
   void captureInsert(SqlInsert insert);
+  void captureInputSchema(RelRecordType sourceType);
+  void captureOutputType(RelDataType targetType);
 }

@@ -40,14 +40,17 @@ public class OverlayOperatorTable implements SqlOperatorTable
 {
   final BaseOperatorTable baseTable;
   final Map<OperatorKey, SqlAggregator> aggregators;
+  final boolean isFinalized;
 
   protected OverlayOperatorTable(
       final BaseOperatorTable baseTable,
-      final Map<OperatorKey, SqlAggregator> aggregators
+      final Map<OperatorKey, SqlAggregator> aggregators,
+      final boolean isFinalized
   )
   {
     this.baseTable = baseTable;
     this.aggregators = aggregators;
+    this.isFinalized = isFinalized;
   }
 
   @Override
@@ -66,7 +69,7 @@ public class OverlayOperatorTable implements SqlOperatorTable
     final OperatorKey operatorKey = OperatorKey.of(opName.getSimple(), syntax);
     final SqlAggregator aggregator = aggregators.get(operatorKey);
     if (aggregator != null) {
-      operatorList.add(aggregator.calciteFunction());
+      operatorList.add(isFinalized ? aggregator.calciteFunction() : aggregator.intermediateFunction());
     }
     baseTable.lookupOperatorOverloads(operatorKey, operatorList, nameMatcher);
   }

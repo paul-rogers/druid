@@ -93,6 +93,7 @@ class DruidSqlValidator extends BaseDruidSqlValidator
     CatalogResolver catalog();
     String druidSchemaName();
     ObjectMapper jsonMapper();
+    PlannerHook plannerHook();
   }
 
   private final ValidatorContext validatorContext;
@@ -190,6 +191,7 @@ class DruidSqlValidator extends BaseDruidSqlValidator
 
     SqlValidatorNamespace sourceNamespace = namespaces.get(source);
     RelRecordType sourceType = (RelRecordType) sourceNamespace.getRowType();
+    validatorContext.plannerHook().captureInputSchema(sourceType);
 
     // Validate the __time column
     int timeColumnIndex = sourceType.getFieldNames().indexOf(Columns.TIME_COLUMN);
@@ -205,6 +207,7 @@ class DruidSqlValidator extends BaseDruidSqlValidator
 
     // Determine the output (target) schema.
     RelDataType targetType = validateTargetType(insert, sourceType, tableMetadata);
+    validatorContext.plannerHook().captureOutputType(targetType);
 
     // Set the type for the INSERT/REPLACE node
     setValidatedNodeType(insert, targetType);

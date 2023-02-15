@@ -343,5 +343,11 @@ public class DruidPlanner implements Closeable
     {
       return plannerContext.getPlannerToolbox().jsonMapper();
     }
+
+    @Override
+    public PlannerHook plannerHook()
+    {
+      return plannerContext.getPlannerHook();
+    }
   }
 }

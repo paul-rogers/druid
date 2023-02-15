@@ -105,6 +105,7 @@ public class QueryTestBuilder
   protected String expectedLogicalPlan;
   @Nullable
   protected SqlSchema expectedSqlSchema;
+  protected SqlSchema expectedOutputSchema;
 
   /**
    * The expected execution plan, converted to a JSON string. Primarily for MSQ.
@@ -297,9 +298,9 @@ public class QueryTestBuilder
     return this;
   }
 
-  public QueryTestBuilder expectedSqlSchema(SqlSchema querySchema)
+  public QueryTestBuilder expectedOutputSchema(SqlSchema querySchema)
   {
-    this.expectedSqlSchema = querySchema;
+    this.expectedOutputSchema = querySchema;
     return this;
   }
 

@@ -156,7 +156,7 @@ public class EarliestLatestBySqlAggregator implements SqlAggregator
   private static class EarliestByLatestBySqlAggFunction extends SqlAggFunction
   {
     private static final SqlReturnTypeInference EARLIEST_LATEST_ARG0_RETURN_TYPE_INFERENCE =
-        new EarliestLatestAnySqlAggregator.EarliestLatestReturnTypeInference(0);
+        new EarliestLatestAnySqlAggregator.EarliestLatestFinalReturnTypeInference(0);
 
     EarliestByLatestBySqlAggFunction(EarliestLatestAnySqlAggregator.AggregatorType aggregatorType)
     {

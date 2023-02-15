@@ -403,7 +403,8 @@ public class DruidOperatorRegistry
                           .collect(Collectors.toMap(OperatorKey::of, Function.identity()));
 
   private final BaseOperatorTable baseTable;
-  private final OverlayOperatorTable overlayTable;
+  private final OverlayOperatorTable finalizedAggTable;
+  private final OverlayOperatorTable intermediateAggTable;
 
   @Inject
   public DruidOperatorRegistry(
@@ -449,12 +450,23 @@ public class DruidOperatorRegistry
     }
 
     this.baseTable = new BaseOperatorTable(operatorConversionMap);
-    this.overlayTable = new OverlayOperatorTable(this.baseTable, aggregatorMap);
+    this.finalizedAggTable = new OverlayOperatorTable(this.baseTable, aggregatorMap, true);
+    this.intermediateAggTable = new OverlayOperatorTable(this.baseTable, aggregatorMap, false);
   }
 
   public OverlayOperatorTable finalizedAggTable()
   {
-    return overlayTable;
+    return finalizedAggTable;
+  }
+
+  public OverlayOperatorTable intermediateAggTable()
+  {
+    return intermediateAggTable;
+  }
+
+  public OverlayOperatorTable operatorTable(boolean finalizeAggregates)
+  {
+    return finalizeAggregates ? finalizedAggTable : intermediateAggTable;
   }
 
   private static SqlSyntax normalizeSyntax(final SqlSyntax syntax)

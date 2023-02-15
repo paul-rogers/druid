@@ -42,6 +42,11 @@ public interface SqlAggregator
    */
   SqlAggFunction calciteFunction();
 
+  default SqlAggFunction intermediateFunction()
+  {
+    return calciteFunction();
+  }
+
   /**
    * Returns a Druid Aggregation corresponding to a SQL {@link AggregateCall}. This method should ignore filters;
    * they will be applied to your aggregator in a later step.

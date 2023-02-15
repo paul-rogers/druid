@@ -216,6 +216,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
     private String expectedLogicalPlanResource;
     private String expectedPhysicalPlanResource;
     private List<SqlParameter> parameters;
+    private SqlSchema expectedOutputSchema;
 
     private IngestionDmlTester()
     {
@@ -311,6 +312,12 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
       return this;
     }
 
+    public IngestionDmlTester expectOutputSchema(SqlSchema sqlSchema)
+    {
+      this.expectedOutputSchema = sqlSchema;
+      return this;
+    }
+
     public void verify()
     {
       if (didTest) {
@@ -385,6 +392,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
           .parameters(parameters)
           .plannerConfig(plannerConfig)
           .expectedResources(expectedResources)
+          .expectedOutputSchema(expectedOutputSchema)
           .run();
 
       String expectedLogicalPlan;
@@ -415,6 +423,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
           .expectedResults(Collections.singletonList(new Object[]{expectedTargetDataSource, expectedTargetSignature}))
           .expectedLogicalPlan(expectedLogicalPlan)
           .expectedExecPlan(expectedPhysicalPlan)
+          .expectedOutputSchema(expectedOutputSchema)
           .run();
     }
 

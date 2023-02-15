@@ -83,12 +83,12 @@ public abstract class DruidSqlIngest extends SqlInsert
     return clusteredBy;
   }
 
-  @Nullable SqlNode getRollup()
+  @Nullable public SqlNode getRollup()
   {
     return rollup;
   }
 
-  @Nullable Boolean getRollupOption()
+  @Nullable public Boolean getRollupOption()
   {
     if (rollup == null) {
       return null;

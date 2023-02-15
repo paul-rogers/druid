@@ -177,6 +177,7 @@ public class QueryTestRunner
   {
     public Set<ResourceAction> resourceActions;
     public RelDataType sqlSignature;
+    public RelDataType outputSignature;
 
     public PrepareQuery(QueryTestBuilder builder)
     {
@@ -214,7 +215,8 @@ public class QueryTestRunner
     {
       super(builder);
       doCapture = builder.expectedLogicalPlan != null
-               || builder.expectedExecPlan != null;
+               || builder.expectedExecPlan != null
+               || builder.expectedOutputSchema != null;
     }
 
     public List<QueryResults> results()
@@ -458,7 +460,16 @@ public class QueryTestRunner
   }
 
   /**
-   * Verify resources for a prepared query against the expected list.
+   * Verify the various query schemas against expected results. There are up
+   * to three schemas:
+   * <ul>
+   * <li>Query schema: the schema returned to the user. For MSQ, this is the schema that
+   * describes the task ID.</li>
+   * <li>Ingest select schema: the schema from the {@code SELECT} clause that feeds into the
+   * {@code INSERT} or {@code REPLACE} clause. See {@link VerifyQuerySignature}.</li>
+   * <li>Ingest output schema: the schema written to segments by MSQ tasks.
+   * See {@link VerifyQuerySignature}.</li>
+   * </ul>
    */
   public static class VerifyPrepareSignature implements QueryVerifyStep
   {
@@ -473,10 +484,54 @@ public class QueryTestRunner
     public void verify()
     {
       QueryTestBuilder builder = prepareStep.builder();
-      Assert.assertEquals(
-          builder.expectedSqlSchema,
-          SqlSchema.of(prepareStep.sqlSignature)
-      );
+      if (builder.expectedSqlSchema != null) {
+        Assert.assertEquals(
+            builder.expectedSqlSchema,
+            SqlSchema.of(prepareStep.sqlSignature)
+        );
+      }
+      if (builder.expectedOutputSchema != null) {
+        Assert.assertEquals(
+            builder.expectedOutputSchema,
+            SqlSchema.of(prepareStep.outputSignature)
+        );
+      }
+    }
+  }
+
+  /**
+   * Verify the various query schemas against expected results. There are up
+   * to three schemas:
+   * <ul>
+   * <li>Query schema: the schema returned to the user. For MSQ, this is the schema that
+   * describes the task ID. See {@link VerifyPrepareSignature}.</li>
+   * <li>Ingest select schema: the schema from the {@code SELECT} clause that feeds into the
+   * {@code INSERT} or {@code REPLACE} clause.</li>
+   * <li>Ingest output schema: the schema written to segments by MSQ tasks.</li>
+   * </ul>
+   */
+  public static class VerifyQuerySignature implements QueryVerifyStep
+  {
+    private final BaseExecuteQuery execStep;
+
+    public VerifyQuerySignature(BaseExecuteQuery execStep)
+    {
+      this.execStep = execStep;
+    }
+
+    @Override
+    public void verify()
+    {
+      QueryTestBuilder builder = execStep.builder();
+      for (QueryResults results : execStep.results) {
+        PlannerCaptureHook capture = results.capture;
+        if (builder.expectedOutputSchema != null) {
+          Assert.assertEquals(
+              builder.expectedOutputSchema,
+              SqlSchema.of(capture.outputType())
+          );
+        }
+      }
     }
   }
 
@@ -546,10 +601,11 @@ public class QueryTestRunner
         // The target is a SQLIdentifier literal, pre-resolution, so does
         // not include the schema.
         plan = StringUtils.format(
-            "LogicalInsert(target=[%s], partitionedBy=[%s], clusteredBy=[%s])\n",
+            "LogicalInsert(target=[%s], partitionedBy=[%s], clusteredBy=[%s], rollup=[%s])\n",
             druidInsertNode.getTargetTable(),
             druidInsertNode.getPartitionedBy() == null ? "<none>" : druidInsertNode.getPartitionedBy(),
-            druidInsertNode.getClusteredBy() == null ? "<none>" : druidInsertNode.getClusteredBy()
+            druidInsertNode.getClusteredBy() == null ? "<none>" : druidInsertNode.getClusteredBy(),
+            druidInsertNode.getRollupOption() == null ? "<none>" : druidInsertNode.getRollupOption()
         ) + "  " + StringUtils.replace(queryPlan, "\n ", "\n   ");
       }
       return plan;
@@ -718,6 +774,10 @@ public class QueryTestRunner
       }
       if (builder.expectedResultsVerifier != null) {
         verifySteps.add(new VerifyResults(finalExecStep));
+      }
+
+      if (builder.expectedOutputSchema != null) {
+        verifySteps.add(new VerifyQuerySignature(finalExecStep));
       }
 
       if (!builder.customVerifications.isEmpty()) {

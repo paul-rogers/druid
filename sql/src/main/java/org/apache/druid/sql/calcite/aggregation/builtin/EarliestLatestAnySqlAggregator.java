@@ -37,6 +37,7 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.Optionality;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.any.DoubleAnyAggregatorFactory;
 import org.apache.druid.query.aggregation.any.FloatAnyAggregatorFactory;
@@ -61,6 +62,7 @@ import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.planner.UnsupportedSQLQueryException;
 import org.apache.druid.sql.calcite.rel.VirtualColumnRegistry;
+import org.apache.druid.sql.calcite.table.RowSignatures;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
@@ -145,17 +147,25 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
 
   private final AggregatorType aggregatorType;
   private final SqlAggFunction function;
+  private final SqlAggFunction intermediateFunction;
 
   private EarliestLatestAnySqlAggregator(final AggregatorType aggregatorType)
   {
     this.aggregatorType = aggregatorType;
     this.function = new EarliestLatestSqlAggFunction(aggregatorType);
+    this.intermediateFunction = new EarliestLatestSqlAggFunction(aggregatorType);
   }
 
   @Override
   public SqlAggFunction calciteFunction()
   {
     return function;
+  }
+
+  @Override
+  public SqlAggFunction intermediateFunction()
+  {
+    return intermediateFunction;
   }
 
   @Nullable
@@ -188,7 +198,7 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
     final ColumnType outputType = Calcites.getColumnTypeForRelDataType(aggregateCall.getType());
     if (outputType == null) {
       throw new ISE(
-          "Cannot translate output sqlTypeName[%s] to Druid type for aggregator[%s]",
+          "Cannot translate output SQL type %s to Druid type for aggregator %s",
           aggregateCall.getType().getSqlTypeName(),
           aggregateCall.getName()
       );
@@ -220,7 +230,7 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
         break;
       default:
         throw new IAE(
-            "aggregation[%s], Invalid number of arguments[%,d] to [%s] operator",
+            "aggregation %s: Invalid number of arguments %,d to %s operator",
             aggregatorName,
             args.size(),
             aggregatorType.name()
@@ -250,11 +260,11 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
     return columnName;
   }
 
-  static class EarliestLatestReturnTypeInference implements SqlReturnTypeInference
+  static class EarliestLatestFinalReturnTypeInference implements SqlReturnTypeInference
   {
     private final int ordinal;
 
-    public EarliestLatestReturnTypeInference(int ordinal)
+    public EarliestLatestFinalReturnTypeInference(int ordinal)
     {
       this.ordinal = ordinal;
     }
@@ -273,18 +283,40 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
     }
   }
 
-  private static class EarliestLatestSqlAggFunction extends SqlAggFunction
+  static class EarliestLatestIntermediateReturnTypeInference implements SqlReturnTypeInference
   {
-    private static final EarliestLatestReturnTypeInference EARLIEST_LATEST_ARG0_RETURN_TYPE_INFERENCE =
-        new EarliestLatestReturnTypeInference(0);
+    private final int ordinal;
 
-    EarliestLatestSqlAggFunction(AggregatorType aggregatorType)
+    public EarliestLatestIntermediateReturnTypeInference(int ordinal)
+    {
+      this.ordinal = ordinal;
+    }
+
+    @Override
+    public RelDataType inferReturnType(SqlOperatorBinding sqlOperatorBinding)
+    {
+      RelDataType type = sqlOperatorBinding.getOperandType(this.ordinal);
+      String typeName = StringUtils.format("%s(%s)",
+          sqlOperatorBinding.getOperator().getName(),
+          type.getSqlTypeName().getName()
+      );
+      return sqlOperatorBinding.getTypeFactory().createTypeWithNullability(
+          RowSignatures.makeAgregationType(sqlOperatorBinding.getTypeFactory(), typeName, false) , false);
+    }
+  }
+
+  private static class BaseEarliestLatestSqlAggFunction extends SqlAggFunction
+  {
+    BaseEarliestLatestSqlAggFunction(
+        final AggregatorType aggregatorType,
+        final SqlReturnTypeInference returnTypeInference
+    )
     {
       super(
           aggregatorType.name(),
           null,
           SqlKind.OTHER_FUNCTION,
-          EARLIEST_LATEST_ARG0_RETURN_TYPE_INFERENCE,
+          returnTypeInference,
           InferTypes.RETURN_TYPE,
           OperandTypes.or(
               OperandTypes.NUMERIC,
@@ -299,6 +331,20 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
           false,
           false,
           Optionality.FORBIDDEN
+      );
+    }
+  }
+
+  private static class EarliestLatestSqlAggFunction extends BaseEarliestLatestSqlAggFunction
+  {
+    private static final EarliestLatestFinalReturnTypeInference EARLIEST_LATEST_ARG0_RETURN_TYPE_INFERENCE =
+        new EarliestLatestFinalReturnTypeInference(0);
+
+    EarliestLatestSqlAggFunction(AggregatorType aggregatorType)
+    {
+      super(
+          aggregatorType,
+          EARLIEST_LATEST_ARG0_RETURN_TYPE_INFERENCE
       );
     }
   }

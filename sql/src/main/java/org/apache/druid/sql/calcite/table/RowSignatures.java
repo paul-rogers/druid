@@ -230,4 +230,64 @@ public class RowSignatures
       return columnType.asTypeString();
     }
   }
+
+  /**
+   * Creates a {@link AggregateSqlType} using the supplied aggregate type name which should be of the
+   * form {@code <agg>(<type>)} or {@code <agg>(<type>, <type>)}, where {@code <agg>} is the name of
+   * an aggregate function, and {@code <type>} is the argument type.
+   *
+   * @see {@link makeComplexType}
+   */
+  public static RelDataType makeAgregationType(RelDataTypeFactory typeFactory, String aggTypeName, boolean isNullable)
+  {
+    return typeFactory.createTypeWithNullability(
+        new AggregateSqlType(SqlTypeName.OTHER, aggTypeName, isNullable),
+        isNullable
+    );
+  }
+
+  /**
+   * Calcite {@link RelDataType} for Druid aggregate columns, to preserve aggregate information. Aggregates need
+   * both the aggregate name and argument type, since many aggregates use the same intermediate type. Aggregate
+   * types are non-convertible: they can only be assigned to themselves.
+   *
+   * @see {@link ComplexSqlType}
+   */
+  public static final class AggregateSqlType extends AbstractSqlType
+  {
+    private final String aggTypeName;
+
+    public AggregateSqlType(
+        SqlTypeName typeName,
+        String aggTypeName,
+        boolean isNullable
+    )
+    {
+      super(typeName, isNullable, null);
+      this.aggTypeName = aggTypeName;
+      this.computeDigest();
+    }
+
+    @Override
+    public RelDataTypeComparability getComparability()
+    {
+      return RelDataTypeComparability.UNORDERED;
+    }
+
+    @Override
+    protected void generateTypeString(StringBuilder sb, boolean withDetail)
+    {
+      sb.append(aggTypeName);
+    }
+
+    public String getComplexTypeName()
+    {
+      return aggTypeName;
+    }
+
+    public String asTypeString()
+    {
+      return aggTypeName;
+    }
+  }
 }
