@@ -402,9 +402,8 @@ public class DruidOperatorRegistry
                           .stream()
                           .collect(Collectors.toMap(OperatorKey::of, Function.identity()));
 
-  private final BaseOperatorTable baseTable;
-  private final OverlayOperatorTable finalizedAggTable;
-  private final OverlayOperatorTable intermediateAggTable;
+  private final Map<OperatorKey, SqlAggregator> aggregators = new HashMap<>();
+  private final Map<OperatorKey, SqlOperatorConversion> operatorConversions = new HashMap<>();
 
   @Inject
   public DruidOperatorRegistry(
@@ -412,12 +411,9 @@ public class DruidOperatorRegistry
       final Set<SqlOperatorConversion> operatorConversions
   )
   {
-    final Map<OperatorKey, SqlAggregator> aggregatorMap = new HashMap<>();
-    final Map<OperatorKey, SqlOperatorConversion> operatorConversionMap = new HashMap<>();
-
     for (SqlAggregator aggregator : aggregators) {
       final OperatorKey operatorKey = OperatorKey.of(aggregator.calciteFunction());
-      if (aggregatorMap.put(operatorKey, aggregator) != null) {
+      if (this.aggregators.put(operatorKey, aggregator) != null) {
         throw new ISE("Cannot have two operators with key [%s]", operatorKey);
       }
     }
@@ -426,47 +422,32 @@ public class DruidOperatorRegistry
       final OperatorKey operatorKey = OperatorKey.of(aggregator.calciteFunction());
 
       // Don't complain if the name already exists; we allow standard operators to be overridden.
-      aggregatorMap.putIfAbsent(operatorKey, aggregator);
+      this.aggregators.putIfAbsent(operatorKey, aggregator);
     }
 
     for (SqlOperatorConversion operatorConversion : operatorConversions) {
       final OperatorKey operatorKey = OperatorKey.of(operatorConversion.calciteOperator());
-      if (aggregatorMap.containsKey(operatorKey)
-          || operatorConversionMap.put(operatorKey, operatorConversion) != null) {
+      if (this.aggregators.containsKey(operatorKey)
+          || this.operatorConversions.put(operatorKey, operatorConversion) != null) {
         throw new ISE("Cannot have two operators with key [%s]", operatorKey);
       }
     }
-
 
     for (SqlOperatorConversion operatorConversion : STANDARD_OPERATOR_CONVERSIONS) {
       final OperatorKey operatorKey = OperatorKey.of(operatorConversion.calciteOperator());
 
       // Don't complain if the name already exists; we allow standard operators to be overridden.
-      if (aggregatorMap.containsKey(operatorKey)) {
+      if (this.aggregators.containsKey(operatorKey)) {
         continue;
       }
 
-      operatorConversionMap.putIfAbsent(operatorKey, operatorConversion);
+      this.operatorConversions.putIfAbsent(operatorKey, operatorConversion);
     }
-
-    this.baseTable = new BaseOperatorTable(operatorConversionMap);
-    this.finalizedAggTable = new OverlayOperatorTable(this.baseTable, aggregatorMap, true);
-    this.intermediateAggTable = new OverlayOperatorTable(this.baseTable, aggregatorMap, false);
   }
 
-  public OverlayOperatorTable finalizedAggTable()
+  public DruidOperatorTable createOperatorTable()
   {
-    return finalizedAggTable;
-  }
-
-  public OverlayOperatorTable intermediateAggTable()
-  {
-    return intermediateAggTable;
-  }
-
-  public OverlayOperatorTable operatorTable(boolean finalizeAggregates)
-  {
-    return finalizeAggregates ? finalizedAggTable : intermediateAggTable;
+    return new DruidOperatorTable(operatorConversions, aggregators);
   }
 
   private static SqlSyntax normalizeSyntax(final SqlSyntax syntax)

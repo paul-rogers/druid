@@ -55,7 +55,7 @@ public class SimplePlannerToolbox implements PlannerToolbox
   }
 
   @Override
-  public DruidOperatorRegistry operatorTable()
+  public DruidOperatorRegistry operatorRegistry()
   {
     return operatorTable;
   }

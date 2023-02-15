@@ -163,7 +163,7 @@ public class PlannerFactory implements PlannerToolbox
         .parserConfig(PARSER_CONFIG)
         .traitDefs(ConventionTraitDef.INSTANCE, RelCollationTraitDef.INSTANCE)
         .convertletTable(new DruidConvertletTable(plannerContext))
-        .operatorTable(operatorTable.finalizedAggTable())
+        .operatorTable(operatorTable.createOperatorTable())
         .programs(calciteRuleManager.programs(plannerContext))
         .executor(new DruidRexExecutor(plannerContext))
         .typeSystem(DruidTypeSystem.INSTANCE)
@@ -202,7 +202,7 @@ public class PlannerFactory implements PlannerToolbox
   }
 
   @Override
-  public DruidOperatorRegistry operatorTable()
+  public DruidOperatorRegistry operatorRegistry()
   {
     return operatorTable;
   }

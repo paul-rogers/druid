@@ -29,7 +29,7 @@ import org.apache.druid.sql.calcite.schema.DruidSchemaCatalog;
  */
 public interface PlannerToolbox
 {
-  DruidOperatorRegistry operatorTable();
+  DruidOperatorRegistry operatorRegistry();
 
   ExprMacroTable exprMacroTable();
 

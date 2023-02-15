@@ -25,6 +25,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.ValidationException;
@@ -35,6 +36,7 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
 import org.apache.druid.sql.calcite.parser.DruidSqlReplace;
+import org.apache.druid.sql.calcite.planner.CalcitePlanner.OperatorTableFactory;
 import org.apache.druid.sql.calcite.planner.DruidSqlValidator.ValidatorContext;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 import org.joda.time.DateTimeZone;
@@ -59,7 +61,7 @@ import java.util.function.Function;
  * has a "handler" for that statement type. To add a new statement, add a new
  * handler (which might reuse one of the existing base handlers.)
  */
-public class DruidPlanner implements Closeable
+public class DruidPlanner implements Closeable, OperatorTableFactory
 {
   public enum State
   {
@@ -112,7 +114,11 @@ public class DruidPlanner implements Closeable
   )
   {
     this.frameworkConfig = frameworkConfig;
-    this.planner = new CalcitePlanner(frameworkConfig, new ValidatorContextImpl());
+    this.planner = new CalcitePlanner(
+        frameworkConfig,
+        new ValidatorContextImpl(),
+        this
+    );
     this.plannerContext = plannerContext;
     this.engine = engine;
     this.hook = hook == null ? NoOpPlannerHook.INSTANCE : hook;
@@ -349,5 +355,19 @@ public class DruidPlanner implements Closeable
     {
       return plannerContext.getPlannerHook();
     }
+  }
+
+  @Override
+  public SqlOperatorTable createTable()
+  {
+    DruidOperatorTable table = plannerContext.getPlannerToolbox().operatorRegistry().createOperatorTable();
+    table.setFinalizeOption(true);
+    return table;
+  }
+
+  @Override
+  public SqlOperatorTable createFinalizedTable()
+  {
+    return plannerContext.getPlannerToolbox().operatorRegistry().createOperatorTable();
   }
 }

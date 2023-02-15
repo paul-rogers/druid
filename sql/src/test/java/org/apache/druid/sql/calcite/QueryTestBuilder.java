@@ -298,6 +298,12 @@ public class QueryTestBuilder
     return this;
   }
 
+  public QueryTestBuilder expectedSqlSchema(SqlSchema querySchema)
+  {
+    this.expectedSqlSchema = querySchema;
+    return this;
+  }
+
   public QueryTestBuilder expectedOutputSchema(SqlSchema querySchema)
   {
     this.expectedOutputSchema = querySchema;

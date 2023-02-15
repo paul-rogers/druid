@@ -92,8 +92,8 @@ public class GroupByRules
     }
 
     final SqlAggregator sqlAggregator = plannerContext.getPlannerToolbox()
-                                                      .operatorTable()
-                                                      .finalizedAggTable()
+                                                      .operatorRegistry()
+                                                      .createOperatorTable()
                                                       .lookupAggregator(call.getAggregation());
 
     if (sqlAggregator == null) {

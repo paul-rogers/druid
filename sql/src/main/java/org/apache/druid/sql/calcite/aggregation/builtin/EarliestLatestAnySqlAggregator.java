@@ -301,7 +301,9 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
           type.getSqlTypeName().getName()
       );
       return sqlOperatorBinding.getTypeFactory().createTypeWithNullability(
-          RowSignatures.makeAgregationType(sqlOperatorBinding.getTypeFactory(), typeName, false) , false);
+          RowSignatures.makeAgregationType(sqlOperatorBinding.getTypeFactory(), typeName, false),
+          false
+      );
     }
   }
 

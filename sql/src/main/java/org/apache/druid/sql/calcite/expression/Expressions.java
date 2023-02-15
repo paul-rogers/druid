@@ -288,8 +288,8 @@ public class Expressions
     final SqlOperator operator = ((RexCall) rexNode).getOperator();
 
     final SqlOperatorConversion conversion = plannerContext.getPlannerToolbox()
-                                                           .operatorTable()
-                                                           .finalizedAggTable()
+                                                           .operatorRegistry()
+                                                           .createOperatorTable()
                                                            .lookupOperatorConversion(operator);
 
     if (conversion == null) {
@@ -707,8 +707,8 @@ public class Expressions
       final SqlOperator operator = ((RexCall) rexNode).getOperator();
       final SqlOperatorConversion conversion = plannerContext
           .getPlannerToolbox()
-          .operatorTable()
-          .finalizedAggTable()
+          .operatorRegistry()
+          .createOperatorTable()
           .lookupOperatorConversion(operator);
 
       if (conversion == null) {
