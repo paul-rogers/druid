@@ -86,6 +86,7 @@ class DruidSqlValidator extends BaseDruidSqlValidator
 
   // Copied here from MSQE since that extension is not visible here.
   public static final String CTX_ROWS_PER_SEGMENT = "msqRowsPerSegment";
+  public static final String CTX_FINALIZE_AGGREGATIONS = "finalizeAggregations";
 
   public interface ValidatorContext
   {
@@ -94,6 +95,7 @@ class DruidSqlValidator extends BaseDruidSqlValidator
     String druidSchemaName();
     ObjectMapper jsonMapper();
     PlannerHook plannerHook();
+    boolean finalizeAggregates();
   }
 
   private final ValidatorContext validatorContext;
@@ -219,6 +221,9 @@ class DruidSqlValidator extends BaseDruidSqlValidator
         validatorContext.queryContextMap().put(CTX_ROWS_PER_SEGMENT, targetSegmentRows);
       }
     }
+
+    // Finalize aggregates if table is detail
+    validatorContext.queryContextMap().put(CTX_FINALIZE_AGGREGATIONS, validatorContext.finalizeAggregates());
   }
 
   /**

@@ -525,6 +525,10 @@ public class QueryTestRunner
       QueryTestBuilder builder = execStep.builder();
       for (QueryResults results : execStep.results) {
         PlannerCaptureHook capture = results.capture;
+        // Capture will be null if the query fails
+        if (results.exception != null) {
+          continue;
+        }
         if (builder.expectedOutputSchema != null) {
           Assert.assertEquals(
               builder.expectedOutputSchema,

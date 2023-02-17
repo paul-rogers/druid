@@ -61,6 +61,15 @@ public abstract class IngestHandler extends QueryHandler
   @Override
   public void validate() throws ValidationException
   {
+    // Assume aggregates are not finalized, but use the WITH [OUT] ROLLUP
+    // option if provided. Note that this must be done BEFORE validating,
+    // as this option determines the form of operator table given to the
+    // validator.
+    Boolean rollupOption = ingestNode().getRollupOption();
+    if (rollupOption != null) {
+      handlerContext.plannerContext().setFinalizeOption(!rollupOption);
+    }
+
     // Check if CTX_SQL_OUTER_LIMIT is specified and fail the query if it is. CTX_SQL_OUTER_LIMIT being provided causes
     // the number of rows inserted to be limited which is likely to be confusing and unintended.
     if (handlerContext.queryContextMap().get(PlannerContext.CTX_SQL_OUTER_LIMIT) != null) {

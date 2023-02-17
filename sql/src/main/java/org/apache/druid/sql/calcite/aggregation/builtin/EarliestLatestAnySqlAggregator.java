@@ -152,8 +152,14 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
   private EarliestLatestAnySqlAggregator(final AggregatorType aggregatorType)
   {
     this.aggregatorType = aggregatorType;
-    this.function = new EarliestLatestSqlAggFunction(aggregatorType);
-    this.intermediateFunction = new EarliestLatestSqlAggFunction(aggregatorType);
+    this.function = new EarliestLatestSqlAggFunction(
+        aggregatorType,
+        new EarliestLatestFinalReturnTypeInference(0)
+    );
+    this.intermediateFunction = new EarliestLatestSqlAggFunction(
+        aggregatorType,
+        new EarliestLatestIntermediateReturnTypeInference(0)
+    );
   }
 
   @Override
@@ -195,8 +201,8 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
     }
 
     final String aggregatorName = finalizeAggregations ? Calcites.makePrefixedName(name, "a") : name;
-    final ColumnType outputType = Calcites.getColumnTypeForRelDataType(aggregateCall.getType());
-    if (outputType == null) {
+    final ColumnType inputType = args.get(0).getDruidType();
+    if (inputType == null) {
       throw new ISE(
           "Cannot translate output SQL type %s to Druid type for aggregator %s",
           aggregateCall.getType().getSqlTypeName(),
@@ -209,7 +215,7 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
     final AggregatorFactory theAggFactory;
     switch (args.size()) {
       case 1:
-        theAggFactory = aggregatorType.createAggregatorFactory(aggregatorName, fieldName, null, outputType, -1);
+        theAggFactory = aggregatorType.createAggregatorFactory(aggregatorName, fieldName, null, inputType, -1);
         break;
       case 2:
         int maxStringBytes;
@@ -224,7 +230,7 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
             aggregatorName,
             fieldName,
             null,
-            outputType,
+            inputType,
             maxStringBytes
         );
         break;
@@ -307,9 +313,9 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
     }
   }
 
-  private static class BaseEarliestLatestSqlAggFunction extends SqlAggFunction
+  private static class EarliestLatestSqlAggFunction extends SqlAggFunction
   {
-    BaseEarliestLatestSqlAggFunction(
+    EarliestLatestSqlAggFunction(
         final AggregatorType aggregatorType,
         final SqlReturnTypeInference returnTypeInference
     )
@@ -333,20 +339,6 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
           false,
           false,
           Optionality.FORBIDDEN
-      );
-    }
-  }
-
-  private static class EarliestLatestSqlAggFunction extends BaseEarliestLatestSqlAggFunction
-  {
-    private static final EarliestLatestFinalReturnTypeInference EARLIEST_LATEST_ARG0_RETURN_TYPE_INFERENCE =
-        new EarliestLatestFinalReturnTypeInference(0);
-
-    EarliestLatestSqlAggFunction(AggregatorType aggregatorType)
-    {
-      super(
-          aggregatorType,
-          EARLIEST_LATEST_ARG0_RETURN_TYPE_INFERENCE
       );
     }
   }

@@ -91,8 +91,8 @@ public class CalcitePlanner implements Planner, ViewExpander
 {
   public interface OperatorTableFactory
   {
-    SqlOperatorTable createTable();
-    SqlOperatorTable createFinalizedTable();
+    SqlOperatorTable operatorTable();
+    SqlOperatorTable finalizedOperatorTable();
   }
 
   private final OperatorTableFactory operatorTableFactory;
@@ -265,7 +265,7 @@ public class CalcitePlanner implements Planner, ViewExpander
     // here. Nor are built-in function associated with per-query types.
     SqlOperatorTable operatorTable = new ChainedSqlOperatorTable(
         Arrays.asList(
-            operatorTableFactory.createTable(),
+            operatorTableFactory.operatorTable(),
             new DruidCatalogReader(
                 CalciteSchema.from(rootSchema(defaultSchema)),
                 CalciteSchema.from(defaultSchema).path(null),
@@ -399,7 +399,7 @@ public class CalcitePlanner implements Planner, ViewExpander
     final CalciteCatalogReader catalogReader =
         createCatalogReader().withSchemaPath(schemaPath);
     // Views always use an operator table with aggregates finalized.
-    final SqlOperatorTable operatorTable = operatorTableFactory.createFinalizedTable();
+    final SqlOperatorTable operatorTable = operatorTableFactory.finalizedOperatorTable();
     final SqlValidator validator =
         new BaseDruidSqlValidator(operatorTable, catalogReader, typeFactory,
             conformance);

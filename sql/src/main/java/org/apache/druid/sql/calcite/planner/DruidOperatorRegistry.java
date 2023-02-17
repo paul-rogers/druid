@@ -404,6 +404,7 @@ public class DruidOperatorRegistry
 
   private final Map<OperatorKey, SqlAggregator> aggregators = new HashMap<>();
   private final Map<OperatorKey, SqlOperatorConversion> operatorConversions = new HashMap<>();
+  private final DruidOperatorTable finalizedOperatorTable;
 
   @Inject
   public DruidOperatorRegistry(
@@ -443,11 +444,17 @@ public class DruidOperatorRegistry
 
       this.operatorConversions.putIfAbsent(operatorKey, operatorConversion);
     }
+    this.finalizedOperatorTable = new DruidOperatorTable(this.operatorConversions, this.aggregators);
   }
 
   public DruidOperatorTable createOperatorTable()
   {
     return new DruidOperatorTable(operatorConversions, aggregators);
+  }
+
+  public DruidOperatorTable finalizedOperatorTable()
+  {
+    return finalizedOperatorTable;
   }
 
   private static SqlSyntax normalizeSyntax(final SqlSyntax syntax)

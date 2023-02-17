@@ -91,9 +91,7 @@ public class GroupByRules
       filter = null;
     }
 
-    final SqlAggregator sqlAggregator = plannerContext.getPlannerToolbox()
-                                                      .operatorRegistry()
-                                                      .createOperatorTable()
+    final SqlAggregator sqlAggregator = plannerContext.operatorTable()
                                                       .lookupAggregator(call.getAggregation());
 
     if (sqlAggregator == null) {

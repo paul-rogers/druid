@@ -28,6 +28,7 @@ import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.avatica.remote.TypedValue;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Numbers;
@@ -39,6 +40,7 @@ import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.ResourceAction;
+import org.apache.druid.sql.calcite.planner.CalcitePlanner.OperatorTableFactory;
 import org.apache.druid.sql.calcite.rel.VirtualColumnRegistry;
 import org.apache.druid.sql.calcite.run.EngineFeature;
 import org.apache.druid.sql.calcite.run.QueryMaker;
@@ -57,11 +59,14 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Like {@link PlannerConfig}, but that has static configuration and this class
+ * This class is the Druid equivalent of a SQL whiteboard: it accumulates state
+ * as planning proceeds.
+ * <p>
+ * It is like {@link PlannerConfig}, but that has static configuration and this class
  * contains dynamic, per-query configuration. Additional Druid-specific static
  * configuration resides in the {@link PlannerToolbox} class.
  */
-public class PlannerContext
+public class PlannerContext implements OperatorTableFactory
 {
   // Query context keys
   public static final String CTX_SQL_CURRENT_TIMESTAMP = "sqlCurrentTimestamp";
@@ -99,6 +104,8 @@ public class PlannerContext
   private String planningError;
   private QueryMaker queryMaker;
   private VirtualColumnRegistry joinExpressionVirtualColumnRegistry;
+  private boolean finalizeAggregates;
+  private DruidOperatorTable operatorTable;
 
   private PlannerContext(
       final PlannerToolbox plannerToolbox,
@@ -429,5 +436,31 @@ public class PlannerContext
   public void setJoinExpressionVirtualColumnRegistry(VirtualColumnRegistry joinExpressionVirtualColumnRegistry)
   {
     this.joinExpressionVirtualColumnRegistry = joinExpressionVirtualColumnRegistry;
+  }
+
+  public void setFinalizeOption(boolean finalizeAggregates)
+  {
+    this.finalizeAggregates = finalizeAggregates;
+  }
+
+  public boolean finalizeAggregates()
+  {
+    return finalizeAggregates;
+  }
+
+  @Override
+  public DruidOperatorTable operatorTable()
+  {
+    if (operatorTable == null) {
+      operatorTable = plannerToolbox.operatorRegistry().createOperatorTable();
+      operatorTable.setFinalizeOption(finalizeAggregates);
+    }
+    return operatorTable;
+  }
+
+  @Override
+  public SqlOperatorTable finalizedOperatorTable()
+  {
+    return plannerToolbox.operatorRegistry().finalizedOperatorTable();
   }
 }
