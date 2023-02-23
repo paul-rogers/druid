@@ -46,6 +46,7 @@ import org.apache.druid.metadata.TestDerbyConnector;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.SqlPlanningException;
 import org.apache.druid.sql.calcite.CalciteIngestionDmlTest;
 import org.apache.druid.sql.calcite.CalciteInsertDmlTest;
@@ -204,7 +205,7 @@ public class CatalogIngestionTest extends CalciteIngestionDmlTest
              "PARTITIONED BY ALL TIME")
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .expectTarget("foo", signature)
-        .expectResources(dataSourceWrite("foo"), Externals.externalRead("EXTERNAL"))
+        .expectResources(dataSourceWrite("foo"), Externals.externalRead(ResourceType.EXTERNAL))
         .expectQuery(
             newScanQueryBuilder()
                 .dataSource(externalDataSource)

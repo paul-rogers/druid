@@ -43,8 +43,6 @@ import java.util.Set;
  *   EXTEND (x VARCHAR, y VARCHAR, z BIGINT)
  * PARTITIONED BY ...
  * </pre></code>
- * <p>
- * This version
  */
 public class DruidUserDefinedTableMacro extends SchemaAwareUserDefinedTableMacro implements AuthorizableOperator
 {

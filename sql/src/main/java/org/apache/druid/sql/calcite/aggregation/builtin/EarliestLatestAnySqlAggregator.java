@@ -19,6 +19,7 @@
 
 package org.apache.druid.sql.calcite.aggregation.builtin;
 
+import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.type.RelDataType;
@@ -26,9 +27,13 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlAggFunction;
+import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
+import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperatorBinding;
+import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.InferTypes;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.SqlReturnTypeInference;
@@ -59,12 +64,15 @@ import org.apache.druid.sql.calcite.aggregation.SqlAggregator;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.expression.Expressions;
 import org.apache.druid.sql.calcite.planner.Calcites;
+import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.planner.UnsupportedSQLQueryException;
 import org.apache.druid.sql.calcite.rel.VirtualColumnRegistry;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 
 import javax.annotation.Nullable;
+
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -92,7 +100,7 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
           case COMPLEX:
             return new StringFirstAggregatorFactory(name, fieldName, timeColumn, maxStringBytes);
           default:
-            throw new UnsupportedSQLQueryException("EARLIEST aggregator is not supported for '%s' type", type);
+            throw new UnsupportedSQLQueryException("EARLIEST aggregator is not supported for [%s] type", type);
         }
       }
     },
@@ -112,7 +120,7 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
           case COMPLEX:
             return new StringLastAggregatorFactory(name, fieldName, timeColumn, maxStringBytes);
           default:
-            throw new UnsupportedSQLQueryException("LATEST aggregator is not supported for '%s' type", type);
+            throw new UnsupportedSQLQueryException("LATEST aggregator is not supported for [%s] type", type);
         }
       }
     },
@@ -131,7 +139,7 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
           case STRING:
             return new StringAnyAggregatorFactory(name, fieldName, maxStringBytes);
           default:
-            throw new UnsupportedSQLQueryException("ANY aggregation is not supported for '%s' type", type);
+            throw new UnsupportedSQLQueryException("ANY aggregation is not supported for [%s] type", type);
         }
       }
     };
@@ -154,11 +162,11 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
     this.aggregatorType = aggregatorType;
     this.function = new EarliestLatestSqlAggFunction(
         aggregatorType,
-        new EarliestLatestFinalReturnTypeInference(0)
+        new EarliestLatestFinalReturnTypeInference()
     );
     this.intermediateFunction = new EarliestLatestSqlAggFunction(
         aggregatorType,
-        new EarliestLatestIntermediateReturnTypeInference(0)
+        new EarliestLatestIntermediateReturnTypeInference()
     );
   }
 
@@ -204,7 +212,7 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
     final ColumnType inputType = args.get(0).getDruidType();
     if (inputType == null) {
       throw new ISE(
-          "Cannot translate output SQL type %s to Druid type for aggregator %s",
+          "Cannot translate output SQL type [%s] to Druid type for aggregator [%s]",
           aggregateCall.getType().getSqlTypeName(),
           aggregateCall.getName()
       );
@@ -223,7 +231,7 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
           maxStringBytes = RexLiteral.intValue(rexNodes.get(1));
         }
         catch (AssertionError ae) {
-          plannerContext.setPlanningError("The second argument '%s' to function '%s' is not a number", rexNodes.get(1), aggregateCall.getName());
+          plannerContext.setPlanningError("The second argument [%s] to function [%s] is not a number", rexNodes.get(1), aggregateCall.getName());
           return null;
         }
         theAggFactory = aggregatorType.createAggregatorFactory(
@@ -236,7 +244,7 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
         break;
       default:
         throw new IAE(
-            "aggregation %s: Invalid number of arguments %,d to %s operator",
+            "aggregation %s: Invalid number of arguments [%,d] to [%s] operator",
             aggregatorName,
             args.size(),
             aggregatorType.name()
@@ -268,17 +276,10 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
 
   static class EarliestLatestFinalReturnTypeInference implements SqlReturnTypeInference
   {
-    private final int ordinal;
-
-    public EarliestLatestFinalReturnTypeInference(int ordinal)
-    {
-      this.ordinal = ordinal;
-    }
-
     @Override
     public RelDataType inferReturnType(SqlOperatorBinding sqlOperatorBinding)
     {
-      RelDataType type = sqlOperatorBinding.getOperandType(this.ordinal);
+      RelDataType type = sqlOperatorBinding.getOperandType(0);
       // For non-number and non-string type, which is COMPLEX type, we set the return type to VARCHAR.
       if (!SqlTypeUtil.isNumeric(type) &&
           !SqlTypeUtil.isString(type)) {
@@ -291,21 +292,57 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
 
   static class EarliestLatestIntermediateReturnTypeInference implements SqlReturnTypeInference
   {
-    private final int ordinal;
-
-    public EarliestLatestIntermediateReturnTypeInference(int ordinal)
-    {
-      this.ordinal = ordinal;
-    }
-
+    /**
+     * Infer the intermediate return type for LATEST/EARLIEST. These are:
+     * <ul>
+     * <li>AGG(TYPE) - for non-VARCHAR types with or without an implicit time column.</li>
+     * <li>AGG(TYPE, len) - for VARCHAR or complex types, with or without an implicit
+     * time column but with a width argument. The widths must match that declared in
+     * the catalog, if there is a definition.</li>
+     * </ul>
+     */
     @Override
     public RelDataType inferReturnType(SqlOperatorBinding sqlOperatorBinding)
     {
-      RelDataType type = sqlOperatorBinding.getOperandType(this.ordinal);
-      String typeName = StringUtils.format("%s(%s)",
-          sqlOperatorBinding.getOperator().getName(),
-          type.getSqlTypeName().getName()
-      );
+      RelDataType type = sqlOperatorBinding.getOperandType(0);
+      String aggName = sqlOperatorBinding.getOperator().getName();
+      String typeName;
+//      if (sqlOperatorBinding.getOperandCount() == 2) {
+//        // Assuming that the argument has been validated by now.
+//        BigDecimal width;
+//        if (sqlOperatorBinding instanceof SqlCallBinding) {
+//          width = sqlOperatorBinding.getOperandLiteralValue(1, BigDecimal.class);
+//          typeName = StringUtils.format("%s(%s,%d)",
+//              aggName,
+//              type.getSqlTypeName().getName(),
+//              width.intValue()
+//          );
+//        } else {
+//          return new BasicSqlType(
+//              DruidTypeSystem.INSTANCE,
+//              SqlTypeName.ANY
+//          );
+//          // Annoyingly, the regular binding implements getOperandLiteralValue(), but
+//          // the agg version does not. So we have to do it ourselves.
+////          Aggregate.AggCallBinding aggBinding = (Aggregate.AggCallBinding) sqlOperatorBinding;
+////          aggBinding.
+////          typeName = StringUtils.format("%s(%s,?)",
+////              aggName,
+////              type.getSqlTypeName().getName()
+////          );
+//        }
+////        try {
+////          final SqlNode node = sqlOperatorBinding.getCall().operand(1);
+////          BigDecimal width = SqlLiteral.unchain(node).getValueAs(BigDecimal.class);
+////        } catch (IllegalArgumentException e) {
+////          throw new ISE("Second call to [%s] is not a numeric literal", aggName);
+////        }
+//      } else {
+        typeName = StringUtils.format("%s(%s)",
+            aggName,
+            type.getSqlTypeName().getName()
+        );
+//      }
       return sqlOperatorBinding.getTypeFactory().createTypeWithNullability(
           RowSignatures.makeAgregationType(sqlOperatorBinding.getTypeFactory(), typeName, false),
           false

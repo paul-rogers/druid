@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.aggregation.last.LongLastAggregatorFactory;
+import org.apache.druid.query.aggregation.last.StringLastAggregatorFactory;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.segment.column.ColumnType;
@@ -235,6 +236,51 @@ public class CalciteinsertRollupTest extends CalciteIngestionDmlTest
                          ))
                         .setAggregatorSpecs(
                             new LongLastAggregatorFactory("a0", "cnt", "__time")
+                         )
+                        .setContext(WITH_ROLLUP_CONTEXT)
+                        .build()
+        )
+        .expectOutputSchema(expectedSchema)
+        .verify();
+  }
+
+  @Test
+  public void testLatestVarcharWithRollup()
+  {
+    final RowSignature expectedSignature =
+        RowSignature.builder()
+                    .add("__time", ColumnType.LONG)
+                    .add("latestDim2", ColumnType.UNKNOWN_COMPLEX)
+                    .add("dim1", ColumnType.STRING)
+                    .build();
+    final SqlSchema expectedSchema =
+        SqlSchema.builder()
+                 .column("__time", "TIMESTAMP(3) NOT NULL")
+                 .column("latestDim2", "LATEST(VARCHAR) NOT NULL")
+                 .column("dim1", "VARCHAR")
+                 .build();
+
+    testIngestionQuery()
+        .sql("INSERT INTO dst\n" +
+             "SELECT __time, LATEST(dim2, 20) as latestDim2, dim1\n" +
+             "FROM foo\n" +
+             "GROUP BY __time, dim1\n" +
+             "PARTITIONED BY ALL TIME\n" +
+             "WITH ROLLUP"
+         )
+        .expectTarget("dst", expectedSignature)
+        .expectResources(dataSourceRead("foo"), dataSourceWrite("dst"))
+        .expectQuery(
+            GroupByQuery.builder()
+                        .setDataSource("foo")
+                        .setInterval(querySegmentSpec(Filtration.eternity()))
+                        .setGranularity(Granularities.ALL)
+                        .setDimensions(dimensions(
+                            new DefaultDimensionSpec("__time", "d0", ColumnType.LONG),
+                            new DefaultDimensionSpec("dim1", "d1", ColumnType.STRING)
+                         ))
+                        .setAggregatorSpecs(
+                            new StringLastAggregatorFactory("a0", "dim2", "__time", 20)
                          )
                         .setContext(WITH_ROLLUP_CONTEXT)
                         .build()
