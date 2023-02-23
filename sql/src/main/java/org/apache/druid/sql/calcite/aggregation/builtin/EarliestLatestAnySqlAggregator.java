@@ -304,6 +304,13 @@ public class EarliestLatestAnySqlAggregator implements SqlAggregator
     @Override
     public RelDataType inferReturnType(SqlOperatorBinding sqlOperatorBinding)
     {
+      // Calcite doesn't support the ability to include the truncation value
+      // in the type. When optimizing aggs, we are asked for the output type
+      // multiple times. Only on the first do we get the actual arguments; after
+      // that we get only types. As a result, there is no way to retrieve the
+      // constant byte length value during optimization, which means we cannot
+      // generate a type such as LATEST(VARCHAR,20) as we'd like. Any validation
+      // of byte length has to be done via other means.
       RelDataType type = sqlOperatorBinding.getOperandType(0);
       String aggName = sqlOperatorBinding.getOperator().getName();
       String typeName;

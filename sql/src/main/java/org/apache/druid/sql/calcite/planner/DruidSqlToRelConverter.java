@@ -26,10 +26,10 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.sql2rel.BaseSqlToRelConverter;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
-import org.apache.calcite.sql2rel.SqlToRelConverter;
 
-public class DruidSqlToRelConverter extends SqlToRelConverter
+public class DruidSqlToRelConverter extends BaseSqlToRelConverter
 {
   public DruidSqlToRelConverter(
       final ViewExpander viewExpander,
