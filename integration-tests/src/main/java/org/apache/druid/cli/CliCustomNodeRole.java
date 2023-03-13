@@ -100,7 +100,6 @@ public class CliCustomNodeRole extends ServerRunnable
           );
           Jerseys.addResource(binder, SelfDiscoveryResource.class);
           LifecycleModule.registerKey(binder, Key.get(SelfDiscoveryResource.class));
-
         }
     );
   }

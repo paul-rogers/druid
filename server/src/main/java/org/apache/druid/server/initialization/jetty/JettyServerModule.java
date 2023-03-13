@@ -34,6 +34,7 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import com.sun.jersey.guice.JerseyServletModule;
 import com.sun.jersey.guice.spi.container.servlet.GuiceContainer;
+import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
@@ -57,6 +58,8 @@ import org.apache.druid.server.metrics.MetricsModule;
 import org.apache.druid.server.metrics.MonitorsConfig;
 import org.apache.druid.server.security.CustomCheckX509TrustManager;
 import org.apache.druid.server.security.TLSCertificateChecker;
+import org.eclipse.jetty.http2.server.HTTP2CServerConnectionFactory;
+import org.eclipse.jetty.http2.server.HTTP2ServerConnectionFactory;
 import org.eclipse.jetty.server.ConnectionFactory;
 import org.eclipse.jetty.server.ForwardedRequestCustomizer;
 import org.eclipse.jetty.server.Handler;
@@ -226,7 +229,17 @@ public class JettyServerModule extends JerseyServletModule
 
       httpConfiguration.setRequestHeaderSize(config.getMaxRequestHeaderSize());
       httpConfiguration.setSendServerVersion(false);
-      final ServerConnector connector = new ServerConnector(server, new HttpConnectionFactory(httpConfiguration));
+      final ServerConnector connector;
+      if (config.isHttp2Enabled()) {
+        connector = new ServerConnector(
+            server,
+            new HttpConnectionFactory(httpConfiguration),
+            new HTTP2CServerConnectionFactory(httpConfiguration)
+        );
+
+      } else {
+        connector = new ServerConnector(server, new HttpConnectionFactory(httpConfiguration));
+      }
       if (node.isBindOnHost()) {
         connector.setHost(node.getHost());
       }
@@ -312,11 +325,21 @@ public class JettyServerModule extends JerseyServletModule
       httpsConfiguration.addCustomizer(new SecureRequestCustomizer());
       httpsConfiguration.setRequestHeaderSize(config.getMaxRequestHeaderSize());
       httpsConfiguration.setSendServerVersion(false);
-      final ServerConnector connector = new ServerConnector(
-          server,
-          new SslConnectionFactory(sslContextFactory, HTTP_1_1_STRING),
-          new HttpConnectionFactory(httpsConfiguration)
-      );
+      final ServerConnector connector;
+      if (config.isHttp2Enabled()) {
+        connector = new ServerConnector(
+            server,
+            new SslConnectionFactory(sslContextFactory, HTTP_1_1_STRING),
+            new HttpConnectionFactory(httpsConfiguration),
+            new HTTP2ServerConnectionFactory(httpsConfiguration)
+            );
+      } else {
+        connector = new ServerConnector(
+            server,
+            new SslConnectionFactory(sslContextFactory, HTTP_1_1_STRING),
+            new HttpConnectionFactory(httpsConfiguration)
+            );
+      }
       if (node.isBindOnHost()) {
         connector.setHost(node.getHost());
       }

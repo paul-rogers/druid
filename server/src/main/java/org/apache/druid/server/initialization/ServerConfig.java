@@ -68,7 +68,8 @@ public class ServerConfig
       boolean showDetailedJettyErrors,
       @NotNull ErrorResponseTransformStrategy errorResponseTransformStrategy,
       @Nullable String contentSecurityPolicy,
-      boolean enableHSTS
+      boolean enableHSTS,
+      boolean enableHttp2
   )
   {
     this.numThreads = numThreads;
@@ -90,11 +91,11 @@ public class ServerConfig
     this.errorResponseTransformStrategy = errorResponseTransformStrategy;
     this.contentSecurityPolicy = contentSecurityPolicy;
     this.enableHSTS = enableHSTS;
+    this.enableHttp2 = enableHttp2;
   }
 
   public ServerConfig()
   {
-
   }
 
   @JsonProperty
@@ -168,6 +169,9 @@ public class ServerConfig
 
   @JsonProperty
   private boolean showDetailedJettyErrors = true;
+
+  @JsonProperty
+  private boolean enableHttp2 = false;
 
   public int getNumThreads()
   {
@@ -265,6 +269,11 @@ public class ServerConfig
     return enableHSTS;
   }
 
+  public boolean isHttp2Enabled()
+  {
+    return enableHttp2;
+  }
+
   @Override
   public boolean equals(Object o)
   {
@@ -293,7 +302,8 @@ public class ServerConfig
            allowedHttpMethods.equals(that.allowedHttpMethods) &&
            errorResponseTransformStrategy.equals(that.errorResponseTransformStrategy) &&
            Objects.equals(contentSecurityPolicy, that.getContentSecurityPolicy()) &&
-           enableHSTS == that.enableHSTS;
+           enableHSTS == that.enableHSTS &&
+           enableHttp2 == that.enableHttp2;
   }
 
   @Override
@@ -318,7 +328,8 @@ public class ServerConfig
         errorResponseTransformStrategy,
         showDetailedJettyErrors,
         contentSecurityPolicy,
-        enableHSTS
+        enableHSTS,
+        enableHttp2
     );
   }
 
@@ -345,6 +356,7 @@ public class ServerConfig
            ", showDetailedJettyErrors=" + showDetailedJettyErrors +
            ", contentSecurityPolicy=" + contentSecurityPolicy +
            ", enableHSTS=" + enableHSTS +
+           ", enableHttp2=" + enableHttp2 +
            '}';
   }
 
