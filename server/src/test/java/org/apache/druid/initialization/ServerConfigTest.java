@@ -43,6 +43,7 @@ public class ServerConfigTest
     Assert.assertEquals(defaultConfig, defaultConfig2);
     Assert.assertFalse(defaultConfig2.isEnableForwardedRequestCustomizer());
     Assert.assertFalse(defaultConfig2.isEnableHSTS());
+    Assert.assertFalse(defaultConfig2.isHttp2Enabled());
 
     ServerConfig modifiedConfig = new ServerConfig(
         999,
@@ -63,6 +64,7 @@ public class ServerConfigTest
         true,
         new AllowedRegexErrorResponseTransformStrategy(ImmutableList.of(".*")),
         "my-cool-policy",
+        true,
         true
     );
     String modifiedConfigJson = OBJECT_MAPPER.writeValueAsString(modifiedConfig);
@@ -77,6 +79,7 @@ public class ServerConfigTest
     Assert.assertEquals("my-cool-policy", modifiedConfig.getContentSecurityPolicy());
     Assert.assertEquals("my-cool-policy", modifiedConfig2.getContentSecurityPolicy());
     Assert.assertTrue(modifiedConfig2.isEnableHSTS());
+    Assert.assertTrue(modifiedConfig2.isHttp2Enabled());
   }
 
   @Test

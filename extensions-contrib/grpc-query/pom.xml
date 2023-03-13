@@ -325,9 +325,6 @@
             </goals>
             <configuration>
               <classifier>tests</classifier>
-              <excludes>
-                <exclude>**/proto/*</exclude>
-              </excludes>
             </configuration>
           </execution>
           <!-- Test jar with only the Protobuf classes. This one is

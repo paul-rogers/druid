@@ -164,7 +164,8 @@ public class CliIndexerServerModule implements Module
         oldConfig.isShowDetailedJettyErrors(),
         oldConfig.getErrorResponseTransformStrategy(),
         oldConfig.getContentSecurityPolicy(),
-        oldConfig.isEnableHSTS()
+        oldConfig.isEnableHSTS(),
+        oldConfig.isHttp2Enabled()
     );
   }
 }

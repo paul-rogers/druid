@@ -25,7 +25,6 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.servlet.GuiceFilter;
 import org.apache.druid.guice.annotations.Json;
-import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.initialization.jetty.JettyServerInitUtils;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
@@ -48,16 +47,12 @@ import java.util.List;
 */
 class MiddleManagerJettyServerInitializer implements JettyServerInitializer
 {
-  private static Logger log = new Logger(MiddleManagerJettyServerInitializer.class);
-
   private final ServerConfig serverConfig;
-  private final AuthConfig authConfig;
 
   @Inject
   public MiddleManagerJettyServerInitializer(ServerConfig serverConfig, AuthConfig authConfig)
   {
     this.serverConfig = serverConfig;
-    this.authConfig = authConfig;
   }
 
   private static List<String> UNSECURED_PATHS = Collections.singletonList("/status/health");
