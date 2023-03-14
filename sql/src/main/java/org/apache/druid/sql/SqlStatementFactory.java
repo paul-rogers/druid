@@ -28,7 +28,7 @@ import javax.servlet.http.HttpServletRequest;
  */
 public class SqlStatementFactory
 {
-  private final SqlToolbox lifecycleToolbox;
+  private final SqlToolbox sqlToolbox;
 
   /**
    * The construction of these objects in the production code is a bit circuitous.  Specifically, the SqlToolbox
@@ -40,7 +40,7 @@ public class SqlStatementFactory
    */
   public SqlStatementFactory(SqlToolbox lifecycleToolbox)
   {
-    this.lifecycleToolbox = lifecycleToolbox;
+    this.sqlToolbox = lifecycleToolbox;
   }
 
   public HttpStatement httpStatement(
@@ -48,16 +48,24 @@ public class SqlStatementFactory
       final HttpServletRequest req
   )
   {
-    return new HttpStatement(lifecycleToolbox, sqlQuery, req);
+    return new HttpStatement(sqlToolbox, sqlQuery, req);
   }
 
   public DirectStatement directStatement(final SqlQueryPlus sqlRequest)
   {
-    return new DirectStatement(lifecycleToolbox, sqlRequest);
+    return new DirectStatement(sqlToolbox, sqlRequest);
   }
 
   public PreparedStatement preparedStatement(final SqlQueryPlus sqlRequest)
   {
-    return new PreparedStatement(lifecycleToolbox, sqlRequest);
+    return new PreparedStatement(sqlToolbox, sqlRequest);
+  }
+
+  /**
+   * Toolbox to use to create specialized statement classes.
+   */
+  public SqlToolbox toolbox()
+  {
+    return sqlToolbox;
   }
 }

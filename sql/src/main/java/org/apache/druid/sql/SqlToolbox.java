@@ -25,6 +25,7 @@ import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.AuthConfig;
+import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 
@@ -75,5 +76,10 @@ public class SqlToolbox
         defaultQueryConfig,
         sqlLifecycleManager
     );
+  }
+
+  public AuthorizerMapper authorizerMapper()
+  {
+    return plannerFactory.getAuthorizerMapper();
   }
 }

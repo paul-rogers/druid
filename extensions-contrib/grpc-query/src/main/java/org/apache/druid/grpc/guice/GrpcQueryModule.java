@@ -23,6 +23,8 @@ import com.google.inject.Binder;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.grpc.server.GrpcEndpointInitializer;
 import org.apache.druid.grpc.server.GrpcQueryConfig;
+import org.apache.druid.grpc.server.GrpcQueryResource;
+import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.annotations.LoadScope;
@@ -36,5 +38,6 @@ public class GrpcQueryModule implements DruidModule
   {
     JsonConfigProvider.bind(binder, GrpcQueryConfig.CONFIG_BASE, GrpcQueryConfig.class);
     LifecycleModule.register(binder, GrpcEndpointInitializer.class);
+    Jerseys.addResource(binder, GrpcQueryResource.class);
   }
 }

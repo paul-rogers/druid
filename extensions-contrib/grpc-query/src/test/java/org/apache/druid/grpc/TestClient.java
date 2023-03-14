@@ -40,7 +40,8 @@ public class TestClient
   public TestClient()
   {
     // Access a service running on the local machine on port 50051
-    this("localhost:50051");
+    //this("localhost:50051");
+    this("localhost:8082");
   }
 
   public TestClient(String target)

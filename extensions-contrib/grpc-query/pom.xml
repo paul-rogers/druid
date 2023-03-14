@@ -280,7 +280,6 @@
         </configuration>
         <executions>
           <execution>
-            <phase>generate-test-sources</phase>
             <goals>
               <goal>test-compile</goal>
             </goals>

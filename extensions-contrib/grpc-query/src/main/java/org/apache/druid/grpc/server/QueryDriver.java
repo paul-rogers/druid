@@ -40,7 +40,9 @@ import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthenticationResult;
+import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.security.ForbiddenException;
+import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.DirectStatement;
 import org.apache.druid.sql.DirectStatement.ResultSet;
 import org.apache.druid.sql.SqlPlanningException;
@@ -51,12 +53,16 @@ import org.apache.druid.sql.calcite.table.RowSignatures;
 import org.apache.druid.sql.http.ResultFormat;
 import org.apache.druid.sql.http.SqlParameter;
 
+import javax.servlet.http.HttpServletRequest;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 
 
 /**
@@ -67,6 +73,127 @@ import java.util.Optional;
  */
 public class QueryDriver
 {
+  private static class GrpcStatement extends DirectStatement
+  {
+    public GrpcStatement(
+         final SqlStatementFactory sqlStatementFactory,
+         final SqlQueryPlus queryPlus,
+         final String remoteAddress
+    )
+    {
+      super(
+          sqlStatementFactory.toolbox(),
+          queryPlus,
+          remoteAddress
+      );
+    }
+
+    public GrpcStatement(
+        final SqlStatementFactory sqlStatementFactory,
+        final QueryRequest queryRequest,
+        final AuthenticationResult authResult,
+        final String remoteAddress
+    )
+    {
+      super(
+          sqlStatementFactory.toolbox(),
+          SqlQueryPlus.builder()
+              .sql(queryRequest.getQuery())
+              .context(translateContext(queryRequest))
+              .sqlParameters(translateParameters(queryRequest))
+              .auth(authResult)
+              .build(),
+          remoteAddress
+      );
+    }
+
+    /**
+     * Translate the query context from the gRPC format to the internal format. When
+     * read from REST/JSON, the JSON translator will convert the type of each value
+     * into a number, Boolean, etc. gRPC has no similar feature. Rather than clutter up
+     * the gRPC request with typed context values, we rely on the existing code that can
+     * translate string values to the desired type on the fly. Thus, we build up a
+     * {@code Map<String, String>}.
+     */
+    private static Map<String, Object> translateContext(QueryRequest request)
+    {
+      ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+      if (request.getContextCount() > 0) {
+        for (Map.Entry<String, String> entry : request.getContextMap().entrySet()) {
+          builder.put(entry.getKey(), entry.getValue());
+        }
+      }
+      return builder.build();
+    }
+
+    /**
+     * Convert the gRPC parameter format to the internal Druid {@link SqlParameter}
+     * format. That format is then again translated by the {@link SqlQueryPlus} class.
+     */
+    private static List<SqlParameter> translateParameters(QueryRequest request)
+    {
+      if (request.getParametersCount() == 0) {
+        return null;
+      }
+      List<SqlParameter> params = new ArrayList<>();
+      for (QueryParameter value : request.getParametersList()) {
+        params.add(translateParameter(value));
+      }
+      return params;
+    }
+
+    private static SqlParameter translateParameter(QueryParameter value)
+    {
+      switch (value.getValueCase()) {
+        case ARRAYVALUE:
+          // Not yet supported: waiting for an open PR
+          return null;
+        case DOUBLEVALUE:
+          return new SqlParameter(SqlType.DOUBLE, value.getDoubleValue());
+        case LONGVALUE:
+          return new SqlParameter(SqlType.BIGINT, value.getLongValue());
+        case STRINGVALUE:
+          return new SqlParameter(SqlType.VARCHAR, value.getStringValue());
+        case NULLVALUE:
+        case VALUE_NOT_SET:
+          return null;
+        default:
+          throw new RequestError("Invalid parameter type: " + value.getValueCase().name());
+      }
+    }
+  }
+
+  private static class GrpcServletStatement extends GrpcStatement
+  {
+     private final HttpServletRequest req;
+
+    public GrpcServletStatement(
+        final SqlStatementFactory sqlStatementFactory,
+        final QueryRequest queryRequest,
+        final HttpServletRequest req
+    )
+    {
+      super(
+          sqlStatementFactory,
+          queryRequest,
+          AuthorizationUtils.authenticationResultFromRequest(req),
+          req.getRemoteAddr()
+      );
+      this.req = req;
+    }
+
+    @Override
+    protected Function<Set<ResourceAction>, Access> authorizer()
+    {
+      return resourceActions ->
+        AuthorizationUtils.authorizeAllResourceActions(
+            req,
+            resourceActions,
+            sqlToolbox.authorizerMapper()
+      );
+    }
+  }
+
   /**
    * Internal runtime exception to report request errors.
    */
@@ -90,17 +217,18 @@ public class QueryDriver
     this.sqlStatementFactory = Preconditions.checkNotNull(sqlStatementFactory, "sqlStatementFactory");
   }
 
-  /**
-   * First-cut synchronous query handler. Druid prefers to stream results, in
-   * part to avoid overly-short network timeouts. However, for now, we simply run
-   * the query within this call and prepare the Protobuf response. Async handling
-   * can come later.
-   */
   public QueryResponse submitQuery(QueryRequest request, AuthenticationResult authResult)
   {
-    final SqlQueryPlus queryPlus;
     try {
-      queryPlus = translateQuery(request, authResult);
+      return doQuery(
+          new GrpcStatement(
+              sqlStatementFactory,
+              request,
+              authResult,
+              null
+          ),
+          request
+      );
     }
     catch (RuntimeException e) {
       return QueryResponse.newBuilder()
@@ -109,13 +237,46 @@ public class QueryDriver
           .setErrorMessage(e.getMessage())
           .build();
     }
-    final DirectStatement stmt = sqlStatementFactory.directStatement(queryPlus);
+  }
+
+  /**
+   * First-cut synchronous query handler. Druid prefers to stream results, in
+   * part to avoid overly-short network timeouts. However, for now, we simply run
+   * the query within this call and prepare the Protobuf response. Async handling
+   * can come later.
+   */
+  public QueryResponse submitQuery(
+      final QueryRequest queryRequest,
+      final HttpServletRequest servletRequest
+  )
+  {
+    try {
+      return doQuery(
+          new GrpcServletStatement(
+              sqlStatementFactory,
+              queryRequest,
+              servletRequest
+          ),
+          queryRequest
+      );
+    }
+    catch (RuntimeException e) {
+      return QueryResponse.newBuilder()
+          .setQueryId("")
+          .setStatus(QueryStatus.REQUEST_ERROR)
+          .setErrorMessage(e.getMessage())
+          .build();
+    }
+  }
+
+  private QueryResponse doQuery(final DirectStatement stmt, final QueryRequest queryRequest)
+  {
     final String currThreadName = Thread.currentThread().getName();
     try {
       Thread.currentThread().setName(StringUtils.format("grpc-sql[%s]", stmt.sqlQueryId()));
       final ResultSet thePlan = stmt.plan();
       final SqlRowTransformer rowTransformer = thePlan.createRowTransformer();
-      final ByteString results = encodeResults(request, thePlan, rowTransformer);
+      final ByteString results = encodeResults(queryRequest, thePlan, rowTransformer);
       stmt.reporter().succeeded(0); // TODO: real byte count (of payload)
       stmt.close();
       return QueryResponse.newBuilder()
@@ -179,74 +340,6 @@ public class QueryDriver
     }
     finally {
       Thread.currentThread().setName(currThreadName);
-    }
-  }
-
-  /**
-   * Convert the rRPC query format to the internal {@link SqlQueryPlus} format.
-   */
-  private SqlQueryPlus translateQuery(QueryRequest request, AuthenticationResult authResult)
-  {
-    return SqlQueryPlus.builder()
-        .sql(request.getQuery())
-        .context(translateContext(request))
-        .sqlParameters(translateParameters(request))
-        .auth(authResult)
-        .build();
-  }
-
-  /**
-   * Translate the query context from the gRPC format to the internal format. When
-   * read from REST/JSON, the JSON translator will convert the type of each value
-   * into a number, Boolean, etc. gRPC has no similar feature. Rather than clutter up
-   * the gRPC request with typed context values, we rely on the existing code that can
-   * translate string values to the desired type on the fly. Thus, we build up a
-   * {@code Map<String, String>}.
-   */
-  private Map<String, Object> translateContext(QueryRequest request)
-  {
-    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
-    if (request.getContextCount() > 0) {
-      for (Map.Entry<String, String> entry : request.getContextMap().entrySet()) {
-        builder.put(entry.getKey(), entry.getValue());
-      }
-    }
-    return builder.build();
-  }
-
-  /**
-   * Convert the gRPC parameter format to the internal Druid {@link SqlParameter}
-   * format. That format is then again translated by the {@link SqlQueryPlus} class.
-   */
-  private List<SqlParameter> translateParameters(QueryRequest request)
-  {
-    if (request.getParametersCount() == 0) {
-      return null;
-    }
-    List<SqlParameter> params = new ArrayList<>();
-    for (QueryParameter value : request.getParametersList()) {
-      params.add(translateParameter(value));
-    }
-    return params;
-  }
-
-  private SqlParameter translateParameter(QueryParameter value)
-  {
-    switch (value.getValueCase()) {
-      case ARRAYVALUE:
-        // Not yet supported: waiting for an open PR
-        return null;
-      case DOUBLEVALUE:
-        return new SqlParameter(SqlType.DOUBLE, value.getDoubleValue());
-      case LONGVALUE:
-        return new SqlParameter(SqlType.BIGINT, value.getLongValue());
-      case STRINGVALUE:
-        return new SqlParameter(SqlType.VARCHAR, value.getStringValue());
-      case NULLVALUE:
-      case VALUE_NOT_SET:
-        return null;
-      default:
-        throw new RequestError("Invalid parameter type: " + value.getValueCase().name());
     }
   }
 

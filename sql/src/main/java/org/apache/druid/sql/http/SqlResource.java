@@ -102,7 +102,6 @@ public class SqlResource
     this.serverConfig = Preconditions.checkNotNull(serverConfig, "serverConfig");
     this.responseContextConfig = responseContextConfig;
     this.selfNode = selfNode;
-
   }
 
   @POST
@@ -360,6 +359,5 @@ public class SqlResource
       }
       out.write(jsonMapper.writeValueAsBytes(ex));
     }
-
   }
 }

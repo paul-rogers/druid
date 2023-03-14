@@ -34,7 +34,6 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import com.sun.jersey.guice.JerseyServletModule;
 import com.sun.jersey.guice.spi.container.servlet.GuiceContainer;
-import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
@@ -86,6 +85,7 @@ import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.security.KeyStore;
 import java.security.cert.CRL;
@@ -231,12 +231,13 @@ public class JettyServerModule extends JerseyServletModule
       httpConfiguration.setSendServerVersion(false);
       final ServerConnector connector;
       if (config.isHttp2Enabled()) {
+        // See https://www.eclipse.org/jetty/documentation/jetty-9/index.html#http2-introduction
+        log.info("Enabling HTTP/2 on plain text port [%d]", node.getPlaintextPort());
         connector = new ServerConnector(
             server,
             new HttpConnectionFactory(httpConfiguration),
             new HTTP2CServerConnectionFactory(httpConfiguration)
         );
-
       } else {
         connector = new ServerConnector(server, new HttpConnectionFactory(httpConfiguration));
       }
@@ -327,6 +328,8 @@ public class JettyServerModule extends JerseyServletModule
       httpsConfiguration.setSendServerVersion(false);
       final ServerConnector connector;
       if (config.isHttp2Enabled()) {
+        // See https://www.eclipse.org/jetty/documentation/jetty-9/index.html#http2-introduction
+        log.info("Enabling HTTP/2 on TLS port [%d]", node.getPlaintextPort());
         connector = new ServerConnector(
             server,
             new SslConnectionFactory(sslContextFactory, HTTP_1_1_STRING),

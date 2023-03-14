@@ -34,7 +34,7 @@
   </parent>
 
   <properties>
-    <grpc.version>1.52.0</grpc.version>
+    <grpc.version>1.53.0</grpc.version>
     <maven.shade.plugin.version>3.2.1</maven.shade.plugin.version>
     <!-- Guava version required by gRPC -->
     <guava.version>20.0</guava.version>
@@ -71,6 +71,10 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-stub</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-servlet</artifactId>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>

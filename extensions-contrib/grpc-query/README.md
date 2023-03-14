@@ -89,11 +89,15 @@ The gRPC query extension is a "contrib" extension and is not installed by defaul
 you install Druid. Instead, you must install it manually.
 
 In development, you can build Druid with all the "contrib" extensions. When building
-Druid, include the `-P bundle-contrib-exts` in place of the `-P dist` option.
+Druid, include the `-P bundle-contrib-exts` in addition to the `-P dist` option:
+
+```bash
+mvn package -Pdist,bundle-contrib-exts ...
+```
 
 In production, follow the [Druid documentation](https://druid.apache.org/docs/latest/development/extensions.html).
-Use the `pull-deps` command to install the `org.apache.druid.extensions.contrib:grpc-query`
-extension.
+Do not use the `pull-deps` command to install the `org.apache.druid.extensions.contrib:grpc-query`
+extension. Instead, unpack the `.tar.gz` file created in the `grpc-query` project.
 
 This extension provides a simpler alternative: it products a bundle named
 `grpc-query-<version>.tar.gz` with the `grpc-query` jar and its required
@@ -113,9 +117,18 @@ To enable the extension, add the following to the load list in
 druid.extensions.loadList=[..., "grpc-query"]
 ```
 
-Adding the extension to the load list automatically enables the extension.
+Adding the extension to the load list automatically enables the extension,
+but only in the Broker.
 
-Then, enable and configure the extension in `broker/runtime.properties`:
+If you use the Protobuf response format, bundle up your Protobuf classes
+into a jar file, and place that jar file in the
+`$DRUID_HOME/extensions/grpc-query` directory. The Protobuf classes will
+appear on the class path and will be available from the `grpc-query`
+extension.
+
+### Configuration (Prototype)
+
+Configure the extension in `broker/runtime.properties`:
 
 ```text
 druid.grpcQuery.port=50051
@@ -123,11 +136,18 @@ druid.grpcQuery.port=50051
 
 The default port is 50051 (preliminary).
 
-If you use the Protobuf response format, bundle up your Protobuf classes
-into a jar file, and place that jar file in the
-`$DRUID_HOME/extensions/grpc-query` directory. The Protobuf classes will
-appear on the class path and will be available from the `grpc-query`
-extension.
+### Configuration (Production - Preliminary)
+
+Enable HTTP/2 support on either plain text or TLS ports for the Broker
+in `broker/runtime.properties`:
+
+```text
+druid.server.http.enableHttp2=true
+druid.server.https.enableHttp2=true
+```
+
+With this approach, the gRPC query endpoint is available on the configured
+ports (usually 8082 for plain text, and 8182 for TLS.)
 
 ## Usage
 
@@ -271,9 +291,8 @@ done debugging:
 ./it.sh up GrpcQuery extensions-contrib/grpc-query-it
 ```
 
-Note that the `beange, such as after checking out a branch. Since `grpc-query`
-is an extension, to run tests after changes, you need only build that one
-module:
+Since `grpc-query` is an extension. To run tests after changes, you need only build
+that one module:
 
 ```bash
 mvn clean package -P dist,skip-static-checks,skip-tests -Dmaven.javadoc.skip=true \
