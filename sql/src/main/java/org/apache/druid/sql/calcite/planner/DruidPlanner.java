@@ -305,5 +305,11 @@ public class DruidPlanner implements Closeable
     {
       return hook;
     }
+
+    @Override
+    public boolean isExtendedConfigEnabled()
+    {
+      return plannerContext.getPlannerToolbox().authConfig.isInputSourceSecurityEnabled();
+    }
   }
 }

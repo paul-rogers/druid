@@ -56,6 +56,7 @@ public interface SqlStatementHandler
     ObjectMapper jsonMapper();
     DateTimeZone timeZone();
     PlannerHook hook();
+    boolean isExtendedConfigEnabled();
   }
 
   abstract class BaseStatementHandler implements SqlStatementHandler

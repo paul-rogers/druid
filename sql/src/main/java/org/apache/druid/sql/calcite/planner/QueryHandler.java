@@ -111,6 +111,7 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
     validatedQueryNode = planner.validate(rewriteParameters());
 
     final SqlValidator validator = planner.getValidator();
+    boolean extendedConfig = handlerContext.isExtendedConfigEnabled();
     SqlResourceCollectorShuttle resourceCollectorShuttle = new SqlResourceCollectorShuttle(
         validator,
         handlerContext.plannerContext()

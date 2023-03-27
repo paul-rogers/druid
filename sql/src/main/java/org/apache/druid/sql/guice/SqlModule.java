@@ -176,7 +176,6 @@ public class SqlModule implements Module
           emitter,
           requestLogger,
           queryScheduler,
-          authConfig,
           defaultQueryConfig.get(),
           sqlLifecycleManager
       );

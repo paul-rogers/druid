@@ -144,6 +144,12 @@ public class AuthConfig
     return authorizeQueryContextParams;
   }
 
+  public boolean isInputSourceSecurityEnabled()
+  {
+    // Wire up a variable called enableInputSecurity
+    return false;
+  }
+
   /**
    * Filter the user-supplied context keys based on the context key security
    * rules. If context key security is disabled, then allow all keys. Else,
