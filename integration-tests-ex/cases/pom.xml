@@ -449,6 +449,15 @@
             </properties>
         </profile>
         <profile>
+          <id>IT-BasicAuth</id>
+          <activation>
+            <activeByDefault>false</activeByDefault>
+          </activation>
+          <properties>
+            <it.category>BasicAuth</it.category>
+          </properties>
+        </profile>
+        <profile>
             <id>docker-tests</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
